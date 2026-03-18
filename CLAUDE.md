@@ -54,18 +54,27 @@ Agent types: user, assistant, system
 ## Dev commands
 - `npm run dev` - Start dev server on port 3000
 - `npm run build` - Production build to dist/
+- `npm test` - Run 40 parser tests via Vitest
+- `npm run test:watch` - Watch mode for tests
 
 ## Conventions
 - No em dashes in any content or comments
-- All styles are inline (no CSS files)
+- All styles are inline (no CSS files), all colors reference theme.js tokens
 - Unicode characters used directly or as escape sequences in JS
 - Components receive data as props, no global state management
+- "Midnight Circuit" theme defined in src/lib/theme.js
 
 ## Planned features
-- Topology view for multi-agent sessions (force-directed graph)
-- Fork-from-any-point replay
+- Token count tracking and cost estimation per turn
+- Tool execution waterfall/flame chart view
+- Inline diff viewer for file-editing tool calls
+- Conversation flow graph (directed graph of turns/decisions)
+- Bookmarks and annotations (persisted to localStorage)
+- Vim-style keyboard navigation
+- Parsers for: Copilot Chat JSON, Copilot Agent logs, LangSmith traces, OpenTelemetry
+- Auto-detect file format and route to correct parser
+- Multi-agent hierarchy (parent/child agents, nested tracks)
+- Session scoring, achievements, shareable URLs
 - Live streaming mode (tail a session file)
-- Shareable session URLs
-- Parsers for: Copilot Chat JSON, Copilot Agent logs, LangSmith traces
-- Token count tracking and cost estimation
-- Git diff overlay per tool call
+- Fork-from-any-point replay
+- CLI launcher: npx agentviz session.jsonl
