@@ -11,17 +11,22 @@ Session replay visualizer for AI agent workflows. Renders Claude Code (and event
 ## Architecture
 ```
 src/
-  App.jsx              # Main orchestrator: file loading, playback state, keyboard shortcuts, view routing
+  App.jsx              # Main orchestrator: file loading, playback, keyboard shortcuts, view routing
   main.jsx             # React entry point
   lib/
-    constants.js       # FONT, AGENT_COLORS, TRACK_TYPES, SAMPLE_EVENTS
-    parser.js          # parseClaudeCodeJSONL() - converts JSONL to normalized event array
+    theme.js           # Design token system ("Midnight Circuit" theme), TRACK_TYPES, AGENT_COLORS
+    constants.js       # Re-exports from theme + SAMPLE_EVENTS data
+    parser.js          # parseClaudeCodeJSONL() - returns { events, turns, metadata }
   components/
     FileUploader.jsx   # Drag-and-drop file input
-    Timeline.jsx       # Scrubable playback bar with event markers
-    ReplayView.jsx     # Chronological event stream + inspector sidebar
+    Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
+    ReplayView.jsx     # Chronological event stream + resizable inspector sidebar
     TracksView.jsx     # DAW-style multi-track lanes with solo/mute
-    StatsView.jsx      # Aggregate metrics, tool ranking
+    StatsView.jsx      # Aggregate metrics, tool ranking, turn summary
+    SessionHero.jsx    # Summary card shown after file load (sparkline, metrics)
+    CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
+    SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
+    ResizablePanel.jsx # Drag-to-resize split panel utility
 ```
 
 ## Key data types

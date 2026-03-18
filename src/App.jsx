@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { parseClaudeCodeJSONL } from "./lib/parser.js";
-import { FONT, SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA, TRACK_TYPES, ERROR_COLOR } from "./lib/constants.js";
+import { theme, TRACK_TYPES, alpha } from "./lib/theme.js";
+import { SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA } from "./lib/constants.js";
 import FileUploader from "./components/FileUploader.jsx";
 import Timeline from "./components/Timeline.jsx";
 import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
 import StatsView from "./components/StatsView.jsx";
+import SessionHero from "./components/SessionHero.jsx";
+import CommandPalette from "./components/CommandPalette.jsx";
 
 var VIEWS = [
   { id: "replay", label: "Replay", icon: "\u25B6" },
@@ -28,6 +31,9 @@ export default function App() {
   var [error, setError] = useState(null);
   var [searchQuery, setSearchQuery] = useState("");
   var [trackFilters, setTrackFilters] = useState({});
+  var [showHero, setShowHero] = useState(false);
+  var [showPalette, setShowPalette] = useState(false);
+  var [loading, setLoading] = useState(false);
   var interval = useRef(null);
 
   // ── Search matching ──
@@ -59,25 +65,32 @@ export default function App() {
 
   var handleFile = useCallback(function (text, name) {
     setError(null);
-    var result = parseClaudeCodeJSONL(text);
-    if (!result || !result.events || result.events.length === 0) {
-      setError("Could not parse any events. Make sure this is a Claude Code session JSONL file.");
-      return;
-    }
-    var maxT = 0;
-    for (var i = 0; i < result.events.length; i++) {
-      var end = result.events[i].t + result.events[i].duration;
-      if (end > maxT) maxT = end;
-    }
-    setEvents(result.events);
-    setTurns(result.turns);
-    setMetadata(result.metadata);
-    setTotal(maxT);
-    setFile(name);
-    setTime(0);
-    setPlaying(false);
-    setSearchQuery("");
-    setTrackFilters({});
+    setLoading(true);
+
+    // Use setTimeout so the loading UI renders before parsing blocks
+    setTimeout(function () {
+      var result = parseClaudeCodeJSONL(text);
+      setLoading(false);
+      if (!result || !result.events || result.events.length === 0) {
+        setError("Could not parse any events. Make sure this is a Claude Code session JSONL file.");
+        return;
+      }
+      var maxT = 0;
+      for (var i = 0; i < result.events.length; i++) {
+        var end = result.events[i].t + result.events[i].duration;
+        if (end > maxT) maxT = end;
+      }
+      setEvents(result.events);
+      setTurns(result.turns);
+      setMetadata(result.metadata);
+      setTotal(maxT);
+      setFile(name);
+      setTime(0);
+      setPlaying(false);
+      setSearchQuery("");
+      setTrackFilters({});
+      setShowHero(true);
+    }, 16);
   }, []);
 
   var loadSample = useCallback(function () {
@@ -91,12 +104,18 @@ export default function App() {
     setError(null);
     setSearchQuery("");
     setTrackFilters({});
+    setShowHero(true);
   }, []);
 
   var reset = useCallback(function () {
     setEvents(null); setTurns([]); setMetadata(null);
     setFile(""); setTime(0); setPlaying(false);
     setError(null); setSearchQuery(""); setTrackFilters({});
+    setShowHero(false); setShowPalette(false);
+  }, []);
+
+  var dismissHero = useCallback(function () {
+    setShowHero(false);
   }, []);
 
   // ── Track filter toggle ──
@@ -191,8 +210,21 @@ export default function App() {
 
   useEffect(function () {
     function handler(e) {
-      if (!events) return;
-      // Skip if user is typing in search
+      // Command palette
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowPalette(function (p) { return !p; });
+        return;
+      }
+
+      // Hero screen: space/enter to dismiss
+      if (showHero && (e.code === "Space" || e.code === "Enter")) {
+        e.preventDefault();
+        dismissHero();
+        return;
+      }
+
+      if (!events || showPalette) return;
       if (e.target.tagName === "INPUT") return;
       if (e.code === "Space") { e.preventDefault(); playPause(); }
       if (e.code === "ArrowRight") { e.preventDefault(); seek(time + 2); }
@@ -212,52 +244,109 @@ export default function App() {
     return function () { window.removeEventListener("keydown", handler); };
   });
 
+  // ── Loading screen ──
+
+  if (loading) {
+    return (
+      <div style={{
+        width: "100%", height: "100vh", background: theme.bg.base, color: theme.text.primary,
+        fontFamily: theme.font, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 20,
+      }}>
+        <div style={{
+          width: 40, height: 40, border: "3px solid " + theme.border.default,
+          borderTopColor: theme.accent.cyan, borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+        }} />
+        <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, letterSpacing: 1 }}>
+          Parsing session...
+        </div>
+      </div>
+    );
+  }
+
   // ── Upload screen ──
 
   if (!events) {
     return (
       <div style={{
-        width: "100%", height: "100vh", background: "#0a0f1e", color: "#e2e8f0",
-        fontFamily: FONT, display: "flex", flexDirection: "column",
+        width: "100%", height: "100vh", background: theme.bg.base, color: theme.text.primary,
+        fontFamily: theme.font, display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center", gap: 24,
+        position: "relative", overflow: "hidden",
       }}>
-        <div style={{ textAlign: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 36, color: "#22d3ee", marginBottom: 8 }}>{"\u25C8"}</div>
-          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: 3 }}>AGENTVIZ</div>
-          <div style={{ fontSize: 12, color: "#475569", marginTop: 4, letterSpacing: 1 }}>
-            SESSION REPLAY FOR AGENT WORKFLOWS
+        {/* Floating particles background */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+          {[0,1,2,3,4,5,6,7].map(function (i) {
+            return (
+              <div key={i} style={{
+                position: "absolute",
+                left: (10 + i * 12) + "%",
+                bottom: -10,
+                width: 2, height: 2, borderRadius: "50%",
+                background: i % 2 === 0 ? theme.accent.cyan : theme.accent.purple,
+                opacity: 0,
+                animation: "floatParticle " + (8 + i * 2) + "s linear infinite",
+                animationDelay: i * 1.5 + "s",
+              }} />
+            );
+          })}
+        </div>
+
+        <div style={{ textAlign: "center", marginBottom: 8, animation: "fadeInUp 0.6s ease" }}>
+          <div style={{
+            fontSize: theme.fontSize.hero, color: theme.accent.cyan, marginBottom: 8,
+            animation: "glow 3s ease-in-out infinite",
+            display: "inline-block",
+          }}>{"\u25C8"}</div>
+          <div style={{ fontSize: theme.fontSize.xxl, fontWeight: 700, letterSpacing: 3 }}>AGENTVIZ</div>
+          <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6, letterSpacing: 1, lineHeight: 1.6 }}>
+            See what your AI agents actually do.
+            <br />
+            <span style={{ color: theme.text.ghost }}>Drop a session file to start exploring.</span>
           </div>
         </div>
 
-        <FileUploader onLoad={handleFile} />
+        <div style={{ animation: "fadeInUp 0.6s ease 0.1s both" }}>
+          <FileUploader onLoad={handleFile} />
+        </div>
 
         {error && (
           <div style={{
-            background: "#ef444420", border: "1px solid #ef4444", borderRadius: 8,
-            padding: "10px 16px", fontSize: 12, color: "#fca5a5", maxWidth: 500,
+            background: theme.errorBg, border: "1px solid " + theme.error, borderRadius: theme.radius.xl,
+            padding: "10px 16px", fontSize: theme.fontSize.md, color: theme.errorText, maxWidth: 500,
+            animation: "fadeIn 0.3s ease",
           }}>
             {error}
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          <div style={{ height: 1, width: 60, background: "#1e293b" }} />
-          <span style={{ fontSize: 11, color: "#334155" }}>or</span>
-          <div style={{ height: 1, width: 60, background: "#1e293b" }} />
+        <div style={{ display: "flex", gap: 16, alignItems: "center", animation: "fadeInUp 0.6s ease 0.2s both" }}>
+          <div style={{ height: 1, width: 60, background: theme.border.default }} />
+          <span style={{ fontSize: theme.fontSize.base, color: theme.text.ghost }}>or</span>
+          <div style={{ height: 1, width: 60, background: theme.border.default }} />
         </div>
 
         <button onClick={loadSample} style={{
-          background: "transparent", border: "1px solid #334155", borderRadius: 8,
-          color: "#94a3b8", padding: "10px 24px", cursor: "pointer",
-          fontSize: 12, fontFamily: FONT, letterSpacing: 1,
-        }}>
+          background: "transparent", border: "1px solid " + theme.border.strong, borderRadius: theme.radius.xl,
+          color: theme.text.secondary, padding: "10px 24px", cursor: "pointer",
+          fontSize: theme.fontSize.md, fontFamily: theme.font, letterSpacing: 1,
+          transition: "all " + theme.transition.smooth,
+          animation: "fadeInUp 0.6s ease 0.3s both",
+        }}
+          onMouseEnter={function (e) { e.target.style.borderColor = theme.accent.cyan; e.target.style.color = theme.accent.cyan; }}
+          onMouseLeave={function (e) { e.target.style.borderColor = theme.border.strong; e.target.style.color = theme.text.secondary; }}
+        >
           Load Demo Session
         </button>
 
-        <div style={{ fontSize: 11, color: "#334155", maxWidth: 500, textAlign: "center", lineHeight: 1.8, marginTop: 16 }}>
+        <div style={{
+          fontSize: theme.fontSize.base, color: theme.text.ghost, maxWidth: 500, textAlign: "center",
+          lineHeight: 1.8, marginTop: 16, animation: "fadeInUp 0.6s ease 0.4s both",
+        }}>
           Find your Claude Code sessions:
           <br />
-          <code style={{ color: "#475569" }}>ls ~/.claude/projects/</code>
+          <code style={{ color: theme.text.dim }}>ls ~/.claude/projects/</code>
           <br />
           Then drop any .jsonl session file here
         </div>
@@ -265,36 +354,57 @@ export default function App() {
     );
   }
 
-  // ── Main visualizer ──
+  // ── Session Hero ──
 
-  var activeFilterCount = Object.keys(trackFilters).filter(function (k) { return trackFilters[k]; }).length;
+  if (showHero) {
+    return (
+      <div style={{
+        width: "100%", height: "100vh", background: theme.bg.base, color: theme.text.primary,
+        fontFamily: theme.font,
+      }}>
+        <SessionHero metadata={metadata} events={events} totalTime={total} onDive={dismissHero} />
+      </div>
+    );
+  }
+
+  // ── Main visualizer ──
 
   return (
     <div style={{
-      width: "100%", height: "100vh", background: "#0a0f1e", color: "#e2e8f0",
-      fontFamily: FONT, display: "flex", flexDirection: "column", overflow: "hidden",
+      width: "100%", height: "100vh", background: theme.bg.base, color: theme.text.primary,
+      fontFamily: theme.font, display: "flex", flexDirection: "column", overflow: "hidden",
     }}>
+      {/* Command Palette */}
+      {showPalette && (
+        <CommandPalette
+          events={events} turns={turns}
+          onSeek={function (t) { seek(t); setShowPalette(false); }}
+          onSetView={function (v) { setView(v); setShowPalette(false); }}
+          onClose={function () { setShowPalette(false); }}
+        />
+      )}
+
       {/* Header */}
       <div style={{
         padding: "10px 20px", display: "flex", alignItems: "center", gap: 14,
-        borderBottom: "1px solid #1e293b", flexShrink: 0,
+        borderBottom: "1px solid " + theme.border.default, flexShrink: 0,
       }}>
-        <span style={{ fontSize: 16, color: "#22d3ee", cursor: "pointer" }} onClick={reset} title="Back">
+        <span style={{ fontSize: 16, color: theme.accent.cyan, cursor: "pointer" }} onClick={reset} title="Back">
           {"\u25C8"}
         </span>
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2 }}>AGENTVIZ</span>
-        <div style={{ height: 16, width: 1, background: "#1e293b" }} />
+        <span style={{ fontSize: theme.fontSize.lg, fontWeight: 700, letterSpacing: 2 }}>AGENTVIZ</span>
+        <div style={{ height: 16, width: 1, background: theme.border.default }} />
         <span style={{
-          fontSize: 11, color: "#64748b", maxWidth: 200,
+          fontSize: theme.fontSize.base, color: theme.text.muted, maxWidth: 200,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {file}
         </span>
         {metadata && (
-          <span style={{ fontSize: 10, color: "#334155" }}>
+          <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost }}>
             {metadata.totalEvents} events / {metadata.totalToolCalls} tools / {metadata.totalTurns} turns
             {metadata.errorCount > 0 && (
-              <span style={{ color: ERROR_COLOR, marginLeft: 6 }}>
+              <span style={{ color: theme.error, marginLeft: 6 }}>
                 {"\u25CF"} {metadata.errorCount} error{metadata.errorCount > 1 ? "s" : ""}
               </span>
             )}
@@ -304,17 +414,18 @@ export default function App() {
         {/* View tabs */}
         <div style={{
           display: "flex", gap: 2, marginLeft: 16,
-          background: "#0f172a", borderRadius: 6, padding: 2,
+          background: theme.bg.surface, borderRadius: theme.radius.lg, padding: 2,
         }}>
           {VIEWS.map(function (v) {
             return (
               <button key={v.id} onClick={function () { setView(v.id); }} style={{
-                background: view === v.id ? "#1e293b" : "transparent",
-                border: "none", borderRadius: 4,
-                color: view === v.id ? "#22d3ee" : "#64748b",
+                background: view === v.id ? theme.bg.raised : "transparent",
+                border: "none", borderRadius: theme.radius.md,
+                color: view === v.id ? theme.accent.cyan : theme.text.muted,
                 padding: "4px 12px", cursor: "pointer",
-                fontSize: 11, fontFamily: FONT, letterSpacing: 1,
+                fontSize: theme.fontSize.base, fontFamily: theme.font, letterSpacing: 1,
                 display: "flex", alignItems: "center", gap: 4,
+                transition: "all " + theme.transition.fast,
               }}>
                 <span>{v.icon}</span> {v.label}
               </button>
@@ -324,7 +435,7 @@ export default function App() {
 
         {/* Search */}
         <div style={{ marginLeft: 12, display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
-          <span style={{ fontSize: 12, color: "#475569" }}>{"\u2315"}</span>
+          <span style={{ fontSize: 12, color: theme.text.dim }}>{"\u2315"}</span>
           <input
             id="agentviz-search"
             type="text"
@@ -336,40 +447,58 @@ export default function App() {
             }}
             placeholder="Search... (/)"
             style={{
-              background: "#0f172a", border: "1px solid #1e293b", borderRadius: 4,
-              color: "#e2e8f0", padding: "3px 8px", fontSize: 11, fontFamily: FONT,
-              width: 140, outline: "none",
+              background: theme.bg.surface, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md,
+              color: theme.text.primary, padding: "3px 8px", fontSize: theme.fontSize.base, fontFamily: theme.font,
+              width: 140, outline: "none", transition: "border-color " + theme.transition.fast,
             }}
+            onFocus={function (e) { e.target.style.borderColor = theme.accent.cyan; }}
+            onBlur={function (e) { e.target.style.borderColor = theme.border.default; }}
           />
           {searchResults && (
-            <span style={{ fontSize: 10, color: searchResults.length > 0 ? "#22d3ee" : "#ef4444" }}>
+            <span style={{ fontSize: theme.fontSize.sm, color: searchResults.length > 0 ? theme.accent.cyan : theme.error }}>
               {searchResults.length} match{searchResults.length !== 1 ? "es" : ""}
             </span>
           )}
         </div>
+
+        {/* Cmd+K hint */}
+        <button onClick={function () { setShowPalette(true); }}
+          title="Command Palette (Cmd+K)"
+          style={{
+            background: theme.bg.surface, border: "1px solid " + theme.border.default,
+            borderRadius: theme.radius.md, color: theme.text.dim,
+            padding: "2px 8px", cursor: "pointer", fontSize: theme.fontSize.xs,
+            fontFamily: theme.font, display: "flex", alignItems: "center", gap: 4,
+            transition: "all " + theme.transition.fast,
+          }}
+          onMouseEnter={function (e) { e.currentTarget.style.borderColor = theme.accent.cyan; e.currentTarget.style.color = theme.accent.cyan; }}
+          onMouseLeave={function (e) { e.currentTarget.style.borderColor = theme.border.default; e.currentTarget.style.color = theme.text.dim; }}
+        >
+          {"\u2318"}K
+        </button>
 
         {/* Error nav */}
         {metadata && metadata.errorCount > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 6 }}>
             <button onClick={function () { jumpToError("prev"); }} title="Previous error (Shift+E)"
               style={{
-                background: "transparent", border: "1px solid #ef444440", borderRadius: 3,
-                color: ERROR_COLOR, cursor: "pointer", padding: "2px 5px", fontSize: 10, fontFamily: FONT,
+                background: "transparent", border: "1px solid " + theme.errorBorder, borderRadius: theme.radius.sm,
+                color: theme.error, cursor: "pointer", padding: "2px 5px", fontSize: theme.fontSize.sm, fontFamily: theme.font,
               }}>
               {"\u25C0"}
             </button>
-            <span style={{ fontSize: 10, color: ERROR_COLOR }}>{"\u25CF"} Errors</span>
+            <span style={{ fontSize: theme.fontSize.sm, color: theme.error }}>{"\u25CF"} Errors</span>
             <button onClick={function () { jumpToError("next"); }} title="Next error (E)"
               style={{
-                background: "transparent", border: "1px solid #ef444440", borderRadius: 3,
-                color: ERROR_COLOR, cursor: "pointer", padding: "2px 5px", fontSize: 10, fontFamily: FONT,
+                background: "transparent", border: "1px solid " + theme.errorBorder, borderRadius: theme.radius.sm,
+                color: theme.error, cursor: "pointer", padding: "2px 5px", fontSize: theme.fontSize.sm, fontFamily: theme.font,
               }}>
               {"\u25B6"}
             </button>
           </div>
         )}
 
-        {/* Speed + close */}
+        {/* Speed + filters + close */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
           {/* Track filter chips */}
           {Object.entries(TRACK_TYPES).map(function (entry) {
@@ -380,36 +509,43 @@ export default function App() {
               <button key={key} onClick={function () { toggleTrackFilter(key); }}
                 title={(isHidden ? "Show " : "Hide ") + info.label}
                 style={{
-                  background: isHidden ? "transparent" : info.color + "15",
-                  border: "1px solid " + (isHidden ? "#1e293b" : info.color + "40"),
-                  color: isHidden ? "#334155" : info.color,
-                  borderRadius: 3, padding: "1px 6px", cursor: "pointer",
-                  fontSize: 9, fontFamily: FONT, textDecoration: isHidden ? "line-through" : "none",
+                  background: isHidden ? "transparent" : alpha(info.color, 0.08),
+                  border: "1px solid " + (isHidden ? theme.border.default : alpha(info.color, 0.25)),
+                  color: isHidden ? theme.text.ghost : info.color,
+                  borderRadius: theme.radius.sm, padding: "1px 6px", cursor: "pointer",
+                  fontSize: theme.fontSize.xs, fontFamily: theme.font,
+                  textDecoration: isHidden ? "line-through" : "none",
+                  transition: "all " + theme.transition.fast,
                 }}>
                 {info.icon}
               </button>
             );
           })}
-          <div style={{ height: 12, width: 1, background: "#1e293b", margin: "0 2px" }} />
-          <span style={{ fontSize: 10, color: "#475569" }}>SPEED</span>
+          <div style={{ height: 12, width: 1, background: theme.border.default, margin: "0 2px" }} />
+          <span style={{ fontSize: theme.fontSize.sm, color: theme.text.dim }}>SPEED</span>
           {SPEEDS.map(function (s) {
             return (
               <button key={s} onClick={function () { setSpeed(s); }} style={{
-                background: speed === s ? "#22d3ee15" : "transparent",
-                border: "1px solid " + (speed === s ? "#22d3ee" : "#1e293b"),
-                color: speed === s ? "#22d3ee" : "#64748b",
-                borderRadius: 4, padding: "2px 7px", cursor: "pointer",
-                fontSize: 10, fontFamily: FONT,
+                background: speed === s ? alpha(theme.accent.cyan, 0.08) : "transparent",
+                border: "1px solid " + (speed === s ? theme.accent.cyan : theme.border.default),
+                color: speed === s ? theme.accent.cyan : theme.text.muted,
+                borderRadius: theme.radius.md, padding: "2px 7px", cursor: "pointer",
+                fontSize: theme.fontSize.sm, fontFamily: theme.font,
+                transition: "all " + theme.transition.fast,
               }}>
                 {s}x
               </button>
             );
           })}
           <button onClick={reset} style={{
-            background: "transparent", border: "1px solid #1e293b",
-            color: "#64748b", borderRadius: 4, padding: "2px 8px",
-            cursor: "pointer", fontSize: 10, fontFamily: FONT, marginLeft: 8,
-          }}>
+            background: "transparent", border: "1px solid " + theme.border.default,
+            color: theme.text.muted, borderRadius: theme.radius.md, padding: "2px 8px",
+            cursor: "pointer", fontSize: theme.fontSize.sm, fontFamily: theme.font, marginLeft: 8,
+            transition: "all " + theme.transition.fast,
+          }}
+            onMouseEnter={function (e) { e.target.style.borderColor = theme.error; e.target.style.color = theme.error; }}
+            onMouseLeave={function (e) { e.target.style.borderColor = theme.border.default; e.target.style.color = theme.text.muted; }}
+          >
             {"\u2715"} Close
           </button>
         </div>
