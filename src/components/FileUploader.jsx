@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { FONT } from "../lib/constants.js";
+import { theme, alpha } from "../lib/theme.js";
 
 export default function FileUploader({ onLoad }) {
   var ref = useRef(null);
@@ -19,10 +19,10 @@ export default function FileUploader({ onLoad }) {
       onDrop={function (e) { e.preventDefault(); setOver(false); handleFile(e.dataTransfer.files[0]); }}
       onClick={function () { ref.current && ref.current.click(); }}
       style={{
-        border: "2px dashed " + (over ? "#22d3ee" : "#334155"),
-        borderRadius: 12, padding: "48px 32px", textAlign: "center",
-        cursor: "pointer", background: over ? "#22d3ee08" : "#0f172a",
-        transition: "all 0.2s", maxWidth: 560, margin: "0 auto",
+        border: "2px dashed " + (over ? theme.accent.cyan : theme.border.strong),
+        borderRadius: theme.radius.xxl, padding: "48px 32px", textAlign: "center",
+        cursor: "pointer", background: over ? alpha(theme.accent.cyan, 0.03) : theme.bg.surface,
+        transition: "all " + theme.transition.smooth, maxWidth: 560, margin: "0 auto",
       }}
     >
       <input
@@ -30,16 +30,20 @@ export default function FileUploader({ onLoad }) {
         style={{ display: "none" }}
         onChange={function (e) { handleFile(e.target.files[0]); }}
       />
-      <div style={{ fontSize: 32, marginBottom: 12, color: "#22d3ee" }}>{"\u25C8"}</div>
-      <div style={{ fontSize: 15, color: "#e2e8f0", marginBottom: 8, fontWeight: 600 }}>
-        Drop a Claude Code session file here
+      <div style={{
+        fontSize: 32, marginBottom: 12, color: theme.accent.cyan,
+        transition: "transform " + theme.transition.smooth,
+        transform: over ? "scale(1.1)" : "scale(1)",
+      }}>{"\u25C8"}</div>
+      <div style={{ fontSize: theme.fontSize.xl, color: theme.text.primary, marginBottom: 8, fontWeight: 600 }}>
+        Drop a session file here
       </div>
-      <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.8 }}>
-        Find sessions at{" "}
-        <span style={{ color: "#94a3b8", fontFamily: FONT, fontSize: 11 }}>
-          ~/.claude/projects/&lt;project&gt;/*.jsonl
+      <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, lineHeight: 1.8 }}>
+        Claude Code .jsonl sessions
+        <br />
+        <span style={{ color: theme.text.dim, fontSize: theme.fontSize.base }}>
+          Also accepts .json and .txt
         </span>
-        <br />Accepts .jsonl, .json, or .txt
       </div>
     </div>
   );

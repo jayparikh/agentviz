@@ -1,18 +1,7 @@
+// Re-export theme tokens for backward compatibility
+export { theme, TRACK_TYPES, AGENT_COLORS, alpha } from "./theme.js";
+
 export const FONT = "'JetBrains Mono', monospace";
-
-export const AGENT_COLORS = {
-  user: "#60a5fa",
-  assistant: "#a78bfa",
-  system: "#6b7280",
-};
-
-export const TRACK_TYPES = {
-  reasoning: { label: "Reasoning", color: "#22d3ee", icon: "\u25C6" },
-  tool_call: { label: "Tool Calls", color: "#f59e0b", icon: "\u25B6" },
-  context: { label: "Context", color: "#a78bfa", icon: "\u25CE" },
-  output: { label: "Output", color: "#34d399", icon: "\u25CF" },
-};
-
 export const ERROR_COLOR = "#ef4444";
 
 export const SAMPLE_EVENTS = [
