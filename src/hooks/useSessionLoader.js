@@ -8,6 +8,7 @@ export default function useSessionLoader() {
   var [turns, setTurns] = useState([]);
   var [metadata, setMetadata] = useState(null);
   var [total, setTotal] = useState(0);
+  var [firstEventTime, setFirstEventTime] = useState(0);
   var [file, setFile] = useState("");
   var [error, setError] = useState(null);
   var [loading, setLoading] = useState(false);
@@ -18,6 +19,7 @@ export default function useSessionLoader() {
     setTurns(result.turns);
     setMetadata(result.metadata);
     setTotal(getSessionTotal(result.events));
+    setFirstEventTime(result.events.length > 0 ? result.events[0].t : 0);
     setFile(name);
     setError(null);
     setShowHero(true);
@@ -55,6 +57,7 @@ export default function useSessionLoader() {
     setTurns([]);
     setMetadata(null);
     setTotal(0);
+    setFirstEventTime(0);
     setFile("");
     setError(null);
     setLoading(false);
@@ -70,6 +73,7 @@ export default function useSessionLoader() {
     turns: turns,
     metadata: metadata,
     total: total,
+    firstEventTime: firstEventTime,
     file: file,
     error: error,
     loading: loading,
