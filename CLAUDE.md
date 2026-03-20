@@ -28,11 +28,13 @@ src/
     session.js         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
     replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
     commandPalette.js  # Precomputed search index with scoring and per-type caps
+    waterfall.js       # Waterfall view helpers: item building, stats, layout, windowing
   components/
     FileUploader.jsx   # Drag-and-drop file input with error handling
     Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
     ReplayView.jsx     # Windowed event stream + resizable inspector sidebar
     TracksView.jsx     # DAW-style multi-track lanes with solo/mute
+    WaterfallView.jsx  # Tool execution waterfall with nesting, inspector sidebar
     StatsView.jsx      # Aggregate metrics, tool ranking, turn summary
     SessionHero.jsx    # Summary card shown after file load (sparkline, format badge, metrics)
     CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
@@ -66,7 +68,7 @@ Agent types: user, assistant, system
 ## Dev commands
 - `npm run dev` - Start dev server on port 3000
 - `npm run build` - Production build to dist/
-- `npm test` - Run 86 tests (40 Claude parser + 41 Copilot parser + 5 UX helpers) via Vitest
+- `npm test` - Run 109 tests (40 Claude parser + 41 Copilot parser + 5 UX helpers + 23 waterfall) via Vitest
 - `npm run test:watch` - Watch mode for tests
 
 ## Conventions
