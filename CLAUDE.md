@@ -1,6 +1,6 @@
 # AgentViz
 
-Session replay visualizer for AI agent workflows. Renders Claude Code (and eventually Copilot, LangSmith) session logs as interactive timelines.
+Session replay visualizer for AI agent workflows. Renders Claude Code and Copilot CLI session logs as interactive timelines, with auto-detection of file format.
 
 ## Stack
 - React 18 + Vite 6
@@ -17,6 +17,11 @@ src/
     theme.js           # Design token system ("Midnight Circuit" theme), TRACK_TYPES, AGENT_COLORS
     constants.js       # Re-exports from theme + SAMPLE_EVENTS data
     parser.js          # parseClaudeCodeJSONL() - returns { events, turns, metadata }
+    copilotCliParser.js # parseCopilotCliJSONL() - Copilot CLI JSONL traces
+    parseSession.js    # Auto-detect format router: detectFormat() + parseSession()
+    session.js         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
+    replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
+    commandPalette.js  # Precomputed search index with scoring and per-type caps
   components/
     FileUploader.jsx   # Drag-and-drop file input
     Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
@@ -71,8 +76,7 @@ Agent types: user, assistant, system
 - Conversation flow graph (directed graph of turns/decisions)
 - Bookmarks and annotations (persisted to localStorage)
 - Vim-style keyboard navigation
-- Parsers for: Copilot Chat JSON, Copilot Agent logs, LangSmith traces, OpenTelemetry
-- Auto-detect file format and route to correct parser
+- Parsers for: LangSmith traces, OpenTelemetry
 - Multi-agent hierarchy (parent/child agents, nested tracks)
 - Session scoring, achievements, shareable URLs
 - Live streaming mode (tail a session file)

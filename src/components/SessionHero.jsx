@@ -48,14 +48,26 @@ export default function SessionHero({ metadata, events, totalTime, onDive }) {
       justifyContent: "center", height: "100%", gap: 28,
       animation: "fadeIn 0.4s ease",
     }}>
-      {/* Model badge */}
-      <div style={{
-        fontSize: theme.fontSize.sm, color: theme.accent.purple,
-        background: alpha(theme.accent.purple, 0.1),
-        border: "1px solid " + alpha(theme.accent.purple, 0.25),
-        padding: "4px 14px", borderRadius: 20, letterSpacing: 1,
-      }}>
-        {modelShort}
+      {/* Format + Model badges */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {metadata.format && (
+          <div style={{
+            fontSize: theme.fontSize.sm, color: theme.accent.cyan,
+            background: alpha(theme.accent.cyan, 0.1),
+            border: "1px solid " + alpha(theme.accent.cyan, 0.25),
+            padding: "4px 14px", borderRadius: 20, letterSpacing: 1,
+          }}>
+            {metadata.format === "copilot-cli" ? "Copilot CLI" : metadata.format === "claude-code" ? "Claude Code" : metadata.format}
+          </div>
+        )}
+        <div style={{
+          fontSize: theme.fontSize.sm, color: theme.accent.purple,
+          background: alpha(theme.accent.purple, 0.1),
+          border: "1px solid " + alpha(theme.accent.purple, 0.25),
+          padding: "4px 14px", borderRadius: 20, letterSpacing: 1,
+        }}>
+          {modelShort}
+        </div>
       </div>
 
       {/* Stats grid */}

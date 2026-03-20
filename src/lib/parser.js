@@ -95,6 +95,41 @@ function extractUsage(raw) {
   return { inputTokens: inp, outputTokens: out, cacheRead: cacheRead, cacheWrite: cacheWrite };
 }
 
+function createParseIssues() {
+  return {
+    malformedLines: 0,
+    invalidEvents: 0,
+  };
+}
+
+function buildWarnings(issues) {
+  var warnings = [];
+  if (!issues) return warnings;
+
+  if (issues.malformedLines > 0) {
+    warnings.push(issues.malformedLines + " malformed line" + (issues.malformedLines !== 1 ? "s were" : " was") + " skipped");
+  }
+
+  if (issues.invalidEvents > 0) {
+    warnings.push(issues.invalidEvents + " invalid derived event" + (issues.invalidEvents !== 1 ? "s were" : " was") + " skipped");
+  }
+
+  return warnings;
+}
+
+function isValidEvent(ev) {
+  return ev
+    && typeof ev.t === "number"
+    && !isNaN(ev.t)
+    && typeof ev.agent === "string"
+    && typeof ev.track === "string"
+    && typeof ev.text === "string"
+    && typeof ev.duration === "number"
+    && !isNaN(ev.duration)
+    && typeof ev.intensity === "number"
+    && !isNaN(ev.intensity);
+}
+
 // ── Error detection ──
 
 var ERROR_PATTERNS = [
@@ -121,7 +156,7 @@ function detectError(block, text) {
 
 // ── Event extraction from a single record ──
 
-function extractEventsFromRecord(raw, syntheticTime) {
+function extractEventsFromRecord(raw, syntheticTime, issues) {
   var events = [];
   var ts = extractTimestamp(raw);
   var tSeconds = ts !== null ? ts : syntheticTime;
@@ -129,6 +164,10 @@ function extractEventsFromRecord(raw, syntheticTime) {
   var usage = extractUsage(raw);
 
   function pushEvent(ev) {
+    if (!isValidEvent(ev)) {
+      if (issues) issues.invalidEvents++;
+      return;
+    }
     if (model && !ev.model) ev.model = model;
     if (usage && !ev.tokenUsage) ev.tokenUsage = usage;
     events.push(ev);
@@ -324,7 +363,7 @@ function buildTurns(events) {
 
 // ── Session metadata ──
 
-function buildMetadata(events, turns) {
+function buildMetadata(events, turns, issues) {
   var models = {};
   var totalInput = 0;
   var totalOutput = 0;
@@ -359,6 +398,9 @@ function buildMetadata(events, turns) {
     tokenUsage: (totalInput + totalOutput > 0)
       ? { inputTokens: totalInput, outputTokens: totalOutput }
       : null,
+    warnings: buildWarnings(issues),
+    parseIssues: issues,
+    format: "claude-code",
   };
 }
 
@@ -367,12 +409,13 @@ function buildMetadata(events, turns) {
 export function parseClaudeCodeJSONL(text) {
   var lines = text.trim().split("\n").filter(Boolean);
   var rawRecords = [];
+  var issues = createParseIssues();
 
   for (var i = 0; i < lines.length; i++) {
     try {
       rawRecords.push(JSON.parse(lines[i]));
     } catch (e) {
-      // skip malformed
+      issues.malformedLines++;
     }
   }
 
@@ -390,7 +433,7 @@ export function parseClaudeCodeJSONL(text) {
   var syntheticTime = 0;
 
   for (var i = 0; i < rawRecords.length; i++) {
-    var parsed = extractEventsFromRecord(rawRecords[i], syntheticTime);
+    var parsed = extractEventsFromRecord(rawRecords[i], syntheticTime, issues);
     events.push.apply(events, parsed);
     syntheticTime += Math.max(1, parsed.length);
   }
@@ -410,14 +453,7 @@ export function parseClaudeCodeJSONL(text) {
 
   // Build turns and metadata
   var turns = buildTurns(events);
-  var metadata = buildMetadata(events, turns);
+  var metadata = buildMetadata(events, turns, issues);
 
-  return { events: events, turns: turns, metadata: metadata };
-}
-
-// Re-export for building sessions from pre-made event arrays (e.g. sample data)
-export function buildSessionFromEvents(events) {
-  var turns = buildTurns(events);
-  var metadata = buildMetadata(events, turns);
   return { events: events, turns: turns, metadata: metadata };
 }
