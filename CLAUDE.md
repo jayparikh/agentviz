@@ -13,25 +13,32 @@ Session replay visualizer for AI agent workflows. Renders Claude Code and Copilo
 src/
   App.jsx              # Main orchestrator: file loading, playback, keyboard shortcuts, view routing
   main.jsx             # React entry point
+  hooks/
+    usePlayback.js     # Playback state: time, playing, speed, seek, playPause
+    useSearch.js       # Debounced search with matchSet/matchedEntries
+    useKeyboardShortcuts.js # Centralized keyboard handler (ref-based, stable listener)
+    useSessionLoader.js # File parsing, sample loading, session reset, hero state
+    usePersistentState.js # localStorage-backed useState with debounced writes
   lib/
     theme.js           # Design token system ("Midnight Circuit" theme), TRACK_TYPES, AGENT_COLORS
-    constants.js       # Re-exports from theme + SAMPLE_EVENTS data
-    parser.js          # parseClaudeCodeJSONL() - returns { events, turns, metadata }
-    copilotCliParser.js # parseCopilotCliJSONL() - Copilot CLI JSONL traces
+    constants.js       # SAMPLE_EVENTS data for demo mode
+    parser.js          # parseClaudeCodeJSONL() - Claude Code JSONL parser
+    copilotCliParser.js # parseCopilotCliJSONL() - Copilot CLI JSONL parser
     parseSession.js    # Auto-detect format router: detectFormat() + parseSession()
     session.js         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
     replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
     commandPalette.js  # Precomputed search index with scoring and per-type caps
   components/
-    FileUploader.jsx   # Drag-and-drop file input
+    FileUploader.jsx   # Drag-and-drop file input with error handling
     Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
-    ReplayView.jsx     # Chronological event stream + resizable inspector sidebar
+    ReplayView.jsx     # Windowed event stream + resizable inspector sidebar
     TracksView.jsx     # DAW-style multi-track lanes with solo/mute
     StatsView.jsx      # Aggregate metrics, tool ranking, turn summary
-    SessionHero.jsx    # Summary card shown after file load (sparkline, metrics)
+    SessionHero.jsx    # Summary card shown after file load (sparkline, format badge, metrics)
     CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
     SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
     ResizablePanel.jsx # Drag-to-resize split panel utility
+    ErrorBoundary.jsx  # React error boundary with resetKey for recovery
 ```
 
 ## Key data types
@@ -59,7 +66,7 @@ Agent types: user, assistant, system
 ## Dev commands
 - `npm run dev` - Start dev server on port 3000
 - `npm run build` - Production build to dist/
-- `npm test` - Run 40 parser tests via Vitest
+- `npm test` - Run 86 tests (40 Claude parser + 41 Copilot parser + 5 UX helpers) via Vitest
 - `npm run test:watch` - Watch mode for tests
 
 ## Conventions

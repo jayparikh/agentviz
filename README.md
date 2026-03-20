@@ -1,6 +1,6 @@
 # AgentViz
 
-Session replay visualizer for AI agent workflows. Drop in a Claude Code session file and explore the agent's reasoning, tool calls, and output through an interactive timeline.
+Session replay visualizer for AI agent workflows. Drop in a Claude Code or Copilot CLI session file and explore the agent's reasoning, tool calls, and output through an interactive timeline.
 
 ## Quick Start
 
@@ -11,14 +11,23 @@ npm run dev
 
 Opens at http://localhost:3000. Drop a `.jsonl` file or click "Load Demo Session."
 
+## Supported Formats
+
+| Format | File type | Auto-detected by |
+|--------|-----------|-----------------|
+| Claude Code | `.jsonl` from `~/.claude/projects/` | Default fallback |
+| Copilot CLI | `.jsonl` event traces | `session.start` with `producer: "copilot-agent"` |
+
+Format is auto-detected from the first line of the file. A badge in the session hero shows which parser was used.
+
 ## Finding Session Data
 
 ```bash
 # Claude Code sessions
 ls ~/.claude/projects/
 
-# Grab any .jsonl file from a project folder
-# These are full session transcripts with tool calls, reasoning, and output
+# Copilot CLI event traces
+# Location varies by configuration
 ```
 
 ## Features
@@ -53,23 +62,23 @@ ls ~/.claude/projects/
 
 ## Parser Output
 
-`parseClaudeCodeJSONL(text)` returns `{ events, turns, metadata }` or null.
+`parseSession(text)` auto-detects the format and returns `{ events, turns, metadata }` or null.
 
 ```js
-// Normalized event
+// Normalized event (same shape for all formats)
 { t, agent, track, text, duration, intensity, toolName?, toolInput?, raw, turnIndex, isError, model?, tokenUsage? }
 
 // Turn
 { index, startTime, endTime, eventIndices, userMessage, toolCount, hasError }
 
 // Metadata
-{ totalEvents, totalTurns, totalToolCalls, errorCount, duration, models, primaryModel, tokenUsage }
+{ totalEvents, totalTurns, totalToolCalls, errorCount, duration, models, primaryModel, tokenUsage, format }
 ```
 
 ## Testing
 
 ```bash
-npm test          # Run 40 parser tests
+npm test          # Run 86 tests (Claude parser, Copilot parser, UX helpers)
 npm run test:watch  # Watch mode
 ```
 
