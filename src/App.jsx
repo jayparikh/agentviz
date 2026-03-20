@@ -11,12 +11,14 @@ import Timeline from "./components/Timeline.jsx";
 import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
 import StatsView from "./components/StatsView.jsx";
+import WaterfallView from "./components/WaterfallView.jsx";
 import SessionHero from "./components/SessionHero.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 
 var VIEWS = [
   { id: "replay", label: "Replay", icon: "\u25B6" },
   { id: "tracks", label: "Tracks", icon: "\u2261" },
+  { id: "waterfall", label: "Waterfall", icon: "\u2507" },
   { id: "stats", label: "Stats", icon: "\u25FB" },
 ];
 
@@ -623,6 +625,16 @@ export default function App() {
             eventEntries={filteredEventEntries}
             totalTime={session.total}
             turns={session.turns}
+          />
+        )}
+        {activeView === "waterfall" && (
+          <WaterfallView
+            currentTime={playback.time}
+            eventEntries={filteredEventEntries}
+            totalTime={session.total}
+            turns={session.turns}
+            metadata={session.metadata}
+            onSeek={playback.seek}
           />
         )}
         {activeView === "stats" && (
