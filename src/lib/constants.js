@@ -1,9 +1,3 @@
-// Re-export theme tokens for backward compatibility
-export { theme, TRACK_TYPES, AGENT_COLORS, alpha } from "./theme.js";
-
-export const FONT = "'JetBrains Mono', monospace";
-export const ERROR_COLOR = "#ef4444";
-
 export const SAMPLE_EVENTS = [
   { t: 0, agent: "user", track: "output", text: "Build a REST API with JWT authentication in Express.js and TypeScript", duration: 1, intensity: 0.6, isError: false, turnIndex: 0 },
   { t: 1, agent: "assistant", track: "reasoning", text: "Planning directory layout: routes/, middleware/, models/, utils/. Will use JWT for auth with refresh tokens.", duration: 2, intensity: 0.8, isError: false, model: "claude-sonnet-4-20250514", turnIndex: 0 },
@@ -35,4 +29,5 @@ export const SAMPLE_METADATA = {
   models: { "claude-sonnet-4-20250514": 2 },
   primaryModel: "claude-sonnet-4-20250514",
   tokenUsage: null,
+  format: "claude-code",
 };

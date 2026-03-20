@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { theme } from "../lib/theme.js";
+import usePersistentState from "../hooks/usePersistentState.js";
 
 /**
  * ResizablePanel - Drag handle between two panels.
@@ -11,12 +12,12 @@ import { theme } from "../lib/theme.js";
  *     <RightPanel />
  *   </ResizablePanel>
  */
-export default function ResizablePanel({ children, initialSplit, minPx, direction }) {
+export default function ResizablePanel({ children, initialSplit, minPx, direction, storageKey }) {
   if (!initialSplit) initialSplit = 0.7;
   if (!minPx) minPx = 120;
   if (!direction) direction = "horizontal";
 
-  var [split, setSplit] = useState(initialSplit);
+  var [split, setSplit] = usePersistentState(storageKey || null, initialSplit);
   var containerRef = useRef(null);
   var dragging = useRef(false);
 

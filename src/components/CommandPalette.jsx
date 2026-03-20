@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
+import { theme, TRACK_TYPES } from "../lib/theme.js";
+import { buildCommandPaletteIndex, searchCommandPalette } from "../lib/commandPalette.js";
 
 /**
  * CommandPalette - Cmd+K fuzzy search overlay
@@ -14,94 +15,22 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
     if (inputRef.current) inputRef.current.focus();
   }, []);
 
+  var searchIndex = useMemo(function () {
+    return buildCommandPaletteIndex(events, turns);
+  }, [events, turns]);
+
   var results = useMemo(function () {
-    if (!query.trim()) {
-      // Show default options: views + turns
-      var defaults = [
-        { type: "view", label: "Replay View", icon: "\u25B6", action: function () { onSetView("replay"); } },
-        { type: "view", label: "Tracks View", icon: "\u2261", action: function () { onSetView("tracks"); } },
-        { type: "view", label: "Stats View", icon: "\u25FB", action: function () { onSetView("stats"); } },
-      ];
-      if (turns) {
-        for (var i = 0; i < Math.min(turns.length, 8); i++) {
-          (function (turn) {
-            defaults.push({
-              type: "turn", label: "Turn " + (turn.index + 1) + ": " + (turn.userMessage || "").substring(0, 60),
-              icon: "\u25CE", action: function () { onSeek(turn.startTime); },
-              hasError: turn.hasError,
-            });
-          })(turns[i]);
-        }
-      }
-      return defaults;
-    }
+    return searchCommandPalette(searchIndex, query);
+  }, [query, searchIndex]);
 
-    var q = query.toLowerCase();
-    var items = [];
+  useEffect(function () { setSelectedIdx(0); }, [query, results.length]);
 
-    // Search turns
-    if (turns) {
-      for (var i = 0; i < turns.length; i++) {
-        var turn = turns[i];
-        if (turn.userMessage && turn.userMessage.toLowerCase().includes(q)) {
-          (function (t) {
-            items.push({
-              type: "turn", label: "Turn " + (t.index + 1) + ": " + t.userMessage.substring(0, 60),
-              icon: "\u25CE", action: function () { onSeek(t.startTime); },
-              hasError: t.hasError,
-            });
-          })(turn);
-        }
-      }
-    }
-
-    // Search events
-    if (events) {
-      var seen = {};
-      for (var i = 0; i < events.length && items.length < 20; i++) {
-        var ev = events[i];
-        var hit = (ev.text && ev.text.toLowerCase().includes(q))
-          || (ev.toolName && ev.toolName.toLowerCase().includes(q));
-        if (hit) {
-          var key = ev.t + ":" + ev.track;
-          if (!seen[key]) {
-            seen[key] = true;
-            (function (e) {
-              var info = TRACK_TYPES[e.track];
-              items.push({
-                type: "event",
-                label: (e.toolName || e.text.substring(0, 60)),
-                icon: info ? info.icon : "\u25CF",
-                color: info ? info.color : theme.text.muted,
-                action: function () { onSeek(e.t); },
-                time: e.t,
-                isError: e.isError,
-              });
-            })(ev);
-          }
-        }
-      }
-    }
-
-    // View switching
-    var views = [
-      { id: "replay", label: "Replay View", icon: "\u25B6" },
-      { id: "tracks", label: "Tracks View", icon: "\u2261" },
-      { id: "stats", label: "Stats View", icon: "\u25FB" },
-    ];
-    views.forEach(function (v) {
-      if (v.label.toLowerCase().includes(q) || v.id.includes(q)) {
-        items.push({
-          type: "view", label: v.label, icon: v.icon,
-          action: function () { onSetView(v.id); },
-        });
-      }
-    });
-
-    return items;
-  }, [query, events, turns, onSeek, onSetView]);
-
-  useEffect(function () { setSelectedIdx(0); }, [query]);
+  function runItemAction(item) {
+    if (!item) return;
+    if (item.type === "view" && item.viewId) onSetView(item.viewId);
+    if ((item.type === "turn" || item.type === "event") && item.seekTime !== undefined) onSeek(item.seekTime);
+    onClose();
+  }
 
   function handleKeyDown(e) {
     if (e.key === "ArrowDown") {
@@ -113,8 +42,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
       setSelectedIdx(function (i) { return Math.max(i - 1, 0); });
     }
     if (e.key === "Enter" && results[selectedIdx]) {
-      results[selectedIdx].action();
-      onClose();
+      runItemAction(results[selectedIdx]);
     }
     if (e.key === "Escape") {
       onClose();
@@ -169,17 +97,18 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
           )}
           {results.map(function (item, i) {
             var isSelected = i === selectedIdx;
+            var trackInfo = item.track ? TRACK_TYPES[item.track] : null;
             var itemColor = item.color || (
               item.type === "view" ? theme.accent.cyan
               : item.type === "turn" ? theme.accent.blue
-              : theme.text.secondary
+              : (trackInfo ? trackInfo.color : theme.text.secondary)
             );
             if (item.isError || item.hasError) itemColor = theme.error;
 
             return (
               <div
                 key={i}
-                onClick={function () { item.action(); onClose(); }}
+                onClick={function () { runItemAction(item); }}
                 onMouseEnter={function () { setSelectedIdx(i); }}
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
@@ -189,7 +118,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
                 }}
               >
                 <span style={{ fontSize: 12, color: itemColor, width: 16, textAlign: "center" }}>
-                  {item.icon}
+                  {item.icon || (trackInfo ? trackInfo.icon : "\u25CF")}
                 </span>
                 <span style={{
                   flex: 1, fontSize: theme.fontSize.base, color: isSelected ? theme.text.primary : theme.text.secondary,

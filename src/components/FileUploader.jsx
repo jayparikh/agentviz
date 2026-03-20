@@ -5,10 +5,14 @@ export default function FileUploader({ onLoad }) {
   var ref = useRef(null);
   var [over, setOver] = useState(false);
 
+  var [readError, setReadError] = useState(null);
+
   function handleFile(file) {
     if (!file) return;
+    setReadError(null);
     var reader = new FileReader();
     reader.onload = function (e) { onLoad(e.target.result, file.name); };
+    reader.onerror = function () { setReadError("Could not read file: " + file.name); };
     reader.readAsText(file);
   }
 
@@ -45,6 +49,11 @@ export default function FileUploader({ onLoad }) {
           Also accepts .json and .txt
         </span>
       </div>
+      {readError && (
+        <div style={{ marginTop: 12, fontSize: theme.fontSize.base, color: theme.error }}>
+          {readError}
+        </div>
+      )}
     </div>
   );
 }
