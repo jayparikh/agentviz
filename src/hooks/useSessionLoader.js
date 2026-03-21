@@ -65,6 +65,7 @@ export default function useSessionLoader() {
     setTurns(SAMPLE_TURNS);
     setMetadata(SAMPLE_METADATA);
     setTotal(SAMPLE_TOTAL);
+    setFirstEventTime(SAMPLE_EVENTS.length > 0 ? SAMPLE_EVENTS[0].t : 0);
     setFile("demo-session.jsonl");
     setError(null);
     setLoading(false);

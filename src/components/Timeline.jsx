@@ -130,6 +130,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           );
         })}
         {eventEntries.length > TIMELINE_BINS ? (function () {
+        {eventEntries.length > TIMELINE_BINS ? (function () {
           var bins = buildTimelineBins(eventEntries, totalTime, timeMap, matchSet);
           var result = [];
           for (var j = 0; j < TIMELINE_BINS; j++) {
@@ -153,6 +154,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
             );
           }
           return result;
+        })() : eventEntries.map(function (entry) {
         })() : eventEntries.map(function (entry) {
           var ev = entry.event;
           var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
