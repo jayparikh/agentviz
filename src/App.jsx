@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { theme, TRACK_TYPES, alpha } from "./lib/theme.js";
 import { buildFilteredEventEntries, buildTurnStartMap } from "./lib/session.js";
 import usePersistentState from "./hooks/usePersistentState.js";
@@ -46,6 +46,13 @@ export default function App() {
   }, [session.turns]);
 
   var search = useSearch(filteredEventEntries);
+
+  // Auto-seek to first event when a new session loads so content is immediately visible
+  useEffect(function () {
+    if (session.firstEventTime > 0) {
+      playback.seek(session.firstEventTime);
+    }
+  }, [session.firstEventTime]);
 
   var activeView = VIEWS.some(function (item) { return item.id === view; }) ? view : "replay";
 
