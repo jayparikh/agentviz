@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { theme, AGENT_COLORS, TRACK_TYPES, alpha } from "../lib/theme.js";
 import { buildReplayLayout, getReplayWindow } from "../lib/replayLayout.js";
 import SyntaxHighlight from "./SyntaxHighlight.jsx";
+import DiffViewer from "./DiffViewer.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
+import { isDiffViewable } from "../lib/diffUtils.js";
 
 var REPLAY_WINDOW_OVERSCAN = 600;
 var REPLAY_BOTTOM_THRESHOLD = 80;
@@ -34,6 +36,8 @@ function highlightText(text, query) {
 
 function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEntries }) {
   var selected = selectedEntry ? selectedEntry.event : null;
+  var [showRaw, setShowRaw] = useState(false);
+  var hasDiff = selected && isDiffViewable(selected);
 
   return (
     <div style={{
@@ -120,10 +124,45 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
         </div>
       )}
 
-      {selected && selected.raw && (
+      {selected && hasDiff && !showRaw && (
         <div>
-          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
-            Raw Data
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+              Diff
+            </div>
+            <div
+              onClick={function () { setShowRaw(true); }}
+              style={{
+                fontSize: theme.fontSize.xs,
+                color: theme.accent.cyan,
+                cursor: "pointer",
+              }}
+            >
+              Show Raw
+            </div>
+          </div>
+          <DiffViewer event={selected} />
+        </div>
+      )}
+
+      {selected && selected.raw && (!hasDiff || showRaw) && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+              Raw Data
+            </div>
+            {hasDiff && (
+              <div
+                onClick={function () { setShowRaw(false); }}
+                style={{
+                  fontSize: theme.fontSize.xs,
+                  color: theme.accent.cyan,
+                  cursor: "pointer",
+                }}
+              >
+                Show Diff
+              </div>
+            )}
           </div>
           <SyntaxHighlight text={JSON.stringify(selected.raw, null, 2).substring(0, 2000)} maxLines={30} />
         </div>
