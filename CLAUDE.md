@@ -28,6 +28,7 @@ src/
     session.js         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
     replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
     commandPalette.js  # Precomputed search index with scoring and per-type caps
+    diffUtils.js        # Diff detection (isFileEditEvent) + Myers line diff algorithm
     waterfall.js       # Waterfall view helpers: item building, stats, layout, windowing
   components/
     FileUploader.jsx   # Drag-and-drop file input with error handling
@@ -38,6 +39,7 @@ src/
     StatsView.jsx      # Aggregate metrics, tool ranking, turn summary
     SessionHero.jsx    # Summary card shown after file load (sparkline, format badge, metrics)
     CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
+    DiffViewer.jsx     # Inline unified diff view for file-editing tool calls
     SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
     ResizablePanel.jsx # Drag-to-resize split panel utility
     ErrorBoundary.jsx  # React error boundary with resetKey for recovery
@@ -68,7 +70,7 @@ Agent types: user, assistant, system
 ## Dev commands
 - `npm run dev` - Start dev server on port 3000
 - `npm run build` - Production build to dist/
-- `npm test` - Run 109 tests (40 Claude parser + 41 Copilot parser + 5 UX helpers + 23 waterfall) via Vitest
+- `npm test` - Run 144 tests (40 Claude parser + 42 Copilot parser + 6 UX helpers + 23 waterfall + 33 diff) via Vitest
 - `npm run test:watch` - Watch mode for tests
 
 ## Conventions
@@ -80,8 +82,6 @@ Agent types: user, assistant, system
 
 ## Planned features
 - Token count tracking and cost estimation per turn
-- Tool execution waterfall/flame chart view
-- Inline diff viewer for file-editing tool calls
 - Conversation flow graph (directed graph of turns/decisions)
 - Bookmarks and annotations (persisted to localStorage)
 - Vim-style keyboard navigation

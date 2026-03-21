@@ -10,6 +10,8 @@ import {
 } from "../lib/waterfall.js";
 import ResizablePanel from "./ResizablePanel.jsx";
 import SyntaxHighlight from "./SyntaxHighlight.jsx";
+import DiffViewer from "./DiffViewer.jsx";
+import { isDiffViewable } from "../lib/diffUtils.js";
 
 var OVERSCAN_PX = 400;
 var INDENT_PX = 20;
@@ -96,6 +98,8 @@ function TimeAxis({ totalTime, chartWidth, timeMap }) {
 
 function WaterfallInspector({ selectedItem, stats }) {
   var selected = selectedItem ? selectedItem.event : null;
+  var [showRaw, setShowRaw] = useState(false);
+  var hasDiff = selected && isDiffViewable(selected);
 
   return (
     <div style={{
@@ -259,14 +263,61 @@ function WaterfallInspector({ selectedItem, stats }) {
               })}
             </div>
 
-            {selected.toolInput && (
+            {hasDiff && !showRaw && (
               <div style={{ marginTop: theme.space.lg }}>
                 <div style={{
-                  fontSize: theme.fontSize.xs,
-                  color: theme.text.dim,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
                   marginBottom: theme.space.sm,
                 }}>
-                  Input
+                  <div style={{
+                    fontSize: theme.fontSize.xs,
+                    color: theme.text.dim,
+                  }}>
+                    Diff
+                  </div>
+                  <div
+                    onClick={function () { setShowRaw(true); }}
+                    style={{
+                      fontSize: theme.fontSize.xs,
+                      color: theme.accent.cyan,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Show Raw
+                  </div>
+                </div>
+                <DiffViewer event={selected} />
+              </div>
+            )}
+
+            {selected.toolInput && (!hasDiff || showRaw) && (
+              <div style={{ marginTop: theme.space.lg }}>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: theme.space.sm,
+                }}>
+                  <div style={{
+                    fontSize: theme.fontSize.xs,
+                    color: theme.text.dim,
+                  }}>
+                    Input
+                  </div>
+                  {hasDiff && (
+                    <div
+                      onClick={function () { setShowRaw(false); }}
+                      style={{
+                        fontSize: theme.fontSize.xs,
+                        color: theme.accent.cyan,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Show Diff
+                    </div>
+                  )}
                 </div>
                 <SyntaxHighlight
                   text={typeof selected.toolInput === "string"
