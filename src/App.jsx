@@ -637,6 +637,7 @@ export default function App() {
             currentTime={playback.time}
             eventEntries={filteredEventEntries}
             totalTime={session.total}
+            timeMap={timeMap}
             turns={session.turns}
           />
         )}
