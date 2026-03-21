@@ -36,7 +36,15 @@ export default function usePersistentState(storageKey, initialValue) {
     }, PERSIST_DEBOUNCE_MS);
 
     return function () {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        // Flush synchronously on unmount so the last value is saved
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify(state));
+        } catch (error) {
+          // Ignore errors during unmount flush
+        }
+      }
     };
   }, [storageKey, state]);
 

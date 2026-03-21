@@ -14,6 +14,7 @@ function buildViewItems() {
   return [
     { id: "view-replay", type: "view", label: "Replay View", icon: "\u25B6", viewId: "replay", searchText: "replay view timeline stream", priority: 40 },
     { id: "view-tracks", type: "view", label: "Tracks View", icon: "\u2261", viewId: "tracks", searchText: "tracks view lanes daw", priority: 40 },
+    { id: "view-waterfall", type: "view", label: "Waterfall View", icon: "\u2507", viewId: "waterfall", searchText: "waterfall view tools timeline execution", priority: 40 },
     { id: "view-stats", type: "view", label: "Stats View", icon: "\u25FB", viewId: "stats", searchText: "stats view metrics summary", priority: 40 },
   ];
 }

@@ -68,7 +68,7 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
                 {metadata.primaryModel}
               </div>
             </div>
-            {metadata.tokenUsage && (
+            {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
               <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
                   Tokens
