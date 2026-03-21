@@ -38,7 +38,7 @@ export default function SessionHero({ metadata, events, totalTime, timeMap, onDi
     stats.push({ label: "Errors", value: metadata.errorCount, color: theme.error });
   }
 
-  if (metadata.tokenUsage) {
+  if (metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0) {
     var total = metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens;
     stats.push({ label: "Tokens", value: total > 1000 ? (total / 1000).toFixed(1) + "k" : total, color: theme.accent.green });
   }
