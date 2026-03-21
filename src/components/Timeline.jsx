@@ -155,7 +155,6 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           }
           return result;
         })() : eventEntries.map(function (entry) {
-        })() : eventEntries.map(function (entry) {
           var ev = entry.event;
           var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
           var width = Math.max(0.3, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 1));
