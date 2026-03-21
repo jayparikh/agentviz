@@ -12,10 +12,10 @@ function normalize(text) {
 
 function buildViewItems() {
   return [
-    { id: "view-replay", type: "view", label: "Replay View", icon: "\u25B6", viewId: "replay", searchText: "replay view timeline stream", priority: 40 },
-    { id: "view-tracks", type: "view", label: "Tracks View", icon: "\u2261", viewId: "tracks", searchText: "tracks view lanes daw", priority: 40 },
-    { id: "view-waterfall", type: "view", label: "Waterfall View", icon: "\u2507", viewId: "waterfall", searchText: "waterfall view tools timeline execution", priority: 40 },
-    { id: "view-stats", type: "view", label: "Stats View", icon: "\u25FB", viewId: "stats", searchText: "stats view metrics summary", priority: 40 },
+    { id: "view-replay", type: "view", label: "Replay View", iconName: "play", viewId: "replay", searchText: "replay view timeline stream", priority: 40 },
+    { id: "view-tracks", type: "view", label: "Tracks View", iconName: "tracks", viewId: "tracks", searchText: "tracks view lanes daw", priority: 40 },
+    { id: "view-waterfall", type: "view", label: "Waterfall View", iconName: "waterfall", viewId: "waterfall", searchText: "waterfall view tools timeline execution", priority: 40 },
+    { id: "view-stats", type: "view", label: "Stats View", iconName: "stats", viewId: "stats", searchText: "stats view metrics summary", priority: 40 },
   ];
 }
 
@@ -32,7 +32,7 @@ export function buildCommandPaletteIndex(events, turns) {
         id: "turn-" + turn.index,
         type: "turn",
         label: "Turn " + (turn.index + 1) + ": " + (turn.userMessage || "").substring(0, 80),
-        icon: "\u25CE",
+        iconName: "message-circle",
         seekTime: turn.startTime,
         hasError: turn.hasError,
         searchText: normalize("turn " + (turn.index + 1) + " " + (turn.userMessage || "")),
@@ -52,7 +52,7 @@ export function buildCommandPaletteIndex(events, turns) {
         id: "event-" + j,
         type: "event",
         label: ev.toolName || ev.text.substring(0, 80),
-        icon: ev.isError ? "\u25CF" : null,
+        iconName: ev.isError ? "alert-circle" : null,
         track: ev.track,
         agent: ev.agent,
         toolName: ev.toolName,

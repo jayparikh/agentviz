@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import { extractDiffData, computeDiff } from "../lib/diffUtils.js";
+import Icon from "./Icon.jsx";
 
 /**
  * Inline diff viewer for file-editing tool calls.
@@ -10,11 +11,11 @@ import { extractDiffData, computeDiff } from "../lib/diffUtils.js";
 var MAX_COLLAPSED_LINES = 40;
 
 function DiffHeader({ filePath, type, oldLineCount, newLineCount }) {
-  var icon = type === "create" ? "\u2795" : "\u270E";
+  var icon = type === "create" ? <Icon name="file-plus" size={13} /> : <Icon name="pencil" size={13} />;
   var label = type === "create" ? "Created" : "Modified";
   var stat = type === "create"
     ? "+" + newLineCount + " lines"
-    : "\u2212" + oldLineCount + " / +" + newLineCount + " lines";
+    : <><Icon name="minus" size={11} style={{ display: "inline" }} /> {oldLineCount} / +{newLineCount} lines</>;
 
   return (
     <div style={{
@@ -22,15 +23,14 @@ function DiffHeader({ filePath, type, oldLineCount, newLineCount }) {
       alignItems: "center",
       gap: theme.space.md,
       padding: theme.space.md + "px " + theme.space.lg + "px",
-      background: alpha(theme.accent.cyan, 0.06),
+      background: alpha(theme.accent.primary, 0.06),
       borderRadius: theme.radius.md + "px " + theme.radius.md + "px 0 0",
       borderBottom: "1px solid " + theme.border.default,
     }}>
-      <span style={{ fontSize: theme.fontSize.sm }}>{icon}</span>
-      <span style={{
+      <span style={{ fontSize: theme.fontSize.sm }}>{icon}</span>      <span style={{
         fontSize: theme.fontSize.sm,
-        color: theme.accent.cyan,
-        fontFamily: theme.font,
+        color: theme.accent.primary,
+        fontFamily: theme.font.mono,
         flex: 1,
         overflow: "hidden",
         textOverflow: "ellipsis",
@@ -40,8 +40,8 @@ function DiffHeader({ filePath, type, oldLineCount, newLineCount }) {
       </span>
       <span style={{
         fontSize: theme.fontSize.xs,
-        color: type === "create" ? theme.accent.green : theme.accent.amber,
-        background: alpha(type === "create" ? theme.accent.green : theme.accent.amber, 0.1),
+        color: type === "create" ? theme.semantic.success : theme.semantic.warning,
+        background: alpha(type === "create" ? theme.semantic.success : theme.semantic.warning, 0.1),
         padding: "2px 6px",
         borderRadius: theme.radius.sm,
       }}>
@@ -65,10 +65,10 @@ function HunkHeader({ hunk }) {
     <div style={{
       display: "flex",
       padding: "2px " + theme.space.lg + "px",
-      background: alpha(theme.accent.cyan, 0.04),
-      fontFamily: theme.font,
+      background: alpha(theme.accent.primary, 0.04),
+      fontFamily: theme.font.mono,
       fontSize: theme.fontSize.xs,
-      color: theme.accent.cyan,
+      color: theme.accent.primary,
       borderTop: "1px solid " + theme.border.subtle,
       borderBottom: "1px solid " + theme.border.subtle,
     }}>
@@ -80,15 +80,15 @@ function HunkHeader({ hunk }) {
 
 var lineColors = {
   insert: {
-    bg: alpha("#34d399", 0.08),
-    gutter: alpha("#34d399", 0.15),
-    marker: theme.accent.green,
+    bg: alpha(theme.semantic.success, 0.08),
+    gutter: alpha(theme.semantic.success, 0.15),
+    marker: theme.semantic.success,
     text: theme.text.primary,
   },
   delete: {
-    bg: alpha("#ef4444", 0.08),
-    gutter: alpha("#ef4444", 0.15),
-    marker: theme.accent.red,
+    bg: alpha(theme.semantic.error, 0.08),
+    gutter: alpha(theme.semantic.error, 0.15),
+    marker: theme.semantic.error,
     text: theme.text.primary,
   },
   context: {
@@ -107,7 +107,7 @@ function DiffLine({ line }) {
     <div style={{
       display: "flex",
       background: colors.bg,
-      fontFamily: theme.font,
+      fontFamily: theme.font.mono,
       fontSize: theme.fontSize.sm,
       lineHeight: "20px",
       minHeight: 20,
@@ -239,15 +239,15 @@ export default function DiffViewer({ event }) {
             padding: theme.space.md,
             textAlign: "center",
             fontSize: theme.fontSize.xs,
-            color: theme.accent.cyan,
+            color: theme.accent.primary,
             cursor: "pointer",
             borderTop: "1px solid " + theme.border.subtle,
-            background: alpha(theme.accent.cyan, 0.03),
+            background: alpha(theme.accent.primary, 0.03),
           }}
         >
           {expanded
-            ? "\u25B2 Collapse"
-            : "\u25BC Show all " + totalLines + " lines (" + (totalLines - MAX_COLLAPSED_LINES) + " more)"}
+            ? <><Icon name="chevron-up" size={12} style={{ display: "inline" }} /> Collapse</>
+            : <><Icon name="chevron-down" size={12} style={{ display: "inline" }} /> Show all {totalLines} lines ({totalLines - MAX_COLLAPSED_LINES} more)</>}
         </div>
       )}
     </div>

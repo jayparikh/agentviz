@@ -1,5 +1,6 @@
 import { useRef, useMemo } from "react";
 import { theme, TRACK_TYPES } from "../lib/theme.js";
+import Icon from "./Icon.jsx";
 
 var TIMELINE_BINS = 200;
 
@@ -62,13 +63,13 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
             cursor: "pointer",
             padding: "4px 12px",
             fontSize: theme.fontSize.lg,
-            fontFamily: theme.font,
+            fontFamily: theme.font.ui,
             letterSpacing: 1,
           }}
         >
-          {isPlaying ? "\u275A\u275A" : "\u25B6"}
+          {isPlaying ? <Icon name="pause" size={14} /> : <Icon name="play" size={14} />}
         </button>
-        <span style={{ fontFamily: theme.font, fontSize: theme.fontSize.md, color: theme.text.secondary, letterSpacing: 1 }}>
+        <span style={{ fontFamily: theme.font.mono, fontSize: theme.fontSize.md, color: theme.text.secondary, letterSpacing: 1 }}>
           {currentTime.toFixed(1)}s / {totalTime.toFixed(1)}s
         </span>
         {turns && turns.length > 0 && (function () {
@@ -84,7 +85,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           return (
             <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, display: "flex", alignItems: "center", gap: 4 }}>
               Turn {currentTurn.index + 1}/{turns.length}
-              {currentTurn.hasError && <span style={{ color: theme.error }}>{"\u25CF"}</span>}
+              {currentTurn.hasError && <span style={{ color: theme.semantic.error }}><Icon name="alert-circle" size={11} /></span>}
             </span>
           );
         })()}
@@ -94,7 +95,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           if (!info) return null;
           return (
             <span key={track} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: theme.fontSize.base, color: theme.text.muted }}>
-              <span style={{ color: info.color }}>{info.icon}</span>
+              <span style={{ color: info.color }}><Icon name={track} size={12} /></span>
               {counts[track]}
             </span>
           );
@@ -137,7 +138,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
             var binData = bins[j];
             var left = (j / TIMELINE_BINS) * 100;
             var width = Math.max(0.3, 100 / TIMELINE_BINS);
-            var color = binData.isError ? theme.error : (binData.color || theme.text.muted);
+            var color = binData.isError ? theme.semantic.error : (binData.color || theme.text.muted);
             result.push(
               <div key={"bin-" + j} style={{
                 position: "absolute",
@@ -148,7 +149,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
                 background: color,
                 opacity: binData.isMatch ? 0.9 : (binData.isError ? 0.7 : binData.intensity * 0.4),
                 borderRadius: 2,
-                boxShadow: binData.isMatch ? "0 0 4px " + theme.accent.cyan : (binData.isError ? "0 0 4px " + theme.error : "none"),
+                boxShadow: "none",
               }} />
             );
           }
@@ -158,7 +159,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
           var width = Math.max(0.3, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 1));
           var info = TRACK_TYPES[ev.track];
-          var color = ev.isError ? theme.error : (info ? info.color : theme.text.muted);
+          var color = ev.isError ? theme.semantic.error : (info ? info.color : theme.text.muted);
           var isMatch = matchSet && matchSet.has(entry.index);
           return (
             <div key={entry.index} style={{
@@ -170,7 +171,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
               background: color,
               opacity: isMatch ? 0.9 : (ev.isError ? 0.7 : ev.intensity * 0.4),
               borderRadius: 2,
-              boxShadow: isMatch ? "0 0 4px " + theme.accent.cyan : (ev.isError ? "0 0 4px " + theme.error : "none"),
+              boxShadow: "none",
             }} />
           );
         })}
@@ -180,8 +181,8 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           top: 0,
           bottom: 0,
           width: 2,
-          background: theme.accent.cyan,
-          boxShadow: "0 0 8px " + theme.accent.cyan,
+          background: theme.accent.primary,
+          boxShadow: "none",
           transition: "left 0.08s linear",
           zIndex: 2,
         }} />

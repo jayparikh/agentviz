@@ -32,11 +32,11 @@ function tokenize(text) {
 
   // Order matters: comments first, then strings, then others
   s = s.replace(COMMENT_RE, function (m) { return mark(m, theme.text.dim); });
-  s = s.replace(STRING_RE, function (m) { return mark(m, theme.accent.green); });
-  s = s.replace(PATH_RE, function (m) { return mark(m, theme.accent.cyan); });
-  s = s.replace(KEYWORD_RE, function (m) { return mark(m, theme.accent.purple); });
-  s = s.replace(NUMBER_RE, function (m) { return mark(m, theme.accent.amber); });
-  s = s.replace(OPERATOR_RE, function (m) { return mark(m, theme.accent.cyan); });
+  s = s.replace(STRING_RE, function (m) { return mark(m, theme.semantic.success); });
+  s = s.replace(PATH_RE, function (m) { return mark(m, theme.accent.primary); });
+  s = s.replace(KEYWORD_RE, function (m) { return mark(m, theme.track.context); });
+  s = s.replace(NUMBER_RE, function (m) { return mark(m, theme.semantic.warning); });
+  s = s.replace(OPERATOR_RE, function (m) { return mark(m, theme.accent.primary); });
 
   // Escape remaining text
   s = escapeHtml(s);
@@ -69,7 +69,7 @@ export default function SyntaxHighlight({ text, maxLines }) {
         color: theme.text.secondary, overflow: "auto", maxHeight: 200,
         border: "1px solid " + theme.border.default,
         whiteSpace: "pre-wrap", wordBreak: "break-all",
-        lineHeight: 1.6, fontFamily: theme.font, margin: 0,
+        lineHeight: 1.6, fontFamily: theme.font.mono, margin: 0,
       }}
       dangerouslySetInnerHTML={{ __html: html }}
     />

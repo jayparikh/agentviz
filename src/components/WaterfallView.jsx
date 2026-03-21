@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { theme, alpha } from "../lib/theme.js";
+import Icon from "./Icon.jsx";
 import {
   buildWaterfallItems,
   getWaterfallStats,
@@ -257,7 +258,7 @@ function WaterfallInspector({ selectedItem, stats }) {
                     fontSize: theme.fontSize.sm,
                   }}>
                     <span style={{ color: theme.text.muted }}>{pair[0]}</span>
-                    <span style={{ color: isError ? theme.error : theme.text.primary }}>{pair[1]}</span>
+                    <span style={{ color: isError ? theme.semantic.error : theme.text.primary }}>{pair[1]}</span>
                   </div>
                 );
               })}
@@ -281,7 +282,7 @@ function WaterfallInspector({ selectedItem, stats }) {
                     onClick={function () { setShowRaw(true); }}
                     style={{
                       fontSize: theme.fontSize.xs,
-                      color: theme.accent.cyan,
+                      color: theme.accent.primary,
                       cursor: "pointer",
                     }}
                   >
@@ -311,7 +312,7 @@ function WaterfallInspector({ selectedItem, stats }) {
                       onClick={function () { setShowRaw(false); }}
                       style={{
                         fontSize: theme.fontSize.xs,
-                        color: theme.accent.cyan,
+                        color: theme.accent.primary,
                         cursor: "pointer",
                       }}
                     >
@@ -512,8 +513,8 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
               top: 0,
               bottom: 0,
               width: 2,
-              background: theme.accent.cyan,
-              boxShadow: "0 0 6px " + theme.accent.cyan,
+              background: theme.accent.primary,
+              boxShadow: "none",
               zIndex: theme.z.playhead,
               transition: "left 0.08s linear",
               pointerEvents: "none",
@@ -527,7 +528,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
               var isSelected = selectedIdx === idx;
               var isHovered = hoveredIdx === idx;
               var isActive = currentTime >= ev.t && currentTime <= ev.t + ev.duration;
-              var barColor = ev.isError ? theme.error : getToolColor(ev.toolName);
+              var barColor = ev.isError ? theme.semantic.error : getToolColor(ev.toolName);
               var indent = item.depth * INDENT_PX;
 
               var barLeft = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
@@ -580,7 +581,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
                     }} />
                     <span style={{
                       fontSize: theme.fontSize.sm,
-                      color: ev.isError ? theme.errorText : theme.text.secondary,
+                      color: ev.isError ? theme.semantic.errorText : theme.text.secondary,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -603,15 +604,11 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
                       top: 4,
                       bottom: 4,
                       borderRadius: theme.radius.sm,
-                      background: "linear-gradient(90deg, " + alpha(barColor, 0.7) + ", " + alpha(barColor, 0.45) + ")",
+                      background: alpha(barColor, 0.5),
                       border: "1px solid " + (isActive || isSelected
                         ? barColor
                         : alpha(barColor, 0.3)),
-                      boxShadow: isActive
-                        ? "0 0 8px " + alpha(barColor, 0.3)
-                        : isSelected
-                          ? "0 0 6px " + alpha(barColor, 0.2)
-                          : "none",
+                      boxShadow: "none",
                       display: "flex",
                       alignItems: "center",
                       padding: "0 4px",
@@ -619,7 +616,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
                       transition: "border-color " + theme.transition.fast + ", box-shadow " + theme.transition.fast,
                     }}>
                       {ev.isError && (
-                        <span style={{ fontSize: 8, marginRight: 2, color: theme.error }}>{"\u25CF"}</span>
+                        <span style={{ fontSize: 8, marginRight: 2, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={10} /></span>
                       )}
                       <span style={{
                         fontSize: theme.fontSize.xs,

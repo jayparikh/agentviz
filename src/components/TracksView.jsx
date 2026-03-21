@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { theme, AGENT_COLORS, TRACK_TYPES, alpha } from "../lib/theme.js";
+import Icon from "./Icon.jsx";
 
 export default function TracksView({ currentTime, eventEntries, totalTime, timeMap, turns }) {
   var [muted, setMuted] = useState({});
@@ -68,7 +69,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
               borderRight: "1px solid " + theme.border.default,
               flexShrink: 0,
             }}>
-              <span style={{ color: info.color, fontSize: 14 }}>{info.icon}</span>
+              <span style={{ color: info.color, fontSize: 14, display: "flex", alignItems: "center" }}><Icon name={key} size={14} /></span>
               <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontWeight: 500 }}>{info.label}</span>
               <div style={{ marginLeft: "auto", display: "flex", gap: 2 }}>
                 <button onClick={function () { toggleSolo(key); }} style={{
@@ -82,8 +83,8 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                   fontWeight: 700,
                 }}>S</button>
                 <button onClick={function () { toggleMute(key); }} style={{
-                  background: muted[key] ? theme.error : "transparent",
-                  border: "1px solid " + (muted[key] ? theme.error : theme.border.strong),
+                  background: muted[key] ? theme.semantic.error : "transparent",
+                  border: "1px solid " + (muted[key] ? theme.semantic.error : theme.border.strong),
                   color: muted[key] ? theme.text.primary : theme.text.muted,
                   borderRadius: theme.radius.sm,
                   fontSize: theme.fontSize.xs,
@@ -120,7 +121,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                 var agentColor = AGENT_COLORS[ev.agent] || theme.text.muted;
                 var active = currentTime >= ev.t && currentTime <= ev.t + ev.duration;
                 var hovered = hoveredEntry && hoveredEntry.index === trackEntry.index;
-                var blockColor = ev.isError ? theme.error : info.color;
+                var blockColor = ev.isError ? theme.semantic.error : info.color;
 
                 return (
                   <div
@@ -134,13 +135,9 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                       top: 4,
                       bottom: 4,
                       borderRadius: theme.radius.md,
-                      background: "linear-gradient(135deg, " + alpha(blockColor, 0.45) + ", " + alpha(agentColor, 0.28) + ")",
+                      background: alpha(blockColor, 0.4),
                       border: "1px solid " + (active ? blockColor : "transparent"),
-                      boxShadow: active
-                        ? "0 0 10px " + alpha(blockColor, 0.25)
-                        : hovered
-                          ? "0 0 6px " + alpha(blockColor, 0.18)
-                          : (ev.isError ? "inset 0 0 0 1px " + alpha(theme.error, 0.38) : "none"),
+                      boxShadow: ev.isError ? "inset 0 0 0 1px " + alpha(theme.semantic.error, 0.38) : "none",
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
@@ -150,11 +147,11 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                     }}
                   >
                     {ev.isError && (
-                      <span style={{ fontSize: 8, marginRight: 3, color: theme.error }}>{"\u25CF"}</span>
+                      <span style={{ fontSize: 8, marginRight: 3, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={10} /></span>
                     )}
                     <span style={{
                       fontSize: theme.fontSize.xs,
-                      color: ev.isError ? theme.errorText : theme.text.primary,
+                      color: ev.isError ? theme.semantic.errorText : theme.text.primary,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -171,8 +168,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                 top: 0,
                 bottom: 0,
                 width: 1,
-                background: theme.accent.cyan,
-                boxShadow: "0 0 4px " + theme.accent.cyan,
+                background: theme.accent.primary,
                 zIndex: theme.z.playhead,
                 transition: "left 0.08s linear",
               }} />
@@ -191,20 +187,20 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
             left: "50%",
             transform: "translateX(-50%)",
             background: theme.bg.raised,
-            border: "1px solid " + (ev.isError ? alpha(theme.error, 0.38) : theme.border.strong),
+            border: "1px solid " + (ev.isError ? alpha(theme.semantic.error, 0.38) : theme.border.strong),
             borderRadius: theme.radius.xl,
             padding: "8px 14px",
             maxWidth: 500,
             zIndex: theme.z.modal,
-            boxShadow: theme.shadow.drop,
+            boxShadow: theme.shadow.md,
           }}>
             {info && (
-              <div style={{ fontSize: theme.fontSize.base, color: ev.isError ? theme.error : info.color, marginBottom: 4 }}>
-                {info.icon} {info.label} @ {ev.t.toFixed(1)}s
+              <div style={{ fontSize: theme.fontSize.base, color: ev.isError ? theme.semantic.error : info.color, marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
+                <Icon name={ev.track} size={13} /> {info.label} @ {ev.t.toFixed(1)}s
                 {ev.isError && " (ERROR)"}
               </div>
             )}
-            <div style={{ fontSize: theme.fontSize.base, color: ev.isError ? theme.errorText : theme.text.primary, lineHeight: 1.5, wordBreak: "break-word" }}>
+            <div style={{ fontSize: theme.fontSize.base, color: ev.isError ? theme.semantic.errorText : theme.text.primary, lineHeight: 1.5, wordBreak: "break-word" }}>
               {ev.text.substring(0, 200)}
             </div>
           </div>

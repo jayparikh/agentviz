@@ -1,4 +1,5 @@
 import { theme, TRACK_TYPES } from "../lib/theme.js";
+import Icon from "./Icon.jsx";
 
 export default function StatsView({ events, totalTime, metadata, turns }) {
   var trackStats = {};
@@ -18,11 +19,11 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
 
   var cards = [
     { label: "Total Events", value: events.length, color: theme.text.primary },
-    { label: "Turns", value: metadata ? metadata.totalTurns : (turns ? turns.length : 0), color: theme.accent.cyan },
-    { label: "User Messages", value: userMsgs, color: theme.accent.blue },
-    { label: "Tool Calls", value: (trackStats.tool_call || {}).count || 0, color: theme.accent.amber },
-    { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.error : theme.text.ghost },
-    { label: "Duration", value: totalTime.toFixed(0) + "s", color: theme.accent.purple },
+    { label: "Turns", value: metadata ? metadata.totalTurns : (turns ? turns.length : 0), color: theme.accent.primary },
+    { label: "User Messages", value: userMsgs, color: theme.accent.primary },
+    { label: "Tool Calls", value: (trackStats.tool_call || {}).count || 0, color: theme.track.tool_call },
+    { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.ghost },
+    { label: "Duration", value: totalTime.toFixed(0) + "s", color: theme.track.context },
   ];
 
   return (
@@ -41,7 +42,7 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
                 padding: "14px 16px",
                 border: "1px solid " + theme.border.default,
               }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: card.color, fontFamily: theme.font }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: card.color, fontFamily: theme.font.ui }}>
                   {card.value}
                 </div>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>{card.label}</div>
@@ -64,7 +65,7 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
               <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
                 Model
               </div>
-              <div style={{ fontSize: theme.fontSize.lg, color: theme.accent.purple, fontFamily: theme.font }}>
+              <div style={{ fontSize: theme.fontSize.lg, color: theme.track.context, fontFamily: theme.font.mono }}>
                 {metadata.primaryModel}
               </div>
             </div>
@@ -73,10 +74,10 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
                   Tokens
                 </div>
-                <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font }}>
-                  <span style={{ color: theme.accent.cyan }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
+                <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
+                  <span style={{ color: theme.accent.primary }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
                   {" in / "}
-                  <span style={{ color: theme.accent.green }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
+                  <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
                   {" out"}
                 </div>
               </div>
@@ -109,7 +110,7 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
               <div key={key} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: theme.fontSize.base, color: info.color, display: "flex", alignItems: "center", gap: 5 }}>
-                    {info.icon} {info.label}
+                    <Icon name={key} size={13} /> {info.label}
                   </span>
                   <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>{count} ({pct.toFixed(0)}%)</span>
                 </div>
@@ -139,8 +140,8 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
                   gap: 10,
                   padding: "6px 10px",
                   borderRadius: theme.radius.lg,
-                  background: turn.hasError ? theme.errorBg : theme.bg.surface,
-                  border: "1px solid " + (turn.hasError ? theme.errorBorder : theme.border.default),
+                  background: turn.hasError ? theme.semantic.errorBg : theme.bg.surface,
+                  border: "1px solid " + (turn.hasError ? theme.semantic.errorBorder : theme.border.default),
                   marginBottom: 6,
                   alignItems: "center",
                 }}>
@@ -158,10 +159,10 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
                     {turn.userMessage}
                   </span>
                   {turn.toolCount > 0 && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.accent.amber }}>{turn.toolCount} tools</span>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call }}>{turn.toolCount} tools</span>
                   )}
                   {turn.hasError && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.error }}>{"\u25CF"}</span>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={11} /></span>
                   )}
                 </div>
               );
@@ -185,7 +186,7 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
           return (
             <div key={name} style={{ marginBottom: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                <span style={{ fontSize: theme.fontSize.base, color: theme.accent.amber, fontFamily: theme.font }}>
+                <span style={{ fontSize: theme.fontSize.base, color: theme.track.tool_call, fontFamily: theme.font.mono }}>
                   {i + 1}. {name}
                 </span>
                 <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>{count}x</span>
@@ -194,7 +195,7 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
                 <div style={{
                   height: "100%",
                   width: pct + "%",
-                  background: "linear-gradient(90deg, " + theme.accent.amber + ", " + theme.accent.amber + "80)",
+                  background: theme.track.tool_call,
                   borderRadius: 2,
                 }} />
               </div>

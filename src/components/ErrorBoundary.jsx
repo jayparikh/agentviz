@@ -32,11 +32,11 @@ export default class ErrorBoundary extends React.Component {
           gap: 10,
           padding: 16,
           background: theme.bg.surface,
-          border: "1px solid " + theme.errorBorder,
+          border: "1px solid " + theme.semantic.errorBorder,
           borderRadius: theme.radius.lg,
           color: theme.text.secondary,
         }}>
-          <div style={{ fontSize: theme.fontSize.md, color: theme.error }}>
+          <div style={{ fontSize: theme.fontSize.md, color: theme.semantic.error }}>
             Inspector unavailable
           </div>
           <div style={{ fontSize: theme.fontSize.base, lineHeight: 1.6 }}>

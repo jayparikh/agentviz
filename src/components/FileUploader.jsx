@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
+import Icon from "./Icon.jsx";
 
 export default function FileUploader({ onLoad }) {
   var ref = useRef(null);
@@ -23,9 +24,9 @@ export default function FileUploader({ onLoad }) {
       onDrop={function (e) { e.preventDefault(); setOver(false); handleFile(e.dataTransfer.files[0]); }}
       onClick={function () { ref.current && ref.current.click(); }}
       style={{
-        border: "2px dashed " + (over ? theme.accent.cyan : theme.border.strong),
+        border: "2px dashed " + (over ? theme.accent.primary : theme.border.strong),
         borderRadius: theme.radius.xxl, padding: "48px 32px", textAlign: "center",
-        cursor: "pointer", background: over ? alpha(theme.accent.cyan, 0.03) : theme.bg.surface,
+        cursor: "pointer", background: over ? alpha(theme.accent.primary, 0.03) : theme.bg.surface,
         transition: "all " + theme.transition.smooth, maxWidth: 560, margin: "0 auto",
       }}
     >
@@ -35,10 +36,10 @@ export default function FileUploader({ onLoad }) {
         onChange={function (e) { handleFile(e.target.files[0]); }}
       />
       <div style={{
-        fontSize: 32, marginBottom: 12, color: theme.accent.cyan,
+        fontSize: 32, marginBottom: 12, color: theme.accent.primary,
         transition: "transform " + theme.transition.smooth,
         transform: over ? "scale(1.1)" : "scale(1)",
-      }}>{"\u25C8"}</div>
+      }}><Icon name="upload" size={32} /></div>
       <div style={{ fontSize: theme.fontSize.xl, color: theme.text.primary, marginBottom: 8, fontWeight: 600 }}>
         Drop a session file here
       </div>
@@ -50,7 +51,7 @@ export default function FileUploader({ onLoad }) {
         </span>
       </div>
       {readError && (
-        <div style={{ marginTop: 12, fontSize: theme.fontSize.base, color: theme.error }}>
+        <div style={{ marginTop: 12, fontSize: theme.fontSize.base, color: theme.semantic.error }}>
           {readError}
         </div>
       )}

@@ -12,14 +12,14 @@ import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
 import StatsView from "./components/StatsView.jsx";
 import WaterfallView from "./components/WaterfallView.jsx";
-import SessionHero from "./components/SessionHero.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
+import Icon from "./components/Icon.jsx";
 
 var VIEWS = [
-  { id: "replay", label: "Replay", icon: "\u25B6" },
-  { id: "tracks", label: "Tracks", icon: "\u2261" },
-  { id: "waterfall", label: "Waterfall", icon: "\u2507" },
-  { id: "stats", label: "Stats", icon: "\u25FB" },
+  { id: "replay", label: "Replay", icon: "play" },
+  { id: "tracks", label: "Tracks", icon: "tracks" },
+  { id: "waterfall", label: "Waterfall", icon: "waterfall" },
+  { id: "stats", label: "Stats", icon: "stats" },
 ];
 
 var SPEEDS = [0.5, 1, 2, 4, 8];
@@ -28,7 +28,9 @@ export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
   var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
   var [showPalette, setShowPalette] = useState(false);
+  var [showFilters, setShowFilters] = useState(false);
   var searchInputRef = useRef(null);
+  var filtersRef = useRef(null);
 
   var session = useSessionLoader();
   var playback = usePlayback(session.total);
@@ -51,12 +53,27 @@ export default function App() {
 
   var search = useSearch(filteredEventEntries);
 
-  // Auto-seek to end of session when loaded so all events are immediately visible
   useEffect(function () {
     if (session.total > 0) {
       playback.seek(session.total);
     }
   }, [session.total, playback.seek]);
+
+  useEffect(function () {
+    if (session.events && session.showHero) session.dismissHero();
+  }, [session.events, session.showHero, session.dismissHero]);
+
+  // Close filter dropdown on outside click
+  useEffect(function () {
+    if (!showFilters) return;
+    function handleClick(e) {
+      if (filtersRef.current && !filtersRef.current.contains(e.target)) {
+        setShowFilters(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return function () { document.removeEventListener("mousedown", handleClick); };
+  }, [showFilters]);
 
   var activeView = VIEWS.some(function (item) { return item.id === view; }) ? view : "replay";
 
@@ -65,6 +82,7 @@ export default function App() {
     search.clearSearch();
     setTrackFilters({});
     setShowPalette(false);
+    setShowFilters(false);
   }, [playback.resetPlayback, search.clearSearch, setTrackFilters]);
 
   var handleFile = useCallback(function (text, name) {
@@ -93,6 +111,14 @@ export default function App() {
       return next;
     });
   }, [setTrackFilters]);
+
+  var activeFilterCount = Object.keys(trackFilters).length;
+
+  var cycleSpeed = useCallback(function () {
+    var idx = SPEEDS.indexOf(playback.speed);
+    var next = SPEEDS[(idx + 1) % SPEEDS.length];
+    playback.setSpeed(next);
+  }, [playback.speed, playback.setSpeed]);
 
   var jumpToEntries = useCallback(function (entries, direction) {
     if (!entries || entries.length === 0) return;
@@ -154,7 +180,7 @@ export default function App() {
         height: "100vh",
         background: theme.bg.base,
         color: theme.text.primary,
-        fontFamily: theme.font,
+        fontFamily: theme.font.ui,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -165,7 +191,7 @@ export default function App() {
           width: 40,
           height: 40,
           border: "3px solid " + theme.border.default,
-          borderTopColor: theme.accent.cyan,
+          borderTopColor: theme.accent.primary,
           borderRadius: "50%",
           animation: "spin 0.8s linear infinite",
         }} />
@@ -183,7 +209,7 @@ export default function App() {
         height: "100vh",
         background: theme.bg.base,
         color: theme.text.primary,
-        fontFamily: theme.font,
+        fontFamily: theme.font.mono,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -192,53 +218,25 @@ export default function App() {
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-          {[0, 1, 2, 3, 4, 5, 6, 7].map(function (i) {
-            return (
-              <div key={i} style={{
-                position: "absolute",
-                left: (10 + i * 12) + "%",
-                bottom: -10,
-                width: 2,
-                height: 2,
-                borderRadius: "50%",
-                background: i % 2 === 0 ? theme.accent.cyan : theme.accent.purple,
-                opacity: 0,
-                animation: "floatParticle " + (8 + i * 2) + "s linear infinite",
-                animationDelay: i * 1.5 + "s",
-              }} />
-            );
-          })}
-        </div>
-
-        <div style={{ textAlign: "center", marginBottom: 8, animation: "fadeInUp 0.6s ease" }}>
-          <div style={{
-            fontSize: theme.fontSize.hero,
-            color: theme.accent.cyan,
-            marginBottom: 8,
-            animation: "glow 3s ease-in-out infinite",
-            display: "inline-block",
-          }}>{"\u25C8"}</div>
-          <div style={{ fontSize: theme.fontSize.xxl, fontWeight: 700, letterSpacing: 3 }}>AGENTVIZ</div>
-          <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6, letterSpacing: 1, lineHeight: 1.6 }}>
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: theme.fontSize.hero, fontWeight: 600, fontFamily: theme.font.ui, letterSpacing: "-0.5px", color: theme.text.primary }}>
+            agentviz<span style={{ color: theme.accent.primary }}>.</span>
+          </div>
+          <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6, lineHeight: 1.6 }}>
             See what your AI agents actually do.
-            <br />
-            <span style={{ color: theme.text.ghost }}>Drop a session file to start exploring.</span>
           </div>
         </div>
 
-        <div style={{ animation: "fadeInUp 0.6s ease 0.1s both" }}>
-          <FileUploader onLoad={handleFile} />
-        </div>
+        <FileUploader onLoad={handleFile} />
 
         {session.error && (
           <div style={{
-            background: theme.errorBg,
-            border: "1px solid " + theme.error,
+            background: theme.semantic.errorBg,
+            border: "1px solid " + theme.semantic.error,
             borderRadius: theme.radius.xl,
             padding: "10px 16px",
             fontSize: theme.fontSize.md,
-            color: theme.errorText,
+            color: theme.semantic.errorText,
             maxWidth: 500,
             animation: "fadeIn 0.3s ease",
           }}>
@@ -246,72 +244,9 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 16, alignItems: "center", animation: "fadeInUp 0.6s ease 0.2s both" }}>
-          <div style={{ height: 1, width: 60, background: theme.border.default }} />
-          <span style={{ fontSize: theme.fontSize.base, color: theme.text.ghost }}>or</span>
-          <div style={{ height: 1, width: 60, background: theme.border.default }} />
-        </div>
-
-        <button onClick={loadSample} style={{
-          background: "transparent",
-          border: "1px solid " + theme.border.strong,
-          borderRadius: theme.radius.xl,
-          color: theme.text.secondary,
-          padding: "10px 24px",
-          cursor: "pointer",
-          fontSize: theme.fontSize.md,
-          fontFamily: theme.font,
-          letterSpacing: 1,
-          transition: "all " + theme.transition.smooth,
-          animation: "fadeInUp 0.6s ease 0.3s both",
-        }}
-          onMouseEnter={function (e) {
-            e.target.style.borderColor = theme.accent.cyan;
-            e.target.style.color = theme.accent.cyan;
-          }}
-          onMouseLeave={function (e) {
-            e.target.style.borderColor = theme.border.strong;
-            e.target.style.color = theme.text.secondary;
-          }}
-        >
-          Load Demo Session
-        </button>
-
-        <div style={{
-          fontSize: theme.fontSize.base,
-          color: theme.text.ghost,
-          maxWidth: 500,
-          textAlign: "center",
-          lineHeight: 1.8,
-          marginTop: 16,
-          animation: "fadeInUp 0.6s ease 0.4s both",
-        }}>
-          Find your Claude Code sessions:
-          <br />
-          <code style={{ color: theme.text.dim }}>ls ~/.claude/projects/</code>
-          <br />
-          Then drop any .jsonl session file here
-        </div>
-      </div>
-    );
-  }
-
-  if (session.showHero) {
-    return (
-      <div style={{
-        width: "100%",
-        height: "100vh",
-        background: theme.bg.base,
-        color: theme.text.primary,
-        fontFamily: theme.font,
-      }}>
-        <SessionHero
-          metadata={session.metadata}
-          events={session.events}
-          totalTime={session.total}
-          timeMap={timeMap}
-          onDive={session.dismissHero}
-        />
+        <span onClick={loadSample} style={{ color: theme.text.muted, cursor: "pointer", fontSize: theme.fontSize.sm }}>
+          or load a demo session
+        </span>
       </div>
     );
   }
@@ -322,7 +257,7 @@ export default function App() {
       height: "100vh",
       background: theme.bg.base,
       color: theme.text.primary,
-      fontFamily: theme.font,
+      fontFamily: theme.font.mono,
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
@@ -343,265 +278,313 @@ export default function App() {
         />
       )}
 
+      {/* Header: Left | Center | Right */}
       <div style={{
-        padding: "10px 20px",
+        padding: "8px 16px",
         display: "flex",
         alignItems: "center",
-        gap: 14,
+        gap: 10,
         borderBottom: "1px solid " + theme.border.default,
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: 16, color: theme.accent.cyan, cursor: "pointer" }} onClick={reset} title="Back">
-          {"\u25C8"}
+        {/* Left zone: identity + file info */}
+        <span
+          className="av-btn"
+          onClick={reset}
+          title="Back to start"
+          style={{
+            fontSize: theme.fontSize.lg,
+            fontWeight: 600,
+            fontFamily: theme.font.ui,
+            letterSpacing: "-0.5px",
+            color: theme.text.primary,
+            padding: "2px 4px",
+            borderRadius: theme.radius.sm,
+            background: "transparent",
+            border: "none",
+          }}
+        >
+          agentviz<span style={{ color: theme.accent.primary }}>.</span>
         </span>
-        <span style={{ fontSize: theme.fontSize.lg, fontWeight: 700, letterSpacing: 2 }}>AGENTVIZ</span>
         <div style={{ height: 16, width: 1, background: theme.border.default }} />
         <span style={{
           fontSize: theme.fontSize.base,
           color: theme.text.muted,
-          maxWidth: 200,
+          fontFamily: theme.font.mono,
+          maxWidth: 160,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
         }}>
           {session.file}
         </span>
-
         {session.metadata && (
-          <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost }}>
-            {session.metadata.totalEvents} events / {session.metadata.totalToolCalls} tools / {session.metadata.totalTurns} turns
+          <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, display: "flex", alignItems: "center", gap: 6 }}>
+            {session.metadata.totalEvents} events
             {session.metadata.errorCount > 0 && (
-              <span style={{ color: theme.error, marginLeft: 6 }}>
-                {"\u25CF"} {session.metadata.errorCount} error{session.metadata.errorCount > 1 ? "s" : ""}
-              </span>
-            )}
-            {session.metadata.warnings && session.metadata.warnings.length > 0 && (
-              <span
-                title={session.metadata.warnings.join("\n")}
-                style={{ color: theme.warning, marginLeft: 8 }}
-              >
-                {"\u25CF"} {session.metadata.warnings.length} parse warning{session.metadata.warnings.length > 1 ? "s" : ""}
+              <span style={{ color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <Icon name="alert-circle" size={12} /> {session.metadata.errorCount}
               </span>
             )}
           </span>
         )}
 
+        {/* Center zone: segmented view tabs */}
         <div style={{
           display: "flex",
           gap: 2,
-          marginLeft: 16,
+          margin: "0 auto",
           background: theme.bg.surface,
           borderRadius: theme.radius.lg,
           padding: 2,
         }}>
           {VIEWS.map(function (item) {
+            var isActive = activeView === item.id;
             return (
-              <button key={item.id} onClick={function () { setView(item.id); }} style={{
-                background: activeView === item.id ? theme.bg.raised : "transparent",
-                border: "none",
-                borderRadius: theme.radius.md,
-                color: activeView === item.id ? theme.accent.cyan : theme.text.muted,
-                padding: "4px 12px",
-                cursor: "pointer",
-                fontSize: theme.fontSize.base,
-                fontFamily: theme.font,
-                letterSpacing: 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                transition: "all " + theme.transition.fast,
-              }}>
-                <span>{item.icon}</span> {item.label}
+              <button
+                key={item.id}
+                className="av-btn"
+                onClick={function () { setView(item.id); }}
+                style={{
+                  background: isActive ? theme.bg.raised : "transparent",
+                  border: "none",
+                  borderRadius: theme.radius.md,
+                  color: isActive ? theme.accent.primary : theme.text.muted,
+                  padding: "4px 12px",
+                  fontSize: theme.fontSize.base,
+                  fontFamily: theme.font.ui,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <Icon name={item.icon} size={13} style={{ opacity: isActive ? 1 : 0.6 }} /> {item.label}
               </button>
             );
           })}
         </div>
 
-        <div style={{ marginLeft: 12, display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
-          <span style={{ fontSize: 12, color: theme.text.dim }}>{"\u2315"}</span>
-          <input
-            ref={searchInputRef}
-            id="agentviz-search"
-            type="text"
-            value={search.searchInput}
-            onChange={function (e) { search.setSearchInput(e.target.value); }}
-            onKeyDown={function (e) {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                jumpToMatch(e.shiftKey ? "prev" : "next");
-              }
-              if (e.key === "Escape") {
-                e.target.blur();
-                search.clearSearch();
-              }
-            }}
-            placeholder="Search... (/)"
+        {/* Right zone: search, filters, speed, close */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
+            <Icon name="search" size={13} style={{ color: theme.text.dim }} />
+            <input
+              ref={searchInputRef}
+              id="agentviz-search"
+              className="av-search"
+              type="text"
+              value={search.searchInput}
+              onChange={function (e) { search.setSearchInput(e.target.value); }}
+              onKeyDown={function (e) {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  jumpToMatch(e.shiftKey ? "prev" : "next");
+                }
+                if (e.key === "Escape") {
+                  e.target.blur();
+                  search.clearSearch();
+                }
+              }}
+              placeholder="Search (/)"
+              style={{
+                background: theme.bg.surface,
+                border: "1px solid " + theme.border.default,
+                borderRadius: theme.radius.md,
+                color: theme.text.primary,
+                padding: "3px 8px",
+                fontSize: theme.fontSize.base,
+                fontFamily: theme.font.mono,
+                width: 120,
+                outline: "none",
+              }}
+            />
+            {search.searchResults && (
+              <span style={{
+                fontSize: theme.fontSize.sm,
+                color: search.searchResults.length > 0 ? theme.accent.primary : theme.semantic.error,
+              }}>
+                {search.searchResults.length}
+              </span>
+            )}
+          </div>
+
+          <button
+            className="av-btn"
+            onClick={function () { setShowPalette(true); }}
+            title="Command Palette (Cmd+K)"
             style={{
               background: theme.bg.surface,
               border: "1px solid " + theme.border.default,
               borderRadius: theme.radius.md,
-              color: theme.text.primary,
-              padding: "3px 8px",
-              fontSize: theme.fontSize.base,
-              fontFamily: theme.font,
-              width: 140,
-              outline: "none",
-              transition: "border-color " + theme.transition.fast,
+              color: theme.text.dim,
+              padding: "2px 8px",
+              fontSize: theme.fontSize.xs,
+              fontFamily: theme.font.ui,
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
             }}
-            onFocus={function (e) { e.target.style.borderColor = theme.accent.cyan; }}
-            onBlur={function (e) { e.target.style.borderColor = theme.border.default; }}
-          />
-          {search.searchResults && (
-            <span style={{
-              fontSize: theme.fontSize.sm,
-              color: search.searchResults.length > 0 ? theme.accent.cyan : theme.error,
-            }}>
-              {search.searchResults.length} match{search.searchResults.length !== 1 ? "es" : ""}
-            </span>
-          )}
-        </div>
+          >
+            <Icon name="command" size={11} />K
+          </button>
 
-        <button
-          onClick={function () { setShowPalette(true); }}
-          title="Command Palette (Cmd+K)"
-          style={{
-            background: theme.bg.surface,
-            border: "1px solid " + theme.border.default,
-            borderRadius: theme.radius.md,
-            color: theme.text.dim,
-            padding: "2px 8px",
-            cursor: "pointer",
-            fontSize: theme.fontSize.xs,
-            fontFamily: theme.font,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            transition: "all " + theme.transition.fast,
-          }}
-          onMouseEnter={function (e) {
-            e.currentTarget.style.borderColor = theme.accent.cyan;
-            e.currentTarget.style.color = theme.accent.cyan;
-          }}
-          onMouseLeave={function (e) {
-            e.currentTarget.style.borderColor = theme.border.default;
-            e.currentTarget.style.color = theme.text.dim;
-          }}
-        >
-          {"\u2318"}K
-        </button>
-
-        {errorEntries.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 6 }}>
-            <button
-              onClick={function () { jumpToError("prev"); }}
-              title="Previous error (Shift+E)"
-              style={{
-                background: "transparent",
-                border: "1px solid " + theme.errorBorder,
-                borderRadius: theme.radius.sm,
-                color: theme.error,
-                cursor: "pointer",
-                padding: "2px 5px",
-                fontSize: theme.fontSize.sm,
-                fontFamily: theme.font,
-              }}
-            >
-              {"\u25C0"}
-            </button>
-            <span style={{ fontSize: theme.fontSize.sm, color: theme.error }}>{"\u25CF"} Errors</span>
-            <button
-              onClick={function () { jumpToError("next"); }}
-              title="Next error (E)"
-              style={{
-                background: "transparent",
-                border: "1px solid " + theme.errorBorder,
-                borderRadius: theme.radius.sm,
-                color: theme.error,
-                cursor: "pointer",
-                padding: "2px 5px",
-                fontSize: theme.fontSize.sm,
-                fontFamily: theme.font,
-              }}
-            >
-              {"\u25B6"}
-            </button>
-          </div>
-        )}
-
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-          {Object.entries(TRACK_TYPES).map(function (entry) {
-            var key = entry[0];
-            var info = entry[1];
-            var isHidden = trackFilters[key];
-            return (
+          {errorEntries.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
               <button
-                key={key}
-                onClick={function () { toggleTrackFilter(key); }}
-                title={(isHidden ? "Show " : "Hide ") + info.label}
+                className="av-btn"
+                onClick={function () { jumpToError("prev"); }}
+                title="Previous error (Shift+E)"
                 style={{
-                  background: isHidden ? "transparent" : alpha(info.color, 0.08),
-                  border: "1px solid " + (isHidden ? theme.border.default : alpha(info.color, 0.25)),
-                  color: isHidden ? theme.text.ghost : info.color,
+                  background: "transparent",
+                  border: "1px solid " + theme.semantic.errorBorder,
                   borderRadius: theme.radius.sm,
-                  padding: "1px 6px",
-                  cursor: "pointer",
-                  fontSize: theme.fontSize.xs,
-                  fontFamily: theme.font,
-                  textDecoration: isHidden ? "line-through" : "none",
-                  transition: "all " + theme.transition.fast,
-                }}
-              >
-                {info.icon}
-              </button>
-            );
-          })}
-          <div style={{ height: 12, width: 1, background: theme.border.default, margin: "0 2px" }} />
-          <span style={{ fontSize: theme.fontSize.sm, color: theme.text.dim }}>SPEED</span>
-          {SPEEDS.map(function (value) {
-            return (
-              <button
-                key={value}
-                onClick={function () { playback.setSpeed(value); }}
-                style={{
-                  background: playback.speed === value ? alpha(theme.accent.cyan, 0.08) : "transparent",
-                  border: "1px solid " + (playback.speed === value ? theme.accent.cyan : theme.border.default),
-                  color: playback.speed === value ? theme.accent.cyan : theme.text.muted,
-                  borderRadius: theme.radius.md,
-                  padding: "2px 7px",
-                  cursor: "pointer",
+                  color: theme.semantic.error,
+                  padding: "2px 4px",
                   fontSize: theme.fontSize.sm,
-                  fontFamily: theme.font,
-                  transition: "all " + theme.transition.fast,
+                  display: "flex",
+                  alignItems: "center",
                 }}
               >
-                {value}x
+                <Icon name="chevron-left" size={12} />
               </button>
-            );
-          })}
+              <span style={{ fontSize: theme.fontSize.sm, color: theme.semantic.error, display: "flex", alignItems: "center", gap: 3 }}>
+                <Icon name="alert-circle" size={12} /> {errorEntries.length}
+              </span>
+              <button
+                className="av-btn"
+                onClick={function () { jumpToError("next"); }}
+                title="Next error (E)"
+                style={{
+                  background: "transparent",
+                  border: "1px solid " + theme.semantic.errorBorder,
+                  borderRadius: theme.radius.sm,
+                  color: theme.semantic.error,
+                  padding: "2px 4px",
+                  fontSize: theme.fontSize.sm,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <Icon name="chevron-right" size={12} />
+              </button>
+            </div>
+          )}
+
+          <div style={{ height: 12, width: 1, background: theme.border.default }} />
+
+          {/* Track filter dropdown */}
+          <div ref={filtersRef} style={{ position: "relative" }}>
+            <button
+              className="av-btn"
+              onClick={function () { setShowFilters(function (p) { return !p; }); }}
+              title="Filter tracks"
+              style={{
+                background: activeFilterCount > 0 ? alpha(theme.accent.primary, 0.08) : "transparent",
+                border: "1px solid " + (activeFilterCount > 0 ? theme.accent.primary : theme.border.default),
+                borderRadius: theme.radius.md,
+                color: activeFilterCount > 0 ? theme.accent.primary : theme.text.muted,
+                padding: "2px 8px",
+                fontSize: theme.fontSize.sm,
+                fontFamily: theme.font.ui,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Icon name="filter" size={12} />
+              {activeFilterCount > 0 ? activeFilterCount + " hidden" : "Filters"}
+            </button>
+            {showFilters && (
+              <div style={{
+                position: "absolute",
+                top: "calc(100% + 6px)",
+                right: 0,
+                background: theme.bg.surface,
+                border: "1px solid " + theme.border.strong,
+                borderRadius: theme.radius.lg,
+                padding: 6,
+                zIndex: theme.z.tooltip,
+                boxShadow: theme.shadow.md,
+                minWidth: 160,
+              }}>
+                {Object.entries(TRACK_TYPES).map(function (entry) {
+                  var key = entry[0];
+                  var info = entry[1];
+                  var isHidden = trackFilters[key];
+                  return (
+                    <button
+                      key={key}
+                      className="av-interactive"
+                      onClick={function () { toggleTrackFilter(key); }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "6px 10px",
+                        borderRadius: theme.radius.md,
+                        width: "100%",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <Icon name={key} size={13} style={{ color: isHidden ? theme.text.ghost : info.color }} />
+                      <span style={{
+                        fontSize: theme.fontSize.base,
+                        fontFamily: theme.font.ui,
+                        color: isHidden ? theme.text.ghost : theme.text.secondary,
+                        textDecoration: isHidden ? "line-through" : "none",
+                        flex: 1,
+                      }}>
+                        {info.label}
+                      </span>
+                      {isHidden && (
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>hidden</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Speed: single cycling button */}
           <button
+            className="av-btn"
+            onClick={cycleSpeed}
+            title="Playback speed (click to cycle)"
+            style={{
+              background: playback.speed !== 1 ? alpha(theme.accent.primary, 0.08) : "transparent",
+              border: "1px solid " + (playback.speed !== 1 ? theme.accent.primary : theme.border.default),
+              color: playback.speed !== 1 ? theme.accent.primary : theme.text.muted,
+              borderRadius: theme.radius.md,
+              padding: "2px 8px",
+              fontSize: theme.fontSize.sm,
+              fontFamily: theme.font.ui,
+            }}
+          >
+            {playback.speed}x
+          </button>
+
+          <button
+            className="av-btn"
             onClick={reset}
+            title="Close session"
             style={{
               background: "transparent",
               border: "1px solid " + theme.border.default,
               color: theme.text.muted,
               borderRadius: theme.radius.md,
-              padding: "2px 8px",
-              cursor: "pointer",
+              padding: "2px 6px",
               fontSize: theme.fontSize.sm,
-              fontFamily: theme.font,
-              marginLeft: 8,
-              transition: "all " + theme.transition.fast,
-            }}
-            onMouseEnter={function (e) {
-              e.target.style.borderColor = theme.error;
-              e.target.style.color = theme.error;
-            }}
-            onMouseLeave={function (e) {
-              e.target.style.borderColor = theme.border.default;
-              e.target.style.color = theme.text.muted;
+              fontFamily: theme.font.ui,
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
             }}
           >
-            {"\u2715"} Close
+            <Icon name="close" size={12} />
           </button>
         </div>
       </div>

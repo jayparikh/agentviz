@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { theme, TRACK_TYPES } from "../lib/theme.js";
 import { buildCommandPaletteIndex, searchCommandPalette } from "../lib/commandPalette.js";
+import Icon from "./Icon.jsx";
 
 /**
  * CommandPalette - Cmd+K fuzzy search overlay
@@ -57,7 +58,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
     }}>
       <div onClick={function (e) { e.stopPropagation(); }} style={{
         width: 560, background: theme.bg.surface, border: "1px solid " + theme.border.strong,
-        borderRadius: theme.radius.xxl, boxShadow: theme.shadow.drop,
+        borderRadius: theme.radius.xxl, boxShadow: theme.shadow.md,
         overflow: "hidden",
       }}>
         {/* Input */}
@@ -65,7 +66,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
           display: "flex", alignItems: "center", gap: 10,
           padding: "14px 18px", borderBottom: "1px solid " + theme.border.default,
         }}>
-          <span style={{ fontSize: 16, color: theme.accent.cyan }}>{"\u2315"}</span>
+          <Icon name="search" size={16} style={{ color: theme.accent.primary }} />
           <input
             ref={inputRef}
             value={query}
@@ -74,7 +75,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
             placeholder="Search events, turns, tools..."
             style={{
               flex: 1, background: "transparent", border: "none", outline: "none",
-              color: theme.text.primary, fontSize: theme.fontSize.md, fontFamily: theme.font,
+              color: theme.text.primary, fontSize: theme.fontSize.md, fontFamily: theme.font.mono,
             }}
           />
           <span style={{
@@ -99,11 +100,11 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
             var isSelected = i === selectedIdx;
             var trackInfo = item.track ? TRACK_TYPES[item.track] : null;
             var itemColor = item.color || (
-              item.type === "view" ? theme.accent.cyan
-              : item.type === "turn" ? theme.accent.blue
+              item.type === "view" ? theme.accent.primary
+              : item.type === "turn" ? theme.accent.primary
               : (trackInfo ? trackInfo.color : theme.text.secondary)
             );
-            if (item.isError || item.hasError) itemColor = theme.error;
+            if (item.isError || item.hasError) itemColor = theme.semantic.error;
 
             return (
               <div
@@ -117,8 +118,8 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
                   transition: "background " + theme.transition.fast,
                 }}
               >
-                <span style={{ fontSize: 12, color: itemColor, width: 16, textAlign: "center" }}>
-                  {item.icon || (trackInfo ? trackInfo.icon : "\u25CF")}
+                <span style={{ fontSize: 12, color: itemColor, width: 16, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {item.iconName ? <Icon name={item.iconName} size={13} /> : (trackInfo ? <Icon name={item.track} size={13} /> : <Icon name="circle" size={10} />)}
                 </span>
                 <span style={{
                   flex: 1, fontSize: theme.fontSize.base, color: isSelected ? theme.text.primary : theme.text.secondary,
@@ -144,8 +145,8 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
           padding: "8px 18px", borderTop: "1px solid " + theme.border.default,
           display: "flex", gap: 16, fontSize: theme.fontSize.xs, color: theme.text.ghost,
         }}>
-          <span>{"\u2191\u2193"} navigate</span>
-          <span>{"\u21B5"} select</span>
+          <span><Icon name="arrow-up-down" size={11} /> navigate</span>
+          <span><Icon name="enter" size={11} /> select</span>
           <span>esc close</span>
         </div>
       </div>

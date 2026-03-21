@@ -5,6 +5,7 @@ import SyntaxHighlight from "./SyntaxHighlight.jsx";
 import DiffViewer from "./DiffViewer.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
+import Icon from "./Icon.jsx";
 import { isDiffViewable } from "../lib/diffUtils.js";
 
 var REPLAY_WINDOW_OVERSCAN = 600;
@@ -22,8 +23,8 @@ function highlightText(text, query) {
     <span
       key="hl"
       style={{
-        background: alpha(theme.accent.cyan, 0.2),
-        color: theme.accent.cyan,
+        background: alpha(theme.accent.primary, 0.2),
+        color: theme.accent.primary,
         borderRadius: 2,
         padding: "0 1px",
       }}
@@ -56,20 +57,20 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
           <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, lineHeight: 2.2 }}>
             <div>Events: <span style={{ color: theme.text.primary }}>{metadata.totalEvents}</span></div>
             <div>Turns: <span style={{ color: theme.text.primary }}>{metadata.totalTurns}</span></div>
-            <div>Tools: <span style={{ color: theme.accent.amber }}>{metadata.totalToolCalls}</span></div>
+            <div>Tools: <span style={{ color: theme.track.tool_call }}>{metadata.totalToolCalls}</span></div>
             {metadata.errorCount > 0 && (
-              <div>Errors: <span style={{ color: theme.error }}>{metadata.errorCount}</span></div>
+              <div>Errors: <span style={{ color: theme.semantic.error }}>{metadata.errorCount}</span></div>
             )}
             {metadata.primaryModel && (
-              <div>Model: <span style={{ color: theme.accent.purple }}>{metadata.primaryModel.split("-").slice(0, 3).join("-")}</span></div>
+              <div>Model: <span style={{ color: theme.track.context }}>{metadata.primaryModel.split("-").slice(0, 3).join("-")}</span></div>
             )}
             {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
-              <div>Tokens: <span style={{ color: theme.accent.cyan }}>
+              <div>Tokens: <span style={{ color: theme.accent.primary }}>
                 {(metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens).toLocaleString()}
               </span></div>
             )}
             {metadata.warnings && metadata.warnings.length > 0 && (
-              <div style={{ color: theme.warning }}>
+              <div style={{ color: theme.semantic.warning }}>
                 Warnings: {metadata.warnings.length}
               </div>
             )}
@@ -87,7 +88,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
         {toolEntries.map(function (pair) {
           return (
             <div key={pair[0]} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-              <span style={{ fontSize: theme.fontSize.base, color: theme.accent.amber, fontFamily: theme.font }}>{pair[0]}</span>
+              <span style={{ fontSize: theme.fontSize.base, color: theme.track.tool_call, fontFamily: theme.font.mono }}>{pair[0]}</span>
               <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>{pair[1]}x</span>
             </div>
           );
@@ -103,11 +104,11 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
             background: theme.bg.surface,
             borderRadius: theme.radius.lg,
             padding: 10,
-            border: "1px solid " + alpha(selected.isError ? theme.error : ((TRACK_TYPES[selected.track] || {}).color || theme.text.ghost), 0.2),
+            border: "1px solid " + alpha(selected.isError ? theme.semantic.error : ((TRACK_TYPES[selected.track] || {}).color || theme.text.ghost), 0.2),
           }}>
             {TRACK_TYPES[selected.track] && (
-              <div style={{ fontSize: theme.fontSize.base, color: selected.isError ? theme.error : TRACK_TYPES[selected.track].color, marginBottom: 4 }}>
-                {TRACK_TYPES[selected.track].icon} {TRACK_TYPES[selected.track].label}
+              <div style={{ fontSize: theme.fontSize.base, color: selected.isError ? theme.semantic.error : TRACK_TYPES[selected.track].color, marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
+                <Icon name={selected.track} size={13} /> {TRACK_TYPES[selected.track].label}
                 {selected.isError && " (ERROR)"}
               </div>
             )}
@@ -115,10 +116,10 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
             <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary }}>Time: {selected.t.toFixed(2)}s</div>
             <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary }}>Turn: {(selected.turnIndex || 0) + 1}</div>
             {selected.toolName && (
-              <div style={{ fontSize: theme.fontSize.base, color: theme.accent.amber, marginTop: 4 }}>Tool: {selected.toolName}</div>
+              <div style={{ fontSize: theme.fontSize.base, color: theme.track.tool_call, marginTop: 4 }}>Tool: {selected.toolName}</div>
             )}
             {selected.model && (
-              <div style={{ fontSize: theme.fontSize.base, color: theme.accent.purple, marginTop: 4 }}>Model: {selected.model}</div>
+              <div style={{ fontSize: theme.fontSize.base, color: theme.track.context, marginTop: 4 }}>Model: {selected.model}</div>
             )}
           </div>
         </div>
@@ -134,7 +135,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
               onClick={function () { setShowRaw(true); }}
               style={{
                 fontSize: theme.fontSize.xs,
-                color: theme.accent.cyan,
+                color: theme.accent.primary,
                 cursor: "pointer",
               }}
             >
@@ -156,7 +157,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
                 onClick={function () { setShowRaw(false); }}
                 style={{
                   fontSize: theme.fontSize.xs,
-                  color: theme.accent.cyan,
+                  color: theme.accent.primary,
                   cursor: "pointer",
                 }}
               >
@@ -289,18 +290,18 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                   </span>
                   <div style={{ flex: 1, height: 1, background: theme.border.default }} />
                   {item.turn.toolCount > 0 && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.accent.amber }}>{item.turn.toolCount} tools</span>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call }}>{item.turn.toolCount} tools</span>
                   )}
                   {item.turn.hasError && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.error }}>{"\u25CF"} error</span>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 3 }}><Icon name="alert-circle" size={11} /> error</span>
                   )}
                 </div>
               );
             }
 
             var borderColor = isError
-              ? theme.error
-              : (isSelected ? theme.accent.cyan : (isCurrent ? alpha(agentColor, 0.5) : "transparent"));
+              ? theme.semantic.error
+              : (isSelected ? theme.accent.primary : (isCurrent ? alpha(agentColor, 0.5) : "transparent"));
 
             return (
               <div key={entry.index} style={{ position: "absolute", top: item.top, left: 0, right: 0 }}>
@@ -312,25 +313,25 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                     gap: 10,
                     padding: "7px 12px",
                     borderRadius: theme.radius.lg,
-                    background: isMatch ? alpha(theme.accent.cyan, 0.03) : (isSelected ? theme.bg.raised : (isCurrent ? theme.bg.overlay : "transparent")),
-                    borderLeft: "3px solid " + borderColor,
-                    opacity: isCurrent || isSelected || isMatch ? 1 : 0.55,
+                    background: isMatch ? alpha(theme.accent.primary, 0.03) : (isSelected ? theme.bg.raised : (isCurrent ? theme.bg.overlay : "transparent")),
+                    borderLeft: "2px solid " + borderColor,
+                    opacity: isCurrent || isSelected || isMatch ? 1 : 0.75,
                     cursor: "pointer",
                     transition: "all " + theme.transition.base,
-                    animation: (isCurrent && isNew) ? "slideIn 0.2s ease" : "none",
+                    animation: "none",
                   }}
                 >
-                  <div style={{ minWidth: 40, fontFamily: theme.font, fontSize: theme.fontSize.sm, color: theme.text.dim, paddingTop: 3 }}>
+                  <div style={{ minWidth: 40, fontFamily: theme.font.mono, fontSize: theme.fontSize.sm, color: theme.text.dim, paddingTop: 3 }}>
                     {ev.t.toFixed(1)}s
                   </div>
                   <div style={{
                     minWidth: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: isError ? theme.error : agentColor,
+                    background: isError ? theme.semantic.error : agentColor,
                     marginTop: 5,
-                    boxShadow: isCurrent ? theme.shadow.glowSm(isError ? theme.error : agentColor) : "none",
-                    animation: isCurrent ? "pulse 2s ease-in-out infinite" : "none",
+                    boxShadow: "none",
+                    animation: "none",
                   }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
@@ -340,21 +341,24 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                       {info && (
                         <span style={{
                           fontSize: theme.fontSize.xs,
-                          color: isError ? theme.error : info.color,
-                          background: alpha(isError ? theme.error : info.color, 0.08),
+                          color: isError ? theme.semantic.error : info.color,
+                          background: alpha(isError ? theme.semantic.error : info.color, 0.08),
                           padding: "1px 5px",
                           borderRadius: theme.radius.sm,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
                         }}>
-                          {info.icon} {info.label}
+                          <Icon name={ev.track} size={11} /> {info.label}
                         </span>
                       )}
                       {ev.toolName && (
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.accent.amber, background: alpha(theme.accent.amber, 0.06), padding: "1px 5px", borderRadius: theme.radius.sm }}>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call, background: alpha(theme.track.tool_call, 0.06), padding: "1px 5px", borderRadius: theme.radius.sm }}>
                           {ev.toolName}
                         </span>
                       )}
                       {isError && (
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.error, fontWeight: 600 }}>ERROR</span>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, fontWeight: 600 }}>ERROR</span>
                       )}
                       {ev.model && isSelected && (
                         <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted }}>{ev.model}</span>
@@ -362,9 +366,9 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                     </div>
                     <div style={{
                       fontSize: theme.fontSize.md,
-                      color: isError ? theme.errorText : theme.text.primary,
+                      color: isError ? theme.semantic.errorText : theme.text.primary,
                       lineHeight: 1.5,
-                      fontFamily: theme.font,
+                      fontFamily: theme.font.mono,
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
                     }}>

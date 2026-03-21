@@ -1,122 +1,138 @@
 /**
- * AgentViz Design Tokens - "Midnight Circuit" theme
+ * AgentViz Design Tokens
  *
- * Every color, spacing, and visual constant lives here.
- * Components reference tokens, never raw hex values.
+ * Neutral dark palette. Single accent color. Color means something.
+ * Inspired by Linear, Raycast, Vercel -- tools that feel quiet and fast.
  */
 
 export const theme = {
-  // ── Core palette ──
+  // ── Backgrounds ──
+  // Warm neutral grays, no blue tint
   bg: {
-    base: "#0a0f1e",
-    surface: "#0f172a",
-    raised: "#1e293b",
-    overlay: "#151e2e",
-    hover: "#1e293b",
+    base: "#111113",
+    surface: "#18181b",
+    raised: "#222225",
+    overlay: "rgba(0, 0, 0, 0.6)",
+    hover: "#262629",
+    active: "#2c2c30",
   },
 
   // ── Borders ──
+  // Depth through thin lines, not shadows
   border: {
-    subtle: "#111827",
-    default: "#1e293b",
-    strong: "#334155",
+    subtle: "#222225",
+    default: "#2c2c30",
+    strong: "#3a3a3f",
+    focus: "#5e6ad2",
   },
 
   // ── Text ──
+  // Clear hierarchy, no lavender tint
   text: {
-    primary: "#e2e8f0",
-    secondary: "#94a3b8",
-    muted: "#64748b",
-    dim: "#475569",
-    ghost: "#334155",
+    primary: "#ededef",
+    secondary: "#8b8b92",
+    muted: "#5c5c63",
+    dim: "#45454b",
+    ghost: "#333338",
   },
 
-  // ── Accent colors ──
+  // ── Accent ──
+  // One color. Used for: selection, focus, primary actions.
   accent: {
-    cyan: "#22d3ee",
-    amber: "#f59e0b",
-    purple: "#a78bfa",
-    green: "#34d399",
-    blue: "#60a5fa",
-    red: "#ef4444",
-    redMuted: "#fca5a5",
-  },
-
-  // ── Agent colors ──
-  agent: {
-    user: "#60a5fa",
-    assistant: "#a78bfa",
-    system: "#6b7280",
-  },
-
-  // ── Track colors ──
-  track: {
-    reasoning: "#22d3ee",
-    tool_call: "#f59e0b",
-    context: "#a78bfa",
-    output: "#34d399",
+    primary: "#5e6ad2",
+    hover: "#727ee0",
+    muted: "#5e6ad220",
   },
 
   // ── Semantic ──
-  error: "#ef4444",
-  errorBg: "#ef444420",
-  errorBorder: "#ef444440",
-  errorText: "#fca5a5",
-  success: "#34d399",
-  warning: "#f59e0b",
-  info: "#22d3ee",
+  semantic: {
+    success: "#3fad78",
+    warning: "#c4a240",
+    error: "#d14d4d",
+    errorBg: "#d14d4d15",
+    errorBorder: "#d14d4d30",
+    errorText: "#d48080",
+    info: "#5e6ad2",
+  },
+
+  // ── Agent colors ──
+  // Subtle. The content matters, not who said it.
+  agent: {
+    user: "#8b8b92",
+    assistant: "#5e6ad2",
+    system: "#c4a240",
+  },
+
+  // ── Track colors ──
+  // Muted, balanced luminance so no track dominates
+  track: {
+    reasoning: "#7b8794",
+    tool_call: "#c4a240",
+    context: "#7b7ec8",
+    output: "#3fad78",
+  },
 
   // ── Typography ──
-  font: "'JetBrains Mono', monospace",
+  font: {
+    mono: "'JetBrains Mono', monospace",
+    ui: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  },
   fontSize: {
-    xs: 9,
-    sm: 10,
-    base: 11,
-    md: 12,
-    lg: 13,
-    xl: 15,
-    xxl: 20,
-    hero: 36,
+    xs: 10,
+    sm: 11,
+    base: 12,
+    md: 13,
+    lg: 15,
+    xl: 18,
+    xxl: 24,
+    hero: 32,
   },
 
   // ── Spacing ──
+  // 4px grid
   space: {
     xs: 2,
     sm: 4,
     md: 8,
     lg: 12,
     xl: 16,
-    xxl: 20,
-    xxxl: 24,
-    huge: 32,
-    giant: 48,
+    xxl: 24,
+    xxxl: 32,
+    huge: 40,
+    giant: 56,
   },
 
   // ── Radii ──
   radius: {
-    sm: 3,
-    md: 4,
-    lg: 6,
-    xl: 8,
+    sm: 4,
+    md: 6,
+    lg: 8,
+    xl: 10,
     xxl: 12,
+    full: 9999,
   },
 
   // ── Shadows ──
+  // Minimal. No glows.
   shadow: {
-    glow: function (color) { return "0 0 8px " + color; },
-    glowSm: function (color) { return "0 0 4px " + color; },
-    glowLg: function (color) { return "0 0 12px " + color; },
-    drop: "0 8px 32px rgba(0,0,0,0.5)",
-    dropSm: "0 4px 16px rgba(0,0,0,0.3)",
+    sm: "0 1px 2px rgba(0,0,0,0.3)",
+    md: "0 4px 12px rgba(0,0,0,0.25)",
+    lg: "0 12px 32px rgba(0,0,0,0.35)",
+    inset: "inset 0 1px 2px rgba(0,0,0,0.2)",
+  },
+
+  // ── Focus ──
+  focus: {
+    ring: "0 0 0 2px #5e6ad2",
   },
 
   // ── Animation ──
+  // Snappy, ease-out only. No decorative motion.
   transition: {
-    fast: "0.1s ease",
-    base: "0.15s ease",
-    smooth: "0.2s ease",
-    slow: "0.3s ease-out",
-    spring: "0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+    fast: "80ms ease-out",
+    base: "150ms ease-out",
+    smooth: "200ms ease-out",
+    slow: "300ms ease-out",
   },
 
   // ── Z-index layers ──
@@ -130,18 +146,22 @@ export const theme = {
   },
 };
 
-// ── Track metadata (merged with theme) ──
+// ── Track metadata ──
 export const TRACK_TYPES = {
-  reasoning: { label: "Reasoning", color: theme.track.reasoning, icon: "\u25C6" },
-  tool_call: { label: "Tool Calls", color: theme.track.tool_call, icon: "\u25B6" },
-  context: { label: "Context", color: theme.track.context, icon: "\u25CE" },
-  output: { label: "Output", color: theme.track.output, icon: "\u25CF" },
+  reasoning: { label: "Reasoning", color: theme.track.reasoning, icon: "reasoning" },
+  tool_call: { label: "Tool Calls", color: theme.track.tool_call, icon: "tool_call" },
+  context: { label: "Context", color: theme.track.context, icon: "context" },
+  output: { label: "Output", color: theme.track.output, icon: "output" },
 };
 
 export const AGENT_COLORS = theme.agent;
 
-// ── Hex opacity helper ──
+// ── Opacity helper ──
 export function alpha(hex, opacity) {
-  var a = Math.round(opacity * 255).toString(16).padStart(2, "0");
-  return hex + a;
+  if (hex.startsWith("rgba")) return hex;
+  var h = hex.replace("#", "");
+  var r = parseInt(h.substring(0, 2), 16);
+  var g = parseInt(h.substring(2, 4), 16);
+  var b = parseInt(h.substring(4, 6), 16);
+  return "rgba(" + r + "," + g + "," + b + "," + opacity + ")";
 }
