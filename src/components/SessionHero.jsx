@@ -4,13 +4,14 @@ import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
  * SessionHero - Beautiful summary card shown after loading a session.
  * Displays key metrics with a mini activity sparkline.
  */
-export default function SessionHero({ metadata, events, totalTime, onDive }) {
+export default function SessionHero({ metadata, events, totalTime, timeMap, onDive }) {
   // Build mini sparkline data (30 bins)
   var bins = 30;
   var sparkData = new Array(bins).fill(0);
   if (events && totalTime > 0) {
     for (var i = 0; i < events.length; i++) {
-      var bin = Math.min(bins - 1, Math.floor((events[i].t / totalTime) * bins));
+      var pos = timeMap ? timeMap.toPosition(events[i].t) : events[i].t / totalTime;
+      var bin = Math.min(bins - 1, Math.floor(pos * bins));
       sparkData[bin] += events[i].intensity || 0.5;
     }
   }
