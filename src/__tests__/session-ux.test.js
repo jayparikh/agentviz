@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildReplayLayout, getReplayWindow } from "../lib/replayLayout.js";
 import { buildCommandPaletteIndex, searchCommandPalette } from "../lib/commandPalette.js";
+import { buildTimelineBins } from "../components/Timeline.jsx";
 
 describe("replay layout helpers", function () {
   it("adds extra height for turn headers", function () {
@@ -74,5 +75,29 @@ describe("command palette helpers", function () {
     var eventResults = results.filter(function (item) { return item.type === "event"; });
 
     expect(eventResults.length).toBeLessThanOrEqual(12);
+  });
+});
+
+describe("timeline binning", function () {
+  it("marks every covered bin for long-duration events", function () {
+    var entries = [
+      {
+        index: 0,
+        event: {
+          t: 10,
+          duration: 60,
+          intensity: 0.8,
+          isError: false,
+          track: "tool_call",
+        },
+      },
+    ];
+
+    var bins = buildTimelineBins(entries, 100, null, null);
+    var filled = bins.reduce(function (acc, bin) {
+      return acc + (bin.count > 0 ? 1 : 0);
+    }, 0);
+
+    expect(filled).toBeGreaterThan(1);
   });
 });

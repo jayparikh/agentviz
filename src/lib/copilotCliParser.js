@@ -108,7 +108,7 @@ function buildNormalizedEvents(records, sessionStartSec, toolPairs) {
 
     // -- User messages --
     if (type === "user.message") {
-      events.push(makeEvent(t, "user", "context", data.content || "", 0.5, 0.9, rec));
+      events.push(makeEvent(t, "user", "output", data.content || "", 0.5, 0.9, rec));
       continue;
     }
 
@@ -471,12 +471,14 @@ function buildMetadata(records, events, turns, malformedLines) {
     duration: duration,
     models: models,
     primaryModel: primaryModel,
-    tokenUsage: {
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-      cacheReadTokens: totalCacheReadTokens,
-      cacheWriteTokens: totalCacheWriteTokens,
-    },
+    tokenUsage: (totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheWriteTokens > 0)
+      ? {
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        cacheReadTokens: totalCacheReadTokens,
+        cacheWriteTokens: totalCacheWriteTokens,
+      }
+      : null,
     warnings: warnings,
     parseIssues: { malformedLines: malformedLines, invalidEvents: 0 },
     // Copilot-specific metadata

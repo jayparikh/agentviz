@@ -56,7 +56,7 @@ export default function App() {
     if (session.total > 0) {
       playback.seek(session.total);
     }
-  }, [session.total]);
+  }, [session.total, playback.seek]);
 
   var activeView = VIEWS.some(function (item) { return item.id === view; }) ? view : "replay";
 
@@ -648,8 +648,6 @@ export default function App() {
             totalTime={session.total}
             timeMap={timeMap}
             turns={session.turns}
-            metadata={session.metadata}
-            onSeek={playback.seek}
           />
         )}
         {activeView === "stats" && (
