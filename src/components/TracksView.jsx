@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { theme, AGENT_COLORS, TRACK_TYPES, alpha } from "../lib/theme.js";
 
-export default function TracksView({ currentTime, eventEntries, totalTime, turns }) {
+export default function TracksView({ currentTime, eventEntries, totalTime, timeMap, turns }) {
   var [muted, setMuted] = useState({});
   var [solo, setSolo] = useState(null);
   var [hoveredEntry, setHoveredEntry] = useState(null);
@@ -29,7 +29,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, turns
     return !muted[key];
   }
 
-  var playPct = totalTime > 0 ? (currentTime / totalTime) * 100 : 0;
+  var playPct = timeMap ? timeMap.toPosition(currentTime) * 100 : (totalTime > 0 ? (currentTime / totalTime) * 100 : 0);
 
   var eventsByTrack = useMemo(function () {
     var grouped = {};
@@ -100,7 +100,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, turns
             <div style={{ flex: 1, position: "relative", background: theme.bg.base, borderBottom: "1px solid " + theme.border.subtle }}>
               {turns && turns.map(function (turn, ti) {
                 if (ti === 0) return null;
-                var left = totalTime > 0 ? (turn.startTime / totalTime) * 100 : 0;
+                var left = timeMap ? timeMap.toPosition(turn.startTime) * 100 : (totalTime > 0 ? (turn.startTime / totalTime) * 100 : 0);
                 return (
                   <div key={"tb-" + ti} style={{
                     position: "absolute",
@@ -115,8 +115,8 @@ export default function TracksView({ currentTime, eventEntries, totalTime, turns
               })}
               {trackEntries.map(function (trackEntry) {
                 var ev = trackEntry.event;
-                var left = totalTime > 0 ? (ev.t / totalTime) * 100 : 0;
-                var width = Math.max(1, totalTime > 0 ? (ev.duration / totalTime) * 100 : 2);
+                var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
+                var width = Math.max(1, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 2));
                 var agentColor = AGENT_COLORS[ev.agent] || theme.text.muted;
                 var active = currentTime >= ev.t && currentTime <= ev.t + ev.duration;
                 var hovered = hoveredEntry && hoveredEntry.index === trackEntry.index;
