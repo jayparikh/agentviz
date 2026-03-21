@@ -47,12 +47,12 @@ export default function App() {
 
   var search = useSearch(filteredEventEntries);
 
-  // Auto-seek to first event when a new session loads so content is immediately visible
+  // Auto-seek to end of session when loaded so all events are immediately visible
   useEffect(function () {
-    if (session.firstEventTime > 0) {
-      playback.seek(session.firstEventTime);
+    if (session.total > 0) {
+      playback.seek(session.total);
     }
-  }, [session.firstEventTime]);
+  }, [session.total]);
 
   var activeView = VIEWS.some(function (item) { return item.id === view; }) ? view : "replay";
 
