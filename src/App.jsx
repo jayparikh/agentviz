@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { theme, TRACK_TYPES, alpha } from "./lib/theme.js";
-import { buildFilteredEventEntries, buildTurnStartMap } from "./lib/session.js";
+import { buildFilteredEventEntries, buildTurnStartMap, buildTimeMap } from "./lib/session.js";
 import usePersistentState from "./hooks/usePersistentState.js";
 import useSessionLoader from "./hooks/useSessionLoader.js";
 import usePlayback from "./hooks/usePlayback.js";
@@ -44,6 +44,10 @@ export default function App() {
   var turnStartMap = useMemo(function () {
     return buildTurnStartMap(session.turns);
   }, [session.turns]);
+
+  var timeMap = useMemo(function () {
+    return buildTimeMap(session.events);
+  }, [session.events]);
 
   var search = useSearch(filteredEventEntries);
 
@@ -305,6 +309,7 @@ export default function App() {
           metadata={session.metadata}
           events={session.events}
           totalTime={session.total}
+          timeMap={timeMap}
           onDive={session.dismissHero}
         />
       </div>
@@ -605,6 +610,7 @@ export default function App() {
         <Timeline
           currentTime={playback.time}
           totalTime={session.total}
+          timeMap={timeMap}
           onSeek={playback.seek}
           isPlaying={playback.playing}
           onPlayPause={playback.playPause}

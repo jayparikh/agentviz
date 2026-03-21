@@ -1,16 +1,16 @@
 import { useRef, useMemo } from "react";
 import { theme, TRACK_TYPES } from "../lib/theme.js";
 
-export default function Timeline({ currentTime, totalTime, onSeek, isPlaying, onPlayPause, eventEntries, turns, matchSet }) {
+export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPlaying, onPlayPause, eventEntries, turns, matchSet }) {
   var barRef = useRef(null);
 
   function handleClick(e) {
     var rect = barRef.current.getBoundingClientRect();
     var pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    onSeek(pct * totalTime);
+    onSeek(timeMap ? timeMap.toTime(pct) : pct * totalTime);
   }
 
-  var pct = totalTime > 0 ? (currentTime / totalTime) * 100 : 0;
+  var pct = timeMap ? timeMap.toPosition(currentTime) * 100 : (totalTime > 0 ? (currentTime / totalTime) * 100 : 0);
 
   var counts = useMemo(function () {
     var nextCounts = {};
@@ -87,7 +87,7 @@ export default function Timeline({ currentTime, totalTime, onSeek, isPlaying, on
       >
         {turns && turns.map(function (turn, i) {
           if (i === 0) return null;
-          var left = totalTime > 0 ? (turn.startTime / totalTime) * 100 : 0;
+          var left = timeMap ? timeMap.toPosition(turn.startTime) * 100 : (totalTime > 0 ? (turn.startTime / totalTime) * 100 : 0);
           return (
             <div key={"turn-" + i} style={{
               position: "absolute",
@@ -103,8 +103,8 @@ export default function Timeline({ currentTime, totalTime, onSeek, isPlaying, on
         })}
         {eventEntries.map(function (entry) {
           var ev = entry.event;
-          var left = totalTime > 0 ? (ev.t / totalTime) * 100 : 0;
-          var width = Math.max(0.3, totalTime > 0 ? (ev.duration / totalTime) * 100 : 1);
+          var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
+          var width = Math.max(0.3, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 1));
           var info = TRACK_TYPES[ev.track];
           var color = ev.isError ? theme.error : (info ? info.color : theme.text.muted);
           var isMatch = matchSet && matchSet.has(entry.index);
