@@ -31,11 +31,14 @@ function formatTime(seconds) {
   return m + ":" + (s < 10 ? "0" : "") + s;
 }
 
-function TimeAxis({ totalTime, chartWidth }) {
+function TimeAxis({ totalTime, chartWidth, timeMap }) {
   if (totalTime <= 0 || chartWidth <= 0) return null;
 
+  // Use compressed display total for tick computation when available
+  var displayTotal = timeMap && timeMap.hasCompression ? timeMap.displayTotal : totalTime;
+
   // Compute tick interval: aim for ticks every ~80-120px
-  var rawInterval = (totalTime / chartWidth) * 100;
+  var rawInterval = (displayTotal / chartWidth) * 100;
   var niceIntervals = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
   var interval = niceIntervals[0];
   for (var i = 0; i < niceIntervals.length; i++) {
@@ -46,7 +49,7 @@ function TimeAxis({ totalTime, chartWidth }) {
   }
 
   var ticks = [];
-  for (var t = 0; t <= totalTime; t += interval) {
+  for (var t = 0; t <= displayTotal; t += interval) {
     ticks.push(t);
   }
 
@@ -58,7 +61,9 @@ function TimeAxis({ totalTime, chartWidth }) {
       flexShrink: 0,
     }}>
       {ticks.map(function (tick) {
-        var left = (tick / totalTime) * 100;
+        var left = displayTotal > 0 ? (tick / displayTotal) * 100 : 0;
+        // Convert compressed tick back to real time for the label
+        var realTime = timeMap && timeMap.hasCompression ? timeMap.toTime(tick / displayTotal) : tick;
         return (
           <div key={tick} style={{
             position: "absolute",
@@ -80,7 +85,7 @@ function TimeAxis({ totalTime, chartWidth }) {
               padding: "0 2px",
               whiteSpace: "nowrap",
             }}>
-              {formatTime(tick)}
+              {formatTime(realTime)}
             </span>
           </div>
         );
@@ -305,7 +310,7 @@ function WaterfallInspector({ selectedItem, stats }) {
   );
 }
 
-export default function WaterfallView({ currentTime, eventEntries, totalTime, turns, metadata, onSeek }) {
+export default function WaterfallView({ currentTime, eventEntries, totalTime, timeMap, turns, metadata, onSeek }) {
   var [selectedIdx, setSelectedIdx] = useState(null);
   var [hoveredIdx, setHoveredIdx] = useState(null);
   var scrollRef = useRef(null);
@@ -339,10 +344,30 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, tu
     return items[selectedIdx];
   }, [selectedIdx, items]);
 
+  // Pre-build index lookup so rows avoid O(n) indexOf per render
+  var itemIndexMap = useMemo(function () {
+    var map = new WeakMap();
+    for (var i = 0; i < items.length; i++) {
+      map.set(items[i], i);
+    }
+    return map;
+  }, [items]);
+
   var handleScroll = useCallback(function () {
     if (scrollRef.current) {
       setScrollTop(scrollRef.current.scrollTop);
     }
+  }, []);
+
+  // Debounced hover to avoid re-renders on every mouse move during scroll
+  var hoverTimerRef = useRef(null);
+  var handleMouseEnter = useCallback(function (idx) {
+    clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(function () { setHoveredIdx(idx); }, 30);
+  }, []);
+  var handleMouseLeave = useCallback(function () {
+    clearTimeout(hoverTimerRef.current);
+    setHoveredIdx(null);
   }, []);
 
   useEffect(function () {
@@ -356,7 +381,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, tu
     return function () { observer.disconnect(); };
   }, []);
 
-  var playPct = totalTime > 0 ? (currentTime / totalTime) * 100 : 0;
+  var playPct = timeMap ? timeMap.toPosition(currentTime) * 100 : (totalTime > 0 ? (currentTime / totalTime) * 100 : 0);
 
   if (items.length === 0) {
     return (
@@ -394,6 +419,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, tu
         <TimeAxis
           totalTime={totalTime}
           chartWidth={800}
+          timeMap={timeMap}
         />
 
         <div
@@ -413,7 +439,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, tu
             {/* Turn boundary vertical lines */}
             {turns && turns.map(function (turn, ti) {
               if (ti === 0) return null;
-              var left = totalTime > 0 ? (turn.startTime / totalTime) * 100 : 0;
+              var left = timeMap ? timeMap.toPosition(turn.startTime) * 100 : (totalTime > 0 ? (turn.startTime / totalTime) * 100 : 0);
               return (
                 <div key={"tb-" + ti} style={{
                   position: "absolute",
@@ -446,22 +472,24 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, tu
             {visibleItems.map(function (layoutItem, vi) {
               var item = layoutItem.item;
               var ev = item.event;
-              var idx = items.indexOf(item);
+              var idx = itemIndexMap.get(item);
               var isSelected = selectedIdx === idx;
               var isHovered = hoveredIdx === idx;
               var isActive = currentTime >= ev.t && currentTime <= ev.t + ev.duration;
               var barColor = ev.isError ? theme.error : getToolColor(ev.toolName);
               var indent = item.depth * INDENT_PX;
 
-              var barLeft = totalTime > 0 ? (ev.t / totalTime) * 100 : 0;
-              var barWidth = totalTime > 0 ? (ev.duration / totalTime) * 100 : 0;
+              var barLeft = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
+              var barWidth = timeMap
+                ? Math.max(0.3, (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100)
+                : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 0);
 
               return (
                 <div
                   key={item.originalIndex}
                   onClick={function () { setSelectedIdx(isSelected ? null : idx); }}
-                  onMouseEnter={function () { setHoveredIdx(idx); }}
-                  onMouseLeave={function () { setHoveredIdx(null); }}
+                  onMouseEnter={function () { handleMouseEnter(idx); }}
+                  onMouseLeave={handleMouseLeave}
                   style={{
                     position: "absolute",
                     top: layoutItem.top,
