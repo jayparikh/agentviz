@@ -310,11 +310,10 @@ function WaterfallInspector({ selectedItem, stats }) {
   );
 }
 
-export default function WaterfallView({ currentTime, eventEntries, totalTime, timeMap, turns, metadata, onSeek }) {
+export default function WaterfallView({ currentTime, eventEntries, totalTime, timeMap, turns }) {
   var [selectedIdx, setSelectedIdx] = useState(null);
   var [hoveredIdx, setHoveredIdx] = useState(null);
   var scrollRef = useRef(null);
-  var chartRef = useRef(null);
   var [scrollTop, setScrollTop] = useState(0);
   var [viewportHeight, setViewportHeight] = useState(600);
 
@@ -541,7 +540,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
                   </div>
 
                   {/* Bar area */}
-                  <div ref={vi === 0 ? chartRef : undefined} style={{
+                  <div style={{
                     flex: 1,
                     position: "relative",
                     height: "100%",

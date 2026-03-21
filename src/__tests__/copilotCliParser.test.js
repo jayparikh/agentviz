@@ -194,7 +194,7 @@ describe("event normalization", function () {
   it("produces user message event", function () {
     var userEvents = events.filter(function (e) { return e.agent === "user"; });
     expect(userEvents.length).toBe(1);
-    expect(userEvents[0].track).toBe("context");
+    expect(userEvents[0].track).toBe("output");
     expect(userEvents[0].text).toBe("Fix the login bug");
     expect(userEvents[0].intensity).toBe(0.9);
   });
@@ -207,7 +207,7 @@ describe("event normalization", function () {
   });
 
   it("produces output event from assistant.message content", function () {
-    var output = events.filter(function (e) { return e.track === "output"; });
+    var output = events.filter(function (e) { return e.track === "output" && e.agent === "assistant"; });
     expect(output.length).toBe(1);
     expect(output[0].text).toBe("Let me look at the login code.");
   });
@@ -394,6 +394,14 @@ describe("metadata", function () {
     expect(meta.tokenUsage.inputTokens).toBe(5000);
     expect(meta.tokenUsage.outputTokens).toBe(150);
     expect(meta.tokenUsage.cacheReadTokens).toBe(3000);
+  });
+
+  it("uses null tokenUsage when no token counters are present", function () {
+    var shutdownNoUsage = JSON.parse(JSON.stringify(SESSION_SHUTDOWN));
+    shutdownNoUsage.data.modelMetrics = {};
+    var trace = [SESSION_START, USER_MSG, TURN_START, ASSISTANT_MSG_WITH_REASONING, TOOL_START, TOOL_COMPLETE, TURN_END, shutdownNoUsage];
+    var parsed = parseCopilotCliJSONL(buildTrace(trace));
+    expect(parsed.metadata.tokenUsage).toBeNull();
   });
 
   it("identifies primary model", function () {

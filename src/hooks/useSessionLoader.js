@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { parseSession } from "../lib/parseSession.js";
 import { SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA } from "../lib/constants.js";
 import { getSessionTotal } from "../lib/session.js";
@@ -8,29 +8,41 @@ export default function useSessionLoader() {
   var [turns, setTurns] = useState([]);
   var [metadata, setMetadata] = useState(null);
   var [total, setTotal] = useState(0);
-  var [firstEventTime, setFirstEventTime] = useState(0);
   var [file, setFile] = useState("");
   var [error, setError] = useState(null);
   var [loading, setLoading] = useState(false);
   var [showHero, setShowHero] = useState(false);
+  var parseTimeoutRef = useRef(null);
+  var requestIdRef = useRef(0);
 
   var applySession = useCallback(function (result, name) {
     setEvents(result.events);
     setTurns(result.turns);
     setMetadata(result.metadata);
     setTotal(getSessionTotal(result.events));
-    setFirstEventTime(result.events.length > 0 ? result.events[0].t : 0);
     setFile(name);
     setError(null);
     setShowHero(true);
   }, []);
 
   var handleFile = useCallback(function (text, name) {
+    requestIdRef.current += 1;
+    var requestId = requestIdRef.current;
+
+    if (parseTimeoutRef.current) {
+      clearTimeout(parseTimeoutRef.current);
+      parseTimeoutRef.current = null;
+    }
+
     setError(null);
     setLoading(true);
 
-    setTimeout(function () {
+    parseTimeoutRef.current = setTimeout(function () {
+      parseTimeoutRef.current = null;
       var result = parseSession(text);
+
+      if (requestId !== requestIdRef.current) return;
+
       setLoading(false);
 
       if (!result || !result.events || result.events.length === 0) {
@@ -43,6 +55,12 @@ export default function useSessionLoader() {
   }, [applySession]);
 
   var loadSample = useCallback(function () {
+    requestIdRef.current += 1;
+    if (parseTimeoutRef.current) {
+      clearTimeout(parseTimeoutRef.current);
+      parseTimeoutRef.current = null;
+    }
+
     setEvents(SAMPLE_EVENTS);
     setTurns(SAMPLE_TURNS);
     setMetadata(SAMPLE_METADATA);
@@ -50,15 +68,21 @@ export default function useSessionLoader() {
     setFirstEventTime(SAMPLE_EVENTS.length > 0 ? SAMPLE_EVENTS[0].t : 0);
     setFile("demo-session.jsonl");
     setError(null);
+    setLoading(false);
     setShowHero(true);
   }, []);
 
   var resetSession = useCallback(function () {
+    requestIdRef.current += 1;
+    if (parseTimeoutRef.current) {
+      clearTimeout(parseTimeoutRef.current);
+      parseTimeoutRef.current = null;
+    }
+
     setEvents(null);
     setTurns([]);
     setMetadata(null);
     setTotal(0);
-    setFirstEventTime(0);
     setFile("");
     setError(null);
     setLoading(false);
@@ -69,12 +93,21 @@ export default function useSessionLoader() {
     setShowHero(false);
   }, []);
 
+  useEffect(function () {
+    return function () {
+      requestIdRef.current += 1;
+      if (parseTimeoutRef.current) {
+        clearTimeout(parseTimeoutRef.current);
+        parseTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   return {
     events: events,
     turns: turns,
     metadata: metadata,
     total: total,
-    firstEventTime: firstEventTime,
     file: file,
     error: error,
     loading: loading,

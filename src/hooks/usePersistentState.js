@@ -21,6 +21,8 @@ export default function usePersistentState(storageKey, initialValue) {
   });
 
   var timerRef = useRef(null);
+  var latestStateRef = useRef(state);
+  latestStateRef.current = state;
 
   useEffect(function () {
     if (!storageKey || typeof window === "undefined") return;
@@ -38,15 +40,27 @@ export default function usePersistentState(storageKey, initialValue) {
     return function () {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
-        // Flush synchronously on unmount so the last value is saved
-        try {
-          window.localStorage.setItem(storageKey, JSON.stringify(state));
-        } catch (error) {
-          // Ignore errors during unmount flush
-        }
+        timerRef.current = null;
       }
     };
   }, [storageKey, state]);
+
+  useEffect(function () {
+    if (!storageKey || typeof window === "undefined") return;
+
+    return function () {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(latestStateRef.current));
+      } catch (error) {
+        console.warn("Could not persist UI state for", storageKey, error);
+      }
+    };
+  }, [storageKey]);
 
   return [state, setState];
 }

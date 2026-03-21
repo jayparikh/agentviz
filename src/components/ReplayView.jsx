@@ -59,7 +59,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
             {metadata.primaryModel && (
               <div>Model: <span style={{ color: theme.accent.purple }}>{metadata.primaryModel.split("-").slice(0, 3).join("-")}</span></div>
             )}
-            {metadata.tokenUsage && (
+            {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
               <div>Tokens: <span style={{ color: theme.accent.cyan }}>
                 {(metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens).toLocaleString()}
               </span></div>

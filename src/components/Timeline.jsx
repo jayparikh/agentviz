@@ -3,6 +3,32 @@ import { theme, TRACK_TYPES } from "../lib/theme.js";
 
 var TIMELINE_BINS = 200;
 
+export function buildTimelineBins(eventEntries, totalTime, timeMap, matchSet) {
+  var bins = [];
+  for (var b = 0; b < TIMELINE_BINS; b++) {
+    bins.push({ intensity: 0, isError: false, isMatch: false, color: null, count: 0 });
+  }
+
+  for (var i = 0; i < eventEntries.length; i++) {
+    var ev = eventEntries[i].event;
+    var startPos = timeMap ? timeMap.toPosition(ev.t) : (totalTime > 0 ? ev.t / totalTime : 0);
+    var endPos = timeMap ? timeMap.toPosition(ev.t + ev.duration) : (totalTime > 0 ? (ev.t + ev.duration) / totalTime : startPos);
+    var startBin = Math.min(TIMELINE_BINS - 1, Math.max(0, Math.floor(startPos * TIMELINE_BINS)));
+    var endBin = Math.min(TIMELINE_BINS - 1, Math.max(startBin, Math.floor(endPos * TIMELINE_BINS)));
+    var info = TRACK_TYPES[ev.track];
+
+    for (var bin = startBin; bin <= endBin; bin++) {
+      bins[bin].count++;
+      bins[bin].intensity = Math.max(bins[bin].intensity, ev.intensity || 0.3);
+      if (ev.isError) bins[bin].isError = true;
+      if (matchSet && matchSet.has(eventEntries[i].index)) bins[bin].isMatch = true;
+      if (!bins[bin].color && info) bins[bin].color = info.color;
+    }
+  }
+
+  return bins;
+}
+
 export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPlaying, onPlayPause, eventEntries, turns, matchSet }) {
   var barRef = useRef(null);
 
@@ -103,23 +129,8 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
             }} />
           );
         })}
-        {/* Binned event markers for performance */}
-        {(function () {
-          var bins = [];
-          for (var b = 0; b < TIMELINE_BINS; b++) {
-            bins.push({ intensity: 0, isError: false, isMatch: false, color: null, count: 0 });
-          }
-          for (var i = 0; i < eventEntries.length; i++) {
-            var ev = eventEntries[i].event;
-            var pos = timeMap ? timeMap.toPosition(ev.t) : (totalTime > 0 ? ev.t / totalTime : 0);
-            var bin = Math.min(TIMELINE_BINS - 1, Math.max(0, Math.floor(pos * TIMELINE_BINS)));
-            var info = TRACK_TYPES[ev.track];
-            bins[bin].count++;
-            bins[bin].intensity = Math.max(bins[bin].intensity, ev.intensity || 0.3);
-            if (ev.isError) bins[bin].isError = true;
-            if (matchSet && matchSet.has(eventEntries[i].index)) bins[bin].isMatch = true;
-            if (!bins[bin].color && info) bins[bin].color = info.color;
-          }
+        {eventEntries.length > TIMELINE_BINS ? (function () {
+          var bins = buildTimelineBins(eventEntries, totalTime, timeMap, matchSet);
           var result = [];
           for (var j = 0; j < TIMELINE_BINS; j++) {
             if (bins[j].count === 0) continue;
@@ -142,7 +153,27 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
             );
           }
           return result;
-        })()}
+        })() : eventEntries.map(function (entry) {
+          var ev = entry.event;
+          var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
+          var width = Math.max(0.3, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 1));
+          var info = TRACK_TYPES[ev.track];
+          var color = ev.isError ? theme.error : (info ? info.color : theme.text.muted);
+          var isMatch = matchSet && matchSet.has(entry.index);
+          return (
+            <div key={entry.index} style={{
+              position: "absolute",
+              left: left + "%",
+              width: width + "%",
+              top: 2,
+              bottom: 2,
+              background: color,
+              opacity: isMatch ? 0.9 : (ev.isError ? 0.7 : ev.intensity * 0.4),
+              borderRadius: 2,
+              boxShadow: isMatch ? "0 0 4px " + theme.accent.cyan : (ev.isError ? "0 0 4px " + theme.error : "none"),
+            }} />
+          );
+        })}
         <div style={{
           position: "absolute",
           left: pct + "%",
