@@ -130,7 +130,6 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           );
         })}
         {eventEntries.length > TIMELINE_BINS ? (function () {
-        {eventEntries.length > TIMELINE_BINS ? (function () {
           var bins = buildTimelineBins(eventEntries, totalTime, timeMap, matchSet);
           var result = [];
           for (var j = 0; j < TIMELINE_BINS; j++) {
