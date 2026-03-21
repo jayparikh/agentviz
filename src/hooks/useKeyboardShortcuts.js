@@ -52,7 +52,8 @@ export default function useKeyboardShortcuts(options) {
 
       if (e.key === "1") o.onSetView("replay");
       if (e.key === "2") o.onSetView("tracks");
-      if (e.key === "3") o.onSetView("stats");
+      if (e.key === "3") o.onSetView("waterfall");
+      if (e.key === "4") o.onSetView("stats");
 
       if (e.key === "e") {
         e.preventDefault();

@@ -440,10 +440,11 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
             {turns && turns.map(function (turn, ti) {
               if (ti === 0) return null;
               var left = timeMap ? timeMap.toPosition(turn.startTime) * 100 : (totalTime > 0 ? (turn.startTime / totalTime) * 100 : 0);
+              var frac = left / 100;
               return (
                 <div key={"tb-" + ti} style={{
                   position: "absolute",
-                  left: "calc(" + LABEL_WIDTH + "px + " + left + "% * (100% - " + LABEL_WIDTH + "px) / 100)",
+                  left: "calc(" + LABEL_WIDTH + "px + (100% - " + LABEL_WIDTH + "px) * " + frac + ")",
                   top: 0,
                   bottom: 0,
                   width: 1,
@@ -457,7 +458,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
             {/* Playhead */}
             <div style={{
               position: "absolute",
-              left: "calc(" + LABEL_WIDTH + "px + " + playPct + "% * (100% - " + LABEL_WIDTH + "px) / 100)",
+              left: "calc(" + LABEL_WIDTH + "px + (100% - " + LABEL_WIDTH + "px) * " + (playPct / 100) + ")",
               top: 0,
               bottom: 0,
               width: 2,

@@ -398,7 +398,7 @@ describe("metadata", function () {
 
   it("identifies primary model", function () {
     expect(meta.primaryModel).toBe("claude-opus-4.6");
-    expect(meta.models).toContain("claude-opus-4.6");
+    expect(meta.models).toHaveProperty("claude-opus-4.6");
   });
 
   it("counts events and turns", function () {

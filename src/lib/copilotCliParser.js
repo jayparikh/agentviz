@@ -444,10 +444,10 @@ function buildMetadata(records, events, turns, malformedLines) {
     }
   }
 
-  var modelNames = Object.keys(models);
-  var primaryModel = modelNames.sort(function (a, b) {
-    return (models[b] || 0) - (models[a] || 0);
-  })[0] || null;
+  var modelEntries = Object.entries(models).sort(function (a, b) {
+    return (b[1] || 0) - (a[1] || 0);
+  });
+  var primaryModel = modelEntries.length > 0 ? modelEntries[0][0] : null;
 
   var duration = events.length > 0
     ? events[events.length - 1].t + events[events.length - 1].duration
@@ -469,7 +469,7 @@ function buildMetadata(records, events, turns, malformedLines) {
     totalToolCalls: totalToolCalls,
     errorCount: errorCount,
     duration: duration,
-    models: modelNames,
+    models: models,
     primaryModel: primaryModel,
     tokenUsage: {
       inputTokens: totalInputTokens,
