@@ -1,13 +1,7 @@
 import { useState, useMemo } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import { estimateCost, formatCost } from "../lib/pricing.js";
-
-function formatDuration(secs) {
-  if (!secs) return "--";
-  var m = Math.floor(secs / 60);
-  var s = Math.round(secs % 60);
-  return m > 0 ? m + "m " + (s < 10 ? "0" : "") + s + "s" : s + "s";
-}
+import { formatDurationLong as formatDuration } from "../lib/formatTime.js";
 
 function fmt(n) {
   if (n == null || n === 0) return "--";

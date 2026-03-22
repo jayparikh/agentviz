@@ -13,26 +13,13 @@ import ResizablePanel from "./ResizablePanel.jsx";
 import SyntaxHighlight from "./SyntaxHighlight.jsx";
 import DiffViewer from "./DiffViewer.jsx";
 import { isDiffViewable } from "../lib/diffUtils.js";
+import { formatDuration, formatTime } from "../lib/formatTime.js";
 
 var OVERSCAN_PX = 400;
 var INDENT_PX = 20;
 var LABEL_WIDTH = 180;
 var MIN_BAR_WIDTH_PX = 4;
 var TIME_AXIS_HEIGHT = 28;
-
-function formatDuration(seconds) {
-  if (seconds < 0.01) return "<10ms";
-  if (seconds < 1) return (seconds * 1000).toFixed(0) + "ms";
-  if (seconds < 60) return seconds.toFixed(1) + "s";
-  return (seconds / 60).toFixed(1) + "m";
-}
-
-function formatTime(seconds) {
-  if (seconds < 60) return seconds.toFixed(1) + "s";
-  var m = Math.floor(seconds / 60);
-  var s = (seconds % 60).toFixed(0);
-  return m + ":" + (s < 10 ? "0" : "") + s;
-}
 
 function TimeAxis({ totalTime, timeMap }) {
   if (totalTime <= 0) return null;

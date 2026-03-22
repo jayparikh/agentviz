@@ -17,6 +17,7 @@ import TracksView from "./components/TracksView.jsx";
 import StatsView from "./components/StatsView.jsx";
 import WaterfallView from "./components/WaterfallView.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
+import ShortcutsModal from "./components/ShortcutsModal.jsx";
 import Icon from "./components/Icon.jsx";
 
 var VIEWS = [
@@ -32,6 +33,7 @@ export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
   var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
   var [showPalette, setShowPalette] = useState(false);
+  var [showShortcuts, setShowShortcuts] = useState(false);
   var [showFilters, setShowFilters] = useState(false);
   var [compareLanding, setCompareLanding] = useState(false);
   var [exportSessionState, setExportSessionState] = useState("idle"); // idle | loading | done | error
@@ -240,6 +242,7 @@ export default function App() {
     onSetView: setView,
     onJumpToError: jumpToError,
     onFocusSearch: focusSearch,
+    onToggleShortcuts: function () { setShowShortcuts(function (prev) { return !prev; }); },
   });
 
   if (session.loading || (compareLanding && sessionB.loading)) {
@@ -519,6 +522,10 @@ export default function App() {
           }}
           onClose={function () { setShowPalette(false); }}
         />
+      )}
+
+      {showShortcuts && (
+        <ShortcutsModal onClose={function () { setShowShortcuts(false); }} />
       )}
 
       {/* Header: Left | Center | Right */}
