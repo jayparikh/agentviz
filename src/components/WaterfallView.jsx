@@ -34,14 +34,14 @@ function formatTime(seconds) {
   return m + ":" + (s < 10 ? "0" : "") + s;
 }
 
-function TimeAxis({ totalTime, chartWidth, timeMap }) {
-  if (totalTime <= 0 || chartWidth <= 0) return null;
+function TimeAxis({ totalTime, timeMap }) {
+  if (totalTime <= 0) return null;
 
   // Use compressed display total for tick computation when available
   var displayTotal = timeMap && timeMap.hasCompression ? timeMap.displayTotal : totalTime;
 
-  // Compute tick interval: aim for ticks every ~80-120px
-  var rawInterval = (displayTotal / chartWidth) * 100;
+  // Compute tick interval: aim for ~8 ticks across the axis
+  var rawInterval = displayTotal / 8;
   var niceIntervals = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
   var interval = niceIntervals[0];
   for (var i = 0; i < niceIntervals.length; i++) {
@@ -64,13 +64,13 @@ function TimeAxis({ totalTime, chartWidth, timeMap }) {
       flexShrink: 0,
     }}>
       {ticks.map(function (tick) {
-        var left = displayTotal > 0 ? (tick / displayTotal) * 100 : 0;
+        var frac = displayTotal > 0 ? tick / displayTotal : 0;
         // Convert compressed tick back to real time for the label
-        var realTime = timeMap && timeMap.hasCompression ? timeMap.toTime(tick / displayTotal) : tick;
+        var realTime = timeMap && timeMap.hasCompression ? timeMap.toTime(frac) : tick;
         return (
           <div key={tick} style={{
             position: "absolute",
-            left: left + "%",
+            left: "calc(" + LABEL_WIDTH + "px + (100% - " + LABEL_WIDTH + "px) * " + frac + ")",
             top: 0,
             bottom: 0,
             display: "flex",
@@ -469,7 +469,6 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
       }}>
         <TimeAxis
           totalTime={totalTime}
-          chartWidth={800}
           timeMap={timeMap}
         />
 

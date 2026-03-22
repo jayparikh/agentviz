@@ -170,7 +170,7 @@ npm run test:watch  # Watch mode
 
 ### Design System
 
-The "Midnight Circuit" theme uses a dark navy palette with cyan, amber, purple, and green accents. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
+The design uses a true black base with blue, purple, grey, and teal accents. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
 
 ## Contributing
 

@@ -1,28 +1,28 @@
 /**
  * AgentViz Design Tokens
  *
- * Neutral dark palette. Single accent color. Color means something.
+ * Dark palette, blue/purple/grey accents. Color means something.
  * Inspired by Linear, Raycast, Vercel -- tools that feel quiet and fast.
  */
 
 export const theme = {
   // ── Backgrounds ──
-  // Warm neutral grays, no blue tint
+  // True black base, cool dark grays
   bg: {
-    base: "#111113",
-    surface: "#18181b",
-    raised: "#222225",
-    overlay: "rgba(0, 0, 0, 0.6)",
-    hover: "#262629",
-    active: "#2c2c30",
+    base: "#000000",
+    surface: "#0f0f16",
+    raised: "#1a1a24",
+    overlay: "rgba(0, 0, 0, 0.7)",
+    hover: "#20202e",
+    active: "#26263a",
   },
 
   // ── Borders ──
   // Depth through thin lines, not shadows
   border: {
-    subtle: "#222225",
-    default: "#2c2c30",
-    strong: "#3a3a3f",
+    subtle: "#1a1a24",
+    default: "#232333",
+    strong: "#2e2e42",
     focus: "#5e6ad2",
   },
 
@@ -47,7 +47,7 @@ export const theme = {
   // ── Semantic ──
   semantic: {
     success: "#3fad78",
-    warning: "#c4a240",
+    warning: "#5b8cf5",
     error: "#d14d4d",
     errorBg: "#d14d4d15",
     errorBorder: "#d14d4d30",
@@ -58,16 +58,16 @@ export const theme = {
   // ── Agent colors ──
   // Subtle. The content matters, not who said it.
   agent: {
-    user: "#8b8b92",
+    user: "#8b8b99",
     assistant: "#5e6ad2",
-    system: "#c4a240",
+    system: "#8b6cf5",
   },
 
   // ── Track colors ──
   // Muted, balanced luminance so no track dominates
   track: {
     reasoning: "#7b8794",
-    tool_call: "#c4a240",
+    tool_call: "#4a9eff",
     context: "#7b7ec8",
     output: "#3fad78",
   },

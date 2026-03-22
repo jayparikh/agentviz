@@ -11,16 +11,16 @@ var WATERFALL_ROW_GAP = 2;
 
 // Stable color palette for tool names (rotates through theme accents)
 var TOOL_PALETTE = [
-  "#f59e0b", // amber
-  "#22d3ee", // cyan
+  "#4a9eff", // blue
   "#a78bfa", // purple
-  "#34d399", // green
-  "#60a5fa", // blue
-  "#f472b6", // pink
-  "#fb923c", // orange
+  "#22d3ee", // cyan
   "#818cf8", // indigo
-  "#fbbf24", // yellow
+  "#34d399", // green
+  "#7b7ec8", // muted purple
+  "#60a5fa", // light blue
   "#2dd4bf", // teal
+  "#8b6cf5", // violet
+  "#93c5fd", // pale blue
 ];
 
 function hashToolName(name) {

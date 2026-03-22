@@ -220,7 +220,7 @@ export default function App() {
       }}>
         <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div style={{ fontSize: theme.fontSize.hero, fontWeight: 600, fontFamily: theme.font.ui, letterSpacing: "-0.5px", color: theme.text.primary }}>
-            agentviz<span style={{ color: theme.accent.primary }}>.</span>
+            AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
           </div>
           <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6, lineHeight: 1.6 }}>
             See what your AI agents actually do.
@@ -304,7 +304,7 @@ export default function App() {
             border: "none",
           }}
         >
-          agentviz<span style={{ color: theme.accent.primary }}>.</span>
+          AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
         </span>
         <div style={{ height: 16, width: 1, background: theme.border.default }} />
         <span style={{
