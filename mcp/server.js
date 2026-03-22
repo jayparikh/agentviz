@@ -31,53 +31,57 @@ import { fileURLToPath } from "url";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var distDir = path.resolve(__dirname, "../dist");
 
-// Directories to search for session files, in priority order.
-// Each entry is either a flat directory (Copilot) or a directory of
-// subdirectories each containing .jsonl files (Claude Code).
-var SESSION_DIRS = [
-  { path: path.join(os.homedir(), ".claude", "projects"), nested: true },
-  { path: path.join(os.homedir(), ".copilot", "session-state"), nested: false },
+// Known session directories and how to find .jsonl files within them.
+var SESSION_SOURCES = [
+  {
+    // Claude Code: ~/.claude/projects/<project-dir>/<uuid>.jsonl
+    root: path.join(os.homedir(), ".claude", "projects"),
+    find: function (root) {
+      var results = [];
+      try {
+        for (var proj of fs.readdirSync(root)) {
+          var projPath = path.join(root, proj);
+          try { if (!fs.statSync(projPath).isDirectory()) continue; } catch (e) { continue; }
+          try {
+            for (var f of fs.readdirSync(projPath)) {
+              if (f.endsWith(".jsonl")) results.push(path.join(projPath, f));
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+      return results;
+    },
+  },
+  {
+    // Copilot CLI: ~/.copilot/session-state/<uuid>/events.jsonl
+    root: path.join(os.homedir(), ".copilot", "session-state"),
+    find: function (root) {
+      var results = [];
+      try {
+        for (var sess of fs.readdirSync(root)) {
+          var candidate = path.join(root, sess, "events.jsonl");
+          if (fs.existsSync(candidate)) results.push(candidate);
+        }
+      } catch (e) {}
+      return results;
+    },
+  },
 ];
 
-// Find the most recently modified .jsonl file across all known session dirs.
+// Find the most recently modified session file across all known sources.
 function findLatestSessionFile() {
   var best = null;
   var bestMtime = 0;
 
-  for (var i = 0; i < SESSION_DIRS.length; i++) {
-    var dir = SESSION_DIRS[i];
-    if (!fs.existsSync(dir.path)) continue;
-
-    try {
-      var entries = fs.readdirSync(dir.path);
-    } catch (e) { continue; }
-
-    if (dir.nested) {
-      // Claude Code: ~/.claude/projects/<project>/<uuid>.jsonl
-      for (var j = 0; j < entries.length; j++) {
-        var subPath = path.join(dir.path, entries[j]);
-        try { if (!fs.statSync(subPath).isDirectory()) continue; } catch (e) { continue; }
-        try {
-          for (var file of fs.readdirSync(subPath)) {
-            if (!file.endsWith(".jsonl")) continue;
-            var filePath = path.join(subPath, file);
-            try {
-              var mtime = fs.statSync(filePath).mtimeMs;
-              if (mtime > bestMtime) { bestMtime = mtime; best = filePath; }
-            } catch (e) {}
-          }
-        } catch (e) {}
-      }
-    } else {
-      // Copilot CLI: ~/.copilot/session-state/<file>.jsonl
-      for (var k = 0; k < entries.length; k++) {
-        if (!entries[k].endsWith(".jsonl")) continue;
-        var fp = path.join(dir.path, entries[k]);
-        try {
-          var mt = fs.statSync(fp).mtimeMs;
-          if (mt > bestMtime) { bestMtime = mt; best = fp; }
-        } catch (e) {}
-      }
+  for (var i = 0; i < SESSION_SOURCES.length; i++) {
+    var source = SESSION_SOURCES[i];
+    if (!fs.existsSync(source.root)) continue;
+    var files = source.find(source.root);
+    for (var j = 0; j < files.length; j++) {
+      try {
+        var mtime = fs.statSync(files[j]).mtimeMs;
+        if (mtime > bestMtime) { bestMtime = mtime; best = files[j]; }
+      } catch (e) {}
     }
   }
 
