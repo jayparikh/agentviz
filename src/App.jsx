@@ -6,7 +6,9 @@ import useSessionLoader from "./hooks/useSessionLoader.js";
 import usePlayback from "./hooks/usePlayback.js";
 import useSearch from "./hooks/useSearch.js";
 import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts.js";
+import useLiveStream from "./hooks/useLiveStream.js";
 import FileUploader from "./components/FileUploader.jsx";
+import LiveIndicator from "./components/LiveIndicator.jsx";
 import Timeline from "./components/Timeline.jsx";
 import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
@@ -35,6 +37,11 @@ export default function App() {
   var session = useSessionLoader();
   var playback = usePlayback(session.total);
 
+  useLiveStream({
+    enabled: session.isLive,
+    onLines: session.appendLines,
+  });
+
   var filteredEventEntries = useMemo(function () {
     return buildFilteredEventEntries(session.events, trackFilters);
   }, [session.events, trackFilters]);
@@ -54,10 +61,10 @@ export default function App() {
   var search = useSearch(filteredEventEntries);
 
   useEffect(function () {
-    if (session.total > 0) {
+    if (session.total > 0 && !session.isLive) {
       playback.seek(session.total);
     }
-  }, [session.total, playback.seek]);
+  }, [session.total, session.isLive, playback.seek]);
 
 
   // Close filter dropdown on outside click
@@ -317,6 +324,7 @@ export default function App() {
         }}>
           {session.file}
         </span>
+        {session.isLive && <LiveIndicator />}
         {session.metadata && (
           <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, display: "flex", alignItems: "center", gap: 6 }}>
             {session.metadata.totalEvents} events
