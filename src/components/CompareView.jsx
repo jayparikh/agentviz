@@ -42,10 +42,21 @@ function getToolCounts(events) {
 function buildMetrics(session) {
   var meta = session.metadata || {};
   var tu = meta.tokenUsage || {};
+  var isCopilot = meta.format === "copilot-cli";
+
+  // For Copilot: use the actual billed cost from session.shutdown.modelMetrics.
+  // For Claude: estimate from token counts + pricing table.
+  // Copilot subscription users pay in PRUs, not USD -- totalCost may be 0.
+  var cost = isCopilot
+    ? (meta.totalCost || 0)
+    : estimateCost(tu, meta.primaryModel);
+
   return {
     model: meta.primaryModel || null,
+    format: isCopilot ? "copilot-cli" : "claude-code",
     duration: session.total || 0,
-    cost: estimateCost(tu, meta.primaryModel),
+    cost: cost,
+    pru: isCopilot ? (meta.premiumRequests || null) : null,
     inputTokens: tu.inputTokens || 0,
     outputTokens: tu.outputTokens || 0,
     cacheRead: tu.cacheRead || 0,
@@ -110,6 +121,19 @@ function Row({ label, valA, valB, a, b, lowerIsBetter, indent }) {
 
 function Scorecard({ mA, mB, fileA, fileB }) {
   var cacheAvailable = mA.cacheRead > 0 || mB.cacheRead > 0;
+  var crossAgent = mA.format !== mB.format;
+  var hasPRU = mA.pru !== null || mB.pru !== null;
+
+  // When comparing different agents (Claude vs Copilot), cost units differ --
+  // Claude uses USD estimates, Copilot uses PRUs or actual API cost.
+  // Suppress the delta badge in that case.
+  function costDisplay(m) {
+    if (m.pru !== null && m.cost === 0) {
+      // Subscription Copilot: show PRUs as the consumption metric
+      return m.pru > 0 ? m.pru + " PRU" : "--";
+    }
+    return formatCost(m.cost);
+  }
 
   return (
     <div style={{ overflowY: "auto", flex: 1 }}>
@@ -164,13 +188,31 @@ function Scorecard({ mA, mB, fileA, fileB }) {
       </div>
 
       <Row label="Duration"     valA={formatDuration(mA.duration)}    valB={formatDuration(mB.duration)}    a={mA.duration}    b={mB.duration}    lowerIsBetter={true} />
-      <Row label="Effective cost" valA={formatCost(mA.cost)}          valB={formatCost(mB.cost)}            a={mA.cost}        b={mB.cost}        lowerIsBetter={true} />
+      <Row
+        label={crossAgent ? "Cost / PRUs" : "Effective cost"}
+        valA={costDisplay(mA)}
+        valB={costDisplay(mB)}
+        a={crossAgent ? null : mA.cost}
+        b={crossAgent ? null : mB.cost}
+        lowerIsBetter={crossAgent ? null : true}
+      />
       <Row label="Input tokens"  valA={fmt(mA.inputTokens)}           valB={fmt(mB.inputTokens)}            a={mA.inputTokens} b={mB.inputTokens} lowerIsBetter={null} />
       {cacheAvailable && (
         <Row label="Cache reads"  valA={mA.cacheRead ? fmt(mA.cacheRead) : "N/A"} valB={mB.cacheRead ? fmt(mB.cacheRead) : "N/A"} a={mA.cacheRead} b={mB.cacheRead} lowerIsBetter={null} indent />
       )}
       {cacheAvailable && (
         <Row label="Cache writes" valA={mA.cacheWrite ? fmt(mA.cacheWrite) : "N/A"} valB={mB.cacheWrite ? fmt(mB.cacheWrite) : "N/A"} a={mA.cacheWrite} b={mB.cacheWrite} lowerIsBetter={null} indent />
+      )}
+      {hasPRU && (
+        <Row
+          label="Premium reqs"
+          valA={mA.pru !== null ? fmt(mA.pru) : "N/A"}
+          valB={mB.pru !== null ? fmt(mB.pru) : "N/A"}
+          a={mA.pru}
+          b={mB.pru}
+          lowerIsBetter={true}
+          indent
+        />
       )}
       <Row label="Output tokens" valA={fmt(mA.outputTokens)}          valB={fmt(mB.outputTokens)}           a={mA.outputTokens} b={mB.outputTokens} lowerIsBetter={null} />
       <Row label="Tool calls"    valA={fmt(mA.toolCalls)}              valB={fmt(mB.toolCalls)}              a={mA.toolCalls}   b={mB.toolCalls}   lowerIsBetter={null} />

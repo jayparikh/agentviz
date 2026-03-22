@@ -19,15 +19,19 @@ var PRICE_TABLE = [
   { match: "claude-3-haiku",    input:  0.25, output:  1.25 },
 ];
 
-var DEFAULT_PRICE = { input: 3.00, output: 15.00 };
+// Fallback for unrecognized Claude model variants (new releases, etc.)
+var DEFAULT_CLAUDE_PRICE = { input: 3.00, output: 15.00 };
 
 function lookupPrice(modelName) {
-  if (!modelName) return DEFAULT_PRICE;
+  if (!modelName) return null;
   var lower = modelName.toLowerCase();
   for (var i = 0; i < PRICE_TABLE.length; i++) {
     if (lower.includes(PRICE_TABLE[i].match)) return PRICE_TABLE[i];
   }
-  return DEFAULT_PRICE;
+  // Apply Claude default only to Claude variants we haven't explicitly listed.
+  // For GPT, Gemini, or other unknown models we return null -- cost unknown.
+  if (lower.includes("claude")) return DEFAULT_CLAUDE_PRICE;
+  return null;
 }
 
 /**
@@ -38,6 +42,7 @@ function lookupPrice(modelName) {
 export function estimateCost(tokenUsage, modelName) {
   if (!tokenUsage) return 0;
   var price = lookupPrice(modelName);
+  if (!price) return 0; // unknown model -- don't fabricate a number
   var inputCost  = (tokenUsage.inputTokens  || 0) / 1e6 * price.input;
   var outputCost = (tokenUsage.outputTokens || 0) / 1e6 * price.output;
   var cacheReadCost  = (tokenUsage.cacheRead  || 0) / 1e6 * price.input * 0.1;
