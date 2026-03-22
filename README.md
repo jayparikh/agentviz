@@ -4,7 +4,7 @@
 
 **See what your AI agents actually do.**
 
-Drop a Claude Code or Copilot CLI session file and explore the agent's reasoning, tool calls, and output through an interactive timeline.
+Drop a Claude Code or Copilot CLI session file and explore the agent's reasoning, tool calls, and output through an interactive timeline. Or run it from the CLI for a live view that updates as your session unfolds.
 
 [![CI](https://github.com/jayparikh/agentviz/actions/workflows/ci.yml/badge.svg)](https://github.com/jayparikh/agentviz/actions/workflows/ci.yml)
 ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
@@ -29,10 +29,11 @@ AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, b
 - **Visualize** timing and concurrency in a DAW-style multi-track timeline
 - **Analyze** tool usage patterns, error rates, and model behavior at a glance
 - **Debug** failures by jumping directly between errors with one keystroke
-
-No backend. No sign-up. Just drag, drop, and explore.
+- **Stream live** as a session unfolds -- the view updates in real time
 
 ## Quick Start
+
+### Web app (drag and drop)
 
 ```bash
 git clone https://github.com/jayparikh/agentviz.git
@@ -43,6 +44,18 @@ npm run dev
 
 Opens at [localhost:3000](http://localhost:3000). Drop a `.jsonl` session file or click **Load Demo Session** to try it instantly.
 
+### CLI (live streaming)
+
+```bash
+# Point at any session file and the browser opens automatically
+node bin/agentviz.js ~/.claude/projects/my-project/session.jsonl
+
+# Or the most recent session in any project
+node bin/agentviz.js ~/.claude/projects/my-project/
+```
+
+The browser opens with a pulsing **LIVE** badge. As Claude Code writes new events to the session file, they stream into the view in real time via SSE.
+
 ### Finding your session files
 
 ```bash
@@ -52,15 +65,42 @@ ls ~/.claude/projects/
 # Copilot CLI event traces (location varies by config)
 ```
 
+## Claude Code MCP Integration
+
+AGENTVIZ ships as a global MCP server so you can open it directly from any Claude Code session without leaving the terminal.
+
+### Setup (one time)
+
+```bash
+# From the agentviz directory
+claude mcp add --scope user agentviz node /path/to/agentviz/mcp/server.js
+```
+
+This registers the server globally. Restart Claude Code to pick it up.
+
+### Usage
+
+In any Claude Code session, in any project, just ask:
+
+> "Open agentviz" or "Show me the live view"
+
+Claude calls the `launch_agentviz` tool, which:
+1. Auto-detects the most recently active session file in `~/.claude/projects/`
+2. Starts a local HTTP server on a free port
+3. Opens the browser with live streaming enabled
+
+To stop it:
+
+> "Close agentviz"
+
+### Available MCP tools
+
+| Tool | Description |
+|------|-------------|
+| `launch_agentviz` | Start the server and open the browser. Accepts an optional `session_file` path. |
+| `close_agentviz` | Stop a running server. Accepts an optional `port`; omit to stop all. |
+
 ## Features
-
-### Session Overview
-
-After loading a file, a summary card shows key metrics with an activity sparkline. Format and model are auto-detected. Press Space or click **Dive In** to enter the timeline.
-
-<div align="center">
-<img src="docs/screenshots/session-hero.png" alt="Session Hero" width="700" />
-</div>
 
 ### Replay View
 
@@ -82,9 +122,13 @@ DAW-style multi-track lanes for Reasoning, Tool Calls, Context, and Output. Solo
 
 Gantt-style timeline of every tool call, sorted by start time with nesting for overlapping calls. Hover any bar to see duration and timing. Click to open the full inspector, including inline diffs for file edits.
 
+<div align="center">
+<img src="docs/screenshots/waterfall-view.png" alt="Waterfall View" width="800" />
+</div>
+
 ### Stats View
 
-Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn summary. Quickly spot which tools dominate a session and where errors occurred.
+Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn summary. Includes token counts and estimated USD cost per turn for Claude models.
 
 <div align="center">
 <img src="docs/screenshots/stats-view.png" alt="Stats View" width="800" />
@@ -94,13 +138,14 @@ Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn s
 
 | Feature | Description |
 |---------|-------------|
+| **Live Streaming** | CLI mode tails a session file via SSE. View updates in real time as events arrive. |
+| **Token and Cost Tracking** | Per-turn token usage with estimated USD cost for Claude 3/4 models. |
 | **Search** | Full-text search across events, tools, and agents. Matches highlighted in real time. |
 | **Command Palette** | `Cmd+K` fuzzy search to jump to any turn, event, or view instantly. |
 | **Error Navigation** | Auto-detects errors from flags and text patterns. Jump with `E` / `Shift+E`. |
 | **Track Filters** | Toggle visibility per track type with filter chips in the header. |
 | **Playback Control** | Play/pause with variable speed (0.5x to 8x). Seek with arrow keys. |
 | **Diff Viewer** | Inline unified diff with dual-gutter line numbers for file-editing tool calls. |
-| **Token and Cost Tracking** | Per-turn token usage with estimated USD cost for Claude models. |
 | **Auto-detect Format** | Supports Claude Code and Copilot CLI JSONL. Format detected from first line. |
 
 ## Keyboard Shortcuts
@@ -133,14 +178,15 @@ src/
     usePlayback.js       # Play/pause, speed, seek state machine
     useSearch.js         # Debounced full-text search with match highlighting
     useKeyboardShortcuts.js  # Centralized keyboard handler
-    useSessionLoader.js  # File parsing, format detection, session reset
+    useSessionLoader.js  # File parsing, live init from /api/file, session reset
+    useLiveStream.js     # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js    # localStorage-backed useState with debounced writes
   lib/
     parseSession.js      # Auto-detect format router
     parser.js            # Claude Code JSONL parser
     copilotCliParser.js  # Copilot CLI JSONL parser
     session.js           # Pure helpers: getSessionTotal, buildFilteredEventEntries
-    theme.js             # "Midnight Circuit" design tokens
+    theme.js             # Design tokens (true black base, blue/purple/green accents)
     constants.js         # Sample events for demo mode
     replayLayout.js      # Virtualized windowing for large sessions
     commandPalette.js    # Precomputed fuzzy search index
@@ -152,15 +198,20 @@ src/
     TracksView.jsx       # DAW-style multi-track timeline
     WaterfallView.jsx    # Tool execution waterfall with nesting and inspector
     StatsView.jsx        # Aggregate metrics and tool ranking
-    SessionHero.jsx      # Post-load summary card with sparkline
     CommandPalette.jsx   # Cmd+K fuzzy search overlay
     Timeline.jsx         # Scrubable playback bar with event markers
     DiffViewer.jsx       # Inline unified diff for file-editing tool calls
+    LiveIndicator.jsx    # Pulsing LIVE badge shown in CLI streaming mode
     SyntaxHighlight.jsx  # Lightweight code syntax coloring for raw data
     ResizablePanel.jsx   # Drag-to-resize split panel utility
     FileUploader.jsx     # Drag-and-drop file input with error handling
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # SVG icon component
+bin/
+  agentviz.js            # CLI entry point: finds free port, starts server, opens browser
+mcp/
+  server.js              # MCP server: launch_agentviz and close_agentviz tools
+server.js                # HTTP server: serves dist/ SPA + SSE /api/stream file tail
 ```
 
 ### Parser API
@@ -189,31 +240,32 @@ npm run test:watch  # Watch mode
 
 ### Design System
 
-The design uses a true black base with blue, purple, grey, and teal accents. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
+True black base (`#000000`) with blue, purple, and green accents. Vivid semantic colors: green for success, muted red for warning, bright red for error. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
 
 ## Contributing
 
 Contributions are welcome! Here are some areas where help is appreciated:
 
 - **New parsers**: LangSmith, OpenTelemetry, custom agent frameworks
-- **Visualizations**: Flame chart view, conversation flow graph
-- **Features**: Bookmarks/annotations, session comparison, live streaming mode
-- **CLI launcher**: `npx agentviz session.jsonl`
+- **Visualizations**: Conversation flow graph (directed graph of turns and decisions)
+- **Features**: Bookmarks/annotations, session comparison, shareable URLs
 
 Please open an issue to discuss larger changes before submitting a PR.
 
 ## Roadmap
 
 - [x] Token count tracking and cost estimation per turn
-- [x] Tool execution waterfall / flame chart view
+- [x] Tool execution waterfall / Gantt chart view
 - [x] Inline diff viewer for file-editing tool calls
+- [x] Live streaming mode (tail a session file in real time)
+- [x] CLI launcher: `node bin/agentviz.js session.jsonl`
+- [x] MCP server for Claude Code integration (`launch_agentviz` tool)
 - [ ] Conversation flow graph (directed graph of turns and decisions)
 - [ ] Bookmarks and annotations (persisted to localStorage)
 - [ ] Multi-agent hierarchy (parent/child agents, nested tracks)
-- [ ] Live streaming mode (tail a session file in real time)
-- [ ] CLI launcher: `npx agentviz session.jsonl`
 - [ ] Shareable session URLs
 - [ ] Vim-style keyboard navigation
+- [ ] `npx agentviz` (publish to npm)
 
 ## License
 
