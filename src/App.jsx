@@ -9,6 +9,7 @@ import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts.js";
 import useLiveStream from "./hooks/useLiveStream.js";
 import FileUploader from "./components/FileUploader.jsx";
 import LiveIndicator from "./components/LiveIndicator.jsx";
+import CompareView from "./components/CompareView.jsx";
 import Timeline from "./components/Timeline.jsx";
 import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
@@ -31,10 +32,12 @@ export default function App() {
   var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
   var [showPalette, setShowPalette] = useState(false);
   var [showFilters, setShowFilters] = useState(false);
+  var [compareLanding, setCompareLanding] = useState(false);
   var searchInputRef = useRef(null);
   var filtersRef = useRef(null);
 
   var session = useSessionLoader();
+  var sessionB = useSessionLoader();
   var playback = usePlayback(session.total);
 
   useLiveStream({
@@ -104,7 +107,16 @@ export default function App() {
   var reset = useCallback(function () {
     resetVisualizerState();
     session.resetSession();
-  }, [resetVisualizerState, session.resetSession]);
+    sessionB.resetSession();
+    setCompareLanding(false);
+  }, [resetVisualizerState, session.resetSession, sessionB.resetSession]);
+
+  var exitCompare = useCallback(function () {
+    sessionB.resetSession();
+    setCompareLanding(false);
+  }, [sessionB.resetSession]);
+
+  var compareReady = compareLanding && Boolean(session.events) && Boolean(sessionB.events);
 
   var toggleTrackFilter = useCallback(function (track) {
     setTrackFilters(function (prev) {
@@ -179,7 +191,7 @@ export default function App() {
     onFocusSearch: focusSearch,
   });
 
-  if (session.loading) {
+  if (session.loading || (compareLanding && sessionB.loading)) {
     return (
       <div style={{
         width: "100%",
@@ -204,6 +216,77 @@ export default function App() {
         <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, letterSpacing: 1 }}>
           Parsing session...
         </div>
+      </div>
+    );
+  }
+
+  // Compare landing: one or both sessions not yet loaded
+  if (compareLanding && !compareReady) {
+    return (
+      <div style={{
+        width: "100%", height: "100vh", background: theme.bg.base,
+        color: theme.text.primary, fontFamily: theme.font.mono,
+        display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", gap: 32, overflow: "hidden",
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: theme.fontSize.hero, fontWeight: 600, fontFamily: theme.font.ui, letterSpacing: "-0.5px", color: theme.text.primary }}>
+            AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
+          </div>
+          <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6 }}>
+            Compare two agent sessions head to head.
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", width: "100%", maxWidth: 900, padding: "0 24px" }}>
+          {/* Session A */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: theme.fontSize.sm, color: theme.accent.primary, fontFamily: theme.font.ui, letterSpacing: 1, textTransform: "uppercase" }}>
+              Session A
+            </div>
+            {session.events ? (
+              <div style={{
+                border: "2px solid " + theme.semantic.success, borderRadius: theme.radius.xxl,
+                padding: "32px 24px", textAlign: "center", background: alpha(theme.semantic.success, 0.05),
+              }}>
+                <div style={{ fontSize: theme.fontSize.xl, color: theme.semantic.success, marginBottom: 8 }}>&#10003;</div>
+                <div style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}>{session.file}</div>
+                <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginTop: 4 }}>{session.metadata?.totalEvents} events</div>
+              </div>
+            ) : (
+              <FileUploader onLoad={handleFile} />
+            )}
+            {session.error && <div style={{ fontSize: theme.fontSize.sm, color: theme.semantic.error }}>{session.error}</div>}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", paddingTop: 60, flexShrink: 0 }}>
+            <span style={{ fontSize: theme.fontSize.xl, color: theme.text.ghost, fontFamily: theme.font.ui, fontWeight: 600 }}>vs</span>
+          </div>
+
+          {/* Session B */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: theme.fontSize.sm, color: "#a78bfa", fontFamily: theme.font.ui, letterSpacing: 1, textTransform: "uppercase" }}>
+              Session B
+            </div>
+            {sessionB.events ? (
+              <div style={{
+                border: "2px solid " + theme.semantic.success, borderRadius: theme.radius.xxl,
+                padding: "32px 24px", textAlign: "center", background: alpha(theme.semantic.success, 0.05),
+              }}>
+                <div style={{ fontSize: theme.fontSize.xl, color: theme.semantic.success, marginBottom: 8 }}>&#10003;</div>
+                <div style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}>{sessionB.file}</div>
+                <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginTop: 4 }}>{sessionB.metadata?.totalEvents} events</div>
+              </div>
+            ) : (
+              <FileUploader onLoad={sessionB.handleFile} />
+            )}
+            {sessionB.error && <div style={{ fontSize: theme.fontSize.sm, color: theme.semantic.error }}>{sessionB.error}</div>}
+          </div>
+        </div>
+
+        <span onClick={exitCompare} style={{ color: theme.text.dim, cursor: "pointer", fontSize: theme.fontSize.sm }}>
+          cancel
+        </span>
       </div>
     );
   }
@@ -250,9 +333,72 @@ export default function App() {
           </div>
         )}
 
-        <span onClick={loadSample} style={{ color: theme.text.muted, cursor: "pointer", fontSize: theme.fontSize.sm }}>
-          or load a demo session
-        </span>
+        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <span onClick={loadSample} style={{ color: theme.text.muted, cursor: "pointer", fontSize: theme.fontSize.sm }}>
+            load a demo session
+          </span>
+          <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>or</span>
+          <span
+            onClick={function () { setCompareLanding(true); }}
+            style={{ color: theme.text.muted, cursor: "pointer", fontSize: theme.fontSize.sm }}
+          >
+            compare two sessions
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Compare mode: both sessions loaded
+  if (compareReady) {
+    return (
+      <div style={{
+        width: "100%", height: "100vh", background: theme.bg.base,
+        color: theme.text.primary, fontFamily: theme.font.mono,
+        display: "flex", flexDirection: "column", overflow: "hidden",
+      }}>
+        {/* Compare header */}
+        <div style={{
+          padding: "8px 16px", display: "flex", alignItems: "center", gap: 10,
+          borderBottom: "1px solid " + theme.border.default, flexShrink: 0,
+        }}>
+          <span style={{
+            fontSize: theme.fontSize.lg, fontWeight: 600, fontFamily: theme.font.ui,
+            letterSpacing: "-0.5px", color: theme.text.primary,
+          }}>
+            AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
+          </span>
+          <div style={{ height: 16, width: 1, background: theme.border.default }} />
+          <span style={{ fontSize: theme.fontSize.base, color: theme.accent.primary, fontFamily: theme.font.mono,
+            maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {session.file}
+          </span>
+          <span style={{ fontSize: theme.fontSize.base, color: theme.text.ghost, fontFamily: theme.font.ui }}>vs</span>
+          <span style={{ fontSize: theme.fontSize.base, color: "#a78bfa", fontFamily: theme.font.mono,
+            maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {sessionB.file}
+          </span>
+          <div style={{ marginLeft: "auto" }}>
+            <button
+              className="av-btn"
+              onClick={exitCompare}
+              style={{
+                background: "transparent", border: "1px solid " + theme.border.default,
+                borderRadius: theme.radius.md, color: theme.text.muted,
+                padding: "2px 12px", fontSize: theme.fontSize.sm, fontFamily: theme.font.ui,
+              }}
+            >
+              Exit comparison
+            </button>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, padding: "12px 20px 16px", minHeight: 0, overflow: "hidden" }}>
+          <CompareView
+            sessionA={{ events: session.events, metadata: session.metadata, total: session.total, file: session.file }}
+            sessionB={{ events: sessionB.events, metadata: sessionB.metadata, total: sessionB.total, file: sessionB.file }}
+          />
+        </div>
       </div>
     );
   }
