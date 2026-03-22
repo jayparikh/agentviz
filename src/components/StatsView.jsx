@@ -1,5 +1,6 @@
 import { theme, TRACK_TYPES } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
+import { estimateCost, formatCost } from "../lib/pricing.js";
 
 export default function StatsView({ events, totalTime, metadata, turns }) {
   var trackStats = {};
@@ -16,6 +17,19 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
 
   var userMsgs = events.filter(function (e) { return e.agent === "user"; }).length;
   var errorCount = metadata ? metadata.errorCount : events.filter(function (e) { return e.isError; }).length;
+
+  // Aggregate token usage per turn
+  var turnTokenMap = {};
+  events.forEach(function (e) {
+    if (e.tokenUsage && e.turnIndex !== undefined) {
+      var t = turnTokenMap[e.turnIndex] || { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
+      t.inputTokens += e.tokenUsage.inputTokens || 0;
+      t.outputTokens += e.tokenUsage.outputTokens || 0;
+      t.cacheRead += e.tokenUsage.cacheRead || 0;
+      t.cacheWrite += e.tokenUsage.cacheWrite || 0;
+      turnTokenMap[e.turnIndex] = t;
+    }
+  });
 
   var cards = [
     { label: "Total Events", value: events.length, color: theme.text.primary },
@@ -79,6 +93,24 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
                   {" in / "}
                   <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
                   {" out"}
+                </div>
+                {metadata.tokenUsage.cacheRead > 0 && (
+                  <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, marginTop: 2 }}>
+                    {metadata.tokenUsage.cacheRead.toLocaleString()} cache read
+                  </div>
+                )}
+              </div>
+            )}
+            {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
+              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
+                  Est. Cost
+                </div>
+                <div style={{ fontSize: theme.fontSize.lg, color: theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
+                  {formatCost(estimateCost(metadata.tokenUsage, metadata.primaryModel))}
+                </div>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2 }}>
+                  based on {metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default"} pricing
                 </div>
               </div>
             )}
@@ -160,6 +192,11 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
                   </span>
                   {turn.toolCount > 0 && (
                     <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call }}>{turn.toolCount} tools</span>
+                  )}
+                  {turnTokenMap[turn.index] && (
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono }}>
+                      {formatCost(estimateCost(turnTokenMap[turn.index], metadata && metadata.primaryModel))}
+                    </span>
                   )}
                   {turn.hasError && (
                     <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={11} /></span>

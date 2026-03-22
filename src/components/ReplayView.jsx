@@ -7,6 +7,7 @@ import ResizablePanel from "./ResizablePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Icon from "./Icon.jsx";
 import { isDiffViewable } from "../lib/diffUtils.js";
+import { estimateCost, formatCost } from "../lib/pricing.js";
 
 var REPLAY_WINDOW_OVERSCAN = 600;
 var REPLAY_BOTTOM_THRESHOLD = 80;
@@ -67,6 +68,11 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
             {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
               <div>Tokens: <span style={{ color: theme.accent.primary }}>
                 {(metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens).toLocaleString()}
+              </span></div>
+            )}
+            {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
+              <div>Est. Cost: <span style={{ color: theme.semantic.success }}>
+                {formatCost(estimateCost(metadata.tokenUsage, metadata.primaryModel))}
               </span></div>
             )}
             {metadata.warnings && metadata.warnings.length > 0 && (
@@ -315,7 +321,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                     borderRadius: theme.radius.lg,
                     background: isMatch ? alpha(theme.accent.primary, 0.03) : (isSelected ? theme.bg.raised : (isCurrent ? theme.bg.overlay : "transparent")),
                     borderLeft: "2px solid " + borderColor,
-                    opacity: isCurrent || isSelected || isMatch ? 1 : 0.75,
+                    opacity: isCurrent || isSelected || isMatch ? 1 : 0.88,
                     cursor: "pointer",
                     transition: "all " + theme.transition.base,
                     animation: "none",
@@ -363,12 +369,17 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                       {ev.model && isSelected && (
                         <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted }}>{ev.model}</span>
                       )}
+                      {ev.tokenUsage && (ev.tokenUsage.inputTokens + ev.tokenUsage.outputTokens) > 0 && (
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontFamily: theme.font.mono, marginLeft: "auto" }}>
+                          {(ev.tokenUsage.inputTokens + ev.tokenUsage.outputTokens).toLocaleString()} tok
+                        </span>
+                      )}
                     </div>
                     <div style={{
                       fontSize: theme.fontSize.md,
                       color: isError ? theme.semantic.errorText : theme.text.primary,
-                      lineHeight: 1.5,
-                      fontFamily: theme.font.mono,
+                      lineHeight: 1.6,
+                      fontFamily: ev.track === "tool_call" || ev.track === "context" ? theme.font.mono : theme.font.ui,
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
                     }}>
