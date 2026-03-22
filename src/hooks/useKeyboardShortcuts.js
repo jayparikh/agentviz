@@ -69,6 +69,11 @@ export default function useKeyboardShortcuts(options) {
         e.preventDefault();
         o.onFocusSearch();
       }
+
+      if (e.key === "?") {
+        e.preventDefault();
+        o.onToggleShortcuts();
+      }
     }
 
     window.addEventListener("keydown", handler);

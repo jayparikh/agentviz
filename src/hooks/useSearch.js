@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { filterEventEntries } from "../lib/playbackUtils.js";
 
 var SEARCH_DEBOUNCE_MS = 200;
 
@@ -17,22 +18,7 @@ export default function useSearch(eventEntries) {
   }, [searchInput]);
 
   var matchedEntries = useMemo(function () {
-    if (!eventEntries || !searchQuery) return [];
-
-    var lowerQuery = searchQuery.toLowerCase();
-    var matches = [];
-
-    for (var i = 0; i < eventEntries.length; i++) {
-      var entry = eventEntries[i];
-      var ev = entry.event;
-      var hit = (ev.text && ev.text.toLowerCase().includes(lowerQuery))
-        || (ev.toolName && ev.toolName.toLowerCase().includes(lowerQuery))
-        || (ev.agent && ev.agent.toLowerCase().includes(lowerQuery));
-
-      if (hit) matches.push(entry);
-    }
-
-    return matches;
+    return filterEventEntries(eventEntries, searchQuery);
   }, [eventEntries, searchQuery]);
 
   var searchData = useMemo(function () {

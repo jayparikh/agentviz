@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import usePersistentState from "./usePersistentState.js";
+import { clampTime } from "../lib/playbackUtils.js";
 
 export default function usePlayback(total) {
   var [time, setTime] = useState(0);
@@ -29,7 +30,7 @@ export default function usePlayback(total) {
   }, [playing, speed, total]);
 
   var seek = useCallback(function (nextTime) {
-    setTime(Math.max(0, Math.min(total, nextTime)));
+    setTime(clampTime(nextTime, total));
   }, [total]);
 
   var playPause = useCallback(function () {
