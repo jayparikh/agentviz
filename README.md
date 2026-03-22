@@ -100,6 +100,40 @@ To stop it:
 | `launch_agentviz` | Start the server and open the browser. Accepts an optional `session_file` path. |
 | `close_agentviz` | Stop a running server. Accepts an optional `port`; omit to stop all. |
 
+## Session Comparison
+
+Load two agent traces side by side to compare them head to head. Great for benchmarking Claude Code vs Copilot CLI on the same task, or comparing two different prompting strategies.
+
+### Entry points
+
+- **Landing screen** -- click "compare two sessions" below the drop zone to open dual upload mode
+- **Compare landing** -- drop Session A and Session B independently; the comparison view opens once both are loaded
+
+### Scorecard tab
+
+Side-by-side metrics with delta badges:
+
+| Metric | Delta color |
+|--------|-------------|
+| Duration | Green = A faster |
+| Effective cost | Green = A cheaper |
+| Input / Output tokens | Neutral |
+| Cache reads / writes | Neutral (shown only when cache data present) |
+| Tool calls | Neutral |
+| Errors | Green = A has fewer |
+| Turns | Neutral |
+| Files touched | Neutral |
+
+### Tools tab
+
+Horizontal bar chart showing tool call counts for both sessions on the same axis. Blue bars = Session A, purple bars = Session B.
+
+### Export
+
+Click **Export** in the comparison header to download a single self-contained `.html` file. Share it with anyone -- no server required. Opening it reproduces the full comparison view.
+
+---
+
 ## Features
 
 ### Replay View
@@ -147,6 +181,8 @@ Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn s
 | **Playback Control** | Play/pause with variable speed (0.5x to 8x). Seek with arrow keys. |
 | **Diff Viewer** | Inline unified diff with dual-gutter line numbers for file-editing tool calls. |
 | **Auto-detect Format** | Supports Claude Code and Copilot CLI JSONL. Format detected from first line. |
+| **Session Comparison** | Load two traces side by side. Scorecard and tool-usage chart with delta badges. |
+| **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
 
 ## Keyboard Shortcuts
 
@@ -193,11 +229,13 @@ src/
     diffUtils.js         # Diff detection and Myers line diff algorithm
     waterfall.js         # Waterfall view helpers: item building, stats, layout
     pricing.js           # Claude model pricing table and cost estimation
+    exportHtml.js        # Self-contained HTML export for single sessions and comparisons
   components/
     ReplayView.jsx       # Windowed event stream + inspector sidebar
     TracksView.jsx       # DAW-style multi-track timeline
     WaterfallView.jsx    # Tool execution waterfall with nesting and inspector
     StatsView.jsx        # Aggregate metrics and tool ranking
+    CompareView.jsx      # Side-by-side session comparison (Scorecard + Tools tabs)
     CommandPalette.jsx   # Cmd+K fuzzy search overlay
     Timeline.jsx         # Scrubable playback bar with event markers
     DiffViewer.jsx       # Inline unified diff for file-editing tool calls
@@ -260,6 +298,8 @@ Please open an issue to discuss larger changes before submitting a PR.
 - [x] Live streaming mode (tail a session file in real time)
 - [x] CLI launcher: `node bin/agentviz.js session.jsonl`
 - [x] MCP server for Claude Code integration (`launch_agentviz` tool)
+- [x] Session comparison (dual-trace scorecard + tool usage chart)
+- [x] HTML export (self-contained shareable file, single session or comparison)
 - [ ] Conversation flow graph (directed graph of turns and decisions)
 - [ ] Bookmarks and annotations (persisted to localStorage)
 - [ ] Multi-agent hierarchy (parent/child agents, nested tracks)

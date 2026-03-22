@@ -25,6 +25,7 @@ import {
   ArrowUpDown,
   SlidersHorizontal,
   Minus,
+  Download,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -54,6 +55,7 @@ var ICON_MAP = {
   "arrow-up-down": ArrowUpDown,
   filter: SlidersHorizontal,
   minus: Minus,
+  download: Download,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

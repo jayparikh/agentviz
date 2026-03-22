@@ -1,4 +1,4 @@
-# AgentViz
+# AGENTVIZ
 
 Session replay visualizer for AI agent workflows. Renders Claude Code and Copilot CLI session logs as interactive timelines, with auto-detection of file format.
 
@@ -17,7 +17,8 @@ src/
     usePlayback.js     # Playback state: time, playing, speed, seek, playPause
     useSearch.js       # Debounced search with matchSet/matchedEntries
     useKeyboardShortcuts.js # Centralized keyboard handler (ref-based, stable listener)
-    useSessionLoader.js # File parsing, sample loading, session reset, hero state
+    useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
+    useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js # localStorage-backed useState with debounced writes
   lib/
     theme.js           # Design token system ("Midnight Circuit" theme), TRACK_TYPES, AGENT_COLORS
@@ -28,8 +29,10 @@ src/
     session.js         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
     replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
     commandPalette.js  # Precomputed search index with scoring and per-type caps
-    diffUtils.js        # Diff detection (isFileEditEvent) + Myers line diff algorithm
+    diffUtils.js       # Diff detection (isFileEditEvent) + Myers line diff algorithm
     waterfall.js       # Waterfall view helpers: item building, stats, layout, windowing
+    pricing.js         # Claude model pricing table and cost estimation
+    exportHtml.js      # Self-contained HTML export for single sessions and comparisons
   components/
     FileUploader.jsx   # Drag-and-drop file input with error handling
     Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
@@ -37,12 +40,19 @@ src/
     TracksView.jsx     # DAW-style multi-track lanes with solo/mute
     WaterfallView.jsx  # Tool execution waterfall with nesting, inspector sidebar
     StatsView.jsx      # Aggregate metrics, tool ranking, turn summary
-    SessionHero.jsx    # Summary card shown after file load (sparkline, format badge, metrics)
+    CompareView.jsx    # Side-by-side session comparison: Scorecard + Tools tabs
     CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
     DiffViewer.jsx     # Inline unified diff view for file-editing tool calls
+    LiveIndicator.jsx  # Pulsing LIVE badge shown in CLI streaming mode
     SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
     ResizablePanel.jsx # Drag-to-resize split panel utility
     ErrorBoundary.jsx  # React error boundary with resetKey for recovery
+    Icon.jsx           # Lucide icon wrapper
+bin/
+  agentviz.js          # CLI entry point: finds free port, starts server, opens browser
+mcp/
+  server.js            # MCP server: launch_agentviz and close_agentviz tools
+server.js              # HTTP server: serves dist/ SPA + SSE /api/stream file tail
 ```
 
 ## Key data types
@@ -81,13 +91,10 @@ Agent types: user, assistant, system
 - "Midnight Circuit" theme defined in src/lib/theme.js
 
 ## Planned features
-- Token count tracking and cost estimation per turn
 - Conversation flow graph (directed graph of turns/decisions)
 - Bookmarks and annotations (persisted to localStorage)
 - Vim-style keyboard navigation
 - Parsers for: LangSmith traces, OpenTelemetry
 - Multi-agent hierarchy (parent/child agents, nested tracks)
-- Session scoring, achievements, shareable URLs
-- Live streaming mode (tail a session file)
 - Fork-from-any-point replay
-- CLI launcher: npx agentviz session.jsonl
+- `npx agentviz` (publish to npm)

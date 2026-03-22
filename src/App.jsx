@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { theme, TRACK_TYPES, alpha } from "./lib/theme.js";
+import { exportSingleSession, exportComparison } from "./lib/exportHtml.js";
 import { buildFilteredEventEntries, buildTurnStartMap, buildTimeMap } from "./lib/session.js";
 import usePersistentState from "./hooks/usePersistentState.js";
 import useSessionLoader from "./hooks/useSessionLoader.js";
@@ -33,11 +34,26 @@ export default function App() {
   var [showPalette, setShowPalette] = useState(false);
   var [showFilters, setShowFilters] = useState(false);
   var [compareLanding, setCompareLanding] = useState(false);
+  var [exportSessionState, setExportSessionState] = useState("idle"); // idle | loading | done | error
+  var [exportSessionError, setExportSessionError] = useState(null);
+  var [exportCompareState, setExportCompareState] = useState("idle");
+  var [exportCompareError, setExportCompareError] = useState(null);
   var searchInputRef = useRef(null);
   var filtersRef = useRef(null);
 
   var session = useSessionLoader();
   var sessionB = useSessionLoader();
+
+  // Auto-load comparison data embedded by exportComparison() in exported HTML files.
+  useEffect(function () {
+    var compareData = window.__AGENTVIZ_COMPARE__;
+    if (!compareData || !compareData.a || !compareData.b) return;
+    delete window.__AGENTVIZ_COMPARE__;
+    setCompareLanding(true);
+    session.handleFile(compareData.a.text, compareData.a.name);
+    sessionB.handleFile(compareData.b.text, compareData.b.name);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   var playback = usePlayback(session.total);
 
   useLiveStream({
@@ -115,6 +131,41 @@ export default function App() {
     sessionB.resetSession();
     setCompareLanding(false);
   }, [sessionB.resetSession]);
+
+  var handleExportSession = useCallback(function () {
+    var rawText = session.getRawText();
+    if (!rawText || exportSessionState === "loading") return;
+    setExportSessionState("loading");
+    setExportSessionError(null);
+    exportSingleSession(rawText, session.file)
+      .then(function () {
+        setExportSessionState("done");
+        setTimeout(function () { setExportSessionState("idle"); }, 2000);
+      })
+      .catch(function (err) {
+        setExportSessionState("error");
+        setExportSessionError(err.message);
+        setTimeout(function () { setExportSessionState("idle"); setExportSessionError(null); }, 4000);
+      });
+  }, [session.getRawText, session.file, exportSessionState]);
+
+  var handleExportComparison = useCallback(function () {
+    var rawA = session.getRawText();
+    var rawB = sessionB.getRawText();
+    if (!rawA || !rawB || exportCompareState === "loading") return;
+    setExportCompareState("loading");
+    setExportCompareError(null);
+    exportComparison(rawA, session.file, rawB, sessionB.file)
+      .then(function () {
+        setExportCompareState("done");
+        setTimeout(function () { setExportCompareState("idle"); }, 2000);
+      })
+      .catch(function (err) {
+        setExportCompareState("error");
+        setExportCompareError(err.message);
+        setTimeout(function () { setExportCompareState("idle"); setExportCompareError(null); }, 4000);
+      });
+  }, [session.getRawText, session.file, sessionB.getRawText, sessionB.file, exportCompareState]);
 
   var compareReady = compareLanding && Boolean(session.events) && Boolean(sessionB.events);
 
@@ -340,9 +391,14 @@ export default function App() {
           <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>or</span>
           <span
             onClick={function () { setCompareLanding(true); }}
-            style={{ color: theme.text.muted, cursor: "pointer", fontSize: theme.fontSize.sm }}
+            style={{
+              color: theme.accent.primary,
+              cursor: "pointer",
+              fontSize: theme.fontSize.sm,
+              display: "flex", alignItems: "center", gap: 4,
+            }}
           >
-            compare two sessions
+            <Icon name="arrow-up-down" size={12} /> compare two sessions
           </span>
         </div>
       </div>
@@ -378,7 +434,42 @@ export default function App() {
             maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {sessionB.file}
           </span>
-          <div style={{ marginLeft: "auto" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+            {exportCompareError && (
+              <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, maxWidth: 240, fontFamily: theme.font.ui }}>
+                {exportCompareError}
+              </span>
+            )}
+            <button
+              className="av-btn"
+              onClick={handleExportComparison}
+              disabled={exportCompareState === "loading"}
+              title={exportCompareState === "error" ? exportCompareError : "Export as self-contained HTML"}
+              style={{
+                background: exportCompareState === "done" ? alpha(theme.semantic.success, 0.1)
+                  : exportCompareState === "error" ? alpha(theme.semantic.error, 0.1)
+                  : "transparent",
+                border: "1px solid " + (
+                  exportCompareState === "done" ? theme.semantic.success
+                  : exportCompareState === "error" ? theme.semantic.error
+                  : theme.border.default
+                ),
+                color: exportCompareState === "done" ? theme.semantic.success
+                  : exportCompareState === "error" ? theme.semantic.error
+                  : theme.text.muted,
+                borderRadius: theme.radius.md,
+                padding: "2px 10px", fontSize: theme.fontSize.sm, fontFamily: theme.font.ui,
+                display: "flex", alignItems: "center", gap: 4,
+                opacity: exportCompareState === "loading" ? 0.6 : 1,
+                cursor: exportCompareState === "loading" ? "default" : "pointer",
+              }}
+            >
+              <Icon name="download" size={12} />
+              {exportCompareState === "loading" ? "Exporting..."
+                : exportCompareState === "done" ? "Exported!"
+                : exportCompareState === "error" ? "Failed"
+                : "Export"}
+            </button>
             <button
               className="av-btn"
               onClick={exitCompare}
@@ -719,6 +810,60 @@ export default function App() {
           >
             {playback.speed}x
           </button>
+
+          <button
+            className="av-btn"
+            onClick={function () { setCompareLanding(true); }}
+            title="Compare with another session"
+            style={{
+              background: "transparent",
+              border: "1px solid " + theme.border.default,
+              color: theme.text.muted,
+              borderRadius: theme.radius.md,
+              padding: "2px 8px",
+              fontSize: theme.fontSize.sm,
+              fontFamily: theme.font.ui,
+            }}
+          >
+            Compare
+          </button>
+
+          {session.getRawText() && (
+            <button
+              className="av-btn"
+              onClick={handleExportSession}
+              disabled={exportSessionState === "loading"}
+              title={exportSessionState === "error" ? exportSessionError : "Export as self-contained HTML"}
+              style={{
+                background: exportSessionState === "done" ? alpha(theme.semantic.success, 0.1)
+                  : exportSessionState === "error" ? alpha(theme.semantic.error, 0.1)
+                  : "transparent",
+                border: "1px solid " + (
+                  exportSessionState === "done" ? theme.semantic.success
+                  : exportSessionState === "error" ? theme.semantic.error
+                  : theme.border.default
+                ),
+                color: exportSessionState === "done" ? theme.semantic.success
+                  : exportSessionState === "error" ? theme.semantic.error
+                  : theme.text.muted,
+                borderRadius: theme.radius.md,
+                padding: "2px 8px",
+                fontSize: theme.fontSize.sm,
+                fontFamily: theme.font.ui,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                opacity: exportSessionState === "loading" ? 0.6 : 1,
+                cursor: exportSessionState === "loading" ? "default" : "pointer",
+              }}
+            >
+              <Icon name="download" size={12} />
+              {exportSessionState === "loading" ? "Exporting..."
+                : exportSessionState === "done" ? "Exported!"
+                : exportSessionState === "error" ? "Failed"
+                : "Export"}
+            </button>
+          )}
 
           <button
             className="av-btn"

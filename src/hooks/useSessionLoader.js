@@ -184,5 +184,6 @@ export default function useSessionLoader() {
     loadSample: loadSample,
     resetSession: resetSession,
     dismissHero: dismissHero,
+    getRawText: function () { return rawTextRef.current; },
   };
 }
