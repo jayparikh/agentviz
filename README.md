@@ -78,6 +78,10 @@ DAW-style multi-track lanes for Reasoning, Tool Calls, Context, and Output. Solo
 <img src="docs/screenshots/tracks-view.png" alt="Tracks View" width="800" />
 </div>
 
+### Waterfall View
+
+Gantt-style timeline of every tool call, sorted by start time with nesting for overlapping calls. Hover any bar to see duration and timing. Click to open the full inspector, including inline diffs for file edits.
+
 ### Stats View
 
 Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn summary. Quickly spot which tools dominate a session and where errors occurred.
@@ -95,6 +99,8 @@ Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn s
 | **Error Navigation** | Auto-detects errors from flags and text patterns. Jump with `E` / `Shift+E`. |
 | **Track Filters** | Toggle visibility per track type with filter chips in the header. |
 | **Playback Control** | Play/pause with variable speed (0.5x to 8x). Seek with arrow keys. |
+| **Diff Viewer** | Inline unified diff with dual-gutter line numbers for file-editing tool calls. |
+| **Token and Cost Tracking** | Per-turn token usage with estimated USD cost for Claude models. |
 | **Auto-detect Format** | Supports Claude Code and Copilot CLI JSONL. Format detected from first line. |
 
 ## Keyboard Shortcuts
@@ -103,7 +109,7 @@ Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn s
 |-----|--------|
 | `Space` | Play / Pause |
 | `Left` / `Right` | Seek 2 seconds |
-| `1` / `2` / `3` | Switch view (Replay / Tracks / Stats) |
+| `1` / `2` / `3` / `4` | Switch view (Replay / Tracks / Waterfall / Stats) |
 | `/` | Focus search |
 | `E` / `Shift+E` | Next / Previous error |
 | `Cmd+K` | Command palette |
@@ -128,20 +134,33 @@ src/
     useSearch.js         # Debounced full-text search with match highlighting
     useKeyboardShortcuts.js  # Centralized keyboard handler
     useSessionLoader.js  # File parsing, format detection, session reset
+    usePersistentState.js    # localStorage-backed useState with debounced writes
   lib/
     parseSession.js      # Auto-detect format router
     parser.js            # Claude Code JSONL parser
     copilotCliParser.js  # Copilot CLI JSONL parser
+    session.js           # Pure helpers: getSessionTotal, buildFilteredEventEntries
     theme.js             # "Midnight Circuit" design tokens
+    constants.js         # Sample events for demo mode
     replayLayout.js      # Virtualized windowing for large sessions
     commandPalette.js    # Precomputed fuzzy search index
+    diffUtils.js         # Diff detection and Myers line diff algorithm
+    waterfall.js         # Waterfall view helpers: item building, stats, layout
+    pricing.js           # Claude model pricing table and cost estimation
   components/
     ReplayView.jsx       # Windowed event stream + inspector sidebar
     TracksView.jsx       # DAW-style multi-track timeline
+    WaterfallView.jsx    # Tool execution waterfall with nesting and inspector
     StatsView.jsx        # Aggregate metrics and tool ranking
     SessionHero.jsx      # Post-load summary card with sparkline
     CommandPalette.jsx   # Cmd+K fuzzy search overlay
     Timeline.jsx         # Scrubable playback bar with event markers
+    DiffViewer.jsx       # Inline unified diff for file-editing tool calls
+    SyntaxHighlight.jsx  # Lightweight code syntax coloring for raw data
+    ResizablePanel.jsx   # Drag-to-resize split panel utility
+    FileUploader.jsx     # Drag-and-drop file input with error handling
+    ErrorBoundary.jsx    # React error boundary with resetKey for recovery
+    Icon.jsx             # SVG icon component
 ```
 
 ### Parser API
@@ -150,13 +169,13 @@ src/
 
 ```js
 // Every event has the same shape regardless of source format
-{ t, agent, track, text, duration, intensity, toolName?, toolInput?, raw, turnIndex, isError }
+{ t, agent, track, text, duration, intensity, toolName?, toolInput?, raw, turnIndex, isError, model?, tokenUsage? }
 
 // Turns group events by conversation round
 { index, startTime, endTime, eventIndices, userMessage, toolCount, hasError }
 
 // Session-level stats
-{ totalEvents, totalTurns, totalToolCalls, errorCount, duration, models, primaryModel }
+{ totalEvents, totalTurns, totalToolCalls, errorCount, duration, models, primaryModel, tokenUsage }
 ```
 
 ## Development
@@ -177,7 +196,7 @@ The design uses a true black base with blue, purple, grey, and teal accents. All
 Contributions are welcome! Here are some areas where help is appreciated:
 
 - **New parsers**: LangSmith, OpenTelemetry, custom agent frameworks
-- **Visualizations**: Flame chart view, conversation flow graph, inline diff viewer
+- **Visualizations**: Flame chart view, conversation flow graph
 - **Features**: Bookmarks/annotations, session comparison, live streaming mode
 - **CLI launcher**: `npx agentviz session.jsonl`
 
@@ -185,9 +204,9 @@ Please open an issue to discuss larger changes before submitting a PR.
 
 ## Roadmap
 
-- [ ] Token count tracking and cost estimation per turn
-- [ ] Tool execution waterfall / flame chart view
-- [ ] Inline diff viewer for file-editing tool calls
+- [x] Token count tracking and cost estimation per turn
+- [x] Tool execution waterfall / flame chart view
+- [x] Inline diff viewer for file-editing tool calls
 - [ ] Conversation flow graph (directed graph of turns and decisions)
 - [ ] Bookmarks and annotations (persisted to localStorage)
 - [ ] Multi-agent hierarchy (parent/child agents, nested tracks)
