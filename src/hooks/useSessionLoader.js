@@ -16,6 +16,10 @@ export default function useSessionLoader() {
   var parseTimeoutRef = useRef(null);
   var requestIdRef = useRef(0);
   var rawTextRef = useRef("");
+  // Tracks the requestId that initiated the current live session. appendLines
+  // checks this so stale live data from a previous session never overwrites a
+  // newly-loaded file.
+  var liveRequestIdRef = useRef(0);
 
   var applySession = useCallback(function (result, name) {
     setEvents(result.events);
@@ -40,6 +44,7 @@ export default function useSessionLoader() {
     setError(null);
     setLoading(true);
     setIsLive(false);
+    liveRequestIdRef.current = 0;
 
     parseTimeoutRef.current = setTimeout(function () {
       parseTimeoutRef.current = null;
@@ -68,7 +73,9 @@ export default function useSessionLoader() {
 
   // Called by useLiveStream with each batch of new JSONL lines.
   // Appends to rawText and re-parses the full accumulated text.
+  // Guards against stale live data overwriting a newly-loaded file.
   var appendLines = useCallback(function (newLines) {
+    if (liveRequestIdRef.current !== requestIdRef.current) return;
     rawTextRef.current = rawTextRef.current
       ? rawTextRef.current + "\n" + newLines
       : newLines;
@@ -141,6 +148,8 @@ export default function useSessionLoader() {
           .then(function (text) {
             if (!text) return;
             rawTextRef.current = text;
+            requestIdRef.current += 1;
+            liveRequestIdRef.current = requestIdRef.current;
             setIsLive(true);
 
             var result;
