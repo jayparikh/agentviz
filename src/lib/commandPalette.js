@@ -44,7 +44,7 @@ export function buildCommandPaletteIndex(events, turns) {
   if (events) {
     for (var j = 0; j < events.length; j++) {
       var ev = events[j];
-      var dedupeKey = (ev.toolName || ev.text.substring(0, 50)) + ":" + ev.track + ":" + ev.t.toFixed(1);
+      var dedupeKey = (ev.toolName || ev.text.substring(0, 50)) + ":" + ev.track + ":" + ev.t;
       if (seenEvents[dedupeKey]) continue;
       seenEvents[dedupeKey] = true;
 

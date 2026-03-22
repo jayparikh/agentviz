@@ -136,7 +136,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                       bottom: 4,
                       borderRadius: theme.radius.md,
                       background: alpha(blockColor, 0.4),
-                      border: "1px solid " + (active ? blockColor : "transparent"),
+                      border: "1px solid " + (active || hovered ? blockColor : "transparent"),
                       boxShadow: ev.isError ? "inset 0 0 0 1px " + alpha(theme.semantic.error, 0.38) : "none",
                       cursor: "pointer",
                       display: "flex",

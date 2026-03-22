@@ -59,9 +59,6 @@ export default function App() {
     }
   }, [session.total, playback.seek]);
 
-  useEffect(function () {
-    if (session.events && session.showHero) session.dismissHero();
-  }, [session.events, session.showHero, session.dismissHero]);
 
   // Close filter dropdown on outside click
   useEffect(function () {
@@ -75,7 +72,9 @@ export default function App() {
     return function () { document.removeEventListener("mousedown", handleClick); };
   }, [showFilters]);
 
-  var activeView = VIEWS.some(function (item) { return item.id === view; }) ? view : "replay";
+  var isValidView = VIEWS.some(function (item) { return item.id === view; });
+  var activeView = isValidView ? view : "replay";
+  useEffect(function () { if (!isValidView) setView("replay"); }, [isValidView]);
 
   var resetVisualizerState = useCallback(function () {
     playback.resetPlayback(0);

@@ -475,8 +475,8 @@ function buildMetadata(records, events, turns, malformedLines) {
       ? {
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
-        cacheReadTokens: totalCacheReadTokens,
-        cacheWriteTokens: totalCacheWriteTokens,
+        cacheRead: totalCacheReadTokens,
+        cacheWrite: totalCacheWriteTokens,
       }
       : null,
     warnings: warnings,

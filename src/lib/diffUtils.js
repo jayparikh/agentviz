@@ -123,12 +123,9 @@ export function computeDiff(oldStr, newStr) {
   var oldLines = oldStr ? oldStr.split("\n") : [];
   var newLines = newStr ? newStr.split("\n") : [];
 
-  // Strip trailing empty line if both strings end with newline
-  if (oldLines.length > 0 && oldLines[oldLines.length - 1] === "" &&
-      newLines.length > 0 && newLines[newLines.length - 1] === "") {
-    oldLines.pop();
-    newLines.pop();
-  }
+  // Strip trailing empty line caused by a trailing newline (each independently)
+  if (oldLines.length > 0 && oldLines[oldLines.length - 1] === "") oldLines.pop();
+  if (newLines.length > 0 && newLines[newLines.length - 1] === "") newLines.pop();
 
   var ops = myersDiff(oldLines, newLines);
   return buildHunks(ops, oldLines, newLines, 3);
@@ -223,7 +220,7 @@ function myersDiff(oldLines, newLines) {
     var prevY = prevX - prevK;
 
     // Diagonal (equal) moves from entry point to current (x, y)
-    while (x > prevX + (prevK < k ? 1 : 0) && y > prevY + (prevK > k ? 1 : 0)) {
+    while (x > prevX + (prevK > k ? 1 : 0) && y > prevY + (prevK < k ? 1 : 0)) {
       x--;
       y--;
       operations.push({ type: "equal", oldIdx: x, newIdx: y });

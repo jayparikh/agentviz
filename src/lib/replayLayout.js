@@ -24,7 +24,7 @@ export function buildReplayLayout(entries, turnStartMap) {
   for (var i = 0; i < entries.length; i++) {
     var entry = entries[i];
     var turn = turnStartMap[entry.index];
-    var hasTurnHeader = Boolean(turn && turn.index > 0 && entry.event.agent === "user");
+    var hasTurnHeader = Boolean(turn && turn.index > 0);
     var textLines = estimateTextLines(entry.event.text);
     var rowHeight = REPLAY_ROW_BASE_HEIGHT + (textLines * REPLAY_LINE_HEIGHT);
     var height = rowHeight + (hasTurnHeader ? REPLAY_TURN_HEADER_HEIGHT : 0);

@@ -24,7 +24,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
     return searchCommandPalette(searchIndex, query);
   }, [query, searchIndex]);
 
-  useEffect(function () { setSelectedIdx(0); }, [query, results.length]);
+  useEffect(function () { setSelectedIdx(0); }, [query, results]);
 
   function runItemAction(item) {
     if (!item) return;

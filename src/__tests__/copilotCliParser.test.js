@@ -393,7 +393,7 @@ describe("metadata", function () {
   it("computes token usage from modelMetrics", function () {
     expect(meta.tokenUsage.inputTokens).toBe(5000);
     expect(meta.tokenUsage.outputTokens).toBe(150);
-    expect(meta.tokenUsage.cacheReadTokens).toBe(3000);
+    expect(meta.tokenUsage.cacheRead).toBe(3000);
   });
 
   it("uses null tokenUsage when no token counters are present", function () {

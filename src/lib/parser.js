@@ -440,8 +440,11 @@ export function parseClaudeCodeJSONL(text) {
 
   if (events.length === 0) return null;
 
-  // Normalize to start at t=0
+  // Normalize to start at t=0 (scan all events for true minimum)
   var minT = events[0].t;
+  for (var i = 1; i < events.length; i++) {
+    if (events[i].t < minT) minT = events[i].t;
+  }
   for (var i = 0; i < events.length; i++) {
     events[i].t = events[i].t - minT;
   }

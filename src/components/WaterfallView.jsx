@@ -390,6 +390,9 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
     return getWaterfallWindow(layout.layoutItems, scrollTop, viewportHeight, OVERSCAN_PX);
   }, [layout.layoutItems, scrollTop, viewportHeight]);
 
+  // Clear selection when items rebuild (e.g. track filter change) to avoid pointing at wrong item
+  useEffect(function () { setSelectedIdx(null); }, [items]);
+
   var selectedItem = useMemo(function () {
     if (selectedIdx === null || !items[selectedIdx]) return null;
     return items[selectedIdx];

@@ -202,13 +202,13 @@ export default function DiffViewer({ event }) {
   var items = [];
   var linesSoFar = 0;
   for (var h = 0; h < hunks.length; h++) {
+    if (shouldTruncate && linesSoFar >= MAX_COLLAPSED_LINES) break;
     items.push({ type: "hunk", hunk: hunks[h], key: "h" + h });
     for (var l = 0; l < hunks[h].lines.length; l++) {
       if (shouldTruncate && linesSoFar >= MAX_COLLAPSED_LINES) break;
       items.push({ type: "line", line: hunks[h].lines[l], key: "h" + h + "l" + l });
       linesSoFar++;
     }
-    if (shouldTruncate && linesSoFar >= MAX_COLLAPSED_LINES) break;
   }
 
   return (

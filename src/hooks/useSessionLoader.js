@@ -39,7 +39,15 @@ export default function useSessionLoader() {
 
     parseTimeoutRef.current = setTimeout(function () {
       parseTimeoutRef.current = null;
-      var result = parseSession(text);
+      var result;
+      try {
+        result = parseSession(text);
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
+        setError("Failed to parse file: " + (err && err.message ? err.message : "unknown error"));
+        return;
+      }
 
       if (requestId !== requestIdRef.current) return;
 

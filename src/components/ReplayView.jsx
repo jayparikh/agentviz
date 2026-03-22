@@ -16,24 +16,32 @@ function highlightText(text, query) {
   if (!query || !query.trim()) return text;
 
   var lowerQuery = query.toLowerCase();
-  var idx = text.toLowerCase().indexOf(lowerQuery);
-  if (idx === -1) return text;
+  var lowerText = text.toLowerCase();
+  var parts = [];
+  var lastIdx = 0;
+  var idx = lowerText.indexOf(lowerQuery);
 
-  return [
-    text.substring(0, idx),
-    <span
-      key="hl"
-      style={{
-        background: alpha(theme.accent.primary, 0.2),
-        color: theme.accent.primary,
-        borderRadius: 2,
-        padding: "0 1px",
-      }}
-    >
-      {text.substring(idx, idx + query.length)}
-    </span>,
-    text.substring(idx + query.length),
-  ];
+  while (idx !== -1) {
+    if (idx > lastIdx) parts.push(text.substring(lastIdx, idx));
+    parts.push(
+      <span
+        key={idx}
+        style={{
+          background: alpha(theme.accent.primary, 0.2),
+          color: theme.accent.primary,
+          borderRadius: 2,
+          padding: "0 1px",
+        }}
+      >
+        {text.substring(idx, idx + query.length)}
+      </span>
+    );
+    lastIdx = idx + query.length;
+    idx = lowerText.indexOf(lowerQuery, lastIdx);
+  }
+
+  if (lastIdx < text.length) parts.push(text.substring(lastIdx));
+  return parts.length > 0 ? parts : text;
 }
 
 function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEntries }) {
