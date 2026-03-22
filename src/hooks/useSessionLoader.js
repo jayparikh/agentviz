@@ -12,8 +12,10 @@ export default function useSessionLoader() {
   var [error, setError] = useState(null);
   var [loading, setLoading] = useState(false);
   var [showHero, setShowHero] = useState(false);
+  var [isLive, setIsLive] = useState(false);
   var parseTimeoutRef = useRef(null);
   var requestIdRef = useRef(0);
+  var rawTextRef = useRef("");
 
   var applySession = useCallback(function (result, name) {
     setEvents(result.events);
@@ -34,8 +36,10 @@ export default function useSessionLoader() {
       parseTimeoutRef.current = null;
     }
 
+    rawTextRef.current = text;
     setError(null);
     setLoading(true);
+    setIsLive(false);
 
     parseTimeoutRef.current = setTimeout(function () {
       parseTimeoutRef.current = null;
@@ -62,6 +66,27 @@ export default function useSessionLoader() {
     }, 16);
   }, [applySession]);
 
+  // Called by useLiveStream with each batch of new JSONL lines.
+  // Appends to rawText and re-parses the full accumulated text.
+  var appendLines = useCallback(function (newLines) {
+    rawTextRef.current = rawTextRef.current
+      ? rawTextRef.current + "\n" + newLines
+      : newLines;
+
+    var result;
+    try {
+      result = parseSession(rawTextRef.current);
+    } catch (err) {
+      return;
+    }
+    if (!result || !result.events || result.events.length === 0) return;
+
+    setEvents(result.events);
+    setTurns(result.turns);
+    setMetadata(result.metadata);
+    setTotal(getSessionTotal(result.events));
+  }, []);
+
   var loadSample = useCallback(function () {
     requestIdRef.current += 1;
     if (parseTimeoutRef.current) {
@@ -69,6 +94,7 @@ export default function useSessionLoader() {
       parseTimeoutRef.current = null;
     }
 
+    rawTextRef.current = "";
     setEvents(SAMPLE_EVENTS);
     setTurns(SAMPLE_TURNS);
     setMetadata(SAMPLE_METADATA);
@@ -76,6 +102,7 @@ export default function useSessionLoader() {
     setFile("demo-session.jsonl");
     setError(null);
     setLoading(false);
+    setIsLive(false);
     setShowHero(true);
   }, []);
 
@@ -86,6 +113,7 @@ export default function useSessionLoader() {
       parseTimeoutRef.current = null;
     }
 
+    rawTextRef.current = "";
     setEvents(null);
     setTurns([]);
     setMetadata(null);
@@ -93,11 +121,42 @@ export default function useSessionLoader() {
     setFile("");
     setError(null);
     setLoading(false);
+    setIsLive(false);
     setShowHero(false);
   }, []);
 
   var dismissHero = useCallback(function () {
     setShowHero(false);
+  }, []);
+
+  // When served by the CLI (server.js), /api/meta tells us the filename
+  // and /api/file provides the initial content. Bootstrap from there.
+  useEffect(function () {
+    fetch("/api/meta")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (meta) {
+        if (!meta || !meta.live || !meta.filename) return;
+        return fetch("/api/file")
+          .then(function (r) { return r.ok ? r.text() : null; })
+          .then(function (text) {
+            if (!text) return;
+            rawTextRef.current = text;
+            setIsLive(true);
+
+            var result;
+            try { result = parseSession(text); } catch (e) { return; }
+            if (!result || !result.events || result.events.length === 0) return;
+
+            setEvents(result.events);
+            setTurns(result.turns);
+            setMetadata(result.metadata);
+            setTotal(getSessionTotal(result.events));
+            setFile(meta.filename);
+            setError(null);
+            setShowHero(true);
+          });
+      })
+      .catch(function () {});
   }, []);
 
   useEffect(function () {
@@ -119,7 +178,9 @@ export default function useSessionLoader() {
     error: error,
     loading: loading,
     showHero: showHero,
+    isLive: isLive,
     handleFile: handleFile,
+    appendLines: appendLines,
     loadSample: loadSample,
     resetSession: resetSession,
     dismissHero: dismissHero,

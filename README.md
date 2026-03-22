@@ -1,6 +1,6 @@
 <div align="center">
 
-# ◇ AgentViz
+# ◇ AGENTVIZ
 
 **See what your AI agents actually do.**
 
@@ -13,7 +13,7 @@ Drop a Claude Code or Copilot CLI session file and explore the agent's reasoning
 
 <br />
 
-<img src="docs/screenshots/replay-view.png" alt="AgentViz Replay View" width="800" />
+<img src="docs/screenshots/replay-view.png" alt="AGENTVIZ Replay View" width="800" />
 
 *Replay an AI coding session event by event, with full tool call inspection.*
 
@@ -21,9 +21,9 @@ Drop a Claude Code or Copilot CLI session file and explore the agent's reasoning
 
 ---
 
-## Why AgentViz?
+## Why AGENTVIZ?
 
-AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, but reading raw JSONL is painful. AgentViz turns those logs into something you can actually explore:
+AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, but reading raw JSONL is painful. AGENTVIZ turns those logs into something you can actually explore:
 
 - **Replay** sessions like a video, stepping through each tool call and reasoning step
 - **Visualize** timing and concurrency in a DAW-style multi-track timeline

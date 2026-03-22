@@ -1,12 +1,20 @@
 {
   "name": "agentviz",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "bin": {
+    "agentviz": "./bin/agentviz.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "server.js"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
