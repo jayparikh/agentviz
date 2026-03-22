@@ -54,7 +54,10 @@ export default function ResizablePanel({ children, initialSplit, minPx, directio
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isHoriz, minPx]);
+  // setSplit from usePersistentState is stable (React guarantees setState identity),
+  // so omitting it from deps is safe -- but we list isHoriz and minPx since those
+  // affect the clamping math inside handleMouseMove.
+  }, [isHoriz, minPx, setSplit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   var kids = Array.isArray(children) ? children : [children];
   if (kids.length < 2) return kids[0] || null;

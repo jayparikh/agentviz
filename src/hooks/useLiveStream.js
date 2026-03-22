@@ -5,8 +5,6 @@ var DEBOUNCE_MS = 500;
 /**
  * Connects to the SSE /api/stream endpoint and calls onLines(text) with
  * each batch of new JSONL lines, debounced so rapid file writes are coalesced.
- *
- * Returns { connected } state (true while EventSource is open).
  */
 export default function useLiveStream({ enabled, onLines }) {
   var esRef = useRef(null);
@@ -36,6 +34,12 @@ export default function useLiveStream({ enabled, onLines }) {
     es.onmessage = function (e) {
       try {
         var data = JSON.parse(e.data);
+        if (data.error === "watcher_error") {
+          // Server lost the file watcher -- stop trying to stream
+          connectedRef.current = false;
+          es.close();
+          return;
+        }
         if (data.lines) {
           pendingRef.current += (pendingRef.current ? "\n" : "") + data.lines;
           if (timerRef.current) clearTimeout(timerRef.current);

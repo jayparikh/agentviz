@@ -68,7 +68,14 @@ export function createServer({ sessionFile, distDir }) {
       watcher = fs.watch(sessionFile, function (eventType) {
         if (eventType === "change") broadcastNewLines();
       });
-      watcher.on("error", function () {});
+      watcher.on("error", function (err) {
+        process.stderr.write("AGENTVIZ: file watcher error: " + (err && err.message || err) + "\n");
+        // Notify connected SSE clients so the UI can show the stream as disconnected
+        var errPayload = "data: " + JSON.stringify({ error: "watcher_error" }) + "\n\n";
+        for (var client of clients) {
+          try { client.write(errPayload); } catch (e) { clients.delete(client); }
+        }
+      });
     } catch (e) {}
   }
 

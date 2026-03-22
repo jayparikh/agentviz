@@ -1,6 +1,7 @@
 import { theme, TRACK_TYPES } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
 import { estimateCost, formatCost } from "../lib/pricing.js";
+import { formatDurationLong } from "../lib/formatTime.js";
 
 export default function StatsView({ events, totalTime, metadata, turns }) {
   var trackStats = {};
@@ -37,7 +38,7 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
     { label: "User Messages", value: userMsgs, color: theme.accent.primary },
     { label: "Tool Calls", value: (trackStats.tool_call || {}).count || 0, color: theme.track.tool_call },
     { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.ghost },
-    { label: "Duration", value: totalTime.toFixed(0) + "s", color: theme.track.context },
+    { label: "Duration", value: formatDurationLong(totalTime), color: theme.track.context },
   ];
 
   return (
