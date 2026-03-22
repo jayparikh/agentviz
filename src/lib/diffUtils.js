@@ -5,17 +5,24 @@ import { theme, alpha } from "../lib/theme.js";
  * from file-editing tool calls (str_replace_editor, edit, create).
  */
 
-// Tool names that represent file edits
+// Tool names that represent file edits (Claude Code + Copilot CLI variants)
 var EDIT_TOOL_NAMES = [
   "str_replace_editor",
   "edit",
   "file_editor",
   "write",
   "str_replace_based_edit_tool",
+  // Copilot CLI variants
+  "replace_string_in_file",
+  "replace_in_file",
+  "edit_file",
 ];
 
 var CREATE_TOOL_NAMES = [
   "create",
+  // Copilot CLI variants
+  "write_file",
+  "create_file",
 ];
 
 /**
@@ -36,15 +43,20 @@ export function isFileEditEvent(event) {
     }
   }
 
-  // Must have old_str and new_str in input
-  if (isEditTool && input.old_str !== undefined && input.new_str !== undefined) {
-    return true;
+  // Must have old_str/new_str (or old_string/new_string for some Copilot tools)
+  if (isEditTool) {
+    if (input.old_str !== undefined && input.new_str !== undefined) return true;
+    if (input.old_string !== undefined && input.new_string !== undefined) return true;
   }
 
-  // Also detect by command field
+  // Detect by command field (Claude Code str_replace_editor with command=str_replace)
   if (input.command === "str_replace" && input.old_str !== undefined && input.new_str !== undefined) {
     return true;
   }
+
+  // Name-agnostic fallback: any tool that carries old_str+new_str is a text replacement
+  if (input.old_str !== undefined && input.new_str !== undefined) return true;
+  if (input.old_string !== undefined && input.new_string !== undefined) return true;
 
   return false;
 }
@@ -59,9 +71,10 @@ export function isFileCreateEvent(event) {
 
   var name = (event.toolName || "").toLowerCase();
 
-  // Explicit create tool
+  // Explicit create tool -- but only when there is no old content (that would be an edit)
+  var hasOldContent = input.old_str !== undefined || input.old_string !== undefined;
   for (var i = 0; i < CREATE_TOOL_NAMES.length; i++) {
-    if (name === CREATE_TOOL_NAMES[i]) return true;
+    if (name === CREATE_TOOL_NAMES[i] && !hasOldContent) return true;
   }
 
   // str_replace_editor with command=create
@@ -69,8 +82,11 @@ export function isFileCreateEvent(event) {
     return true;
   }
 
-  // Any tool with file_text and path but no old_str
+  // Any tool with file_text/content and a path but no old_str (full file write)
   if (input.file_text !== undefined && input.path && input.old_str === undefined) {
+    return true;
+  }
+  if (input.content !== undefined && input.path && input.old_str === undefined && input.old_string === undefined) {
     return true;
   }
 
@@ -94,10 +110,10 @@ export function extractDiffData(event) {
 
   if (isFileEditEvent(event)) {
     return {
-      filePath: input.path || "unknown",
+      filePath: input.path || input.file_path || "unknown",
       type: "edit",
-      oldStr: input.old_str || "",
-      newStr: input.new_str || "",
+      oldStr: input.old_str !== undefined ? input.old_str : (input.old_string || ""),
+      newStr: input.new_str !== undefined ? input.new_str : (input.new_string || ""),
     };
   }
 
@@ -106,7 +122,7 @@ export function extractDiffData(event) {
       filePath: input.path || input.file_path || "unknown",
       type: "create",
       oldStr: "",
-      newStr: input.file_text || "",
+      newStr: input.file_text !== undefined ? input.file_text : (input.content || ""),
     };
   }
 
