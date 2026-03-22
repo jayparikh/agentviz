@@ -17,6 +17,24 @@ var rootDir = path.resolve(__dirname, "..");
 var distDir = path.join(rootDir, "dist");
 
 // -- Resolve session file from argv --
+// Accepts a .jsonl file path or a directory (picks the most recently modified .jsonl inside it).
+function findLatestJsonl(dir) {
+  var best = null;
+  var bestMtime = 0;
+  try {
+    var entries = fs.readdirSync(dir);
+    for (var i = 0; i < entries.length; i++) {
+      if (!entries[i].endsWith(".jsonl")) continue;
+      var full = path.join(dir, entries[i]);
+      try {
+        var mtime = fs.statSync(full).mtimeMs;
+        if (mtime > bestMtime) { bestMtime = mtime; best = full; }
+      } catch (e) {}
+    }
+  } catch (e) {}
+  return best;
+}
+
 var sessionFile = null;
 var argv = process.argv.slice(2);
 for (var i = 0; i < argv.length; i++) {
@@ -24,10 +42,19 @@ for (var i = 0; i < argv.length; i++) {
   if (!arg.startsWith("-")) {
     var resolved = path.resolve(arg);
     if (!fs.existsSync(resolved)) {
-      process.stderr.write("Error: file not found: " + resolved + "\n");
+      process.stderr.write("Error: path not found: " + resolved + "\n");
       process.exit(1);
     }
-    sessionFile = resolved;
+    var stat = fs.statSync(resolved);
+    if (stat.isDirectory()) {
+      sessionFile = findLatestJsonl(resolved);
+      if (!sessionFile) {
+        process.stderr.write("Error: no .jsonl files found in " + resolved + "\n");
+        process.exit(1);
+      }
+    } else {
+      sessionFile = resolved;
+    }
     break;
   }
 }

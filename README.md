@@ -42,15 +42,15 @@ npm install
 npm run dev
 ```
 
-Opens at [localhost:3000](http://localhost:3000). Drop a `.jsonl` session file or click **Load Demo Session** to try it instantly.
+Opens at [localhost:3000](http://localhost:3000). Drop a `.jsonl` session file or click **load a demo session** to try it instantly.
 
 ### CLI (live streaming)
 
 ```bash
-# Point at any session file and the browser opens automatically
+# Point at a specific session file
 node bin/agentviz.js ~/.claude/projects/my-project/session.jsonl
 
-# Or the most recent session in any project
+# Or pass a directory -- opens the most recently modified .jsonl inside it
 node bin/agentviz.js ~/.claude/projects/my-project/
 ```
 
@@ -62,7 +62,9 @@ The browser opens with a pulsing **LIVE** badge. As Claude Code writes new event
 # Claude Code sessions
 ls ~/.claude/projects/
 
-# Copilot CLI event traces (location varies by config)
+# Copilot CLI sessions
+ls ~/.copilot/session-state/
+# Each subdirectory is a session UUID containing an events.jsonl file
 ```
 
 ## Claude Code MCP Integration
@@ -85,7 +87,7 @@ In any Claude Code session, in any project, just ask:
 > "Open agentviz" or "Show me the live view"
 
 Claude calls the `launch_agentviz` tool, which:
-1. Auto-detects the most recently active session file in `~/.claude/projects/`
+1. Auto-detects the most recently active session file (checks `~/.claude/projects/` and `~/.copilot/session-state/`)
 2. Starts a local HTTP server on a free port
 3. Opens the browser with live streaming enabled
 
@@ -106,8 +108,9 @@ Load two agent traces side by side to compare them head to head. Great for bench
 
 ### Entry points
 
-- **Landing screen** -- click "compare two sessions" below the drop zone to open dual upload mode
-- **Compare landing** -- drop Session A and Session B independently; the comparison view opens once both are loaded
+- **Landing screen** -- click "compare two sessions" below the drop zone
+- **Single-session header** -- click **Compare** while viewing any session to add a second trace for comparison
+- **Compare landing** -- drop Session A and Session B independently; the view opens once both are loaded
 
 ### Scorecard tab
 
@@ -116,9 +119,10 @@ Side-by-side metrics with delta badges:
 | Metric | Delta color |
 |--------|-------------|
 | Duration | Green = A faster |
-| Effective cost | Green = A cheaper |
+| Cost / PRUs | Green = A cheaper (delta suppressed for cross-agent comparisons since units differ) |
 | Input / Output tokens | Neutral |
 | Cache reads / writes | Neutral (shown only when cache data present) |
+| Premium requests (PRU) | Green = A uses fewer (shown only for Copilot sessions) |
 | Tool calls | Neutral |
 | Errors | Green = A has fewer |
 | Turns | Neutral |
@@ -130,7 +134,13 @@ Horizontal bar chart showing tool call counts for both sessions on the same axis
 
 ### Export
 
-Click **Export** in the comparison header to download a single self-contained `.html` file. Share it with anyone -- no server required. Opening it reproduces the full comparison view.
+Click **Export** in any header to download a single self-contained `.html` file. Share it with anyone -- no server required. Opening it reproduces the full session or comparison view exactly as you see it.
+
+Export is available in two places:
+- **Single session header** -- exports the current session
+- **Comparison header** -- exports both sessions and the full comparison view
+
+> Export requires the production build (`npm run build`). It is not available in the Vite dev server.
 
 ---
 
@@ -286,7 +296,7 @@ Contributions are welcome! Here are some areas where help is appreciated:
 
 - **New parsers**: LangSmith, OpenTelemetry, custom agent frameworks
 - **Visualizations**: Conversation flow graph (directed graph of turns and decisions)
-- **Features**: Bookmarks/annotations, session comparison, shareable URLs
+- **Features**: Bookmarks/annotations, shareable URLs
 
 Please open an issue to discuss larger changes before submitting a PR.
 
