@@ -23,7 +23,7 @@ export const theme = {
     subtle: "#1a1a24",
     default: "#232333",
     strong: "#2e2e42",
-    focus: "#5e6ad2",
+    focus: "#6475e8",
   },
 
   // ── Text ──
@@ -39,37 +39,37 @@ export const theme = {
   // ── Accent ──
   // One color. Used for: selection, focus, primary actions.
   accent: {
-    primary: "#5e6ad2",
-    hover: "#727ee0",
-    muted: "#5e6ad220",
+    primary: "#6475e8",
+    hover: "#7585f0",
+    muted: "#6475e820",
   },
 
   // ── Semantic ──
   semantic: {
-    success: "#3fad78",
-    warning: "#5b8cf5",
-    error: "#d14d4d",
-    errorBg: "#d14d4d15",
-    errorBorder: "#d14d4d30",
-    errorText: "#d48080",
-    info: "#5e6ad2",
+    success: "#10d97a",
+    warning: "#d14d4d",
+    error: "#ef4444",
+    errorBg: "#ef444415",
+    errorBorder: "#ef444430",
+    errorText: "#f87171",
+    info: "#6475e8",
   },
 
   // ── Agent colors ──
   // Subtle. The content matters, not who said it.
   agent: {
     user: "#8b8b99",
-    assistant: "#5e6ad2",
-    system: "#8b6cf5",
+    assistant: "#6475e8",
+    system: "#a78bfa",
   },
 
   // ── Track colors ──
-  // Muted, balanced luminance so no track dominates
+  // Balanced luminance so no track dominates
   track: {
-    reasoning: "#7b8794",
-    tool_call: "#4a9eff",
-    context: "#7b7ec8",
-    output: "#3fad78",
+    reasoning: "#94a3b8",
+    tool_call: "#3b9eff",
+    context: "#a78bfa",
+    output: "#10d97a",
   },
 
   // ── Typography ──
@@ -123,7 +123,7 @@ export const theme = {
 
   // ── Focus ──
   focus: {
-    ring: "0 0 0 2px #5e6ad2",
+    ring: "0 0 0 2px #6475e8",
   },
 
   // ── Animation ──
