@@ -67,33 +67,68 @@ ls ~/.copilot/session-state/
 # Each subdirectory is a session UUID containing an events.jsonl file
 ```
 
-## Claude Code MCP Integration
+## MCP Integration
 
-AGENTVIZ ships as a global MCP server so you can open it directly from any Claude Code session without leaving the terminal.
+AGENTVIZ ships as an MCP server so you can open it directly from Claude Code or GitHub Copilot in VS Code without leaving your workflow. Both agents use the same `launch_agentviz` and `close_agentviz` tools.
 
-### Setup (one time)
+### Claude Code
+
+**Setup (one time):**
 
 ```bash
-# From the agentviz directory
 claude mcp add --scope user agentviz node /path/to/agentviz/mcp/server.js
 ```
 
-This registers the server globally. Restart Claude Code to pick it up.
+This registers the server globally across all projects. Restart Claude Code to pick it up.
 
-### Usage
-
-In any Claude Code session, in any project, just ask:
+**Usage:** In any session, just ask:
 
 > "Open agentviz" or "Show me the live view"
 
-Claude calls the `launch_agentviz` tool, which:
-1. Auto-detects the most recently active session file (checks `~/.claude/projects/` and `~/.copilot/session-state/`)
-2. Starts a local HTTP server on a free port
-3. Opens the browser with live streaming enabled
+### GitHub Copilot in VS Code
 
-To stop it:
+**Setup:** Add the server to your VS Code user settings (`settings.json`) for global access across all projects:
 
-> "Close agentviz"
+```json
+{
+  "mcp": {
+    "servers": {
+      "agentviz": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["/path/to/agentviz/mcp/server.js"]
+      }
+    }
+  }
+}
+```
+
+Or scope it to a single project by creating `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "agentviz": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/agentviz/mcp/server.js"]
+    }
+  }
+}
+```
+
+Reload VS Code after adding the config. In Copilot Chat, use **Agent mode** and ask:
+
+> "Open agentviz" or "Launch the live view"
+
+### What happens when you invoke it
+
+`launch_agentviz` will:
+1. Auto-detect the most recently active session file (checks `~/.claude/projects/` and `~/.copilot/session-state/`)
+2. Start a local HTTP server on a free port
+3. Open the browser with live streaming enabled
+
+To stop it, ask: "Close agentviz"
 
 ### Available MCP tools
 
