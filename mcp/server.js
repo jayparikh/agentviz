@@ -31,36 +31,55 @@ import { fileURLToPath } from "url";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var distDir = path.resolve(__dirname, "../dist");
 
-// Find the most recently modified .jsonl file under ~/.claude/projects/
-function findLatestSessionFile() {
-  var projectsDir = path.join(os.homedir(), ".claude", "projects");
-  if (!fs.existsSync(projectsDir)) return null;
+// Directories to search for session files, in priority order.
+// Each entry is either a flat directory (Copilot) or a directory of
+// subdirectories each containing .jsonl files (Claude Code).
+var SESSION_DIRS = [
+  { path: path.join(os.homedir(), ".claude", "projects"), nested: true },
+  { path: path.join(os.homedir(), ".copilot", "session-state"), nested: false },
+];
 
+// Find the most recently modified .jsonl file across all known session dirs.
+function findLatestSessionFile() {
   var best = null;
   var bestMtime = 0;
 
-  try {
-    for (var proj of fs.readdirSync(projectsDir)) {
-      var projPath = path.join(projectsDir, proj);
-      try {
-        if (!fs.statSync(projPath).isDirectory()) continue;
-      } catch (e) { continue; }
+  for (var i = 0; i < SESSION_DIRS.length; i++) {
+    var dir = SESSION_DIRS[i];
+    if (!fs.existsSync(dir.path)) continue;
 
-      try {
-        for (var file of fs.readdirSync(projPath)) {
-          if (!file.endsWith(".jsonl")) continue;
-          var filePath = path.join(projPath, file);
-          try {
-            var mtime = fs.statSync(filePath).mtimeMs;
-            if (mtime > bestMtime) {
-              bestMtime = mtime;
-              best = filePath;
-            }
-          } catch (e) {}
-        }
-      } catch (e) {}
+    try {
+      var entries = fs.readdirSync(dir.path);
+    } catch (e) { continue; }
+
+    if (dir.nested) {
+      // Claude Code: ~/.claude/projects/<project>/<uuid>.jsonl
+      for (var j = 0; j < entries.length; j++) {
+        var subPath = path.join(dir.path, entries[j]);
+        try { if (!fs.statSync(subPath).isDirectory()) continue; } catch (e) { continue; }
+        try {
+          for (var file of fs.readdirSync(subPath)) {
+            if (!file.endsWith(".jsonl")) continue;
+            var filePath = path.join(subPath, file);
+            try {
+              var mtime = fs.statSync(filePath).mtimeMs;
+              if (mtime > bestMtime) { bestMtime = mtime; best = filePath; }
+            } catch (e) {}
+          }
+        } catch (e) {}
+      }
+    } else {
+      // Copilot CLI: ~/.copilot/session-state/<file>.jsonl
+      for (var k = 0; k < entries.length; k++) {
+        if (!entries[k].endsWith(".jsonl")) continue;
+        var fp = path.join(dir.path, entries[k]);
+        try {
+          var mt = fs.statSync(fp).mtimeMs;
+          if (mt > bestMtime) { bestMtime = mt; best = fp; }
+        } catch (e) {}
+      }
     }
-  } catch (e) {}
+  }
 
   return best;
 }
