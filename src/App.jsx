@@ -56,7 +56,7 @@ export default function App() {
     sessionB.handleFile(compareData.b.text, compareData.b.name);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  var playback = usePlayback(session.total);
+  var playback = usePlayback(session.total, session.isLive);
 
   useLiveStream({
     enabled: session.isLive,
@@ -82,7 +82,7 @@ export default function App() {
   var search = useSearch(filteredEventEntries);
 
   useEffect(function () {
-    if (session.total > 0 && !session.isLive) {
+    if (session.total > 0) {
       playback.seek(session.total);
     }
   }, [session.total, session.isLive, playback.seek]);
