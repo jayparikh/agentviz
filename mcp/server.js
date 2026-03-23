@@ -186,7 +186,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async function (request) {
 
           var msg = "AGENTVIZ. is live at " + url;
           if (sessionFile) {
-            msg += "\nStreaming: " + path.basename(sessionFile);
+            msg += "\nStreaming: " + sessionFile;
           } else {
             msg += "\nNo session file found -- drop a .jsonl file in the browser to load one.";
           }

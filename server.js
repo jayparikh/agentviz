@@ -40,6 +40,7 @@ export function createServer({ sessionFile, distDir }) {
   var clients = new Set();
   var lastLineIdx = 0;
   var watcher = null;
+  var watcherClosed = false;
 
   function broadcastNewLines() {
     if (!sessionFile || clients.size === 0) return;
@@ -64,19 +65,39 @@ export function createServer({ sessionFile, distDir }) {
       lastLineIdx = initContent.split("\n").length;
     } catch (e) {}
 
-    try {
-      watcher = fs.watch(sessionFile, function (eventType) {
-        if (eventType === "change") broadcastNewLines();
-      });
-      watcher.on("error", function (err) {
-        process.stderr.write("AGENTVIZ: file watcher error: " + (err && err.message || err) + "\n");
-        // Notify connected SSE clients so the UI can show the stream as disconnected
-        var errPayload = "data: " + JSON.stringify({ error: "watcher_error" }) + "\n\n";
-        for (var client of clients) {
-          try { client.write(errPayload); } catch (e) { clients.delete(client); }
-        }
-      });
-    } catch (e) {}
+    function attachWatcher() {
+      try {
+        watcher = fs.watch(sessionFile, function (eventType) {
+          // macOS fs.watch fires "rename" for appends on some file systems / write patterns
+          // (e.g. atomic write-then-rename). Accept both event types.
+          if (eventType === "change" || eventType === "rename") {
+            broadcastNewLines();
+            // After a rename the inode may have changed, so the current watcher
+            // may stop receiving events. Re-attach on the next tick so we keep
+            // following the path rather than the old inode.
+            if (eventType === "rename") {
+              try { watcher.close(); } catch (e) {}
+              setTimeout(function () {
+                if (watcherClosed) return;
+                // Only re-attach if the file still exists at the same path.
+                try { fs.accessSync(sessionFile); } catch (e) { return; }
+                attachWatcher();
+              }, 50);
+            }
+          }
+        });
+        watcher.on("error", function (err) {
+          process.stderr.write("AGENTVIZ: file watcher error: " + (err && err.message || err) + "\n");
+          // Notify connected SSE clients so the UI can show the stream as disconnected
+          var errPayload = "data: " + JSON.stringify({ error: "watcher_error" }) + "\n\n";
+          for (var client of clients) {
+            try { client.write(errPayload); } catch (e) { clients.delete(client); }
+          }
+        });
+      } catch (e) {}
+    }
+
+    attachWatcher();
   }
 
   var server = http.createServer(function (req, res) {
@@ -145,6 +166,7 @@ export function createServer({ sessionFile, distDir }) {
   });
 
   server.on("close", function () {
+    watcherClosed = true;
     if (watcher) watcher.close();
   });
 
