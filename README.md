@@ -54,7 +54,7 @@ node bin/agentviz.js ~/.claude/projects/my-project/session.jsonl
 node bin/agentviz.js ~/.claude/projects/my-project/
 ```
 
-The browser opens with a pulsing **LIVE** badge. As Claude Code writes new events to the session file, they stream into the view in real time via SSE.
+The browser opens with a pulsing **LIVE** badge. As Claude Code writes new events to the session file, they stream into the view in real time via SSE, including records that are written incrementally before the trailing newline lands.
 
 ### Finding your session files
 
@@ -183,7 +183,7 @@ Export is available in two places:
 
 ### Replay View
 
-Chronological event stream with a resizable inspector sidebar. Click any event to see full details, raw JSON, and tool inputs. The colorful timeline bar at top shows event density and error locations.
+Chronological event stream with a resizable inspector sidebar. Click any event to see full details plus a payload inspector with readable JSON or text, top-level keys, line and character counts, copy support, and expand or collapse controls. The colorful timeline bar at top shows event density and error locations.
 
 <div align="center">
 <img src="docs/screenshots/replay-view.png" alt="Replay View" width="800" />
@@ -199,7 +199,7 @@ DAW-style multi-track lanes for Reasoning, Tool Calls, Context, and Output. Solo
 
 ### Waterfall View
 
-Gantt-style timeline of every tool call, sorted by start time with nesting for overlapping calls. Hover any bar to see duration and timing. Click to open the full inspector, including inline diffs for file edits.
+Gantt-style timeline of every tool call, sorted by start time with nesting for overlapping calls. Hover any bar to see duration and timing. Click to open the full inspector, including inline diffs for file edits and readable input or result payload previews.
 
 <div align="center">
 <img src="docs/screenshots/waterfall-view.png" alt="Waterfall View" width="800" />
@@ -217,7 +217,8 @@ Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn s
 
 | Feature | Description |
 |---------|-------------|
-| **Live Streaming** | CLI mode tails a session file via SSE. View updates in real time as events arrive. |
+| **Live Streaming** | CLI mode tails a session file via SSE. View updates in real time as events arrive, including newline-delayed JSONL writes from Claude Code. |
+| **Payload Inspector** | Replay and waterfall inspectors show readable JSON or text previews with key summaries, counts, copy, and expand controls. |
 | **Token and Cost Tracking** | Per-turn token usage with estimated USD cost for Claude 3/4 models. |
 | **Search** | Full-text search across events, tools, and agents. Matches highlighted in real time. |
 | **Command Palette** | `Cmd+K` fuzzy search to jump to any turn, event, or view instantly. |
@@ -266,6 +267,7 @@ src/
     parseSession.js      # Auto-detect format router
     parser.js            # Claude Code JSONL parser
     copilotCliParser.js  # Copilot CLI JSONL parser
+    dataInspector.js     # Payload summary and preview helpers for inspector panels
     session.js           # Pure helpers: getSessionTotal, buildFilteredEventEntries
     theme.js             # Design tokens (true black base, blue/purple/green accents)
     constants.js         # Sample events for demo mode
@@ -284,8 +286,9 @@ src/
     CommandPalette.jsx   # Cmd+K fuzzy search overlay
     Timeline.jsx         # Scrubable playback bar with event markers
     DiffViewer.jsx       # Inline unified diff for file-editing tool calls
+    DataInspector.jsx    # Readable payload inspector with summaries and copy support
     LiveIndicator.jsx    # Pulsing LIVE badge shown in CLI streaming mode
-    SyntaxHighlight.jsx  # Lightweight code syntax coloring for raw data
+    SyntaxHighlight.jsx  # Lightweight code syntax coloring for payload previews
     ResizablePanel.jsx   # Drag-to-resize split panel utility
     FileUploader.jsx     # Drag-and-drop file input with error handling
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
