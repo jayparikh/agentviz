@@ -54,7 +54,9 @@ function parseRawRecords(text) {
   return { records: records, malformedLines: malformed };
 }
 
-// Match tool.execution_start -> tool.execution_complete by toolCallId
+// Pair tool execution start and completion records by toolCallId.
+// We keep both lookup tables because assistant messages may reference the same
+// tool calls when we infer model names and turn content around them.
 function buildToolPairs(records) {
   var starts = {};
   var completes = {};
@@ -224,7 +226,8 @@ function buildNormalizedEvents(records, sessionStartSec, toolPairs) {
     }
 
     // Structural events (turn lifecycle, hooks, session start/resume/shutdown)
-    // are used for turn grouping and metadata, not emitted as replay events.
+    // shape metadata and turn boundaries, but they are not shown as replay
+    // rows because they would duplicate richer assistant and tool events.
   }
 
   events.sort(function (a, b) { return a.t - b.t || 0; });
@@ -340,6 +343,11 @@ function buildTurns(records, events, sessionStartSec) {
     }
 
     if (rec.type === "assistant.turn_start") {
+      // Copilot CLI emits explicit assistant turn lifecycle events. We use
+      // those as the source of truth for turn starts, while caching the latest
+      // user.message so each turn still carries the user prompt that triggered
+      // it. If a turn begins without a fresh user.message, mark it as a
+      // continuation rather than fabricating a new prompt.
       if (currentTurn) {
         turns.push(currentTurn);
       }
@@ -367,7 +375,10 @@ function buildTurns(records, events, sessionStartSec) {
     turns.push(currentTurn);
   }
 
-  // Assign events to turns by time range
+  // Assign normalized events to the most recent turn whose start time is at or
+  // before the event timestamp. This keeps assistant content, tools, and
+  // system-side records aligned with the explicit turn lifecycle in the source
+  // trace, even when those records do not reference turn IDs directly.
   for (var j = 0; j < events.length; j++) {
     var ev = events[j];
     var assignedTurn = null;
@@ -520,7 +531,9 @@ export function parseCopilotCliJSONL(text) {
   var records = parsed.records;
   if (records.length === 0) return null;
 
-  // Find session start time from session.start or session.resume
+  // Find the real session clock origin first so every downstream event can be
+  // normalized into seconds since session start. Resumed traces use
+  // session.resume.resumeTime instead of session.start.startTime.
   var sessionStartSec = null;
   for (var i = 0; i < records.length; i++) {
     var rec = records[i];

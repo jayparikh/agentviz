@@ -132,6 +132,9 @@ function isValidEvent(ev) {
 
 // ── Error detection ──
 
+// Keep this list intentionally broad enough to catch common terminal and tool
+// failures across bash, Python, Node, and system commands without relying on a
+// single vendor-specific payload shape.
 var ERROR_PATTERNS = [
   /\berror\b/i,
   /\bfailed\b/i,
@@ -323,7 +326,9 @@ function buildTurns(events) {
     var ev = events[i];
 
     if (ev.agent === "user") {
-      // Close previous turn
+      // Claude Code traces often omit explicit turn boundary events, so we
+      // infer turns from user messages. Each user event starts a fresh turn and
+      // everything that follows belongs to it until the next user message.
       if (currentTurn) {
         turns.push(currentTurn);
       }
@@ -342,7 +347,9 @@ function buildTurns(events) {
       if (ev.track === "tool_call") currentTurn.toolCount++;
       if (ev.isError) currentTurn.hasError = true;
     } else {
-      // Events before first user message
+      // Some traces begin with system context or assistant output before the
+      // first user event. Keep those visible by placing them into a synthetic
+      // first turn instead of dropping them.
       currentTurn = {
         index: 0,
         startTime: ev.t,
@@ -428,7 +435,9 @@ export function parseClaudeCodeJSONL(text) {
   }
   var hasRealTimestamps = timestampCount > rawRecords.length * 0.5;
 
-  // Extract events
+  // Extract events record-by-record. Synthetic time advances even for
+  // timestamp-less records so mixed traces still preserve a deterministic
+  // ordering before we normalize everything back to a shared t=0 origin.
   var events = [];
   var syntheticTime = 0;
 
@@ -446,7 +455,7 @@ export function parseClaudeCodeJSONL(text) {
   // don't anchor minT and leave all real events at billions of seconds.
   var minT = Infinity;
   if (hasRealTimestamps) {
-    // Real Unix timestamps are always > 1e9 (year ~2001+). Syntheticfallback
+    // Real Unix timestamps are always > 1e9 (year ~2001+). Synthetic fallback
     // values are tiny (0 to ~N records). Use only the real ones for min.
     for (var i = 0; i < events.length; i++) {
       if (events[i].t > 1e9 && events[i].t < minT) minT = events[i].t;

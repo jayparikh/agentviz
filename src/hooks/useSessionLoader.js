@@ -1,9 +1,47 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { parseSession } from "../lib/parseSession.js";
 import { SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA } from "../lib/constants.js";
-import { getSessionTotal } from "../lib/session.js";
+import { getSessionTotal } from "../lib/session";
 
-export default function useSessionLoader() {
+export var SUPPORTED_FORMATS_ERROR = "Could not parse any events. Supported formats: Claude Code JSONL, Copilot CLI JSONL.";
+
+export function appendRawLines(existingText, newLines) {
+  return existingText ? existingText + "\n" + newLines : newLines;
+}
+
+export function shouldApplyLiveLines(liveRequestId, requestId) {
+  return liveRequestId === requestId;
+}
+
+export function parseSessionText(text, parser) {
+  var parse = parser || parseSession;
+  try {
+    var result = parse(text);
+    if (!result || !result.events || result.events.length === 0) {
+      return { result: null, error: SUPPORTED_FORMATS_ERROR };
+    }
+    return { result: result, error: null };
+  } catch (err) {
+    return {
+      result: null,
+      error: "Failed to parse file: " + (err && err.message ? err.message : "unknown error"),
+    };
+  }
+}
+
+export function buildAppliedSession(result, name) {
+  return {
+    events: result.events,
+    turns: result.turns,
+    metadata: result.metadata,
+    total: getSessionTotal(result.events),
+    file: name,
+    error: null,
+    showHero: true,
+  };
+}
+
+export default function useSessionLoader(options) {
   var [events, setEvents] = useState(null);
   var [turns, setTurns] = useState([]);
   var [metadata, setMetadata] = useState(null);
@@ -22,13 +60,14 @@ export default function useSessionLoader() {
   var liveRequestIdRef = useRef(0);
 
   var applySession = useCallback(function (result, name) {
-    setEvents(result.events);
-    setTurns(result.turns);
-    setMetadata(result.metadata);
-    setTotal(getSessionTotal(result.events));
-    setFile(name);
-    setError(null);
-    setShowHero(true);
+    var applied = buildAppliedSession(result, name);
+    setEvents(applied.events);
+    setTurns(applied.turns);
+    setMetadata(applied.metadata);
+    setTotal(applied.total);
+    setFile(applied.file);
+    setError(applied.error);
+    setShowHero(applied.showHero);
   }, []);
 
   var handleFile = useCallback(function (text, name) {
@@ -48,26 +87,18 @@ export default function useSessionLoader() {
 
     parseTimeoutRef.current = setTimeout(function () {
       parseTimeoutRef.current = null;
-      var result;
-      try {
-        result = parseSession(text);
-      } catch (err) {
-        if (requestId !== requestIdRef.current) return;
-        setLoading(false);
-        setError("Failed to parse file: " + (err && err.message ? err.message : "unknown error"));
-        return;
-      }
+      var parsed = parseSessionText(text);
 
       if (requestId !== requestIdRef.current) return;
 
       setLoading(false);
 
-      if (!result || !result.events || result.events.length === 0) {
-        setError("Could not parse any events. Supported formats: Claude Code JSONL, Copilot CLI JSONL.");
+      if (!parsed.result) {
+        setError(parsed.error);
         return;
       }
 
-      applySession(result, name);
+      applySession(parsed.result, name);
     }, 16);
   }, [applySession]);
 
@@ -75,23 +106,16 @@ export default function useSessionLoader() {
   // Appends to rawText and re-parses the full accumulated text.
   // Guards against stale live data overwriting a newly-loaded file.
   var appendLines = useCallback(function (newLines) {
-    if (liveRequestIdRef.current !== requestIdRef.current) return;
-    rawTextRef.current = rawTextRef.current
-      ? rawTextRef.current + "\n" + newLines
-      : newLines;
+    if (!shouldApplyLiveLines(liveRequestIdRef.current, requestIdRef.current)) return;
+    rawTextRef.current = appendRawLines(rawTextRef.current, newLines);
 
-    var result;
-    try {
-      result = parseSession(rawTextRef.current);
-    } catch (err) {
-      return;
-    }
-    if (!result || !result.events || result.events.length === 0) return;
+    var parsed = parseSessionText(rawTextRef.current);
+    if (!parsed.result) return;
 
-    setEvents(result.events);
-    setTurns(result.turns);
-    setMetadata(result.metadata);
-    setTotal(getSessionTotal(result.events));
+    setEvents(parsed.result.events);
+    setTurns(parsed.result.turns);
+    setMetadata(parsed.result.metadata);
+    setTotal(getSessionTotal(parsed.result.events));
   }, []);
 
   var loadSample = useCallback(function () {
@@ -139,6 +163,8 @@ export default function useSessionLoader() {
   // When served by the CLI (server.js), /api/meta tells us the filename
   // and /api/file provides the initial content. Bootstrap from there.
   useEffect(function () {
+    if (options && options.autoBootstrap === false) return;
+
     fetch("/api/meta")
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (meta) {
@@ -166,7 +192,7 @@ export default function useSessionLoader() {
           });
       })
       .catch(function () {});
-  }, []);
+  }, [options && options.autoBootstrap]);
 
   useEffect(function () {
     return function () {

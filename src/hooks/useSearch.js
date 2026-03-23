@@ -3,13 +3,23 @@ import { filterEventEntries } from "../lib/playbackUtils.js";
 
 var SEARCH_DEBOUNCE_MS = 200;
 
+export function normalizeSearchQuery(searchInput) {
+  return searchInput.trim();
+}
+
+export function buildSearchData(matchedEntries, searchQuery) {
+  if (!searchQuery) return { results: null, matchSet: null };
+  var results = matchedEntries.map(function (entry) { return entry.index; });
+  return { results: results, matchSet: new Set(results) };
+}
+
 export default function useSearch(eventEntries) {
   var [searchInput, setSearchInput] = useState("");
   var [searchQuery, setSearchQuery] = useState("");
 
   useEffect(function () {
     var timeoutId = setTimeout(function () {
-      setSearchQuery(searchInput.trim());
+      setSearchQuery(normalizeSearchQuery(searchInput));
     }, SEARCH_DEBOUNCE_MS);
 
     return function () {
@@ -22,9 +32,7 @@ export default function useSearch(eventEntries) {
   }, [eventEntries, searchQuery]);
 
   var searchData = useMemo(function () {
-    if (!searchQuery) return { results: null, matchSet: null };
-    var results = matchedEntries.map(function (entry) { return entry.index; });
-    return { results: results, matchSet: new Set(results) };
+    return buildSearchData(matchedEntries, searchQuery);
   }, [matchedEntries, searchQuery]);
 
   var clearSearch = useCallback(function () {

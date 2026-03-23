@@ -7,7 +7,7 @@ import {
   getToolColor,
   WATERFALL_ROW_HEIGHT,
   WATERFALL_ROW_GAP,
-} from "../lib/waterfall.js";
+} from "../lib/waterfall";
 
 // Helpers to create test events
 function makeEvent(overrides) {

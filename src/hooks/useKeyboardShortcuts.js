@@ -1,11 +1,90 @@
 import { useEffect, useRef } from "react";
 
-function isEditableTarget(target) {
+export function isEditableTarget(target) {
   if (!target) return false;
   if (target.isContentEditable) return true;
   return target.tagName === "INPUT"
     || target.tagName === "TEXTAREA"
     || target.tagName === "SELECT";
+}
+
+export function handleKeyboardShortcut(e, options) {
+  if (!options) return false;
+
+  if ((e.metaKey || e.ctrlKey) && e.key && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    options.onTogglePalette();
+    return true;
+  }
+
+  if (options.showHero && (e.code === "Space" || e.code === "Enter")) {
+    e.preventDefault();
+    options.onDismissHero();
+    return true;
+  }
+
+  if (!options.hasSession || options.showPalette || isEditableTarget(e.target)) return false;
+
+  if (e.code === "Space") {
+    e.preventDefault();
+    options.onPlayPause();
+    return true;
+  }
+
+  if (e.code === "ArrowRight") {
+    e.preventDefault();
+    options.onSeek(options.time + 2);
+    return true;
+  }
+
+  if (e.code === "ArrowLeft") {
+    e.preventDefault();
+    options.onSeek(options.time - 2);
+    return true;
+  }
+
+  if (e.key === "1") {
+    options.onSetView("replay");
+    return true;
+  }
+  if (e.key === "2") {
+    options.onSetView("tracks");
+    return true;
+  }
+  if (e.key === "3") {
+    options.onSetView("waterfall");
+    return true;
+  }
+  if (e.key === "4") {
+    options.onSetView("stats");
+    return true;
+  }
+
+  if (e.key === "e") {
+    e.preventDefault();
+    options.onJumpToError("next");
+    return true;
+  }
+
+  if (e.key === "E") {
+    e.preventDefault();
+    options.onJumpToError("prev");
+    return true;
+  }
+
+  if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    options.onFocusSearch();
+    return true;
+  }
+
+  if (e.key === "?") {
+    e.preventDefault();
+    options.onToggleShortcuts();
+    return true;
+  }
+
+  return false;
 }
 
 // Uses a ref to always read the latest options without re-registering the
@@ -16,64 +95,7 @@ export default function useKeyboardShortcuts(options) {
 
   useEffect(function () {
     function handler(e) {
-      var o = optionsRef.current;
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        o.onTogglePalette();
-        return;
-      }
-
-      if (o.showHero && (e.code === "Space" || e.code === "Enter")) {
-        e.preventDefault();
-        o.onDismissHero();
-        return;
-      }
-
-      if (!o.hasSession || o.showPalette || isEditableTarget(e.target)) return;
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        o.onPlayPause();
-        return;
-      }
-
-      if (e.code === "ArrowRight") {
-        e.preventDefault();
-        o.onSeek(o.time + 2);
-        return;
-      }
-
-      if (e.code === "ArrowLeft") {
-        e.preventDefault();
-        o.onSeek(o.time - 2);
-        return;
-      }
-
-      if (e.key === "1") o.onSetView("replay");
-      if (e.key === "2") o.onSetView("tracks");
-      if (e.key === "3") o.onSetView("waterfall");
-      if (e.key === "4") o.onSetView("stats");
-
-      if (e.key === "e") {
-        e.preventDefault();
-        o.onJumpToError("next");
-      }
-
-      if (e.key === "E") {
-        e.preventDefault();
-        o.onJumpToError("prev");
-      }
-
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        o.onFocusSearch();
-      }
-
-      if (e.key === "?") {
-        e.preventDefault();
-        o.onToggleShortcuts();
-      }
+      handleKeyboardShortcut(e, optionsRef.current);
     }
 
     window.addEventListener("keydown", handler);
