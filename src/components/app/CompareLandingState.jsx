@@ -1,18 +1,19 @@
 import { alpha, theme } from "../../lib/theme.js";
 import FileUploader from "../FileUploader.jsx";
+import BrandWordmark from "../ui/BrandWordmark.jsx";
+import ShellFrame from "../ui/ShellFrame.jsx";
 
 export default function CompareLandingState({ session, sessionB, onLoadSessionA, onExitCompare }) {
   return (
-    <div style={{
-      width: "100%", height: "100vh", background: theme.bg.base,
-      color: theme.text.primary, fontFamily: theme.font.mono,
-      display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", gap: 32, overflow: "hidden",
-    }}>
+    <ShellFrame
+      style={{
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 32,
+      }}
+    >
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: theme.fontSize.hero, fontWeight: 600, fontFamily: theme.font.ui, letterSpacing: "-0.5px", color: theme.text.primary }}>
-          AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
-        </div>
+        <BrandWordmark style={{ fontSize: theme.fontSize.hero }} />
         <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6 }}>
           Compare two agent sessions head to head.
         </div>
@@ -25,8 +26,11 @@ export default function CompareLandingState({ session, sessionB, onLoadSessionA,
           </div>
           {session.events ? (
             <div style={{
-              border: "2px solid " + theme.semantic.success, borderRadius: theme.radius.xxl,
-              padding: "32px 24px", textAlign: "center", background: alpha(theme.semantic.success, 0.05),
+              border: "2px solid " + theme.semantic.success,
+              borderRadius: theme.radius.xxl,
+              padding: "32px 24px",
+              textAlign: "center",
+              background: alpha(theme.semantic.success, 0.05),
             }}>
               <div style={{ fontSize: theme.fontSize.xl, color: theme.semantic.success, marginBottom: 8 }}>&#10003;</div>
               <div style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}>{session.file}</div>
@@ -48,8 +52,11 @@ export default function CompareLandingState({ session, sessionB, onLoadSessionA,
           </div>
           {sessionB.events ? (
             <div style={{
-              border: "2px solid " + theme.semantic.success, borderRadius: theme.radius.xxl,
-              padding: "32px 24px", textAlign: "center", background: alpha(theme.semantic.success, 0.05),
+              border: "2px solid " + theme.semantic.success,
+              borderRadius: theme.radius.xxl,
+              padding: "32px 24px",
+              textAlign: "center",
+              background: alpha(theme.semantic.success, 0.05),
             }}>
               <div style={{ fontSize: theme.fontSize.xl, color: theme.semantic.success, marginBottom: 8 }}>&#10003;</div>
               <div style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}>{sessionB.file}</div>
@@ -65,6 +72,6 @@ export default function CompareLandingState({ session, sessionB, onLoadSessionA,
       <span onClick={onExitCompare} style={{ color: theme.text.dim, cursor: "pointer", fontSize: theme.fontSize.sm }}>
         cancel
       </span>
-    </div>
+    </ShellFrame>
   );
 }

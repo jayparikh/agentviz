@@ -1,27 +1,21 @@
 import { theme } from "../../lib/theme.js";
 import FileUploader from "../FileUploader.jsx";
 import Icon from "../Icon.jsx";
+import BrandWordmark from "../ui/BrandWordmark.jsx";
+import ShellFrame from "../ui/ShellFrame.jsx";
 
 export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare }) {
   return (
-    <div style={{
-      width: "100%",
-      height: "100vh",
-      background: theme.bg.base,
-      color: theme.text.primary,
-      fontFamily: theme.font.mono,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 24,
-      position: "relative",
-      overflow: "hidden",
-    }}>
+    <ShellFrame
+      style={{
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 24,
+        position: "relative",
+      }}
+    >
       <div style={{ textAlign: "center", marginBottom: 8 }}>
-        <div style={{ fontSize: theme.fontSize.hero, fontWeight: 600, fontFamily: theme.font.ui, letterSpacing: "-0.5px", color: theme.text.primary }}>
-          AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
-        </div>
+        <BrandWordmark style={{ fontSize: theme.fontSize.hero }} />
         <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6, lineHeight: 1.6 }}>
           See what your AI agents actually do.
         </div>
@@ -63,6 +57,6 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
           <Icon name="arrow-up-down" size={12} /> compare two sessions
         </span>
       </div>
-    </div>
+    </ShellFrame>
   );
 }

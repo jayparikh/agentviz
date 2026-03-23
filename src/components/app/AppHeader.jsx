@@ -1,6 +1,9 @@
 import { TRACK_TYPES, alpha, theme } from "../../lib/theme.js";
 import LiveIndicator from "../LiveIndicator.jsx";
 import Icon from "../Icon.jsx";
+import BrandWordmark from "../ui/BrandWordmark.jsx";
+import ExportStatusButton from "../ui/ExportStatusButton.jsx";
+import ToolbarButton from "../ui/ToolbarButton.jsx";
 
 export default function AppHeader({
   session,
@@ -37,24 +40,7 @@ export default function AppHeader({
       borderBottom: "1px solid " + theme.border.default,
       flexShrink: 0,
     }}>
-      <span
-        className="av-btn"
-        onClick={onReset}
-        title="Back to start"
-        style={{
-          fontSize: theme.fontSize.lg,
-          fontWeight: 600,
-          fontFamily: theme.font.ui,
-          letterSpacing: "-0.5px",
-          color: theme.text.primary,
-          padding: "2px 4px",
-          borderRadius: theme.radius.sm,
-          background: "transparent",
-          border: "none",
-        }}
-      >
-        AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
-      </span>
+      <BrandWordmark onClick={onReset} title="Back to start" />
       <div style={{ height: 16, width: 1, background: theme.border.default }} />
       <span style={{
         fontSize: theme.fontSize.base,
@@ -156,91 +142,59 @@ export default function AppHeader({
           )}
         </div>
 
-        <button
-          className="av-btn"
-          onClick={onShowPalette}
-          title="Command Palette (Cmd+K)"
-          style={{
-            background: theme.bg.surface,
-            border: "1px solid " + theme.border.default,
-            borderRadius: theme.radius.md,
-            color: theme.text.dim,
-            padding: "2px 8px",
-            fontSize: theme.fontSize.xs,
-            fontFamily: theme.font.ui,
-            display: "flex",
-            alignItems: "center",
-            gap: 3,
-          }}
-        >
+        <ToolbarButton onClick={onShowPalette} title="Command Palette (Cmd+K)" style={{ padding: "2px 8px", color: theme.text.dim, fontSize: theme.fontSize.xs }}>
           <Icon name="command" size={11} />K
-        </button>
+        </ToolbarButton>
 
         {errorEntries.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <button
-              className="av-btn"
+            <ToolbarButton
               onClick={function () { onJumpToError("prev"); }}
               title="Previous error (Shift+E)"
               style={{
-                background: "transparent",
                 border: "1px solid " + theme.semantic.errorBorder,
                 borderRadius: theme.radius.sm,
                 color: theme.semantic.error,
                 padding: "2px 4px",
                 fontSize: theme.fontSize.sm,
-                display: "flex",
-                alignItems: "center",
               }}
             >
               <Icon name="chevron-left" size={12} />
-            </button>
+            </ToolbarButton>
             <span style={{ fontSize: theme.fontSize.sm, color: theme.semantic.error, display: "flex", alignItems: "center", gap: 3 }}>
               <Icon name="alert-circle" size={12} /> {errorEntries.length}
             </span>
-            <button
-              className="av-btn"
+            <ToolbarButton
               onClick={function () { onJumpToError("next"); }}
               title="Next error (E)"
               style={{
-                background: "transparent",
                 border: "1px solid " + theme.semantic.errorBorder,
                 borderRadius: theme.radius.sm,
                 color: theme.semantic.error,
                 padding: "2px 4px",
                 fontSize: theme.fontSize.sm,
-                display: "flex",
-                alignItems: "center",
               }}
             >
               <Icon name="chevron-right" size={12} />
-            </button>
+            </ToolbarButton>
           </div>
         )}
 
         <div style={{ height: 12, width: 1, background: theme.border.default }} />
 
         <div ref={filtersRef} style={{ position: "relative" }}>
-          <button
-            className="av-btn"
+          <ToolbarButton
             onClick={onToggleFilters}
             title="Filter tracks"
             style={{
               background: activeFilterCount > 0 ? alpha(theme.accent.primary, 0.08) : "transparent",
               border: "1px solid " + (activeFilterCount > 0 ? theme.accent.primary : theme.border.default),
-              borderRadius: theme.radius.md,
               color: activeFilterCount > 0 ? theme.accent.primary : theme.text.muted,
-              padding: "2px 8px",
-              fontSize: theme.fontSize.sm,
-              fontFamily: theme.font.ui,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
             }}
           >
             <Icon name="filter" size={12} />
             {activeFilterCount > 0 ? activeFilterCount + " hidden" : "Filters"}
-          </button>
+          </ToolbarButton>
           {showFilters && (
             <div style={{
               position: "absolute",
@@ -296,96 +250,33 @@ export default function AppHeader({
           )}
         </div>
 
-        <button
-          className="av-btn"
+        <ToolbarButton
           onClick={onCycleSpeed}
           title="Playback speed (click to cycle)"
           style={{
             background: speed !== 1 ? alpha(theme.accent.primary, 0.08) : "transparent",
             border: "1px solid " + (speed !== 1 ? theme.accent.primary : theme.border.default),
             color: speed !== 1 ? theme.accent.primary : theme.text.muted,
-            borderRadius: theme.radius.md,
-            padding: "2px 8px",
-            fontSize: theme.fontSize.sm,
-            fontFamily: theme.font.ui,
           }}
         >
           {speed}x
-        </button>
+        </ToolbarButton>
 
-        <button
-          className="av-btn"
-          onClick={onStartCompare}
-          title="Compare with another session"
-          style={{
-            background: "transparent",
-            border: "1px solid " + theme.border.default,
-            color: theme.text.muted,
-            borderRadius: theme.radius.md,
-            padding: "2px 8px",
-            fontSize: theme.fontSize.sm,
-            fontFamily: theme.font.ui,
-          }}
-        >
+        <ToolbarButton onClick={onStartCompare} title="Compare with another session">
           Compare
-        </button>
+        </ToolbarButton>
 
         {hasRawText && (
-          <button
-            className="av-btn"
+          <ExportStatusButton
+            state={exportSessionState}
+            error={exportSessionError}
             onClick={onExportSession}
-            disabled={exportSessionState === "loading"}
-            title={exportSessionState === "error" ? exportSessionError : "Export as self-contained HTML"}
-            style={{
-              background: exportSessionState === "done" ? alpha(theme.semantic.success, 0.1)
-                : exportSessionState === "error" ? alpha(theme.semantic.error, 0.1)
-                : "transparent",
-              border: "1px solid " + (
-                exportSessionState === "done" ? theme.semantic.success
-                : exportSessionState === "error" ? theme.semantic.error
-                : theme.border.default
-              ),
-              color: exportSessionState === "done" ? theme.semantic.success
-                : exportSessionState === "error" ? theme.semantic.error
-                : theme.text.muted,
-              borderRadius: theme.radius.md,
-              padding: "2px 8px",
-              fontSize: theme.fontSize.sm,
-              fontFamily: theme.font.ui,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              opacity: exportSessionState === "loading" ? 0.6 : 1,
-              cursor: exportSessionState === "loading" ? "default" : "pointer",
-            }}
-          >
-            <Icon name="download" size={12} />
-            {exportSessionState === "loading" ? "Exporting..."
-              : exportSessionState === "done" ? "Exported!"
-              : exportSessionState === "error" ? "Failed"
-              : "Export"}
-          </button>
+          />
         )}
 
-        <button
-          className="av-btn"
-          onClick={onReset}
-          title="Close session"
-          style={{
-            background: "transparent",
-            border: "1px solid " + theme.border.default,
-            color: theme.text.muted,
-            borderRadius: theme.radius.md,
-            padding: "2px 6px",
-            fontSize: theme.fontSize.sm,
-            fontFamily: theme.font.ui,
-            display: "flex",
-            alignItems: "center",
-            gap: 3,
-          }}
-        >
+        <ToolbarButton onClick={onReset} title="Close session" style={{ padding: "2px 6px" }}>
           <Icon name="close" size={12} />
-        </button>
+        </ToolbarButton>
       </div>
     </div>
   );

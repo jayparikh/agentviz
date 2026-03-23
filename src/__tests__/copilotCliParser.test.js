@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { detectCopilotCli, parseCopilotCliJSONL } from "../lib/copilotCliParser.js";
-import { detectFormat, parseSession } from "../lib/parseSession.js";
+import { detectCopilotCli, parseCopilotCliJSONL } from "../lib/copilotCliParser";
+import { detectFormat, parseSession } from "../lib/parseSession";
 
 // Helper to build a minimal Copilot CLI JSONL trace
 function buildTrace(events) {

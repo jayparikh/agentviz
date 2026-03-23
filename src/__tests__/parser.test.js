@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseClaudeCodeJSONL } from "../lib/parser.js";
+import { parseClaudeCodeJSONL } from "../lib/parser";
 
 // ── Helpers ──
 

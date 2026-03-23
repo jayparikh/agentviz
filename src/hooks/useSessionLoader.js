@@ -1,9 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { parseSession } from "../lib/parseSession.js";
+import { parseSession } from "../lib/parseSession";
 import { SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA } from "../lib/constants.js";
 import { getSessionTotal } from "../lib/session";
-
-export var SUPPORTED_FORMATS_ERROR = "Could not parse any events. Supported formats: Claude Code JSONL, Copilot CLI JSONL.";
+import { buildAppliedSession, parseSessionText } from "../lib/sessionParsing";
 
 export function appendRawLines(existingText, newLines) {
   return existingText ? existingText + "\n" + newLines : newLines;
@@ -11,34 +10,6 @@ export function appendRawLines(existingText, newLines) {
 
 export function shouldApplyLiveLines(liveRequestId, requestId) {
   return liveRequestId === requestId;
-}
-
-export function parseSessionText(text, parser) {
-  var parse = parser || parseSession;
-  try {
-    var result = parse(text);
-    if (!result || !result.events || result.events.length === 0) {
-      return { result: null, error: SUPPORTED_FORMATS_ERROR };
-    }
-    return { result: result, error: null };
-  } catch (err) {
-    return {
-      result: null,
-      error: "Failed to parse file: " + (err && err.message ? err.message : "unknown error"),
-    };
-  }
-}
-
-export function buildAppliedSession(result, name) {
-  return {
-    events: result.events,
-    turns: result.turns,
-    metadata: result.metadata,
-    total: getSessionTotal(result.events),
-    file: name,
-    error: null,
-    showHero: true,
-  };
 }
 
 export default function useSessionLoader(options) {
@@ -178,14 +149,13 @@ export default function useSessionLoader(options) {
             liveRequestIdRef.current = requestIdRef.current;
             setIsLive(true);
 
-            var result;
-            try { result = parseSession(text); } catch (e) { return; }
-            if (!result || !result.events || result.events.length === 0) return;
+            var parsed = parseSessionText(text, parseSession);
+            if (!parsed.result) return;
 
-            setEvents(result.events);
-            setTurns(result.turns);
-            setMetadata(result.metadata);
-            setTotal(getSessionTotal(result.events));
+            setEvents(parsed.result.events);
+            setTurns(parsed.result.turns);
+            setMetadata(parsed.result.metadata);
+            setTotal(getSessionTotal(parsed.result.events));
             setFile(meta.filename);
             setError(null);
             setShowHero(true);

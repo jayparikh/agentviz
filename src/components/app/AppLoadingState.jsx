@@ -1,19 +1,16 @@
 import { theme } from "../../lib/theme.js";
+import ShellFrame from "../ui/ShellFrame.jsx";
 
 export default function AppLoadingState() {
   return (
-    <div style={{
-      width: "100%",
-      height: "100vh",
-      background: theme.bg.base,
-      color: theme.text.primary,
-      fontFamily: theme.font.ui,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 20,
-    }}>
+    <ShellFrame
+      fontFamily={theme.font.ui}
+      style={{
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 20,
+      }}
+    >
       <div style={{
         width: 40,
         height: 40,
@@ -25,6 +22,6 @@ export default function AppLoadingState() {
       <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, letterSpacing: 1 }}>
         Parsing session...
       </div>
-    </div>
+    </ShellFrame>
   );
 }
