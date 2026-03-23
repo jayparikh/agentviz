@@ -139,15 +139,19 @@ export default function useSessionLoader(options) {
     fetch("/api/meta")
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (meta) {
-        if (!meta || !meta.live || !meta.filename) return;
+        if (!meta || !meta.filename) return;
         return fetch("/api/file")
           .then(function (r) { return r.ok ? r.text() : null; })
           .then(function (text) {
             if (!text) return;
             rawTextRef.current = text;
             requestIdRef.current += 1;
-            liveRequestIdRef.current = requestIdRef.current;
-            setIsLive(true);
+            if (meta.live) {
+              liveRequestIdRef.current = requestIdRef.current;
+            } else {
+              liveRequestIdRef.current = 0;
+            }
+            setIsLive(Boolean(meta.live));
 
             var parsed = parseSessionText(text, parseSession);
             if (!parsed.result) return;
