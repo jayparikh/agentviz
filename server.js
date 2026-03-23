@@ -47,9 +47,11 @@ export function createServer({ sessionFile, distDir }) {
     if (!sessionFile || clients.size === 0) return;
     try {
       var content = fs.readFileSync(sessionFile, "utf8");
-      var lines = content.split("\n");
+      // Filter empty lines (including trailing \n artifact) so lastLineIdx
+      // is a count of real JSONL entries, not raw split elements.
+      var lines = content.split("\n").filter(function (l) { return l.trim(); });
       if (lines.length <= lastLineIdx) return;
-      var newLines = lines.slice(lastLineIdx).filter(function (l) { return l.trim(); });
+      var newLines = lines.slice(lastLineIdx);
       lastLineIdx = lines.length;
       if (newLines.length === 0) return;
       var payload = "data: " + JSON.stringify({ lines: newLines.join("\n") }) + "\n\n";
@@ -60,10 +62,11 @@ export function createServer({ sessionFile, distDir }) {
   }
 
   if (sessionFile) {
-    // Initialize lastLineIdx from current file length so we only send new lines
+    // Initialize lastLineIdx as count of non-empty lines already in the file
+    // so we only stream lines appended after this server started.
     try {
       var initContent = fs.readFileSync(sessionFile, "utf8");
-      lastLineIdx = initContent.split("\n").length;
+      lastLineIdx = initContent.split("\n").filter(function (l) { return l.trim(); }).length;
     } catch (e) {}
 
     function attachWatcher() {
