@@ -902,6 +902,7 @@ export default function App() {
           onSeek={playback.seek}
           isPlaying={playback.playing}
           onPlayPause={playback.playPause}
+          isLive={session.isLive}
           eventEntries={filteredEventEntries}
           turns={session.turns}
           matchSet={search.matchSet}
