@@ -5,6 +5,13 @@ export interface TokenUsage {
   cacheWrite?: number;
 }
 
+export type SessionFormat = "claude-code" | "copilot-cli";
+
+export interface ParseIssues {
+  malformedLines: number;
+  invalidEvents: number;
+}
+
 export interface NormalizedEvent {
   t: number;
   agent: string;
@@ -37,6 +44,27 @@ export interface SessionTurn {
   toolCount?: number;
   hasError?: boolean;
   [key: string]: unknown;
+}
+
+export interface SessionMetadata {
+  totalEvents: number;
+  totalTurns: number;
+  totalToolCalls: number;
+  errorCount: number;
+  duration: number;
+  models: Record<string, number>;
+  primaryModel: string | null;
+  tokenUsage?: TokenUsage | null;
+  warnings?: string[];
+  parseIssues?: ParseIssues;
+  format?: SessionFormat;
+  [key: string]: unknown;
+}
+
+export interface ParsedSession {
+  events: NormalizedEvent[];
+  turns: SessionTurn[];
+  metadata: SessionMetadata;
 }
 
 export interface TimeMap {

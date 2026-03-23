@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   SUPPORTED_FORMATS_ERROR,
-  appendRawLines,
   buildAppliedSession,
   parseSessionText,
-  shouldApplyLiveLines,
-} from "../hooks/useSessionLoader.js";
+} from "../lib/sessionParsing";
+import { appendRawLines, shouldApplyLiveLines } from "../hooks/useSessionLoader.js";
 
 function buildResult() {
   return {
@@ -14,7 +13,7 @@ function buildResult() {
       { t: 2, duration: 3, track: "output", agent: "assistant", text: "world", intensity: 0.5, isError: false },
     ],
     turns: [{ index: 0, eventIndices: [0, 1], startTime: 0, endTime: 5 }],
-    metadata: { totalEvents: 2, totalTurns: 1 },
+    metadata: { totalEvents: 2, totalTurns: 1, totalToolCalls: 0, errorCount: 0, duration: 5, models: {}, primaryModel: null },
   };
 }
 
