@@ -26,6 +26,7 @@ import {
   SlidersHorizontal,
   Minus,
   Download,
+  Workflow,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -56,6 +57,7 @@ var ICON_MAP = {
   filter: SlidersHorizontal,
   minus: Minus,
   download: Download,
+  graph: Workflow,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

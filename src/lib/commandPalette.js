@@ -15,6 +15,7 @@ function buildViewItems() {
     { id: "view-replay", type: "view", label: "Replay View", iconName: "play", viewId: "replay", searchText: "replay view timeline stream", priority: 40 },
     { id: "view-tracks", type: "view", label: "Tracks View", iconName: "tracks", viewId: "tracks", searchText: "tracks view lanes daw", priority: 40 },
     { id: "view-waterfall", type: "view", label: "Waterfall View", iconName: "waterfall", viewId: "waterfall", searchText: "waterfall view tools timeline execution", priority: 40 },
+    { id: "view-graph", type: "view", label: "Graph View", iconName: "graph", viewId: "graph", searchText: "graph view flow dag nodes edges turns", priority: 40 },
     { id: "view-stats", type: "view", label: "Stats View", iconName: "stats", viewId: "stats", searchText: "stats view metrics summary", priority: 40 },
   ];
 }
