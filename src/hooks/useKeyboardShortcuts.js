@@ -56,6 +56,10 @@ export function handleKeyboardShortcut(e, options) {
     return true;
   }
   if (e.key === "4") {
+    options.onSetView("graph");
+    return true;
+  }
+  if (e.key === "5") {
     options.onSetView("stats");
     return true;
   }

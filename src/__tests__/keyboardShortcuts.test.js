@@ -84,6 +84,12 @@ describe("useKeyboardShortcuts helpers", function () {
     expect(handleKeyboardShortcut(createEvent({ key: "2" }), options)).toBe(true);
     expect(options.onSetView).toHaveBeenCalledWith("tracks");
 
+    expect(handleKeyboardShortcut(createEvent({ key: "4" }), options)).toBe(true);
+    expect(options.onSetView).toHaveBeenCalledWith("graph");
+
+    expect(handleKeyboardShortcut(createEvent({ key: "5" }), options)).toBe(true);
+    expect(options.onSetView).toHaveBeenCalledWith("stats");
+
     expect(handleKeyboardShortcut(createEvent({ key: "E" }), options)).toBe(true);
     expect(options.onJumpToError).toHaveBeenCalledWith("prev");
   });

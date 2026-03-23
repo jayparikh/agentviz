@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="940" viewBox="0 0 1600 940">
+  <rect width="100%" height="100%" fill="#000000"/>
+  <rect x="0" y="0" width="1600" height="68" fill="#000000"/>
+  <line x1="0" y1="68" x2="1600" y2="68" stroke="#232333"/>
+  <text x="36" y="40" fill="#ededef" font-size="26" font-weight="700" font-family="'JetBrains Mono', monospace">◇ AGENTVIZ</text>
+  <text x="260" y="40" fill="#5c5c63" font-size="12" font-family="'JetBrains Mono', monospace">copilot-session.jsonl</text>
+  
+    <rect x="460" y="18" width="92" height="32" rx="10" fill="transparent" stroke="transparent"/>
+    <text x="506" y="39" text-anchor="middle" fill="#5c5c63" font-size="12" font-family="'JetBrains Mono', monospace">Replay</text>
+    <rect x="568" y="18" width="92" height="32" rx="10" fill="transparent" stroke="transparent"/>
+    <text x="614" y="39" text-anchor="middle" fill="#5c5c63" font-size="12" font-family="'JetBrains Mono', monospace">Tracks</text>
+    <rect x="676" y="18" width="92" height="32" rx="10" fill="transparent" stroke="transparent"/>
+    <text x="722" y="39" text-anchor="middle" fill="#5c5c63" font-size="12" font-family="'JetBrains Mono', monospace">Waterfall</text>
+    <rect x="784" y="18" width="92" height="32" rx="10" fill="#1a1a24" stroke="rgba(100,117,232,0.5)"/>
+    <text x="830" y="39" text-anchor="middle" fill="#6475e8" font-size="12" font-family="'JetBrains Mono', monospace">Graph</text>
+    <rect x="892" y="18" width="92" height="32" rx="10" fill="transparent" stroke="transparent"/>
+    <text x="938" y="39" text-anchor="middle" fill="#5c5c63" font-size="12" font-family="'JetBrains Mono', monospace">Stats</text>
+  <rect x="32" y="84" width="1208" height="814" rx="18" fill="rgba(15,15,22,0.55)" stroke="#232333"/>
+  <path d="M 241.0 229.2 L 279.7 229.2" fill="none" stroke="rgba(100,117,232,0.55)" stroke-width="2" stroke-linecap="round"/>
+<path d="M 566.2 229.2 L 604.8 229.2" fill="none" stroke="rgba(100,117,232,0.55)" stroke-width="2" stroke-linecap="round"/>
+<path d="M 749.6 229.2 L 788.3 229.2" fill="none" stroke="rgba(100,117,232,0.55)" stroke-width="2" stroke-linecap="round"/>
+<path d="M 936.3 229.2 L 975.0 229.2" fill="none" stroke="rgba(100,117,232,0.55)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 396.6 209.9 L 396.6 217.9 L 492.1 217.9 L 492.1 226.0" fill="none" stroke="rgba(46,46,66,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M 492.1 254.9 L 492.1 271.0" fill="none" stroke="rgba(46,46,66,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M 353.7 209.9 L 353.7 226.0" fill="none" stroke="rgba(46,46,66,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M 862.3 187.3 L 862.3 203.4" fill="none" stroke="rgba(46,46,66,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M 862.3 232.4 L 862.3 248.5" fill="none" stroke="rgba(46,46,66,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M 862.3 277.5 L 862.3 293.6" fill="none" stroke="rgba(46,46,66,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+  
+    <g opacity="1">
+      
+      <rect x="96.2" y="203.4" width="144.9" height="51.5" rx="14" fill="#1a1a24" stroke="rgba(59,158,255,0.95)" stroke-width="2"/>
+      <text x="112.2" y="225.4" fill="#3b9eff" font-size="13" font-weight="600" font-family="'JetBrains Mono', monospace">Turn 0</text>
+      <text x="112.2" y="247.4" fill="#8b8b92" font-size="12" font-family="'JetBrains Mono', monospace">Compare Claude Code and Copilot CLI session...</text>
+      <rect x="187.0" y="213.4" width="38" height="20" rx="10" fill="rgba(59,158,255,0.18)"/><text x="206.0" y="227.4" text-anchor="middle" fill="#3b9eff" font-size="11" font-family="'JetBrains Mono', monospace">3×</text>
+    </g>
+
+      <g>
+        <rect x="279.7" y="148.7" width="286.5" height="160.9" rx="16" fill="rgba(15,15,22,0.45)" stroke="rgba(59,158,255,0.7)" stroke-width="2" stroke-dasharray="6 4"/>
+        <text x="297.7" y="176.7" fill="#3b9eff" font-size="15" font-weight="600" font-family="'JetBrains Mono', monospace">Turn 1</text>
+        
+        <g opacity="1">
+          <rect x="310.8" y="180.9" width="128.8" height="29.0" rx="10" fill="rgba(15,15,22,0.92)" stroke="rgba(59,158,255,0.9)" stroke-width="1.4"/>
+          <text x="326.8" y="199.4" fill="#ededef" font-size="14" font-family="'JetBrains Mono', monospace">view</text>
+        </g>
+        <g opacity="1">
+          <rect x="427.7" y="226.0" width="128.8" height="29.0" rx="10" fill="rgba(15,15,22,0.92)" stroke="rgba(59,158,255,0.9)" stroke-width="1.4"/>
+          <text x="443.7" y="244.5" fill="#ededef" font-size="14" font-family="'JetBrains Mono', monospace">rg</text>
+        </g>
+        <g opacity="1">
+          <rect x="427.7" y="271.0" width="128.8" height="29.0" rx="10" fill="rgba(15,15,22,0.92)" stroke="rgba(59,158,255,0.9)" stroke-width="1.4"/>
+          <text x="443.7" y="289.5" fill="#ededef" font-size="14" font-family="'JetBrains Mono', monospace">bash</text>
+        </g>
+        <g opacity="1">
+          <rect x="289.3" y="226.0" width="128.8" height="29.0" rx="10" fill="rgba(15,15,22,0.92)" stroke="rgba(59,158,255,0.9)" stroke-width="1.4"/>
+          <text x="305.3" y="244.5" fill="#ededef" font-size="14" font-family="'JetBrains Mono', monospace">view</text>
+        </g>
+      </g>
+
+    <g opacity="1">
+      
+      <rect x="604.8" y="203.4" width="144.9" height="51.5" rx="14" fill="#1a1a24" stroke="rgba(59,158,255,0.95)" stroke-width="2"/>
+      <text x="620.8" y="225.4" fill="#3b9eff" font-size="13" font-weight="600" font-family="'JetBrains Mono', monospace">Turn 2</text>
+      <text x="620.8" y="247.4" fill="#8b8b92" font-size="12" font-family="'JetBrains Mono', monospace">Add a Graph view that shows turn flow and e...</text>
+      <rect x="695.6" y="213.4" width="38" height="20" rx="10" fill="rgba(59,158,255,0.18)"/><text x="714.6" y="227.4" text-anchor="middle" fill="#3b9eff" font-size="11" font-family="'JetBrains Mono', monospace">4×</text>
+    </g>
+
+      <g>
+        <rect x="788.3" y="126.2" width="148.1" height="206.0" rx="16" fill="rgba(15,15,22,0.45)" stroke="rgba(100,117,232,1)" stroke-width="2" stroke-dasharray="6 4"/>
+        <text x="806.3" y="154.2" fill="#6475e8" font-size="15" font-weight="600" font-family="'JetBrains Mono', monospace">Turn 3</text>
+        
+        <g opacity="1">
+          <rect x="797.9" y="158.4" width="128.8" height="29.0" rx="10" fill="rgba(15,15,22,0.92)" stroke="rgba(59,158,255,0.9)" stroke-width="1.4"/>
+          <text x="813.9" y="176.9" fill="#ededef" font-size="14" font-family="'JetBrains Mono', monospace">bash</text>
+        </g>
+        <g opacity="1">
+          <rect x="797.9" y="203.4" width="128.8" height="29.0" rx="10" fill="rgba(15,15,22,0.92)" stroke="rgba(59,158,255,0.9)" stroke-width="1.4"/>
+          <text x="813.9" y="221.9" fill="#ededef" font-size="14" font-family="'JetBrains Mono', monospace">bash</text>
+        </g>
+        <g opacity="1">
+          <rect x="797.9" y="248.5" width="128.8" height="29.0" rx="10" fill="rgba(15,15,22,0.92)" stroke="rgba(59,158,255,0.9)" stroke-width="1.4"/>
+          <text x="813.9" y="267.0" fill="#ededef" font-size="14" font-family="'JetBrains Mono', monospace">apply_patch</text>
+        </g>
+        <g opacity="1">
+          <rect x="797.9" y="293.6" width="128.8" height="29.0" rx="10" fill="rgba(15,15,22,0.92)" stroke="rgba(59,158,255,0.9)" stroke-width="1.4"/>
+          <text x="813.9" y="312.1" fill="#ededef" font-size="14" font-family="'JetBrains Mono', monospace">bash</text>
+        </g>
+      </g>
+
+    <g opacity="0.45">
+      
+      <rect x="975.0" y="203.4" width="144.9" height="51.5" rx="14" fill="#1a1a24" stroke="rgba(59,158,255,0.95)" stroke-width="2"/>
+      <text x="991.0" y="225.4" fill="#3b9eff" font-size="13" font-weight="600" font-family="'JetBrains Mono', monospace">Turn 4</text>
+      <text x="991.0" y="247.4" fill="#8b8b92" font-size="12" font-family="'JetBrains Mono', monospace">Refresh the README and screenshots for the ...</text>
+      <rect x="1065.8" y="213.4" width="38" height="20" rx="10" fill="rgba(59,158,255,0.18)"/><text x="1084.8" y="227.4" text-anchor="middle" fill="#3b9eff" font-size="11" font-family="'JetBrains Mono', monospace">2×</text>
+    </g>
+  
+  <g>
+    <rect x="1224" y="84" width="360" height="814" rx="18" fill="#0f0f16" stroke="#232333"/>
+    <text x="1250" y="118" fill="#6475e8" font-size="18" font-weight="600" font-family="'JetBrains Mono', monospace">Turn 3</text>
+    <text x="1250" y="150" fill="#45454b" font-size="11" font-family="'JetBrains Mono', monospace">Summary</text>
+    <rect x="1250" y="160" width="308" height="64" rx="12" fill="#1a1a24"/>
+    <text x="1266" y="186" fill="#ededef" font-size="13" font-family="'JetBrains Mono', monospace">Polishing the graph with better</text>
+    <text x="1266" y="206" fill="#ededef" font-size="13" font-family="'JetBrains Mono', monospace">continuation labels and validation.</text>
+
+    <text x="1250" y="258" fill="#45454b" font-size="11" font-family="'JetBrains Mono', monospace">Tools</text>
+    <text x="1250" y="284" fill="#ededef" font-size="24" font-family="'JetBrains Mono', monospace">4</text>
+
+    <text x="1350" y="258" fill="#45454b" font-size="11" font-family="'JetBrains Mono', monospace">Error</text>
+    <text x="1350" y="284" fill="#ededef" font-size="24" font-family="'JetBrains Mono', monospace">No</text>
+
+    <text x="1450" y="258" fill="#45454b" font-size="11" font-family="'JetBrains Mono', monospace">Time</text>
+    <text x="1450" y="284" fill="#ededef" font-size="24" font-family="'JetBrains Mono', monospace">0:54</text>
+
+    <text x="1250" y="336" fill="#45454b" font-size="11" font-family="'JetBrains Mono', monospace">Highlights</text>
+    <rect x="1250" y="346" width="308" height="208" rx="12" fill="#1a1a24"/>
+    <text x="1266" y="374" fill="#8b8b92" font-size="13" font-family="'JetBrains Mono', monospace">• Active turn glows with playback</text>
+    <text x="1266" y="402" fill="#8b8b92" font-size="13" font-family="'JetBrains Mono', monospace">• Expanded tools show nested structure</text>
+    <text x="1266" y="430" fill="#8b8b92" font-size="13" font-family="'JetBrains Mono', monospace">• Continuations summarize with tool names</text>
+    <text x="1266" y="458" fill="#8b8b92" font-size="13" font-family="'JetBrains Mono', monospace">• Drag to pan, scroll to zoom</text>
+    <text x="1266" y="486" fill="#8b8b92" font-size="13" font-family="'JetBrains Mono', monospace">• Double-click turns to expand</text>
+  </g>
+  <text x="48" y="922" fill="#45454b" font-size="11" font-family="'JetBrains Mono', monospace">Graph view: directed turn flow, expandable tool-call nesting, playback-aware highlighting</text>
+</svg>
