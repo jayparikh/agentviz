@@ -31,6 +31,7 @@ src/
     commandPalette.js  # Precomputed search index with scoring and per-type caps
     diffUtils.js       # Diff detection (isFileEditEvent) + Myers line diff algorithm
     waterfall.js       # Waterfall view helpers: item building, stats, layout, windowing
+    graphLayout.js     # Graph view helpers: ELKjs DAG builder, layout runner, position merger
     pricing.js         # Claude model pricing table and cost estimation
     exportHtml.js      # Self-contained HTML export for single sessions and comparisons
   components/
@@ -39,6 +40,7 @@ src/
     ReplayView.jsx     # Windowed event stream + resizable inspector sidebar
     TracksView.jsx     # DAW-style multi-track lanes with solo/mute
     WaterfallView.jsx  # Tool execution waterfall with nesting, inspector sidebar
+    GraphView.jsx      # Interactive DAG of turns/tool calls with ELKjs layout, pan/zoom, animations
     StatsView.jsx      # Aggregate metrics, tool ranking, turn summary
     CompareView.jsx    # Side-by-side session comparison: Scorecard + Tools tabs
     CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
@@ -80,7 +82,7 @@ Agent types: user, assistant, system
 ## Dev commands
 - `npm run dev` - Start dev server on port 3000
 - `npm run build` - Production build to dist/
-- `npm test` - Run 144 tests (40 Claude parser + 42 Copilot parser + 6 UX helpers + 23 waterfall + 33 diff) via Vitest
+- `npm test` - Run tests (40 Claude parser + 42 Copilot parser + 6 UX helpers + 23 waterfall + 33 diff + 13 graph layout + more) via Vitest
 - `npm run test:watch` - Watch mode for tests
 
 ## Conventions

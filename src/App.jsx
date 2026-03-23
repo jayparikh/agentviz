@@ -14,6 +14,7 @@ import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
 import StatsView from "./components/StatsView.jsx";
 import WaterfallView from "./components/WaterfallView.jsx";
+import GraphView from "./components/GraphView.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import ShortcutsModal from "./components/ShortcutsModal.jsx";
 import AppHeader from "./components/app/AppHeader.jsx";
@@ -53,6 +54,18 @@ function renderActiveView(activeView, props) {
   if (activeView === "waterfall") {
     return (
       <WaterfallView
+        currentTime={props.playback.time}
+        eventEntries={props.filteredEventEntries}
+        totalTime={props.session.total}
+        timeMap={props.timeMap}
+        turns={props.session.turns}
+      />
+    );
+  }
+
+  if (activeView === "graph") {
+    return (
+      <GraphView
         currentTime={props.playback.time}
         eventEntries={props.filteredEventEntries}
         totalTime={props.session.total}
