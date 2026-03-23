@@ -230,11 +230,12 @@ export function mergeLayout(graphData, elkResult) {
     var pNode = positioned[k];
     if (pNode.isExpanded && pNode.edges) {
       var parentElk = elkResult.children && elkResult.children.find(function (c) { return c.id === pNode.id; });
+      var parentPos = positionMap[pNode.id] || { x: pNode.x || 0, y: pNode.y || 0 };
       pNode.edges = pNode.edges.map(function (edge) {
         var elkEdge = parentElk && findElkEdge(parentElk.edges || [], edge.id);
         return Object.assign({}, edge, {
           sections: elkEdge ? elkEdge.sections : null,
-          parentOffset: { x: positionMap[pNode.id].x, y: positionMap[pNode.id].y },
+          parentOffset: { x: parentPos.x, y: parentPos.y },
         });
       });
     }
