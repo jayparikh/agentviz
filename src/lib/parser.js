@@ -440,13 +440,27 @@ export function parseClaudeCodeJSONL(text) {
 
   if (events.length === 0) return null;
 
-  // Normalize to start at t=0 (scan all events for true minimum)
-  var minT = events[0].t;
-  for (var i = 1; i < events.length; i++) {
-    if (events[i].t < minT) minT = events[i].t;
+  // Normalize to start at t=0.
+  // When real timestamps are present, ignore synthetic-fallback t values
+  // (which are tiny counters ~0-1000) so a few timestamp-less records
+  // don't anchor minT and leave all real events at billions of seconds.
+  var minT = Infinity;
+  if (hasRealTimestamps) {
+    // Real Unix timestamps are always > 1e9 (year ~2001+). Syntheticfallback
+    // values are tiny (0 to ~N records). Use only the real ones for min.
+    for (var i = 0; i < events.length; i++) {
+      if (events[i].t > 1e9 && events[i].t < minT) minT = events[i].t;
+    }
+  }
+  if (minT === Infinity) {
+    // No real timestamps or all-synthetic: use overall minimum
+    minT = events[0].t;
+    for (var i = 1; i < events.length; i++) {
+      if (events[i].t < minT) minT = events[i].t;
+    }
   }
   for (var i = 0; i < events.length; i++) {
-    events[i].t = events[i].t - minT;
+    events[i].t = Math.max(0, events[i].t - minT);
   }
 
   // Compute real durations when timestamps are available
