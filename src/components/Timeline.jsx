@@ -30,7 +30,7 @@ export function buildTimelineBins(eventEntries, totalTime, timeMap, matchSet) {
   return bins;
 }
 
-export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPlaying, onPlayPause, eventEntries, turns, matchSet }) {
+export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPlaying, onPlayPause, isLive, eventEntries, turns, matchSet }) {
   var barRef = useRef(null);
 
   function handleClick(e) {
@@ -53,24 +53,26 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
   return (
     <div style={{ padding: "0 0 8px 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-        <button
-          onClick={onPlayPause}
-          style={{
-            background: "none",
-            border: "1px solid " + theme.border.strong,
-            borderRadius: theme.radius.lg,
-            color: theme.text.primary,
-            cursor: "pointer",
-            padding: "4px 12px",
-            fontSize: theme.fontSize.lg,
-            fontFamily: theme.font.ui,
-            letterSpacing: 1,
-          }}
-        >
-          {isPlaying ? <Icon name="pause" size={14} /> : <Icon name="play" size={14} />}
-        </button>
+        {!isLive && (
+          <button
+            onClick={onPlayPause}
+            style={{
+              background: "none",
+              border: "1px solid " + theme.border.strong,
+              borderRadius: theme.radius.lg,
+              color: theme.text.primary,
+              cursor: "pointer",
+              padding: "4px 12px",
+              fontSize: theme.fontSize.lg,
+              fontFamily: theme.font.ui,
+              letterSpacing: 1,
+            }}
+          >
+            {isPlaying ? <Icon name="pause" size={14} /> : <Icon name="play" size={14} />}
+          </button>
+        )}
         <span style={{ fontFamily: theme.font.mono, fontSize: theme.fontSize.md, color: theme.text.secondary, letterSpacing: 1 }}>
-          {currentTime.toFixed(1)}s / {totalTime.toFixed(1)}s
+          {isLive ? totalTime.toFixed(1) + "s" : currentTime.toFixed(1) + "s / " + totalTime.toFixed(1) + "s"}
         </span>
         {turns && turns.length > 0 && (function () {
           var currentTurn = null;

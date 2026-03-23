@@ -41,6 +41,7 @@ export function createServer({ sessionFile, distDir }) {
   var lastLineIdx = 0;
   var watcher = null;
   var watcherClosed = false;
+  var pollInterval = null;
 
   function broadcastNewLines() {
     if (!sessionFile || clients.size === 0) return;
@@ -98,6 +99,11 @@ export function createServer({ sessionFile, distDir }) {
     }
 
     attachWatcher();
+
+    // Polling fallback: macOS kqueue (used by fs.watch) coalesces or drops
+    // events when a file is written to rapidly. Poll every 500ms so we never
+    // miss new lines regardless of write pattern.
+    pollInterval = setInterval(broadcastNewLines, 500);
   }
 
   var server = http.createServer(function (req, res) {
@@ -168,6 +174,7 @@ export function createServer({ sessionFile, distDir }) {
   server.on("close", function () {
     watcherClosed = true;
     if (watcher) watcher.close();
+    if (pollInterval) clearInterval(pollInterval);
   });
 
   return server;
