@@ -10,7 +10,7 @@ import {
   WATERFALL_ROW_HEIGHT,
 } from "../lib/waterfall.js";
 import ResizablePanel from "./ResizablePanel.jsx";
-import SyntaxHighlight from "./SyntaxHighlight.jsx";
+import DataInspector from "./DataInspector.jsx";
 import DiffViewer from "./DiffViewer.jsx";
 import { isDiffViewable } from "../lib/diffUtils.js";
 import { formatDuration, formatTime } from "../lib/formatTime.js";
@@ -282,19 +282,13 @@ function WaterfallInspector({ selectedItem, stats }) {
 
             {selected.toolInput && (!hasDiff || showRaw) && (
               <div style={{ marginTop: theme.space.lg }}>
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: theme.space.sm,
-                }}>
+                {hasDiff && (
                   <div style={{
-                    fontSize: theme.fontSize.xs,
-                    color: theme.text.dim,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    marginBottom: theme.space.sm,
                   }}>
-                    Input
-                  </div>
-                  {hasDiff && (
                     <div
                       onClick={function () { setShowRaw(false); }}
                       style={{
@@ -305,30 +299,15 @@ function WaterfallInspector({ selectedItem, stats }) {
                     >
                       Show Diff
                     </div>
-                  )}
-                </div>
-                <SyntaxHighlight
-                  text={typeof selected.toolInput === "string"
-                    ? selected.toolInput
-                    : JSON.stringify(selected.toolInput, null, 2)}
-                  maxLines={30}
-                />
+                  </div>
+                )}
+                <DataInspector title="Input" value={selected.toolInput} maxLines={24} maxChars={20000} />
               </div>
             )}
 
             {selected.raw && selected.raw.data && (
               <div style={{ marginTop: theme.space.lg }}>
-                <div style={{
-                  fontSize: theme.fontSize.xs,
-                  color: theme.text.dim,
-                  marginBottom: theme.space.sm,
-                }}>
-                  Raw
-                </div>
-                <SyntaxHighlight
-                  text={JSON.stringify(selected.raw.data, null, 2)}
-                  maxLines={20}
-                />
+                <DataInspector title="Raw Result" value={selected.raw.data} maxLines={20} maxChars={20000} />
               </div>
             )}
           </div>

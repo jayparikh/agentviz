@@ -5,58 +5,51 @@ import { theme } from "../lib/theme.js";
  * No external deps -- handles JS/TS/Python/Shell keywords, strings, comments, numbers.
  */
 
-var KEYWORD_RE = /\b(function|const|let|var|return|if|else|for|while|import|export|class|new|this|throw|try|catch|async|await|yield|from|of|in|def|self|print|True|False|None|elif|except|finally|raise|with|lambda|pass|break|continue)\b/g;
-var STRING_RE = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g;
-var COMMENT_RE = /(\/\/.*$|#.*$|\/\*[\s\S]*?\*\/)/gm;
-var NUMBER_RE = /\b(\d+\.?\d*(?:e[+-]?\d+)?)\b/gi;
-var OPERATOR_RE = /([=!<>]=?|&&|\|\||=>|\+\+|--|\?\?)/g;
-var PATH_RE = /((?:\/[\w.\-]+)+\.\w+)/g;
+var TOKEN_RE = /(\/\/.*$|#.*$|\/\*[\s\S]*?\*\/)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|((?:\/[\w.\-]+)+\.\w+)|\b(function|const|let|var|return|if|else|for|while|import|export|class|new|this|throw|try|catch|async|await|yield|from|of|in|def|self|print|True|False|None|elif|except|finally|raise|with|lambda|pass|break|continue)\b|\b(\d+\.?\d*(?:e[+-]?\d+)?)\b|([=!<>]=?|&&|\|\||=>|\+\+|--|\?\?)/gm;
 
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function tokenize(text) {
-  // Simple multi-pass replacement with markers
-  var tokens = [];
-  var id = 0;
+export function highlightSyntaxToHtml(text) {
+  var html = "";
+  var lastIndex = 0;
+  var match;
 
-  function mark(match, color) {
-    var placeholder = "\x00" + id + "\x00";
-    tokens.push({ id: id, html: '<span style="color:' + color + '">' + escapeHtml(match) + '</span>' });
-    id++;
-    return placeholder;
+  TOKEN_RE.lastIndex = 0;
+
+  while ((match = TOKEN_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      html += escapeHtml(text.slice(lastIndex, match.index));
+    }
+
+    var color = theme.accent.primary;
+    if (match[1]) color = theme.text.dim;
+    if (match[2]) color = theme.semantic.success;
+    if (match[3]) color = theme.accent.primary;
+    if (match[4]) color = theme.track.context;
+    if (match[5]) color = theme.semantic.warning;
+    if (match[6]) color = theme.accent.primary;
+
+    html += '<span style="color:' + color + '">' + escapeHtml(match[0]) + "</span>";
+    lastIndex = TOKEN_RE.lastIndex;
   }
 
-  var s = text;
-
-  // Order matters: comments first, then strings, then others
-  s = s.replace(COMMENT_RE, function (m) { return mark(m, theme.text.dim); });
-  s = s.replace(STRING_RE, function (m) { return mark(m, theme.semantic.success); });
-  s = s.replace(PATH_RE, function (m) { return mark(m, theme.accent.primary); });
-  s = s.replace(KEYWORD_RE, function (m) { return mark(m, theme.track.context); });
-  s = s.replace(NUMBER_RE, function (m) { return mark(m, theme.semantic.warning); });
-  s = s.replace(OPERATOR_RE, function (m) { return mark(m, theme.accent.primary); });
-
-  // Escape remaining text
-  s = escapeHtml(s);
-
-  // Restore tokens
-  for (var i = 0; i < tokens.length; i++) {
-    s = s.replace("\x00" + tokens[i].id + "\x00", tokens[i].html);
+  if (lastIndex < text.length) {
+    html += escapeHtml(text.slice(lastIndex));
   }
 
-  return s;
+  return html;
 }
 
 export default function SyntaxHighlight({ text, maxLines }) {
   if (!text) return null;
-  if (!maxLines) maxLines = 20;
+  if (maxLines == null) maxLines = Infinity;
 
   var lines = text.split("\n");
-  var truncated = lines.length > maxLines;
+  var truncated = Number.isFinite(maxLines) && lines.length > maxLines;
   var display = truncated ? lines.slice(0, maxLines).join("\n") : text;
-  var html = tokenize(display);
+  var html = highlightSyntaxToHtml(display);
   if (truncated) {
     html += '\n<span style="color:' + theme.text.ghost + '">... ' + (lines.length - maxLines) + ' more lines</span>';
   }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { theme, AGENT_COLORS, TRACK_TYPES, alpha } from "../lib/theme.js";
 import { buildReplayLayout, getReplayWindow } from "../lib/replayLayout.js";
-import SyntaxHighlight from "./SyntaxHighlight.jsx";
+import DataInspector from "./DataInspector.jsx";
 import DiffViewer from "./DiffViewer.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -162,11 +162,8 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
 
       {selected && selected.raw && (!hasDiff || showRaw) && (
         <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
-              Raw Data
-            </div>
-            {hasDiff && (
+          {hasDiff && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 8 }}>
               <div
                 onClick={function () { setShowRaw(false); }}
                 style={{
@@ -177,9 +174,9 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
               >
                 Show Diff
               </div>
-            )}
-          </div>
-          <SyntaxHighlight text={JSON.stringify(selected.raw, null, 2).substring(0, 2000)} maxLines={30} />
+            </div>
+          )}
+          <DataInspector title="Event Payload" value={selected.raw} maxLines={24} maxChars={20000} />
         </div>
       )}
     </div>
