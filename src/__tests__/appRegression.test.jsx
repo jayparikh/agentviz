@@ -44,16 +44,24 @@ function createInactiveFetch() {
   });
 }
 
-function createLiveFetch(filename, text) {
+function createBootstrapFetch(filename, text, live) {
   return vi.fn(async function (url) {
     if (String(url).includes("/api/meta")) {
-      return createJsonResponse({ filename: filename, live: true });
+      return createJsonResponse({ filename: filename, live: live });
     }
     if (String(url).includes("/api/file")) {
       return createTextResponse(text);
     }
     throw new Error("Unexpected fetch: " + url);
   });
+}
+
+function createLiveFetch(filename, text) {
+  return createBootstrapFetch(filename, text, true);
+}
+
+function createExportBootstrapFetch(filename, text) {
+  return createBootstrapFetch(filename, text, false);
 }
 
 function click(node) {
@@ -237,6 +245,20 @@ describe("App browser regressions", function () {
     }, "expected compare landing to open");
 
     expect(findByText(app.container, "Drop a session file here")).toBeTruthy();
+
+    await app.unmount();
+  });
+
+  it("bootstraps an exported session when meta is non-live", async function () {
+    var fetchMock = createExportBootstrapFetch("exported.jsonl", FIXTURE_TEXT);
+    var app = await renderApp(fetchMock);
+
+    await waitFor(function () {
+      return findByText(app.container, "exported.jsonl");
+    }, "expected exported session to bootstrap");
+
+    expect(findByText(app.container, "Drop a session file here")).toBeFalsy();
+    expect(fetchMock).toHaveBeenCalledWith("/api/file");
 
     await app.unmount();
   });
