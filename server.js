@@ -24,6 +24,32 @@ var MIME = {
   ".ttf": "font/ttf",
 };
 
+export function getCompleteJsonlLines(content) {
+  if (!content) return [];
+  var normalized = content.replace(/\r\n/g, "\n");
+  var hasTrailingNewline = normalized.endsWith("\n");
+  var lines = normalized.split("\n");
+
+  if (!hasTrailingNewline) {
+    lines.pop();
+  }
+
+  return lines.filter(function (line) { return line.trim(); });
+}
+
+export function getJsonlStreamChunk(content, lastLineIdx) {
+  var completeLines = getCompleteJsonlLines(content);
+
+  if (completeLines.length <= lastLineIdx) {
+    return { lines: [], nextLineIdx: lastLineIdx };
+  }
+
+  return {
+    lines: completeLines.slice(lastLineIdx),
+    nextLineIdx: completeLines.length,
+  };
+}
+
 function serveStatic(res, filePath) {
   try {
     var data = fs.readFileSync(filePath);
@@ -47,12 +73,9 @@ export function createServer({ sessionFile, distDir }) {
     if (!sessionFile || clients.size === 0) return;
     try {
       var content = fs.readFileSync(sessionFile, "utf8");
-      // Filter empty lines (including trailing \n artifact) so lastLineIdx
-      // is a count of real JSONL entries, not raw split elements.
-      var lines = content.split("\n").filter(function (l) { return l.trim(); });
-      if (lines.length <= lastLineIdx) return;
-      var newLines = lines.slice(lastLineIdx);
-      lastLineIdx = lines.length;
+      var update = getJsonlStreamChunk(content, lastLineIdx);
+      var newLines = update.lines;
+      lastLineIdx = update.nextLineIdx;
       if (newLines.length === 0) return;
       var payload = "data: " + JSON.stringify({ lines: newLines.join("\n") }) + "\n\n";
       for (var client of clients) {
@@ -62,11 +85,11 @@ export function createServer({ sessionFile, distDir }) {
   }
 
   if (sessionFile) {
-    // Initialize lastLineIdx as count of non-empty lines already in the file
-    // so we only stream lines appended after this server started.
+    // Initialize from complete newline-terminated records only so a trailing
+    // in-progress JSONL record can still be streamed once it is finished.
     try {
       var initContent = fs.readFileSync(sessionFile, "utf8");
-      lastLineIdx = initContent.split("\n").filter(function (l) { return l.trim(); }).length;
+      lastLineIdx = getCompleteJsonlLines(initContent).length;
     } catch (e) {}
 
     function attachWatcher() {
