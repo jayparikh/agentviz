@@ -460,6 +460,92 @@ export default function DebriefView({ file, summary, recommendations, recommenda
     return null;
   }
 
+  // Shared renderer for AI recommendation cards (used in both loading + done states)
+  function renderAiRecCard(rec, i, totalCount) {
+    var applyState = aiApplyStatus[i] || null;
+    var hasHistory = !!aiApplyHistory[i];
+    var showPreview = !!aiPreview[i];
+    var canApply = rec.targetPath && rec.draft && applyState !== "applied";
+    return (
+      <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < totalCount - 1 ? "1px solid " + theme.border.default : "none" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+          {rec.priority === "high" && (
+            <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.full, padding: "1px 7px", flexShrink: 0, marginTop: 2 }}>high</span>
+          )}
+          <span style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.ui, fontWeight: 600, flex: 1 }}>{rec.title}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            {applyState === "error" && (
+              <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error }}>Apply failed</span>
+            )}
+            {applyState === "applied" && (
+              <>
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.success }}>{"✓ Applied"}</span>
+                {hasHistory && (
+                  <button className="av-btn" onClick={function () { handleAiRecRevert(i); }}
+                    style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.semantic.warning, background: "transparent", color: theme.semantic.warning, borderRadius: theme.radius.md, padding: "2px 8px", cursor: "pointer" }}>
+                    Revert
+                  </button>
+                )}
+              </>
+            )}
+            {canApply && rec.draft && !showPreview && (
+              <button className="av-btn" onClick={function () { toggleAiPreview(i); }}
+                title="Preview changes before applying"
+                style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.border.default, background: "transparent", color: theme.text.secondary, borderRadius: theme.radius.md, padding: "2px 8px", cursor: "pointer" }}>
+                Preview
+              </button>
+            )}
+            {canApply && (
+              <button className="av-btn" onClick={function () { handleAiRecApply(rec, i); }}
+                disabled={applyState === "applying"}
+                title={"Apply to " + rec.targetPath}
+                style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.semantic.success, background: alpha(theme.semantic.success, 0.08), color: theme.semantic.success, borderRadius: theme.radius.md, padding: "2px 10px", cursor: "pointer" }}>
+                {applyState === "applying" ? "Applying..." : "Apply \u2192 " + rec.targetPath}
+              </button>
+            )}
+            {!rec.targetPath && rec.draft && (
+              <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontStyle: "italic" }}>advice only</span>
+            )}
+          </div>
+        </div>
+        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginBottom: rec.fix ? 5 : (rec.draft ? 6 : 0), lineHeight: 1.5 }}>{rec.summary}</div>
+        {rec.fix && <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, lineHeight: 1.5, marginBottom: rec.draft ? 6 : 0 }}><strong>Fix:</strong> {rec.fix}</div>}
+        {rec.draft && !showPreview && (
+          <pre style={{ fontSize: theme.fontSize.xs, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "8px 12px", overflowX: "auto", whiteSpace: "pre-wrap", color: theme.text.secondary, margin: 0, cursor: "pointer" }}
+            onClick={function () { toggleAiPreview(i); }} title="Click to preview/collapse">
+            {rec.draft}
+          </pre>
+        )}
+        {showPreview && rec.draft && (
+          <div style={{ border: "1px solid " + theme.semantic.success, borderRadius: theme.radius.md, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 10px", background: alpha(theme.semantic.success, 0.06), borderBottom: "1px solid " + alpha(theme.semantic.success, 0.2) }}>
+              <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.success }}>
+                {"+ will append to " + rec.targetPath}
+              </span>
+              <button className="av-btn" onClick={function () { toggleAiPreview(i); }}
+                style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}>
+                {"collapse"}
+              </button>
+            </div>
+            <pre style={{ fontSize: theme.fontSize.xs, background: theme.bg.base, padding: "8px 12px", overflowX: "auto", whiteSpace: "pre-wrap", margin: 0, color: theme.semantic.success }}>
+              {rec.draft.split("\n").map(function (line) { return "+ " + line; }).join("\n")}
+            </pre>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  var liveRecs = aiStatus === "loading"
+    ? aiSteps.filter(function (s) { return s.type === "recommend" && s.rec; }).map(function (s) { return s.rec; })
+    : [];
+  var progressStep = null;
+  if (aiStatus === "loading") {
+    for (var si = aiSteps.length - 1; si >= 0; si--) {
+      if (aiSteps[si].type !== "recommend" && aiSteps[si].type !== "done") { progressStep = aiSteps[si]; break; }
+    }
+  }
+
   return (
     <div style={{ display: "flex", gap: 20, height: "100%", overflow: "hidden" }}>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16, overflowY: "auto", paddingRight: 4 }}>
@@ -723,22 +809,20 @@ export default function DebriefView({ file, summary, recommendations, recommenda
         </div>
 
         {aiStatus === "loading" && (
-          <div style={{ background: alpha(theme.accent.primary, 0.04), border: "1px solid " + alpha(theme.accent.primary, 0.2), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
-            <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, display: "flex", alignItems: "center", gap: 8, marginBottom: aiSteps.length > 0 ? 10 : 0 }}>
-              <span style={{ animation: "spin 1.2s linear infinite", display: "inline-block" }}>{"✦"}</span>
-              Analyzing with Copilot SDK...
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: alpha(theme.accent.primary, 0.04), border: "1px solid " + alpha(theme.accent.primary, 0.2), borderRadius: theme.radius.xl, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ animation: "spin 1.2s linear infinite", display: "inline-block" }}>{"✦"}</span>
+                {progressStep ? progressStep.label : "Analyzing with Copilot SDK..."}
+              </div>
+              {liveRecs.length > 0 && (
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>{liveRecs.length} rec{liveRecs.length !== 1 ? "s" : ""} so far</span>
+              )}
             </div>
-            {aiSteps.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {aiSteps.map(function (step, i) {
-                  var icon = step.type === "read_config" ? "\u{1F4C4}" : step.type === "recommend" ? "\u2713" : step.type === "done" ? "\u2714" : "\u22EF";
-                  return (
-                    <div key={i} style={{ fontSize: theme.fontSize.xs, color: step.type === "recommend" ? theme.semantic.success : theme.text.dim, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span>{icon}</span>
-                      <span>{step.label}</span>
-                    </div>
-                  );
-                })}
+            {liveRecs.length > 0 && (
+              <div style={{ background: alpha(theme.accent.primary, 0.05), border: "1px solid " + alpha(theme.accent.primary, 0.25), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>{"✦ AI recommendations"}</div>
+                {liveRecs.map(function (rec, i) { return renderAiRecCard(rec, i, liveRecs.length); })}
               </div>
             )}
           </div>
@@ -763,78 +847,7 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                 </div>
               )}
             </div>
-            {aiAnalysis.map(function (rec, i) {
-              var applyState = aiApplyStatus[i] || null;
-              var hasHistory = !!aiApplyHistory[i];
-              var showPreview = !!aiPreview[i];
-              var canApply = rec.targetPath && rec.draft && applyState !== "applied";
-              return (
-                <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < aiAnalysis.length - 1 ? "1px solid " + theme.border.default : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                    {rec.priority === "high" && (
-                      <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.full, padding: "1px 7px" }}>high</span>
-                    )}
-                    <span style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.ui, fontWeight: 600, flex: 1 }}>{rec.title}</span>
-                    {applyState === "error" && (
-                      <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error }}>Apply failed</span>
-                    )}
-                    {applyState === "applied" && (
-                      <>
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.success }}>{"✓ Applied"}</span>
-                        {hasHistory && (
-                          <button className="av-btn" onClick={function () { handleAiRecRevert(i); }}
-                            style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.semantic.warning, background: "transparent", color: theme.semantic.warning, borderRadius: theme.radius.md, padding: "2px 8px", cursor: "pointer" }}>
-                            Revert
-                          </button>
-                        )}
-                      </>
-                    )}
-                    {canApply && rec.draft && !showPreview && (
-                      <button className="av-btn" onClick={function () { toggleAiPreview(i); }}
-                        title="Preview changes before applying"
-                        style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.border.default, background: "transparent", color: theme.text.secondary, borderRadius: theme.radius.md, padding: "2px 8px", cursor: "pointer" }}>
-                        Preview
-                      </button>
-                    )}
-                    {canApply && (
-                      <button className="av-btn" onClick={function () { handleAiRecApply(rec, i); }}
-                        disabled={applyState === "applying"}
-                        title={"Apply to " + rec.targetPath}
-                        style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.semantic.success, background: alpha(theme.semantic.success, 0.08), color: theme.semantic.success, borderRadius: theme.radius.md, padding: "2px 10px", cursor: "pointer" }}>
-                        {applyState === "applying" ? "Applying..." : "Apply \u2192 " + rec.targetPath}
-                      </button>
-                    )}
-                    {!rec.targetPath && rec.draft && (
-                      <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontStyle: "italic" }}>advice only</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginBottom: 6, lineHeight: 1.5 }}>{rec.summary}</div>
-                  {rec.fix && <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, lineHeight: 1.5, marginBottom: rec.draft ? 6 : 0 }}><strong>Fix:</strong> {rec.fix}</div>}
-                  {rec.draft && !showPreview && (
-                    <pre style={{ fontSize: theme.fontSize.xs, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "8px 12px", overflowX: "auto", whiteSpace: "pre-wrap", color: theme.text.secondary, margin: 0, cursor: "pointer" }}
-                      onClick={function () { toggleAiPreview(i); }} title="Click to preview/collapse">
-                      {rec.draft}
-                    </pre>
-                  )}
-                  {showPreview && rec.draft && (
-                    <div style={{ border: "1px solid " + theme.semantic.success, borderRadius: theme.radius.md, overflow: "hidden" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 10px", background: alpha(theme.semantic.success, 0.06), borderBottom: "1px solid " + alpha(theme.semantic.success, 0.2) }}>
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.success }}>
-                          {"+ will append to " + rec.targetPath}
-                        </span>
-                        <button className="av-btn" onClick={function () { toggleAiPreview(i); }}
-                          style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}>
-                          {"collapse"}
-                        </button>
-                      </div>
-                      <pre style={{ fontSize: theme.fontSize.xs, background: theme.bg.base, padding: "8px 12px", overflowX: "auto", whiteSpace: "pre-wrap", margin: 0, color: theme.semantic.success }}>
-                        {rec.draft.split("\n").map(function (line) { return "+ " + line; }).join("\n")}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {aiAnalysis.map(function (rec, i) { return renderAiRecCard(rec, i, aiAnalysis.length); })}
           </div>
         )}
 
