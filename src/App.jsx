@@ -262,19 +262,38 @@ export default function App() {
 
   var openStoredSession = useCallback(function (entry) {
     if (!entry) return;
-    // Discovered-only session: fetch content from server
+
+    function afterLoad(rawText) {
+      setView("stats");
+      handleFile(rawText, entry.file);
+      // Persist discoveredPath onto library entry so future loads can refetch from disk
+      if (entry.discoveredPath) {
+        setLibraryEntries(function (prev) {
+          return prev.map(function (e) {
+            if (e.id === entry.id && !e.discoveredPath) {
+              return Object.assign({}, e, { discoveredPath: entry.discoveredPath });
+            }
+            return e;
+          });
+        });
+      }
+    }
+
+    // Discovered-only session (not yet in library): fetch content from server
     if (entry.isDiscovered && entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(function (rawText) {
-        setView("stats");
-        handleFile(rawText, entry.file);
-      }).catch(function () {});
+      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () {});
       return;
     }
+
+    // Library session: try localStorage cache first, fall back to file on disk
     var rawText = loadStoredSessionContent(entry.id);
-    if (!rawText) return;
-    setView("stats");
-    handleFile(rawText, entry.file);
-  }, [handleFile, setView, discovered.fetchSessionContent]);
+    if (rawText) { afterLoad(rawText); return; }
+    if (entry.discoveredPath) {
+      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () {});
+      return;
+    }
+    // No content available
+  }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);
 
   var loadSample = useCallback(function () {
     resetVisualizerState();

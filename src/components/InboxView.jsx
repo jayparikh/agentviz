@@ -252,17 +252,18 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
 
                 <button
                   className="av-btn"
-                  disabled={!entry.hasContent}
+                  disabled={!entry.hasContent && !entry.discoveredPath}
                   onClick={function () { onOpenSession(entry); }}
+                  title={!entry.hasContent && !entry.discoveredPath ? "Session content not cached. Import the file again to reload." : ""}
                   style={{
-                    background: entry.hasContent ? alpha(theme.accent.primary, 0.12) : "transparent",
-                    color: entry.hasContent ? theme.accent.primary : theme.text.ghost,
-                    border: "1px solid " + (entry.hasContent ? theme.accent.primary : theme.border.default),
+                    background: (entry.hasContent || entry.discoveredPath) ? alpha(theme.accent.primary, 0.12) : "transparent",
+                    color: (entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.text.ghost,
+                    border: "1px solid " + ((entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.border.default),
                     borderRadius: theme.radius.md,
                     padding: "6px 10px",
                     fontSize: theme.fontSize.base,
                     fontFamily: theme.font.ui,
-                    cursor: entry.hasContent ? "pointer" : "default",
+                    cursor: (entry.hasContent || entry.discoveredPath) ? "pointer" : "default",
                     flexShrink: 0,
                   }}
                 >
