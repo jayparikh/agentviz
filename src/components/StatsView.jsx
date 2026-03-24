@@ -4,6 +4,43 @@ import { estimateCost, formatCost } from "../lib/pricing.js";
 import { formatDurationLong } from "../lib/formatTime.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
 import { buildAutonomySummary } from "../lib/autonomyMetrics.js";
+import { useState } from "react";
+
+function MetricCard({ value, label, tooltip, color }) {
+  var [hovered, setHovered] = useState(false);
+  return (
+    <div
+      style={{ border: "1px solid " + theme.border.default, borderRadius: theme.radius.lg, padding: "12px 14px", background: theme.bg.base, cursor: "default", position: "relative" }}
+      onMouseEnter={function () { setHovered(true); }}
+      onMouseLeave={function () { setHovered(false); }}
+    >
+      <div style={{ fontSize: theme.fontSize.lg, color: color, fontFamily: theme.font.ui, fontWeight: 700 }}>{value}</div>
+      <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>{label}</div>
+      {hovered && tooltip && (
+        <div style={{
+          position: "absolute",
+          bottom: "calc(100% + 8px)",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: theme.bg.overlay || theme.bg.surface,
+          border: "1px solid " + theme.border.default,
+          borderRadius: theme.radius.lg,
+          padding: "8px 12px",
+          fontSize: theme.fontSize.xs,
+          color: theme.text.secondary,
+          whiteSpace: "normal",
+          width: 220,
+          lineHeight: 1.5,
+          zIndex: 100,
+          pointerEvents: "none",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+        }}>
+          {tooltip}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function StatsView({ events, totalTime, metadata, turns, autonomyMetrics, onOpenCoach }) {
   var trackStats = {};
@@ -130,26 +167,14 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
               {autonomySummary.map(function (item) {
-                var metricColor = getAutonomyItemColor(item.label);
                 return (
-                  <div
+                  <MetricCard
                     key={item.label}
-                    title={item.tooltip || ""}
-                    style={{
-                      border: "1px solid " + theme.border.default,
-                      borderRadius: theme.radius.lg,
-                      padding: "12px 14px",
-                      background: theme.bg.base,
-                      cursor: "default",
-                    }}
-                  >
-                    <div style={{ fontSize: theme.fontSize.lg, color: metricColor, fontFamily: theme.font.ui, fontWeight: 700 }}>
-                      {item.value}
-                    </div>
-                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>
-                      {item.label}
-                    </div>
-                  </div>
+                    value={item.value}
+                    label={item.label}
+                    tooltip={item.tooltip}
+                    color={getAutonomyItemColor(item.label)}
+                  />
                 );
               })}
             </div>
