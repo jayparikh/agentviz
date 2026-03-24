@@ -133,6 +133,9 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   var [aiAnalysis, setAiAnalysis] = useState(null);
   var [aiStatus, setAiStatus] = useState(null); // null | "loading" | "done" | "error"
   var [aiError, setAiError] = useState(null);
+  var [aiStreamText, setAiStreamText] = useState("");
+  var [aiModelInfo, setAiModelInfo] = useState(null); // { model, usage }
+  var aiAbortRef = useRef(null);
 
   // Baseline snapshot -- set once when config first loads, never updated
   var baselineRef = useRef(null);
@@ -254,47 +257,105 @@ export default function DebriefView({ file, summary, recommendations, recommenda
       .catch(function () {});
   }
 
-  function handleAiAnalyze() {
-    if (!rawSession) return;
-    setAiStatus("loading");
-    setAiError(null);
+  function buildAnalysisPayload() {
     var m = rawSession.autonomyMetrics || {};
     var met = rawSession.metadata || {};
-    // Build a config summary string for context
     var cfgLines = (configFiles || []).filter(function (f) { return f.exists; }).map(function (f) {
       return f.id + ": " + (f.content ? f.content.substring(0, 200) : "(exists, no content)");
     });
+    return {
+      format: met.format || "claude-code",
+      primaryModel: met.primaryModel || null,
+      totalEvents: met.totalEvents || 0,
+      totalTurns: met.totalTurns || 0,
+      errorCount: met.errorCount || 0,
+      totalToolCalls: met.totalToolCalls || 0,
+      productiveRuntime: m.productiveRuntime ? Math.round(m.productiveRuntime) + "s" : "0s",
+      humanResponseTime: m.babysittingTime ? Math.round(m.babysittingTime) + "s" : "0s",
+      idleTime: m.idleTime ? Math.round(m.idleTime) + "s" : "0s",
+      interventions: m.interventionCount || 0,
+      autonomyEfficiency: m.autonomyEfficiency != null ? Math.round(m.autonomyEfficiency * 100) + "%" : "0%",
+      topTools: m.topTools || [],
+      userFollowUps: m.userFollowUps || [],
+      errorSamples: (rawSession.events || [])
+        .filter(function (e) { return e.isError && e.text; })
+        .slice(0, 6)
+        .map(function (e) { return (e.toolName ? "[" + e.toolName + "] " : "") + e.text.substring(0, 150); }),
+      configSummary: cfgLines.join("\n") || "No config files found",
+    };
+  }
+
+  function handleAiAnalyze() {
+    if (!rawSession) return;
+    // Cancel any in-flight request
+    if (aiAbortRef.current) aiAbortRef.current.abort();
+    var controller = new AbortController();
+    aiAbortRef.current = controller;
+    setAiStatus("loading");
+    setAiError(null);
+    setAiAnalysis(null);
+    setAiStreamText("");
+
+    var body = JSON.stringify(buildAnalysisPayload());
+
+    // Use SSE streaming for live token display
     fetch("/api/coach/analyze", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        format: met.format || "claude-code",
-        primaryModel: met.primaryModel || null,
-        totalEvents: met.totalEvents || 0,
-        totalTurns: met.totalTurns || 0,
-        errorCount: met.errorCount || 0,
-        totalToolCalls: met.totalToolCalls || 0,
-        productiveRuntime: m.productiveRuntime ? Math.round(m.productiveRuntime) + "s" : "0s",
-        humanResponseTime: m.babysittingTime ? Math.round(m.babysittingTime) + "s" : "0s",
-        idleTime: m.idleTime ? Math.round(m.idleTime) + "s" : "0s",
-        interventions: m.interventionCount || 0,
-        autonomyEfficiency: m.autonomyEfficiency != null ? Math.round(m.autonomyEfficiency * 100) + "%" : "0%",
-        topTools: m.topTools || [],
-        userFollowUps: m.userFollowUps || [],
-        errorSamples: (rawSession.events || [])
-          .filter(function (e) { return e.isError && e.text; })
-          .slice(0, 6)
-          .map(function (e) { return (e.toolName ? "[" + e.toolName + "] " : "") + e.text.substring(0, 150); }),
-        configSummary: cfgLines.join("\n") || "No config files found",
-      }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.error) { setAiError(data.error); setAiStatus("error"); return; }
-        setAiAnalysis(data.recommendations);
-        setAiStatus("done");
-      })
-      .catch(function (e) { setAiError(e.message); setAiStatus("error"); });
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+      body: body,
+    }).then(function (resp) {
+      if (!resp.ok) {
+        return resp.json().then(function (d) { throw new Error(d.error || "HTTP " + resp.status); });
+      }
+      var reader = resp.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+
+      function pump() {
+        reader.read().then(function (ref) {
+          if (ref.done) return;
+          buffer += decoder.decode(ref.value, { stream: true });
+          var lines = buffer.split("\n");
+          buffer = lines.pop(); // keep incomplete line
+          lines.forEach(function (line) {
+            if (!line.startsWith("data: ")) return;
+            try {
+              var msg = JSON.parse(line.slice(6));
+              if (msg.delta) {
+                setAiStreamText(function (t) { return t + msg.delta; });
+              }
+              if (msg.done && msg.result) {
+                setAiAnalysis(msg.result.recommendations);
+                setAiModelInfo({ model: msg.result.model, usage: msg.result.usage });
+                setAiStatus("done");
+                setAiStreamText("");
+              }
+              if (msg.error) {
+                setAiError(msg.error);
+                setAiStatus("error");
+              }
+            } catch (e) { /* ignore malformed SSE lines */ }
+          });
+          pump();
+        }).catch(function (e) {
+          if (e.name === "AbortError") return;
+          setAiError(e.message);
+          setAiStatus("error");
+        });
+      }
+      pump();
+    }).catch(function (e) {
+      if (e.name === "AbortError") return;
+      setAiError(e.message);
+      setAiStatus("error");
+    });
+  }
+
+  function handleAiCancel() {
+    if (aiAbortRef.current) { aiAbortRef.current.abort(); aiAbortRef.current = null; }
+    setAiStatus(null);
+    setAiStreamText("");
   }
 
   function toggleCardExpanded(id) {
@@ -536,27 +597,48 @@ export default function DebriefView({ file, summary, recommendations, recommenda
               : configLoaded ? "Config loaded" : "Loading config..."}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button
-              className="av-btn"
-              onClick={handleAiAnalyze}
-              disabled={aiStatus === "loading" || !rawSession}
-              title={"Get AI-powered contextual recommendations using " + (typeof window !== "undefined" ? "claude / gh copilot" : "your CLI")}
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                border: "1px solid " + theme.accent.primary,
-                background: alpha(theme.accent.primary, 0.08),
-                color: theme.accent.primary,
-                borderRadius: theme.radius.md,
-                padding: "5px 10px",
-                fontSize: theme.fontSize.xs,
-                fontFamily: theme.font.ui,
-                cursor: aiStatus === "loading" ? "default" : "pointer",
-                opacity: aiStatus === "loading" ? 0.6 : 1,
-              }}
-            >
-              <span>{"✦"}</span>
-              {aiStatus === "loading" ? "Analyzing..." : "AI Analyze"}
-            </button>
+            {aiStatus === "loading" ? (
+              <button
+                className="av-btn"
+                onClick={handleAiCancel}
+                title="Cancel AI analysis"
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  border: "1px solid " + theme.border.default,
+                  background: "transparent",
+                  color: theme.text.muted,
+                  borderRadius: theme.radius.md,
+                  padding: "5px 10px",
+                  fontSize: theme.fontSize.xs,
+                  fontFamily: theme.font.ui,
+                  cursor: "pointer",
+                }}
+              >
+                <span>{"⏹"}</span>
+                Cancel
+              </button>
+            ) : (
+              <button
+                className="av-btn"
+                onClick={handleAiAnalyze}
+                disabled={!rawSession}
+                title="Get AI-powered contextual recommendations via GitHub Models (gpt-4o-mini)"
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  border: "1px solid " + theme.accent.primary,
+                  background: alpha(theme.accent.primary, 0.08),
+                  color: theme.accent.primary,
+                  borderRadius: theme.radius.md,
+                  padding: "5px 10px",
+                  fontSize: theme.fontSize.xs,
+                  fontFamily: theme.font.ui,
+                  cursor: "pointer",
+                }}
+              >
+                <span>{"✦"}</span>
+                AI Analyze
+              </button>
+            )}
             <button
               className="av-btn"
               onClick={handleRefresh}
@@ -579,6 +661,20 @@ export default function DebriefView({ file, summary, recommendations, recommenda
           </div>
         </div>
 
+        {aiStatus === "loading" && (
+          <div style={{ background: alpha(theme.accent.primary, 0.04), border: "1px solid " + alpha(theme.accent.primary, 0.2), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, display: "flex", alignItems: "center", gap: 8, marginBottom: aiStreamText ? 10 : 0 }}>
+              <span style={{ animation: "spin 1.2s linear infinite", display: "inline-block" }}>{"✦"}</span>
+              Analyzing with GitHub Models (gpt-4o-mini)...
+            </div>
+            {aiStreamText && (
+              <pre style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, margin: 0, whiteSpace: "pre-wrap", fontFamily: theme.font.mono, maxHeight: 120, overflow: "hidden" }}>
+                {aiStreamText}
+              </pre>
+            )}
+          </div>
+        )}
+
         {aiStatus === "error" && (
           <div style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, background: theme.semantic.errorBg, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.lg, padding: "8px 12px" }}>
             AI analysis failed: {aiError}
@@ -587,8 +683,16 @@ export default function DebriefView({ file, summary, recommendations, recommenda
 
         {aiStatus === "done" && aiAnalysis && (
           <div style={{ background: alpha(theme.accent.primary, 0.05), border: "1px solid " + alpha(theme.accent.primary, 0.25), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
-            <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
-              ✦ AI-generated recommendations
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, textTransform: "uppercase", letterSpacing: 2 }}>
+                {"✦ AI recommendations"}
+              </div>
+              {aiModelInfo && (
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
+                  {aiModelInfo.model}
+                  {aiModelInfo.usage ? " \u00b7 " + (aiModelInfo.usage.total_tokens || 0) + " tokens" : ""}
+                </div>
+              )}
             </div>
             {aiAnalysis.map(function (rec, i) {
               return (

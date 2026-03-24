@@ -1,8 +1,31 @@
 nohup: ignoring input
-2026-03-24T17:57:45.637Z [start] listening on http://localhost:4242 session=events.jsonl
+2026-03-24T19:25:48.315Z [start] listening on http://localhost:4242
+2026-03-24T19:29:02.918Z [start] listening on http://localhost:4242
+2026-03-24T19:31:53.491Z [start] listening on http://localhost:4242
+2026-03-24T19:31:53.491Z [start] listening on http://localhost:4242
 
   AGENTVIZ. running at http://localhost:4242
-  Session: events.jsonl
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T19:44:47.693Z [start] listening on http://localhost:4242
+2026-03-24T19:44:47.693Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T19:46:27.792Z [start] listening on http://localhost:4242
+2026-03-24T19:46:27.792Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T19:47:10.977Z [start] listening on http://localhost:4242
+2026-03-24T19:47:10.977Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
   Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
   Press Ctrl+C to stop.
 
