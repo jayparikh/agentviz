@@ -157,7 +157,7 @@ export function buildDebriefRecommendations(events, turns, metadata, autonomyMet
     });
   }
 
-  if (topToolNames.length > 0) {
+  if (topToolNames.length >= 3 || metrics.totalToolCalls >= 8) {
     var targetPath = getTargetPath("subagent-draft", format);
     var subagentTemplate = [
       "name: repo-ops-scout",

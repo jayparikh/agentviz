@@ -9,6 +9,7 @@ import useSearch from "./hooks/useSearch.js";
 import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts.js";
 import useLiveStream from "./hooks/useLiveStream.js";
 import useAsyncStatus from "./hooks/useAsyncStatus.js";
+import useDiscoveredSessions from "./hooks/useDiscoveredSessions.js";
 import Timeline from "./components/Timeline.jsx";
 import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
@@ -23,6 +24,15 @@ import AppLoadingState from "./components/app/AppLoadingState.jsx";
 import CompareLandingState from "./components/app/CompareLandingState.jsx";
 import CompareShell from "./components/app/CompareShell.jsx";
 import { APP_VIEWS, PLAYBACK_SPEEDS } from "./components/app/constants.js";
+import DebriefView from "./components/DebriefView.jsx";
+import { buildAutonomyMetrics } from "./lib/autonomyMetrics.js";
+import { buildDebriefRecommendations } from "./lib/debriefRecommendations.js";
+import {
+  createSessionStorageId,
+  loadStoredSessionContent,
+  persistSessionSnapshot,
+  readSessionLibrary,
+} from "./lib/sessionLibrary.js";
 
 function renderActiveView(activeView, props) {
   if (activeView === "replay") {
@@ -75,12 +85,28 @@ function renderActiveView(activeView, props) {
     );
   }
 
+  if (activeView === "coach") {
+    return (
+      <DebriefView
+        file={props.session.file}
+        summary={props.debrief.summary}
+        recommendations={props.debrief.recommendations}
+        recommendationState={props.recommendationState}
+        onSetRecommendationState={props.onSetRecommendationState}
+        metadata={props.session.metadata}
+        rawSession={{ events: props.session.events, turns: props.session.turns, metadata: props.session.metadata, autonomyMetrics: props.autonomyMetrics }}
+      />
+    );
+  }
+
   return (
     <StatsView
       events={props.filteredEvents}
       totalTime={props.session.total}
       metadata={props.session.metadata}
       turns={props.session.turns}
+      autonomyMetrics={props.autonomyMetrics}
+      onOpenCoach={props.onOpenCoach}
     />
   );
 }
@@ -88,6 +114,10 @@ function renderActiveView(activeView, props) {
 export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
   var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
+  var [libraryEntries, setLibraryEntries] = useState(function () {
+    return readSessionLibrary();
+  });
+  var [coachState, setCoachState] = useState({});
   var [showPalette, setShowPalette] = useState(false);
   var [showShortcuts, setShowShortcuts] = useState(false);
   var [showFilters, setShowFilters] = useState(false);
@@ -95,8 +125,37 @@ export default function App() {
   var searchInputRef = useRef(null);
   var filtersRef = useRef(null);
 
-  var session = useSessionLoader();
-  var sessionB = useSessionLoader({ autoBootstrap: false });
+  var discovered = useDiscoveredSessions();
+
+  // Merge discovered sessions with library: library entries (already parsed) take precedence.
+  // Filter discovered to sessions > 5KB (tiny files are Claude internal queue/ops sessions).
+  var allSessions = useMemo(function () {
+    var discoveredOnly = discovered.sessions.filter(function (s) {
+      if (s.size < 5000) return false; // skip internal Claude queue-operation files
+      return !libraryEntries.some(function (e) { return e.file === s.filename; });
+    }).map(function (s) {
+      return {
+        id: s.id,
+        file: s.filename,
+        format: s.format,
+        project: s.project,
+        discoveredPath: s.path,
+        importedAt: s.mtime,
+        updatedAt: s.mtime,
+        size: s.size,
+        isDiscovered: true,
+      };
+    });
+    return libraryEntries.concat(discoveredOnly);
+  }, [libraryEntries, discovered.sessions]);
+
+  var handleSessionParsed = useCallback(function (result, name, rawText) {
+    var persisted = persistSessionSnapshot(name, result, rawText);
+    setLibraryEntries(persisted.entries);
+  }, []);
+
+  var session = useSessionLoader({ onSessionParsed: handleSessionParsed });
+  var sessionB = useSessionLoader({ autoBootstrap: false, onSessionParsed: handleSessionParsed });
   var sessionExport = useAsyncStatus();
   var compareExport = useAsyncStatus();
 
@@ -123,6 +182,18 @@ export default function App() {
   var filteredEvents = useMemo(function () {
     return filteredEventEntries.map(function (entry) { return entry.event; });
   }, [filteredEventEntries]);
+  var autonomyMetrics = useMemo(function () {
+    return buildAutonomyMetrics(session.events, session.turns, session.metadata);
+  }, [session.events, session.turns, session.metadata]);
+  var debrief = useMemo(function () {
+    return buildDebriefRecommendations(session.events, session.turns, session.metadata, autonomyMetrics);
+  }, [session.events, session.turns, session.metadata, autonomyMetrics]);
+  var currentSessionId = useMemo(function () {
+    var rawText = session.getRawText();
+    if (!session.file || !session.metadata || !rawText) return null;
+    return createSessionStorageId(session.file, session.metadata, rawText);
+  }, [session.events, session.file, session.metadata, session.turns]);
+  var currentRecommendationState = currentSessionId ? (coachState[currentSessionId] || {}) : {};
 
   var turnStartMap = useMemo(function () {
     return buildTurnStartMap(session.turns);
@@ -175,6 +246,22 @@ export default function App() {
     session.handleFile(text, name);
   }, [resetVisualizerState, session.handleFile]);
 
+  var openStoredSession = useCallback(function (entry) {
+    if (!entry) return;
+    // Discovered-only session: fetch content from server
+    if (entry.isDiscovered && entry.discoveredPath) {
+      discovered.fetchSessionContent(entry.discoveredPath).then(function (rawText) {
+        setView("stats");
+        handleFile(rawText, entry.file);
+      }).catch(function () {});
+      return;
+    }
+    var rawText = loadStoredSessionContent(entry.id);
+    if (!rawText) return;
+    setView("stats");
+    handleFile(rawText, entry.file);
+  }, [handleFile, setView, discovered.fetchSessionContent]);
+
   var loadSample = useCallback(function () {
     resetVisualizerState();
     session.loadSample();
@@ -191,6 +278,16 @@ export default function App() {
     sessionB.resetSession();
     setCompareLanding(false);
   }, [sessionB.resetSession]);
+
+  var openCompareSessionInCoach = useCallback(function (loader) {
+    var rawText = loader.getRawText();
+    if (!rawText) return;
+    resetVisualizerState();
+    session.handleFile(rawText, loader.file);
+    sessionB.resetSession();
+    setCompareLanding(false);
+    setView("coach");
+  }, [resetVisualizerState, session.handleFile, sessionB.resetSession, setView]);
 
   var handleExportSession = useCallback(function () {
     var rawText = session.getRawText();
@@ -224,6 +321,17 @@ export default function App() {
   }, [setTrackFilters]);
 
   var activeFilterCount = Object.keys(trackFilters).length;
+  var setRecommendationState = useCallback(function (recommendationId, nextState) {
+    if (!currentSessionId) return;
+
+    setCoachState(function (prev) {
+      return Object.assign({}, prev, {
+        [currentSessionId]: Object.assign({}, prev[currentSessionId] || {}, {
+          [recommendationId]: nextState,
+        }),
+      });
+    });
+  }, [currentSessionId]);
 
   var cycleSpeed = useCallback(function () {
     var idx = PLAYBACK_SPEEDS.indexOf(playback.speed);
@@ -307,6 +415,8 @@ export default function App() {
         onLoad={handleFile}
         onLoadSample={loadSample}
         onStartCompare={function () { setCompareLanding(true); }}
+        inboxEntries={allSessions}
+        onOpenInboxSession={openStoredSession}
       />
     );
   }
@@ -320,6 +430,8 @@ export default function App() {
         onExportComparison={handleExportComparison}
         exportState={compareExport.state}
         exportError={compareExport.error}
+        onOpenSessionA={function () { openCompareSessionInCoach(session); }}
+        onOpenSessionB={function () { openCompareSessionInCoach(sessionB); }}
       />
     );
   }
@@ -380,6 +492,9 @@ export default function App() {
         onExportSession={handleExportSession}
         exportSessionState={sessionExport.state}
         exportSessionError={sessionExport.error}
+        recentSessions={allSessions}
+        onOpenRecentSession={openStoredSession}
+        currentFile={session.file}
       />
 
       <div style={{ padding: "8px 20px 0", flexShrink: 0 }}>
@@ -406,6 +521,11 @@ export default function App() {
           search: search,
           timeMap: timeMap,
           turnStartMap: turnStartMap,
+          autonomyMetrics: autonomyMetrics,
+          debrief: debrief,
+          recommendationState: currentRecommendationState,
+          onSetRecommendationState: setRecommendationState,
+          onOpenCoach: function () { setView("coach"); },
         })}
       </div>
     </div>

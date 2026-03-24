@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { TRACK_TYPES, alpha, theme } from "../../lib/theme.js";
 import LiveIndicator from "../LiveIndicator.jsx";
 import Icon from "../Icon.jsx";
 import BrandWordmark from "../ui/BrandWordmark.jsx";
 import ExportStatusButton from "../ui/ExportStatusButton.jsx";
 import ToolbarButton from "../ui/ToolbarButton.jsx";
+import RecentSessionsPicker from "../RecentSessionsPicker.jsx";
 
 export default function AppHeader({
   session,
@@ -30,7 +32,17 @@ export default function AppHeader({
   onExportSession,
   exportSessionState,
   exportSessionError,
+  recentSessions,
+  onOpenRecentSession,
+  currentFile,
 }) {
+  var [showRecent, setShowRecent] = useState(false);
+
+  var showSearch = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
+  var showFiltersBtn = activeView === "replay" || activeView === "tracks";
+  var showSpeed = activeView === "replay" || activeView === "tracks";
+  var showErrorNav = activeView === "replay";
+
   return (
     <div style={{
       padding: "8px 16px",
@@ -94,59 +106,64 @@ export default function AppHeader({
               }}
             >
               <Icon name={item.icon} size={13} style={{ opacity: isActive ? 1 : 0.6 }} /> {item.label}
+              {item.experimental && (
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, marginLeft: 1 }}>exp</span>
+              )}
             </button>
           );
         })}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
-          <Icon name="search" size={13} style={{ color: theme.text.dim }} />
-          <input
-            ref={searchInputRef}
-            id="agentviz-search"
-            className="av-search"
-            type="text"
-            value={search.searchInput}
-            onChange={function (e) { search.setSearchInput(e.target.value); }}
-            onKeyDown={function (e) {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                onJumpToMatch(e.shiftKey ? "prev" : "next");
-              }
-              if (e.key === "Escape") {
-                e.target.blur();
-                search.clearSearch();
-              }
-            }}
-            placeholder="Search (/)"
-            style={{
-              background: theme.bg.surface,
-              border: "1px solid " + theme.border.default,
-              borderRadius: theme.radius.md,
-              color: theme.text.primary,
-              padding: "3px 8px",
-              fontSize: theme.fontSize.base,
-              fontFamily: theme.font.mono,
-              width: 120,
-              outline: "none",
-            }}
-          />
-          {search.searchResults && (
-            <span style={{
-              fontSize: theme.fontSize.sm,
-              color: search.searchResults.length > 0 ? theme.accent.primary : theme.semantic.error,
-            }}>
-              {search.searchResults.length}
-            </span>
-          )}
-        </div>
+        {showSearch && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
+            <Icon name="search" size={13} style={{ color: theme.text.dim }} />
+            <input
+              ref={searchInputRef}
+              id="agentviz-search"
+              className="av-search"
+              type="text"
+              value={search.searchInput}
+              onChange={function (e) { search.setSearchInput(e.target.value); }}
+              onKeyDown={function (e) {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onJumpToMatch(e.shiftKey ? "prev" : "next");
+                }
+                if (e.key === "Escape") {
+                  e.target.blur();
+                  search.clearSearch();
+                }
+              }}
+              placeholder="Search (/)"
+              style={{
+                background: theme.bg.surface,
+                border: "1px solid " + theme.border.default,
+                borderRadius: theme.radius.md,
+                color: theme.text.primary,
+                padding: "3px 8px",
+                fontSize: theme.fontSize.base,
+                fontFamily: theme.font.mono,
+                width: 120,
+                outline: "none",
+              }}
+            />
+            {search.searchResults && (
+              <span style={{
+                fontSize: theme.fontSize.sm,
+                color: search.searchResults.length > 0 ? theme.accent.primary : theme.semantic.error,
+              }}>
+                {search.searchResults.length}
+              </span>
+            )}
+          </div>
+        )}
 
         <ToolbarButton onClick={onShowPalette} title="Command Palette (Cmd+K)" style={{ padding: "2px 8px", color: theme.text.dim, fontSize: theme.fontSize.xs }}>
           <Icon name="command" size={11} />K
         </ToolbarButton>
 
-        {errorEntries.length > 0 && (
+        {showErrorNav && errorEntries.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
             <ToolbarButton
               onClick={function () { onJumpToError("prev"); }}
@@ -182,89 +199,121 @@ export default function AppHeader({
 
         <div style={{ height: 12, width: 1, background: theme.border.default }} />
 
-        <div ref={filtersRef} style={{ position: "relative" }}>
+        {showFiltersBtn && (
+          <div ref={filtersRef} style={{ position: "relative" }}>
+            <ToolbarButton
+              onClick={onToggleFilters}
+              title="Filter tracks"
+              style={{
+                background: activeFilterCount > 0 ? alpha(theme.accent.primary, 0.08) : "transparent",
+                border: "1px solid " + (activeFilterCount > 0 ? theme.accent.primary : theme.border.default),
+                color: activeFilterCount > 0 ? theme.accent.primary : theme.text.muted,
+              }}
+            >
+              <Icon name="filter" size={12} />
+              {activeFilterCount > 0 ? activeFilterCount + " hidden" : "Filters"}
+            </ToolbarButton>
+            {showFilters && (
+              <div style={{
+                position: "absolute",
+                top: "calc(100% + 6px)",
+                right: 0,
+                background: theme.bg.surface,
+                border: "1px solid " + theme.border.strong,
+                borderRadius: theme.radius.lg,
+                padding: 6,
+                zIndex: theme.z.tooltip,
+                boxShadow: theme.shadow.md,
+                minWidth: 160,
+              }}>
+                {Object.entries(TRACK_TYPES).map(function (entry) {
+                  var key = entry[0];
+                  var info = entry[1];
+                  var isHidden = trackFilters[key];
+                  return (
+                    <button
+                      key={key}
+                      className="av-interactive"
+                      onClick={function () { onToggleTrackFilter(key); }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "6px 10px",
+                        borderRadius: theme.radius.md,
+                        width: "100%",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <Icon name={key} size={13} style={{ color: isHidden ? theme.text.ghost : info.color }} />
+                      <span style={{
+                        fontSize: theme.fontSize.base,
+                        fontFamily: theme.font.ui,
+                        color: isHidden ? theme.text.ghost : theme.text.secondary,
+                        textDecoration: isHidden ? "line-through" : "none",
+                        flex: 1,
+                      }}>
+                        {info.label}
+                      </span>
+                      {isHidden && (
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>hidden</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {showSpeed && (
           <ToolbarButton
-            onClick={onToggleFilters}
-            title="Filter tracks"
+            onClick={onCycleSpeed}
+            title="Playback speed (click to cycle)"
             style={{
-              background: activeFilterCount > 0 ? alpha(theme.accent.primary, 0.08) : "transparent",
-              border: "1px solid " + (activeFilterCount > 0 ? theme.accent.primary : theme.border.default),
-              color: activeFilterCount > 0 ? theme.accent.primary : theme.text.muted,
+              background: speed !== 1 ? alpha(theme.accent.primary, 0.08) : "transparent",
+              border: "1px solid " + (speed !== 1 ? theme.accent.primary : theme.border.default),
+              color: speed !== 1 ? theme.accent.primary : theme.text.muted,
             }}
           >
-            <Icon name="filter" size={12} />
-            {activeFilterCount > 0 ? activeFilterCount + " hidden" : "Filters"}
+            {speed}x
           </ToolbarButton>
-          {showFilters && (
-            <div style={{
-              position: "absolute",
-              top: "calc(100% + 6px)",
-              right: 0,
-              background: theme.bg.surface,
-              border: "1px solid " + theme.border.strong,
-              borderRadius: theme.radius.lg,
-              padding: 6,
-              zIndex: theme.z.tooltip,
-              boxShadow: theme.shadow.md,
-              minWidth: 160,
-            }}>
-              {Object.entries(TRACK_TYPES).map(function (entry) {
-                var key = entry[0];
-                var info = entry[1];
-                var isHidden = trackFilters[key];
-                return (
-                  <button
-                    key={key}
-                    className="av-interactive"
-                    onClick={function () { onToggleTrackFilter(key); }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "6px 10px",
-                      borderRadius: theme.radius.md,
-                      width: "100%",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                  >
-                    <Icon name={key} size={13} style={{ color: isHidden ? theme.text.ghost : info.color }} />
-                    <span style={{
-                      fontSize: theme.fontSize.base,
-                      fontFamily: theme.font.ui,
-                      color: isHidden ? theme.text.ghost : theme.text.secondary,
-                      textDecoration: isHidden ? "line-through" : "none",
-                      flex: 1,
-                    }}>
-                      {info.label}
-                    </span>
-                    {isHidden && (
-                      <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>hidden</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <ToolbarButton
-          onClick={onCycleSpeed}
-          title="Playback speed (click to cycle)"
-          style={{
-            background: speed !== 1 ? alpha(theme.accent.primary, 0.08) : "transparent",
-            border: "1px solid " + (speed !== 1 ? theme.accent.primary : theme.border.default),
-            color: speed !== 1 ? theme.accent.primary : theme.text.muted,
-          }}
-        >
-          {speed}x
-        </ToolbarButton>
+        )}
 
         <ToolbarButton onClick={onStartCompare} title="Compare with another session">
           Compare
         </ToolbarButton>
+
+        {onOpenRecentSession && recentSessions && (
+          <div style={{ position: "relative" }}>
+            <ToolbarButton
+              onClick={function () { setShowRecent(function (v) { return !v; }); }}
+              title="Recent sessions"
+              style={{
+                background: showRecent ? alpha(theme.accent.primary, 0.08) : "transparent",
+                border: "1px solid " + (showRecent ? theme.accent.primary : theme.border.default),
+                color: showRecent ? theme.accent.primary : theme.text.muted,
+              }}
+            >
+              <Icon name="clock" size={12} />
+              Recent
+            </ToolbarButton>
+            {showRecent && (
+              <RecentSessionsPicker
+                entries={recentSessions}
+                currentFile={currentFile}
+                onOpen={function (entry) {
+                  setShowRecent(false);
+                  onOpenRecentSession(entry);
+                }}
+                onClose={function () { setShowRecent(false); }}
+              />
+            )}
+          </div>
+        )}
 
         {hasRawText && (
           <ExportStatusButton

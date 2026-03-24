@@ -93,6 +93,9 @@ export default function InboxView({ entries, onOpenSession, maxEntries }) {
     return (entries || []).filter(function (e) { return e.isDiscovered; });
   }, [entries]);
 
+  var analyzedCount = parsedEntries.length;
+  var discoveredCount = discoveredEntries.length;
+
   var sortedParsed = useMemo(function () {
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(parsedEntries, q);
@@ -130,6 +133,13 @@ export default function InboxView({ entries, onOpenSession, maxEntries }) {
         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginRight: 4, flexShrink: 0 }}>
           Inbox
         </div>
+        {(analyzedCount > 0 || discoveredCount > 0) && (
+          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, flexShrink: 0 }}>
+            {analyzedCount > 0 && analyzedCount + " analyzed"}
+            {analyzedCount > 0 && discoveredCount > 0 && ", "}
+            {discoveredCount > 0 && discoveredCount + " unanalyzed"}
+          </span>
+        )}
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "4px 8px" }}>
           <Icon name="search" size={12} style={{ color: theme.text.ghost, flexShrink: 0 }} />
           <input

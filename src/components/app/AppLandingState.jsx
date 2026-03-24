@@ -52,7 +52,7 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
           </div>
         </div>
       ) : (
-        <div style={{ width: "100%", maxWidth: 520 }}>
+        <div style={{ width: "100%", maxWidth: 600 }}>
           <div style={{
             background: theme.bg.surface,
             border: "1px solid " + theme.border.default,
