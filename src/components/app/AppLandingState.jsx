@@ -1,23 +1,98 @@
-import { theme } from "../../lib/theme.js";
+import { useState, useEffect, useRef } from "react";
+import { theme, alpha } from "../../lib/theme.js";
 import FileUploader from "../FileUploader.jsx";
 import Icon from "../Icon.jsx";
 import InboxView from "../InboxView.jsx";
 import BrandWordmark from "../ui/BrandWordmark.jsx";
 import ShellFrame from "../ui/ShellFrame.jsx";
 
+// Full-page drag overlay. Attaches listeners to document so it detects drags
+// even when the overlay div itself has pointerEvents:none.
+function DragOverlay({ onLoad }) {
+  var [active, setActive] = useState(false);
+  // Track enter/leave with a counter so nested element transitions don't flicker.
+  var enterCount = useRef(0);
+
+  var stableOnLoad = useRef(onLoad);
+  stableOnLoad.current = onLoad;
+
+  useEffect(function () {
+    function onDragEnter(e) {
+      if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
+      enterCount.current += 1;
+      setActive(true);
+    }
+    function onDragLeave() {
+      enterCount.current = Math.max(0, enterCount.current - 1);
+      if (enterCount.current === 0) setActive(false);
+    }
+    function onDragOver(e) { e.preventDefault(); }
+    function onDrop(e) {
+      e.preventDefault();
+      enterCount.current = 0;
+      setActive(false);
+      var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) { stableOnLoad.current(ev.target.result, file.name); };
+      reader.readAsText(file);
+    }
+    document.addEventListener("dragenter", onDragEnter);
+    document.addEventListener("dragleave", onDragLeave);
+    document.addEventListener("dragover", onDragOver);
+    document.addEventListener("drop", onDrop);
+    return function () {
+      document.removeEventListener("dragenter", onDragEnter);
+      document.removeEventListener("dragleave", onDragLeave);
+      document.removeEventListener("dragover", onDragOver);
+      document.removeEventListener("drop", onDrop);
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: active ? 999 : -1,
+        pointerEvents: active ? "all" : "none",
+      }}
+    >
+      {active && (
+        <div style={{
+          position: "fixed", inset: 0,
+          background: alpha(theme.bg.base, 0.92),
+          border: "2px dashed " + theme.accent.primary,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
+          zIndex: 999,
+        }}>
+          <Icon name="upload" size={32} style={{ color: theme.accent.primary }} />
+          <div style={{ fontSize: theme.fontSize.xl, color: theme.accent.primary, fontFamily: theme.font.ui }}>
+            Drop session file to import
+          </div>
+          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
+            Claude Code or Copilot CLI .jsonl
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare, inboxEntries, onOpenInboxSession }) {
   var hasSessions = (inboxEntries || []).length > 0;
+
   return (
     <ShellFrame
       style={{
         alignItems: "center",
         justifyContent: "center",
-        gap: 24,
+        gap: 20,
         position: "relative",
-        padding: "32px 24px",
+        padding: "28px 24px",
       }}
     >
-      <div style={{ textAlign: "center", marginBottom: 8 }}>
+      <DragOverlay onLoad={onLoad} />
+
+      <div style={{ textAlign: "center" }}>
         <BrandWordmark style={{ fontSize: theme.fontSize.hero }} />
         <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6, lineHeight: 1.6 }}>
           Visualize and improve your AI coding sessions.
@@ -25,53 +100,12 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
       </div>
 
       {hasSessions ? (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 340px) 1fr", gap: 20, width: "100%", maxWidth: 1200, alignItems: "stretch", flex: 1, minHeight: 0, overflow: "hidden" }}>
-          <div style={{
-            background: theme.bg.surface,
-            border: "1px solid " + theme.border.default,
-            borderRadius: theme.radius.xxl,
-            padding: "18px 18px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            alignSelf: "start",
-          }}>
-            <div>
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
-                Import
-              </div>
-              <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6, lineHeight: 1.6 }}>
-                Drop a session file to add it.
-              </div>
-            </div>
-            <FileUploader onLoad={onLoad} />
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-            <InboxView entries={inboxEntries} onOpenSession={onOpenInboxSession} />
-          </div>
+        <div style={{ width: "100%", maxWidth: 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <InboxView entries={inboxEntries} onOpenSession={onOpenInboxSession} onImport={onLoad} />
         </div>
       ) : (
-        <div style={{ width: "100%", maxWidth: 600 }}>
-          <div style={{
-            background: theme.bg.surface,
-            border: "1px solid " + theme.border.default,
-            borderRadius: theme.radius.xxl,
-            padding: "24px 24px 20px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}>
-            <div>
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
-                Import
-              </div>
-              <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6, lineHeight: 1.6 }}>
-                Drop a Claude Code or Copilot CLI session to build local metadata, autonomy metrics, and Coach drafts.
-              </div>
-            </div>
-            <FileUploader onLoad={onLoad} />
-          </div>
+        <div style={{ width: "100%", maxWidth: 560 }}>
+          <FileUploader onLoad={onLoad} />
         </div>
       )}
 
@@ -84,7 +118,6 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
           fontSize: theme.fontSize.md,
           color: theme.semantic.errorText,
           maxWidth: 500,
-          animation: "fadeIn 0.3s ease",
         }}>
           {error}
         </div>
@@ -95,17 +128,7 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
           load a demo session
         </span>
         <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>or</span>
-        <span
-          onClick={onStartCompare}
-          style={{
-            color: theme.accent.primary,
-            cursor: "pointer",
-            fontSize: theme.fontSize.sm,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
+        <span onClick={onStartCompare} style={{ color: theme.accent.primary, cursor: "pointer", fontSize: theme.fontSize.sm, display: "flex", alignItems: "center", gap: 4 }}>
           <Icon name="arrow-up-down" size={12} /> compare two sessions
         </span>
       </div>

@@ -1,0 +1,8 @@
+nohup: ignoring input
+2026-03-24T16:02:20.354Z [start] listening on http://localhost:4242 session=events.jsonl
+
+  AGENTVIZ. running at http://localhost:4242
+  Session: events.jsonl
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+

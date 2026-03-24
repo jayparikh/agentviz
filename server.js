@@ -133,10 +133,225 @@ export function createServer({ sessionFile, distDir }) {
   }
 
   var server = http.createServer(function (req, res) {
+    try {
+      handleRequest(req, res);
+    } catch (err) {
+      process.stderr.write("[agentviz] unhandled request error: " + req.url + "\n" + (err.stack || err.message) + "\n");
+      try {
+        if (!res.headersSent) { res.writeHead(500); res.end("Internal server error"); }
+      } catch (e2) {}
+    }
+  });
+
+  function handleRequest(req, res) {
     var parsed = url.parse(req.url, true);
     var pathname = parsed.pathname;
 
     res.setHeader("Access-Control-Allow-Origin", "*");
+
+    if (pathname === "/api/config") {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method !== "GET") {
+        res.writeHead(405);
+        res.end(JSON.stringify({ error: "Method not allowed" }));
+        return;
+      }
+
+      var CONFIG_SURFACES = [
+        { id: "claude-md",            path: "CLAUDE.md",                       glob: null         },
+        { id: "copilot-instructions", path: ".github/copilot-instructions.md", glob: null         },
+        { id: "agents-md",            path: "AGENTS.md",                       glob: null         },
+        { id: "claude-agents",        path: ".claude/agents",                  glob: ".md"        },
+        { id: "claude-commands",      path: ".claude/commands",                glob: ".md"        },
+        { id: "claude-rules",         path: ".claude/rules",                   glob: ".md"        },
+        { id: "claude-skills",        path: ".claude/skills",                  glob: null         },
+        { id: "mcp-json",             path: ".mcp.json",                       glob: null         },
+        { id: "claude-settings",      path: ".claude/settings.json",           glob: null         },
+        { id: "github-prompts",       path: ".github/prompts",                 glob: ".prompt.md" },
+        { id: "github-extensions",    path: ".github/extensions",              glob: ".yml"       },
+      ];
+
+      var cwd = process.cwd();
+      var configResults = CONFIG_SURFACES.map(function (surface) {
+        var resolvedPath = path.resolve(cwd, surface.path);
+
+        // Directory surface
+        if (surface.glob !== null) {
+          try {
+            var entries = [];
+            var dirEntries = fs.readdirSync(resolvedPath);
+            var ext = surface.glob.replace(/^\*/, "");
+            for (var di = 0; di < dirEntries.length; di++) {
+              var entryName = dirEntries[di];
+              if (!entryName.endsWith(ext)) continue;
+              try {
+                var entryPath = path.join(surface.path, entryName);
+                var entryContent = fs.readFileSync(path.resolve(cwd, entryPath), "utf8");
+                entries.push({ path: entryPath, content: entryContent });
+              } catch (e2) {}
+            }
+            return { id: surface.id, path: surface.path, exists: true, entries: entries };
+          } catch (e) {
+            return { id: surface.id, path: surface.path, exists: false, entries: [] };
+          }
+        }
+
+        // Single file surface
+        try {
+          var fileContent = fs.readFileSync(resolvedPath, "utf8");
+          return { id: surface.id, path: surface.path, exists: true, content: fileContent };
+        } catch (e) {
+          return { id: surface.id, path: surface.path, exists: false, content: null };
+        }
+      });
+
+      res.writeHead(200);
+      res.end(JSON.stringify(configResults));
+      return;
+    }
+
+    if (pathname === "/api/apply") {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method !== "POST") {
+        res.writeHead(405);
+        res.end(JSON.stringify({ error: "Method not allowed" }));
+        return;
+      }
+      var body = "";
+      req.on("data", function (chunk) { body += chunk; });
+      req.on("end", function () {
+        try {
+          var payload = JSON.parse(body);
+          var relativePath = payload.relativePath;
+          var content = payload.content;
+          if (typeof relativePath !== "string" || !relativePath) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: "relativePath is required" }));
+            return;
+          }
+          if (typeof content !== "string") {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: "content is required" }));
+            return;
+          }
+          var cwd = process.cwd();
+          var resolvedPath = path.resolve(cwd, relativePath);
+          if (!resolvedPath.startsWith(cwd + path.sep) && resolvedPath !== cwd) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: "Path outside project directory" }));
+            return;
+          }
+          var parentDir = path.dirname(resolvedPath);
+          fs.mkdirSync(parentDir, { recursive: true });
+          var fileExists = false;
+          try { fs.accessSync(resolvedPath); fileExists = true; } catch (e) {}
+          if (fileExists) {
+            fs.appendFileSync(resolvedPath, "\n\n---\n\n" + content, "utf8");
+          } else {
+            fs.writeFileSync(resolvedPath, content, "utf8");
+          }
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, path: resolvedPath }));
+        } catch (e) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: e.message || "Internal server error" }));
+        }
+      });
+      return;
+    }
+
+    if (pathname === "/api/sessions") {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method !== "GET") { res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+
+      var homeDir = process.env.HOME || process.env.USERPROFILE || "";
+      var results = [];
+
+      // Claude Code: ~/.claude/projects/{project-dir}/{session-uuid}.jsonl
+      var claudeRoot = path.join(homeDir, ".claude", "projects");
+      function decodeProjectDir(dirName) {
+        return (dirName || "").replace(/^-/, "").replace(/-/g, "/");
+      }
+      function projectLabel(dirName) {
+        var parts = decodeProjectDir(dirName).split("/").filter(Boolean);
+        return parts[parts.length - 1] || dirName;
+      }
+      try {
+        fs.readdirSync(claudeRoot).forEach(function (projectDirName) {
+          var projectPath = path.join(claudeRoot, projectDirName);
+          try {
+            if (!fs.statSync(projectPath).isDirectory()) return;
+            fs.readdirSync(projectPath).forEach(function (fname) {
+              if (!fname.endsWith(".jsonl")) return;
+              var filePath = path.join(projectPath, fname);
+              try {
+                var stat = fs.statSync(filePath);
+                results.push({ id: "claude-code:" + projectDirName + ":" + fname, path: filePath, filename: fname, project: projectLabel(projectDirName), projectDir: projectDirName, format: "claude-code", size: stat.size, mtime: stat.mtime.toISOString() });
+              } catch (e) {}
+            });
+          } catch (e) {}
+        });
+      } catch (e) {}
+
+      // Copilot CLI: ~/.copilot/session-state/{uuid}/events.jsonl (flat -- one file per session dir)
+      var copilotRoot = path.join(homeDir, ".copilot", "session-state");
+      try {
+        fs.readdirSync(copilotRoot).forEach(function (sessionDirName) {
+          var sessionDir = path.join(copilotRoot, sessionDirName);
+          var eventsFile = path.join(sessionDir, "events.jsonl");
+          try {
+            var stat = fs.statSync(eventsFile);
+            // Read workspace.yaml for rich label (summary, repo, branch)
+            var label = sessionDirName.substring(0, 8);
+            var repo = null;
+            var branch = null;
+            var summary = null;
+            try {
+              var yamlText = fs.readFileSync(path.join(sessionDir, "workspace.yaml"), "utf8");
+              var summaryMatch = yamlText.match(/^summary:\s*(.+)$/m);
+              var repoMatch = yamlText.match(/^repository:\s*(.+)$/m);
+              var branchMatch = yamlText.match(/^branch:\s*(.+)$/m);
+              if (summaryMatch && summaryMatch[1].trim()) summary = summaryMatch[1].trim();
+              if (repoMatch) repo = repoMatch[1].trim();
+              if (branchMatch) branch = branchMatch[1].trim();
+              if (summary) label = summary;
+            } catch (e) {}
+            results.push({ id: "copilot-cli:" + sessionDirName + ":events.jsonl", path: eventsFile, filename: "events.jsonl", project: label, projectDir: sessionDirName, sessionId: sessionDirName, repository: repo, branch: branch, summary: summary, format: "copilot-cli", size: stat.size, mtime: stat.mtime.toISOString() });
+          } catch (e) {}
+        });
+      } catch (e) {}
+
+      results.sort(function (a, b) { return new Date(b.mtime) - new Date(a.mtime); });
+      res.writeHead(200);
+      res.end(JSON.stringify(results));
+      return;
+    }
+
+    if (pathname === "/api/session") {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      if (req.method !== "GET") { res.writeHead(405); res.end("Method not allowed"); return; }
+      var sessionPath = parsed.query.path;
+      if (!sessionPath) { res.writeHead(400); res.end("Missing path"); return; }
+
+      // Security: only serve files under HOME directory
+      var homeDir2 = process.env.HOME || process.env.USERPROFILE || "";
+      var resolvedSessionPath = path.resolve(sessionPath);
+      if (!homeDir2 || !resolvedSessionPath.startsWith(homeDir2 + path.sep)) {
+        res.writeHead(403); res.end("Forbidden"); return;
+      }
+      // Only serve .jsonl files
+      if (!resolvedSessionPath.endsWith(".jsonl")) {
+        res.writeHead(400); res.end("Only .jsonl files are served"); return;
+      }
+      try {
+        var sessionText = fs.readFileSync(resolvedSessionPath, "utf8");
+        res.writeHead(200);
+        res.end(sessionText);
+      } catch (e) {
+        res.writeHead(404); res.end("Not found");
+      }
+      return;
+    }
 
     if (pathname === "/api/file") {
       if (!sessionFile) { res.writeHead(404); res.end("No session file"); return; }
@@ -195,12 +410,16 @@ export function createServer({ sessionFile, distDir }) {
       // SPA fallback
       serveStatic(res, path.join(distDir, "index.html"));
     }
-  });
+  } // end handleRequest
 
   server.on("close", function () {
     watcherClosed = true;
     if (watcher) watcher.close();
     if (pollInterval) clearInterval(pollInterval);
+  });
+
+  server.on("error", function (err) {
+    process.stderr.write("[agentviz] server error: " + err.message + "\n" + (err.stack || "") + "\n");
   });
 
   return server;

@@ -80,7 +80,7 @@ function filterByQuery(entries, q) {
   });
 }
 
-export default function InboxView({ entries, onOpenSession, maxEntries }) {
+export default function InboxView({ entries, onOpenSession, maxEntries, onImport }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [query, setQuery] = useState("");
 
@@ -102,11 +102,14 @@ export default function InboxView({ entries, onOpenSession, maxEntries }) {
     return maxEntries ? sorted.slice(0, maxEntries) : sorted;
   }, [parsedEntries, sortMode, query, maxEntries]);
 
+  var [showAllDiscovered, setShowAllDiscovered] = useState(false);
+
   var sortedDiscovered = useMemo(function () {
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(discoveredEntries, q);
-    return sortByDate(filtered);
-  }, [discoveredEntries, query]);
+    var sorted = sortByDate(filtered);
+    return showAllDiscovered ? sorted : sorted.slice(0, 15);
+  }, [discoveredEntries, query, showAllDiscovered]);
 
   var totalVisible = sortedParsed.length + sortedDiscovered.length;
 
@@ -182,6 +185,24 @@ export default function InboxView({ entries, onOpenSession, maxEntries }) {
             return <option key={option.id} value={option.id}>{option.label}</option>;
           })}
         </select>
+        {onImport && (
+          <label title="Import a session file" style={{
+            display: "flex", alignItems: "center", gap: 4, padding: "5px 8px",
+            background: alpha(theme.accent.primary, 0.08), border: "1px solid " + alpha(theme.accent.primary, 0.4),
+            borderRadius: theme.radius.md, color: theme.accent.primary, fontSize: theme.fontSize.xs,
+            fontFamily: theme.font.ui, cursor: "pointer", flexShrink: 0, userSelect: "none",
+          }}>
+            <Icon name="upload" size={11} /> Import
+            <input type="file" accept=".jsonl" style={{ display: "none" }} onChange={function (e) {
+              var file = e.target.files && e.target.files[0];
+              if (!file) return;
+              var reader = new FileReader();
+              reader.onload = function (ev) { onImport(ev.target.result, file.name); };
+              reader.readAsText(file);
+              e.target.value = "";
+            }} />
+          </label>
+        )}
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -341,6 +362,27 @@ export default function InboxView({ entries, onOpenSession, maxEntries }) {
                 </div>
               );
             })}
+
+            {!showAllDiscovered && discoveredEntries.length > 15 && (
+              <button
+                className="av-btn"
+                onClick={function () { setShowAllDiscovered(true); }}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  background: "transparent",
+                  border: "1px dashed " + theme.border.default,
+                  borderRadius: theme.radius.lg,
+                  color: theme.text.dim,
+                  fontSize: theme.fontSize.sm,
+                  fontFamily: theme.font.ui,
+                  cursor: "pointer",
+                  marginTop: 4,
+                }}
+              >
+                Show {discoveredEntries.length - 15} more discovered sessions
+              </button>
+            )}
           </>
         )}
       </div>

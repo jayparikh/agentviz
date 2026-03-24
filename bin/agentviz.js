@@ -15,6 +15,24 @@ import net from "net";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var rootDir = path.resolve(__dirname, "..");
 var distDir = path.join(rootDir, "dist");
+var LOG_FILE = path.join(rootDir, "agentviz-server.log");
+
+function log(msg) {
+  var line = new Date().toISOString() + " " + msg + "\n";
+  process.stdout.write(line);
+  try { fs.appendFileSync(LOG_FILE, line); } catch (e) {}
+}
+
+process.on("uncaughtException", function (err) {
+  var msg = "[crash] uncaughtException: " + (err && err.stack ? err.stack : String(err));
+  log(msg);
+  // Don't exit -- keep the server alive if possible
+});
+
+process.on("unhandledRejection", function (reason) {
+  var msg = "[crash] unhandledRejection: " + (reason && reason.stack ? reason.stack : String(reason));
+  log(msg);
+});
 
 // -- Resolve session file from argv --
 // Accepts a .jsonl file path or a directory (picks the most recently modified .jsonl inside it).
@@ -36,9 +54,11 @@ function findLatestJsonl(dir) {
 }
 
 var sessionFile = null;
+var noOpen = false;
 var argv = process.argv.slice(2);
 for (var i = 0; i < argv.length; i++) {
   var arg = argv[i];
+  if (arg === "--no-open") { noOpen = true; continue; }
   if (!arg.startsWith("-")) {
     var resolved = path.resolve(arg);
     if (!fs.existsSync(resolved)) {
@@ -92,12 +112,14 @@ findFreePort(4242, function (err, port) {
   var server = createServer({ sessionFile: sessionFile, distDir: distDir });
   server.listen(port, "127.0.0.1", function () {
     var url = "http://localhost:" + port;
+    log("[start] listening on " + url + (sessionFile ? " session=" + path.basename(sessionFile) : ""));
     process.stdout.write("\n  AGENTVIZ. running at " + url + "\n");
     if (sessionFile) {
       process.stdout.write("  Session: " + path.basename(sessionFile) + "\n");
     }
+    process.stdout.write("  Logs: " + LOG_FILE + "\n");
     process.stdout.write("  Press Ctrl+C to stop.\n\n");
-    openBrowser(url);
+    if (!noOpen) { openBrowser(url); }
   });
 
   process.on("SIGINT", function () {

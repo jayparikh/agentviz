@@ -10,6 +10,7 @@ import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts.js";
 import useLiveStream from "./hooks/useLiveStream.js";
 import useAsyncStatus from "./hooks/useAsyncStatus.js";
 import useDiscoveredSessions from "./hooks/useDiscoveredSessions.js";
+import useHashRouter from "./hooks/useHashRouter.js";
 import Timeline from "./components/Timeline.jsx";
 import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
@@ -132,23 +133,34 @@ export default function App() {
   // Merge discovered sessions with library: library entries (already parsed) take precedence.
   // Filter discovered to sessions > 5KB (tiny files are Claude internal queue/ops sessions).
   var allSessions = useMemo(function () {
-    var discoveredOnly = discovered.sessions.filter(function (s) {
-      if (s.size < 5000) return false; // skip internal Claude queue-operation files
-      return !libraryEntries.some(function (e) { return e.file === s.filename; });
-    }).map(function (s) {
-      return {
-        id: s.id,
-        file: s.filename,
-        format: s.format,
-        project: s.project,
-        discoveredPath: s.path,
-        importedAt: s.mtime,
-        updatedAt: s.mtime,
-        size: s.size,
-        isDiscovered: true,
-      };
-    });
-    return libraryEntries.concat(discoveredOnly);
+    try {
+      var discoveredOnly = discovered.sessions.filter(function (s) {
+        if (s.size < 5000) return false;
+        return !libraryEntries.some(function (e) {
+          return e.discoveredPath === s.path || e.sessionId === s.sessionId;
+        });
+      }).map(function (s) {
+        return {
+          id: s.id,
+          file: s.summary || s.filename,
+          filename: s.filename,
+          format: s.format,
+          project: s.project,
+          repository: s.repository || null,
+          branch: s.branch || null,
+          discoveredPath: s.path,
+          sessionId: s.sessionId || null,
+          importedAt: s.mtime,
+          updatedAt: s.mtime,
+          size: s.size,
+          isDiscovered: true,
+        };
+      });
+      return libraryEntries.concat(discoveredOnly);
+    } catch (e) {
+      console.error("[allSessions] merge error:", e);
+      return libraryEntries;
+    }
   }, [libraryEntries, discovered.sessions]);
 
   var handleSessionParsed = useCallback(function (result, name, rawText) {
@@ -275,6 +287,11 @@ export default function App() {
     sessionB.resetSession();
     setCompareLanding(false);
   }, [resetVisualizerState, session.resetSession, sessionB.resetSession]);
+
+  useHashRouter({
+    hasSession: Boolean(session.events),
+    onNavigateToLanding: reset,
+  });
 
   var exitCompare = useCallback(function () {
     sessionB.resetSession();

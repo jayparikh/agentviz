@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
 import { KNOWN_CONFIG_SURFACES, getRelevantSurfaces } from "../lib/projectConfig.js";
-import { buildDebriefRecommendations } from "../lib/debriefRecommendations.js";
+import { buildDebriefRecommendations, checkApplied } from "../lib/debriefRecommendations.js";
 
+// User-settable status options shown in the dropdown
 var STATUS_OPTIONS = [
   { id: "accepted", label: "Accepted", color: theme.semantic.success },
   { id: "applied", label: "Applied", color: theme.semantic.success },
@@ -11,8 +12,31 @@ var STATUS_OPTIONS = [
   { id: "not-now", label: "Not now", color: theme.accent.primary },
 ];
 
+// Auto-detected statuses (not shown in dropdown, set by reconciliation)
+var AUTO_STATUS_DISPLAY = {
+  "already-handled": { label: "Already covered", icon: "✓", color: theme.semantic.success },
+  "partial": { label: "Partial", icon: "~", color: "#f59e0b" },
+};
+
 function RecommendationStatus({ value }) {
   if (!value) return null;
+
+  // Check auto statuses first
+  if (AUTO_STATUS_DISPLAY[value]) {
+    var auto = AUTO_STATUS_DISPLAY[value];
+    return (
+      <span style={{
+        fontSize: theme.fontSize.xs,
+        color: auto.color,
+        border: "1px solid " + alpha(auto.color, 0.35),
+        background: alpha(auto.color, 0.1),
+        borderRadius: theme.radius.full,
+        padding: "3px 8px",
+      }}>
+        {auto.icon + " " + auto.label}
+      </span>
+    );
+  }
 
   var match = STATUS_OPTIONS.find(function (option) { return option.id === value; });
   if (!match) return null;
@@ -31,10 +55,67 @@ function RecommendationStatus({ value }) {
   );
 }
 
+/**
+ * Returns a human-readable relative timestamp string (e.g. "5 seconds ago").
+ * @param {number|null} ts -- Date.now() value
+ * @returns {string}
+ */
+function formatRelativeTime(ts) {
+  if (!ts) return "";
+  var diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 5) return "just now";
+  if (diff < 60) return diff + " seconds ago";
+  var mins = Math.floor(diff / 60);
+  if (mins === 1) return "1 minute ago";
+  return mins + " minutes ago";
+}
+
 function basename(filePath) {
   if (!filePath) return filePath;
   var parts = filePath.replace(/\\/g, "/").split("/");
   return parts[parts.length - 1] || filePath;
+}
+
+/**
+ * Builds a baseline snapshot from an array of config file results.
+ * Maps configFile.id -> { exists, entriesCount, contentLength }.
+ * @param {Array} configFiles
+ * @returns {object}
+ */
+function buildBaselineSnapshot(configFiles) {
+  var snapshot = {};
+  for (var i = 0; i < configFiles.length; i++) {
+    var cf = configFiles[i];
+    snapshot[cf.id] = {
+      exists: Boolean(cf.exists),
+      entriesCount: cf.entries ? cf.entries.length : 0,
+      contentLength: cf.content ? cf.content.length : 0,
+    };
+  }
+  return snapshot;
+}
+
+/**
+ * Runs checkApplied for every recommendation and returns an object
+ * mapping rec.id -> "already-handled" | "partial" | null.
+ * @param {Array} recs
+ * @param {Array} configFiles
+ * @returns {object}
+ */
+function reconcileStatuses(recs, configFiles) {
+  var result = {};
+  for (var i = 0; i < recs.length; i++) {
+    var rec = recs[i];
+    var applied = checkApplied(rec, configFiles);
+    if (applied === "handled") {
+      result[rec.id] = "already-handled";
+    } else if (applied === "partial") {
+      result[rec.id] = "partial";
+    } else {
+      result[rec.id] = null;
+    }
+  }
+  return result;
 }
 
 export default function DebriefView({ file, summary, recommendations, recommendationState, onSetRecommendationState, metadata, rawSession }) {
@@ -46,6 +127,12 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   var [showConfigExplorer, setShowConfigExplorer] = useState(false);
   var [expandedSurface, setExpandedSurface] = useState(null);
   var [configAwareRecommendations, setConfigAwareRecommendations] = useState(null);
+  var [reconciledStatuses, setReconciledStatuses] = useState({});
+  var [expandedCardIds, setExpandedCardIds] = useState({});
+  var [lastChecked, setLastChecked] = useState(null);
+
+  // Baseline snapshot -- set once when config first loads, never updated
+  var baselineRef = useRef(null);
 
   useEffect(function () {
     fetch("/api/config")
@@ -56,6 +143,8 @@ export default function DebriefView({ file, summary, recommendations, recommenda
 
   useEffect(function () {
     if (!configLoaded || configFiles.length === 0 || !rawSession) return;
+    // Only run on first config load -- Refresh is handled explicitly by handleRefresh
+    if (baselineRef.current !== null) return;
     var rebuilt = buildDebriefRecommendations(
       rawSession.events,
       rawSession.turns,
@@ -63,7 +152,30 @@ export default function DebriefView({ file, summary, recommendations, recommenda
       rawSession.autonomyMetrics,
       configFiles
     );
-    setConfigAwareRecommendations(rebuilt.recommendations);
+    var freshRecs = rebuilt.recommendations;
+    setConfigAwareRecommendations(freshRecs);
+
+    // Set baseline snapshot once (first load)
+    if (baselineRef.current === null) {
+      baselineRef.current = buildBaselineSnapshot(configFiles);
+    }
+
+    // Run reconciliation and pre-populate auto statuses
+    var statuses = reconcileStatuses(freshRecs, configFiles);
+    setReconciledStatuses(statuses);
+
+    // Collapse already-handled cards by default on first load
+    setExpandedCardIds(function (prev) {
+      var next = Object.assign({}, prev);
+      for (var id in statuses) {
+        if (statuses[id] === "already-handled" && !Object.prototype.hasOwnProperty.call(next, id)) {
+          next[id] = false;
+        }
+      }
+      return next;
+    });
+
+    setLastChecked(Date.now());
   }, [configLoaded, configFiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   var activeRecommendations = (configLoaded && configFiles.length > 0 && configAwareRecommendations)
@@ -115,6 +227,44 @@ export default function DebriefView({ file, summary, recommendations, recommenda
       copyDraft(recommendation.id, editedDraft);
       setApplyStatus(function (prev) { return Object.assign({}, prev, { [recommendation.id]: "copy-fallback" }); });
     });
+  }
+
+  function handleRefresh() {
+    if (!rawSession) return;
+    fetch("/api/config")
+      .then(function (r) { return r.json(); })
+      .then(function (freshData) {
+        setConfigFiles(freshData);
+        var rebuilt = buildDebriefRecommendations(
+          rawSession.events,
+          rawSession.turns,
+          rawSession.metadata,
+          rawSession.autonomyMetrics,
+          freshData
+        );
+        var freshRecs = rebuilt.recommendations;
+        setConfigAwareRecommendations(freshRecs);
+        var statuses = reconcileStatuses(freshRecs, freshData);
+        setReconciledStatuses(statuses);
+        setLastChecked(Date.now());
+      })
+      .catch(function () {});
+  }
+
+  function toggleCardExpanded(id) {
+    setExpandedCardIds(function (prev) {
+      var next = Object.assign({}, prev);
+      next[id] = !prev[id];
+      return next;
+    });
+  }
+
+  function isCardCollapsed(id, autoStatus) {
+    if (Object.prototype.hasOwnProperty.call(expandedCardIds, id)) {
+      return !expandedCardIds[id];
+    }
+    // Default: collapse already-handled cards
+    return autoStatus === "already-handled";
   }
 
   function findConfigResult(surfaceId) {
@@ -233,6 +383,18 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                       var isExpanded = expandedSurface === surface.id;
                       var fullContent = isExpanded ? getSurfaceFullContent(result) : null;
 
+                      // Detect if this surface changed since baseline
+                      var baseline = baselineRef.current && baselineRef.current[surface.id];
+                      var wasUpdated = false;
+                      if (baseline && result) {
+                        var currentExists = Boolean(result.exists);
+                        var currentEntries = result.entries ? result.entries.length : 0;
+                        var currentContentLen = result.content ? result.content.length : 0;
+                        if (!baseline.exists && currentExists) wasUpdated = true;
+                        else if (baseline.entriesCount < currentEntries) wasUpdated = true;
+                        else if (baseline.contentLength < currentContentLen) wasUpdated = true;
+                      }
+
                       return (
                         <div
                           key={surface.id}
@@ -251,17 +413,30 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                             <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
                               {surface.label}
                             </span>
-                            <span style={{
-                              fontSize: theme.fontSize.xs,
-                              color: exists ? theme.semantic.success : theme.text.dim,
-                              background: exists ? alpha(theme.semantic.success, 0.1) : alpha(theme.text.dim, 0.1),
-                              border: "1px solid " + (exists ? alpha(theme.semantic.success, 0.3) : alpha(theme.text.dim, 0.2)),
-                              borderRadius: theme.radius.full,
-                              padding: "2px 7px",
-                              flexShrink: 0,
-                            }}>
-                              {exists ? "exists" : "not configured"}
-                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                              {wasUpdated && (
+                                <span style={{
+                                  fontSize: theme.fontSize.xs,
+                                  color: theme.semantic.success,
+                                  background: alpha(theme.semantic.success, 0.1),
+                                  border: "1px solid " + alpha(theme.semantic.success, 0.3),
+                                  borderRadius: theme.radius.full,
+                                  padding: "2px 6px",
+                                }}>
+                                  updated
+                                </span>
+                              )}
+                              <span style={{
+                                fontSize: theme.fontSize.xs,
+                                color: exists ? theme.semantic.success : theme.text.dim,
+                                background: exists ? alpha(theme.semantic.success, 0.1) : alpha(theme.text.dim, 0.1),
+                                border: "1px solid " + (exists ? alpha(theme.semantic.success, 0.3) : alpha(theme.text.dim, 0.2)),
+                                borderRadius: theme.radius.full,
+                                padding: "2px 7px",
+                              }}>
+                                {exists ? "exists" : "not configured"}
+                              </span>
+                            </div>
                           </div>
                           {preview && (
                             <div style={{
@@ -308,24 +483,61 @@ export default function DebriefView({ file, summary, recommendations, recommenda
           )}
         </div>
 
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontFamily: theme.font.ui }}>
+            {lastChecked
+              ? "Config read at: " + formatRelativeTime(lastChecked)
+              : configLoaded ? "Config loaded" : "Loading config..."}
+          </div>
+          <button
+            className="av-btn"
+            onClick={handleRefresh}
+            title="Re-read config files and update recommendation statuses"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              border: "1px solid " + theme.border.default,
+              background: "transparent",
+              color: theme.text.secondary,
+              borderRadius: theme.radius.md,
+              padding: "5px 10px",
+              fontSize: theme.fontSize.xs,
+              fontFamily: theme.font.ui,
+              cursor: "pointer",
+            }}
+          >
+            <span style={{ fontSize: "0.9em" }}>{"↺"}</span>
+            Refresh
+          </button>
+        </div>
+
         {activeRecommendations.map(function (recommendation) {
           var state = recommendationState[recommendation.id] || null;
+          var autoStatus = reconciledStatuses[recommendation.id] || null;
+          var effectiveStatus = state || autoStatus;
           var currentApplyStatus = applyStatus[recommendation.id] || null;
           var editedDraft = getEditedDraft(recommendation);
           var showApplyButton = (state === "accepted" || state === "applied") && recommendation.targetPath != null;
           var showTargetPath = (state === "accepted" || state === "applied") && recommendation.targetPath != null;
+          var collapsed = isCardCollapsed(recommendation.id, autoStatus);
+          var isAlreadyHandled = autoStatus === "already-handled" && !state;
 
           return (
             <div
               key={recommendation.id}
               style={{
-                background: theme.bg.surface,
-                border: "1px solid " + theme.border.default,
+                background: isAlreadyHandled ? alpha(theme.bg.surface, 0.5) : theme.bg.surface,
+                border: "1px solid " + (isAlreadyHandled ? theme.border.subtle : theme.border.default),
                 borderRadius: theme.radius.xl,
                 padding: "16px 18px",
+                opacity: isAlreadyHandled ? 0.75 : 1,
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <div
+                style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", cursor: isAlreadyHandled ? "pointer" : "default" }}
+                onClick={isAlreadyHandled ? function () { toggleCardExpanded(recommendation.id); } : undefined}
+              >
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
@@ -340,7 +552,16 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                     }}>
                       {recommendation.priority} priority
                     </span>
-                    <RecommendationStatus value={state} />
+                    <RecommendationStatus value={effectiveStatus} />
+                    {isAlreadyHandled && (
+                      <span style={{
+                        fontSize: theme.fontSize.xs,
+                        color: theme.text.dim,
+                        fontFamily: theme.font.ui,
+                      }}>
+                        {collapsed ? "click to expand" : "click to collapse"}
+                      </span>
+                    )}
                     {showApplyButton && (
                       <button
                         className="av-btn"
@@ -396,81 +617,86 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                     borderColor: copiedId === recommendation.id ? alpha(theme.semantic.success, 0.4) : theme.accent.primary,
                     background: copiedId === recommendation.id ? alpha(theme.semantic.success, 0.08) : alpha(theme.accent.primary, 0.08),
                     flexShrink: 0,
+                    display: collapsed ? "none" : undefined,
                   }}
                 >
                   {copiedId === recommendation.id ? "Copied" : "Copy draft"}
                 </ToolbarButton>
               </div>
 
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
-                  Evidence
-                </div>
-                <ul style={{ margin: 0, paddingLeft: 18, color: theme.text.secondary, lineHeight: 1.8 }}>
-                  {recommendation.evidence.map(function (item) {
-                    return <li key={item}>{item}</li>;
-                  })}
-                </ul>
-              </div>
-
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
-                  Reviewable draft
-                </div>
-                <textarea
-                  value={editedDraft}
-                  onChange={function (e) { setEditedDraft(recommendation.id, e.target.value); }}
-                  style={{
-                    width: "100%",
-                    minHeight: 180,
-                    background: theme.bg.base,
-                    color: theme.text.primary,
-                    border: "1px solid " + theme.border.default,
-                    borderRadius: theme.radius.lg,
-                    padding: 12,
-                    resize: "vertical",
-                    fontSize: theme.fontSize.base,
-                    fontFamily: theme.font.mono,
-                    lineHeight: 1.6,
-                  }}
-                />
-                {showTargetPath && (
-                  <div style={{
-                    fontSize: theme.fontSize.xs,
-                    color: theme.text.dim,
-                    marginTop: 6,
-                    fontFamily: theme.font.mono,
-                  }}>
-                    Target: {recommendation.targetPath}
+              {!collapsed && (
+                <>
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
+                      Evidence
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 18, color: theme.text.secondary, lineHeight: 1.8 }}>
+                      {recommendation.evidence.map(function (item) {
+                        return <li key={item}>{item}</li>;
+                      })}
+                    </ul>
                   </div>
-                )}
-              </div>
 
-              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                {STATUS_OPTIONS.filter(function (option) { return option.id !== "applied"; }).map(function (option) {
-                  var active = state === option.id;
-
-                  return (
-                    <button
-                      key={option.id}
-                      className="av-btn"
-                      onClick={function () { onSetRecommendationState(recommendation.id, option.id); }}
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
+                      Reviewable draft
+                    </div>
+                    <textarea
+                      value={editedDraft}
+                      onChange={function (e) { setEditedDraft(recommendation.id, e.target.value); }}
                       style={{
-                        border: "1px solid " + (active ? option.color : theme.border.default),
-                        background: active ? alpha(option.color, 0.12) : "transparent",
-                        color: active ? option.color : theme.text.muted,
-                        borderRadius: theme.radius.md,
-                        padding: "6px 10px",
+                        width: "100%",
+                        minHeight: 180,
+                        background: theme.bg.base,
+                        color: theme.text.primary,
+                        border: "1px solid " + theme.border.default,
+                        borderRadius: theme.radius.lg,
+                        padding: 12,
+                        resize: "vertical",
                         fontSize: theme.fontSize.base,
-                        fontFamily: theme.font.ui,
-                        cursor: "pointer",
+                        fontFamily: theme.font.mono,
+                        lineHeight: 1.6,
                       }}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
+                    />
+                    {showTargetPath && (
+                      <div style={{
+                        fontSize: theme.fontSize.xs,
+                        color: theme.text.dim,
+                        marginTop: 6,
+                        fontFamily: theme.font.mono,
+                      }}>
+                        Target: {recommendation.targetPath}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                    {STATUS_OPTIONS.filter(function (option) { return option.id !== "applied"; }).map(function (option) {
+                      var active = state === option.id;
+
+                      return (
+                        <button
+                          key={option.id}
+                          className="av-btn"
+                          onClick={function () { onSetRecommendationState(recommendation.id, option.id); }}
+                          style={{
+                            border: "1px solid " + (active ? option.color : theme.border.default),
+                            background: active ? alpha(option.color, 0.12) : "transparent",
+                            color: active ? option.color : theme.text.muted,
+                            borderRadius: theme.radius.md,
+                            padding: "6px 10px",
+                            fontSize: theme.fontSize.base,
+                            fontFamily: theme.font.ui,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
