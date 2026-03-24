@@ -48,26 +48,29 @@ export default function AppHeader({
       padding: "8px 16px",
       display: "flex",
       alignItems: "center",
-      gap: 10,
+      gap: 8,
       borderBottom: "1px solid " + theme.border.default,
       flexShrink: 0,
+      overflow: "hidden",
+      minWidth: 0,
     }}>
-      <BrandWordmark onClick={onReset} title="Back to start" />
-      <div style={{ height: 16, width: 1, background: theme.border.default }} />
+      <BrandWordmark onClick={onReset} title="Back to start" style={{ flexShrink: 0 }} />
+      <div style={{ height: 16, width: 1, background: theme.border.default, flexShrink: 0 }} />
       <span style={{
         fontSize: theme.fontSize.base,
         color: theme.text.muted,
         fontFamily: theme.font.mono,
-        maxWidth: 160,
+        maxWidth: 140,
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
+        flexShrink: 1,
       }}>
         {session.file}
       </span>
       {session.isLive && <LiveIndicator />}
       {session.metadata && (
-        <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, display: "flex", alignItems: "center", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
           {session.metadata.totalEvents} events
           {session.metadata.errorCount > 0 && (
             <span style={{ color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 3 }}>
@@ -84,6 +87,7 @@ export default function AppHeader({
         background: theme.bg.surface,
         borderRadius: theme.radius.lg,
         padding: 2,
+        flexShrink: 0,
       }}>
         {views.map(function (item) {
           var isActive = activeView === item.id;
@@ -97,12 +101,13 @@ export default function AppHeader({
                 border: "none",
                 borderRadius: theme.radius.md,
                 color: isActive ? theme.accent.primary : theme.text.muted,
-                padding: "4px 12px",
-                fontSize: theme.fontSize.base,
+                padding: "4px 9px",
+                fontSize: theme.fontSize.sm,
                 fontFamily: theme.font.ui,
                 display: "flex",
                 alignItems: "center",
-                gap: 5,
+                gap: 4,
+                whiteSpace: "nowrap",
               }}
             >
               <Icon name={item.icon} size={13} style={{ opacity: isActive ? 1 : 0.6 }} /> {item.label}
@@ -114,7 +119,7 @@ export default function AppHeader({
         })}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
         {showSearch && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
             <Icon name="search" size={13} style={{ color: theme.text.dim }} />
@@ -144,7 +149,7 @@ export default function AppHeader({
                 padding: "3px 8px",
                 fontSize: theme.fontSize.base,
                 fontFamily: theme.font.mono,
-                width: 120,
+                width: 100,
                 outline: "none",
               }}
             />
@@ -159,8 +164,8 @@ export default function AppHeader({
           </div>
         )}
 
-        <ToolbarButton onClick={onShowPalette} title="Command Palette (Cmd+K)" style={{ padding: "2px 8px", color: theme.text.dim, fontSize: theme.fontSize.xs }}>
-          <Icon name="command" size={11} />K
+        <ToolbarButton onClick={onShowPalette} title="Command Palette (Cmd+K)" style={{ padding: "2px 6px", color: theme.text.dim, fontSize: theme.fontSize.xs }}>
+          <Icon name="command" size={11} />
         </ToolbarButton>
 
         {showErrorNav && errorEntries.length > 0 && (
@@ -211,7 +216,7 @@ export default function AppHeader({
               }}
             >
               <Icon name="filter" size={12} />
-              {activeFilterCount > 0 ? activeFilterCount + " hidden" : "Filters"}
+              {activeFilterCount > 0 && <span style={{ fontSize: 10 }}>{activeFilterCount}</span>}
             </ToolbarButton>
             {showFilters && (
               <div style={{
@@ -283,8 +288,8 @@ export default function AppHeader({
           </ToolbarButton>
         )}
 
-        <ToolbarButton onClick={onStartCompare} title="Compare with another session">
-          Compare
+        <ToolbarButton onClick={onStartCompare} title="Compare with another session" style={{ padding: "2px 6px" }}>
+          <Icon name="columns" size={12} />
         </ToolbarButton>
 
         {onOpenRecentSession && recentSessions && (
@@ -296,10 +301,10 @@ export default function AppHeader({
                 background: showRecent ? alpha(theme.accent.primary, 0.08) : "transparent",
                 border: "1px solid " + (showRecent ? theme.accent.primary : theme.border.default),
                 color: showRecent ? theme.accent.primary : theme.text.muted,
+                padding: "2px 6px",
               }}
             >
               <Icon name="clock" size={12} />
-              Recent
             </ToolbarButton>
             {showRecent && (
               <RecentSessionsPicker
