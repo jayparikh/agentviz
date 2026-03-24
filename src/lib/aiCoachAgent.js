@@ -143,57 +143,77 @@ var MCP_JSON_SCHEMA = [
   "    }",
   "  }",
   "}",
-  "",
-  "Common MCP servers for common problems:",
-  "- web_fetch errors: command=uvx args=[mcp-server-fetch]  -- adds real HTTP fetch capability",
-  "- filesystem access: command=npx args=[-y, @modelcontextprotocol/server-filesystem, /path]",
-  "- GitHub API: command=npx args=[-y, @modelcontextprotocol/server-github]",
   "NEVER output {\"servers\": [...urls...]} -- that is not valid .mcp.json format.",
+  "NEVER add mcp-server-fetch for Copilot CLI -- web_fetch is already a built-in tool there.",
 ].join("\n");
 
 var CLAUDE_CODE_GUIDANCE = [
-  "This is a CLAUDE CODE session. Relevant config files:",
-  "- CLAUDE.md: main instructions, autonomy rules, permission grants",
-  "- AGENTS.md: sub-agent definitions (if used)",
-  "- .mcp.json: MCP server configuration (adds tools/capabilities)",
-  "- .claude/settings.json: permission allowlists/blocklists",
-  "- .claude/agents/: sub-agent markdown files",
+  "Agent type: CLAUDE CODE",
+  "Config files and what they control:",
+  "  CLAUDE.md -- main instructions, autonomy rules, what the agent can do without asking",
+  "  .mcp.json -- adds new tools (MCP servers) the agent can call",
+  "  .claude/settings.json -- allowedTools/disallowedTools permission lists",
+  "  .claude/agents/ -- sub-agent definitions for delegating tasks",
   "",
-  "If errors involve web_fetch: add the fetch MCP server to .mcp.json",
-  "If idle time is high: add autonomy instructions to CLAUDE.md",
-  "If tool calls are blocked: check .claude/settings.json allowedTools",
+  "Diagnosis guide (match errors to fixes):",
+  "  web_fetch errors repeatedly: add mcp-server-fetch to .mcp.json so the agent can fetch URLs",
+  "  'permission denied' / tool blocked: add the tool to allowedTools in .claude/settings.json",
+  "  High idle time / many user follow-ups: agent is asking permission -- add autonomy grants to CLAUDE.md",
+  "  'apply_patch failed': patch too large or agent needs smaller steps -- add guidance to CLAUDE.md",
+  "  Agent uses wrong tool repeatedly: add tool usage guidance to CLAUDE.md",
 ].join("\n");
 
 var COPILOT_CLI_GUIDANCE = [
-  "This is a GITHUB COPILOT CLI session. Relevant config files:",
-  "- .github/copilot-instructions.md: main instructions, coding standards, context",
-  "- .github/prompts/*.prompt.md: custom slash commands / task templates",
-  "- .github/extensions/*.yml: skill extensions that add capabilities",
-  "- .mcp.json: MCP server configuration (adds tools/capabilities)",
+  "Agent type: GITHUB COPILOT CLI",
+  "Config files and what they control:",
+  "  .github/copilot-instructions.md -- instructions, context, autonomy rules, coding standards",
+  "  .github/prompts/*.prompt.md -- custom slash commands / reusable task templates",
+  "  .github/extensions/*.yml -- skill extensions that add new tool capabilities",
+  "  .mcp.json -- adds new MCP server tools (NOT for built-in tools)",
   "",
-  "For Copilot CLI, web_fetch is a built-in tool -- if it's failing, the issue is",
-  "usually network access or missing MCP server for the specific resource type.",
-  "If idle time is high: add task management guidance to .github/copilot-instructions.md",
-  "If the agent lacks domain knowledge: add context sections to copilot-instructions.md",
+  "Diagnosis guide (match errors to fixes):",
+  "  web_fetch errors: web_fetch is a BUILT-IN tool in Copilot CLI -- the issue is not a missing MCP server.",
+  "    If URLs consistently fail: add instructions to copilot-instructions.md like",
+  "    'If web_fetch fails, try an alternative source or skip and continue rather than retrying'",
+  "    If a specific domain fails: that domain may be blocked -- note it in instructions",
+  "  High idle time: agent is waiting for human approval -- add autonomy permissions to copilot-instructions.md",
+  "    Example: 'You may create, edit, and delete files without asking for confirmation.'",
+  "  Agent lacks domain knowledge: add project context, architecture overview to copilot-instructions.md",
+  "  Agent repeats same mistake: add explicit 'never do X, instead do Y' rules to copilot-instructions.md",
+  "  Many human corrections: analyze WHAT the human corrected and add that as a rule",
 ].join("\n");
 
 function buildSystemPrompt(format) {
   var formatGuidance = format === "copilot-cli" ? COPILOT_CLI_GUIDANCE : CLAUDE_CODE_GUIDANCE;
   return [
-    "You are an expert AI agent workflow coach. You analyze session telemetry from",
-    "AI coding agents and produce specific, evidence-based recommendations.",
+    "You are an AI agent workflow coach. Your ONLY job is to recommend changes to",
+    "AI agent configuration files that will make the agent more autonomous and effective.",
+    "",
+    "CRITICAL SCOPE RULES -- you will be penalized for violating these:",
+    "- You are NOT advising on the project the agent was working on.",
+    "- You are NOT recommending features the developer should implement.",
+    "- You are NOT giving general best practices or task management tips.",
+    "- You are ONLY recommending changes to config files that directly fix observed problems.",
+    "- Every recommendation MUST cite a specific error text, metric, or user message from the session.",
+    "- If you cannot connect a recommendation to a specific session observation, do NOT make it.",
+    "- Prefer fewer, higher-quality recommendations over many generic ones.",
     "",
     formatGuidance,
     "",
     MCP_JSON_SCHEMA,
     "",
-    "RULES:",
-    "1. Always call read_config() first for relevant files before recommending.",
-    "2. Base every recommendation on ACTUAL data from the session (specific errors, metrics).",
-    "3. Never invent config keys or fake URLs. Only output valid JSON or valid Markdown.",
-    "4. For .mcp.json: merge with existing content -- output the full merged JSON.",
-    "5. For markdown files: output only the new section to APPEND (not the full file).",
-    "6. Call recommend() 2-4 times. Set targetPath=null only for advice with no file fix.",
+    "WORKFLOW:",
+    "1. Read the session stats and errors carefully.",
+    "2. Check the 'Patterns already detected' section -- these are your starting points.",
+    "3. For each triggered pattern: call read_config() for its targetPath, then recommend() with",
+    "   a draftText that references the SPECIFIC errors/metrics/tool names from THIS session.",
+    "   Do NOT copy the template verbatim -- make it specific. E.g. if the pattern says 'add autonomy rules'",
+    "   and the session shows 8 interventions about file editing, write: 'You may create/edit/delete files",
+    "   in src/ without asking for confirmation.'",
+    "4. If there are errors/metrics with no matching pattern, add a new recommendation for those.",
+    "5. Skip patterns that are already-applied.",
+    "6. For .mcp.json: read it first, then output the FULL merged JSON with new servers added.",
+    "7. For markdown: output ONLY the new section to append (be specific, not generic).",
   ].join("\n");
 }
 
@@ -205,7 +225,7 @@ export function buildCoachPrompt(payload) {
   var {
     format, primaryModel, totalEvents, totalTurns, errorCount, totalToolCalls,
     productiveRuntime, humanResponseTime, idleTime, interventions, autonomyEfficiency,
-    topTools, errorSamples, userFollowUps,
+    topTools, errorSamples, userFollowUps, triggeredPatterns,
   } = payload;
 
   var agentType = format === "copilot-cli" ? "GitHub Copilot CLI" : "Claude Code";
@@ -234,6 +254,28 @@ export function buildCoachPrompt(payload) {
   }
   if (followUps) {
     sections.push("", "## Human follow-up messages (where agent got stuck)", followUps);
+  }
+
+  // Pass triggered static patterns as seeds -- agent enhances these with real session data
+  var pending = (triggeredPatterns || []).filter(function (p) { return !p.alreadyApplied; });
+  var applied = (triggeredPatterns || []).filter(function (p) { return p.alreadyApplied; });
+  if (pending.length > 0) {
+    sections.push("", "## Patterns already detected in this session (enhance these -- make them specific to the data above)");
+    pending.forEach(function (p) {
+      sections.push(
+        "- [" + p.id + "] " + p.title + (p.targetPath ? " -> " + p.targetPath : " (no file target)"),
+        "  Summary: " + p.summary,
+        p.draftTemplate ? "  Template draft (improve with session-specific data): " + p.draftTemplate.split("\n")[0] + "..." : "",
+      );
+    });
+    sections.push("Use these patterns as starting points. Read the actual config file, then produce a draftText that references the specific errors/metrics from this session.");
+  }
+  if (applied.length > 0) {
+    sections.push(
+      "",
+      "## Already applied (skip these -- do NOT re-recommend)",
+      applied.map(function (p) { return "- " + p.title; }).join("\n"),
+    );
   }
 
   sections.push(

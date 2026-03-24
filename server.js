@@ -210,6 +210,28 @@ export function createServer({ sessionFile, distDir }) {
       return;
     }
 
+    // Read a single file for preview before applying
+    if (pathname === "/api/read-file") {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method !== "GET") { res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+      var qFilePath = parsedUrl.query.path || "";
+      if (!qFilePath) { res.writeHead(400); res.end(JSON.stringify({ error: "path is required" })); return; }
+      try {
+        var qCwd = process.cwd();
+        var qResolved = path.resolve(qCwd, qFilePath);
+        if (!qResolved.startsWith(qCwd + path.sep) && qResolved !== qCwd) {
+          res.writeHead(400); res.end(JSON.stringify({ error: "Path outside project" })); return;
+        }
+        var qContent = null;
+        try { qContent = fs.readFileSync(qResolved, "utf8"); } catch (e) {}
+        res.writeHead(200);
+        res.end(JSON.stringify({ exists: qContent !== null, content: qContent }));
+      } catch (e) {
+        res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+      }
+      return;
+    }
+
     if (pathname === "/api/apply") {
       res.setHeader("Content-Type", "application/json");
       if (req.method !== "POST") {
@@ -246,15 +268,15 @@ export function createServer({ sessionFile, distDir }) {
           var parentDir = path.dirname(resolvedPath);
           fs.mkdirSync(parentDir, { recursive: true });
           var fileExists = false;
-          try { fs.accessSync(resolvedPath); fileExists = true; } catch (e) {}
+          var originalContent = null;
+          try { originalContent = fs.readFileSync(resolvedPath, "utf8"); fileExists = true; } catch (e) {}
 
           if (!fileExists || mode === "overwrite") {
             fs.writeFileSync(resolvedPath, content, "utf8");
           } else if (relativePath.endsWith(".mcp.json") || relativePath === ".mcp.json") {
             // Smart merge: merge mcpServers objects
-            var existingRaw = fs.readFileSync(resolvedPath, "utf8");
             try {
-              var existing = JSON.parse(existingRaw);
+              var existing = JSON.parse(originalContent);
               var incoming = JSON.parse(content);
               var merged = Object.assign({}, existing);
               if (incoming.mcpServers) {
@@ -262,7 +284,6 @@ export function createServer({ sessionFile, distDir }) {
               }
               fs.writeFileSync(resolvedPath, JSON.stringify(merged, null, 2), "utf8");
             } catch (e) {
-              // Fall back to append if JSON parse fails
               fs.appendFileSync(resolvedPath, "\n\n" + content, "utf8");
             }
           } else if (mode === "append" || relativePath.endsWith(".md")) {
@@ -271,7 +292,8 @@ export function createServer({ sessionFile, distDir }) {
             fs.appendFileSync(resolvedPath, "\n\n---\n\n" + content, "utf8");
           }
           res.writeHead(200);
-          res.end(JSON.stringify({ success: true, path: resolvedPath }));
+          // Return original content so the client can offer a revert
+          res.end(JSON.stringify({ success: true, path: resolvedPath, originalContent: originalContent }));
         } catch (e) {
           res.writeHead(500);
           res.end(JSON.stringify({ error: e.message || "Internal server error" }));

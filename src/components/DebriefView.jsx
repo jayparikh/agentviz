@@ -136,6 +136,8 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   var [aiSteps, setAiSteps] = useState([]); // [{type, label}] live step log
   var [aiModelInfo, setAiModelInfo] = useState(null); // { model, usage }
   var [aiApplyStatus, setAiApplyStatus] = useState({}); // { recIdx: "applying"|"applied"|"error" }
+  var [aiApplyHistory, setAiApplyHistory] = useState({}); // { recIdx: { original: string|null, path: string } }
+  var [aiPreview, setAiPreview] = useState({}); // { recIdx: true } -- show preview pane
   var aiAbortRef = useRef(null);
 
   // Baseline snapshot -- set once when config first loads, never updated
@@ -261,8 +263,18 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   function buildAnalysisPayload() {
     var m = rawSession.autonomyMetrics || {};
     var met = rawSession.metadata || {};
-    var cfgLines = (configFiles || []).filter(function (f) { return f.exists; }).map(function (f) {
-      return f.id + ": " + (f.content ? f.content.substring(0, 200) : "(exists, no content)");
+    // Include triggered static recommendations so agent can enhance them with real session data
+    var triggeredRecs = (activeRecommendations || []).map(function (r) {
+      var status = reconciledStatuses[r.id] || recommendationState[r.id] || "pending";
+      return {
+        id: r.id,
+        title: r.title,
+        summary: r.summary,
+        fix: r.fix || "",
+        targetPath: r.targetPath || null,
+        draftTemplate: r.draftText ? r.draftText.substring(0, 400) : "",
+        alreadyApplied: status === "already-handled" || status === "applied",
+      };
     });
     return {
       format: met.format || "claude-code",
@@ -282,7 +294,7 @@ export default function DebriefView({ file, summary, recommendations, recommenda
         .filter(function (e) { return e.isError && e.text; })
         .slice(0, 6)
         .map(function (e) { return (e.toolName ? "[" + e.toolName + "] " : "") + e.text.substring(0, 150); }),
-      configSummary: cfgLines.join("\n") || "No config files found",
+      triggeredPatterns: triggeredRecs,
     };
   }
 
@@ -296,6 +308,8 @@ export default function DebriefView({ file, summary, recommendations, recommenda
     setAiAnalysis(null);
     setAiSteps([]);
     setAiApplyStatus({});
+    setAiApplyHistory({});
+    setAiPreview({});
 
     var body = JSON.stringify(buildAnalysisPayload());
 
@@ -357,9 +371,14 @@ export default function DebriefView({ file, summary, recommendations, recommenda
     setAiSteps([]);
   }
 
+  function toggleAiPreview(idx) {
+    setAiPreview(function (prev) { return Object.assign({}, prev, { [idx]: !prev[idx] }); });
+  }
+
   function handleAiRecApply(rec, idx) {
     if (!rec.targetPath || !rec.draft) return;
     setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "applying" }); });
+    setAiPreview(function (prev) { return Object.assign({}, prev, { [idx]: false }); });
     fetch("/api/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -367,6 +386,31 @@ export default function DebriefView({ file, summary, recommendations, recommenda
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (data.success) {
         setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "applied" }); });
+        // Store original content so user can revert
+        setAiApplyHistory(function (prev) {
+          return Object.assign({}, prev, { [idx]: { original: data.originalContent, path: rec.targetPath } });
+        });
+      } else {
+        setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "error" }); });
+      }
+    }).catch(function () {
+      setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "error" }); });
+    });
+  }
+
+  function handleAiRecRevert(idx) {
+    var history = aiApplyHistory[idx];
+    if (!history) return;
+    setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "applying" }); });
+    var revertContent = history.original !== null ? history.original : "";
+    fetch("/api/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: history.path, content: revertContent, mode: "overwrite" }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.success) {
+        setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: null }); });
+        setAiApplyHistory(function (prev) { var n = Object.assign({}, prev); delete n[idx]; return n; });
       } else {
         setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "error" }); });
       }
@@ -721,34 +765,42 @@ export default function DebriefView({ file, summary, recommendations, recommenda
             </div>
             {aiAnalysis.map(function (rec, i) {
               var applyState = aiApplyStatus[i] || null;
+              var hasHistory = !!aiApplyHistory[i];
+              var showPreview = !!aiPreview[i];
               var canApply = rec.targetPath && rec.draft && applyState !== "applied";
               return (
                 <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < aiAnalysis.length - 1 ? "1px solid " + theme.border.default : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                     {rec.priority === "high" && (
                       <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.full, padding: "1px 7px" }}>high</span>
                     )}
                     <span style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.ui, fontWeight: 600, flex: 1 }}>{rec.title}</span>
-                    {applyState === "applied" && (
-                      <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.success }}>{"✓ Applied"}</span>
-                    )}
                     {applyState === "error" && (
                       <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error }}>Apply failed</span>
                     )}
+                    {applyState === "applied" && (
+                      <>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.success }}>{"✓ Applied"}</span>
+                        {hasHistory && (
+                          <button className="av-btn" onClick={function () { handleAiRecRevert(i); }}
+                            style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.semantic.warning, background: "transparent", color: theme.semantic.warning, borderRadius: theme.radius.md, padding: "2px 8px", cursor: "pointer" }}>
+                            Revert
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {canApply && rec.draft && !showPreview && (
+                      <button className="av-btn" onClick={function () { toggleAiPreview(i); }}
+                        title="Preview changes before applying"
+                        style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.border.default, background: "transparent", color: theme.text.secondary, borderRadius: theme.radius.md, padding: "2px 8px", cursor: "pointer" }}>
+                        Preview
+                      </button>
+                    )}
                     {canApply && (
-                      <button
-                        className="av-btn"
-                        onClick={function () { handleAiRecApply(rec, i); }}
+                      <button className="av-btn" onClick={function () { handleAiRecApply(rec, i); }}
                         disabled={applyState === "applying"}
                         title={"Apply to " + rec.targetPath}
-                        style={{
-                          fontSize: theme.fontSize.xs, fontFamily: theme.font.ui,
-                          border: "1px solid " + theme.semantic.success,
-                          background: alpha(theme.semantic.success, 0.08),
-                          color: theme.semantic.success,
-                          borderRadius: theme.radius.md, padding: "2px 10px", cursor: "pointer",
-                        }}
-                      >
+                        style={{ fontSize: theme.fontSize.xs, fontFamily: theme.font.ui, border: "1px solid " + theme.semantic.success, background: alpha(theme.semantic.success, 0.08), color: theme.semantic.success, borderRadius: theme.radius.md, padding: "2px 10px", cursor: "pointer" }}>
                         {applyState === "applying" ? "Applying..." : "Apply \u2192 " + rec.targetPath}
                       </button>
                     )}
@@ -757,9 +809,28 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                     )}
                   </div>
                   <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginBottom: 6, lineHeight: 1.5 }}>{rec.summary}</div>
-                  {rec.fix && <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, lineHeight: 1.5, marginBottom: 6 }}><strong>Fix:</strong> {rec.fix}</div>}
-                  {rec.draft && (
-                    <pre style={{ fontSize: theme.fontSize.xs, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "8px 12px", overflowX: "auto", whiteSpace: "pre-wrap", color: theme.text.secondary, margin: 0 }}>{rec.draft}</pre>
+                  {rec.fix && <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, lineHeight: 1.5, marginBottom: rec.draft ? 6 : 0 }}><strong>Fix:</strong> {rec.fix}</div>}
+                  {rec.draft && !showPreview && (
+                    <pre style={{ fontSize: theme.fontSize.xs, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "8px 12px", overflowX: "auto", whiteSpace: "pre-wrap", color: theme.text.secondary, margin: 0, cursor: "pointer" }}
+                      onClick={function () { toggleAiPreview(i); }} title="Click to preview/collapse">
+                      {rec.draft}
+                    </pre>
+                  )}
+                  {showPreview && rec.draft && (
+                    <div style={{ border: "1px solid " + theme.semantic.success, borderRadius: theme.radius.md, overflow: "hidden" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 10px", background: alpha(theme.semantic.success, 0.06), borderBottom: "1px solid " + alpha(theme.semantic.success, 0.2) }}>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.success }}>
+                          {"+ will append to " + rec.targetPath}
+                        </span>
+                        <button className="av-btn" onClick={function () { toggleAiPreview(i); }}
+                          style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}>
+                          {"collapse"}
+                        </button>
+                      </div>
+                      <pre style={{ fontSize: theme.fontSize.xs, background: theme.bg.base, padding: "8px 12px", overflowX: "auto", whiteSpace: "pre-wrap", margin: 0, color: theme.semantic.success }}>
+                        {rec.draft.split("\n").map(function (line) { return "+ " + line; }).join("\n")}
+                      </pre>
+                    </div>
                   )}
                 </div>
               );
