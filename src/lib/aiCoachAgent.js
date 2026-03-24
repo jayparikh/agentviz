@@ -21,7 +21,7 @@ import { execFile } from "child_process";
 import OpenAI from "openai";
 
 var GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com";
-var COACH_MODEL = "gpt-4o-mini";
+var COACH_MODEL = "gpt-4o";
 var MAX_TOKENS = 2000;
 var MAX_AGENT_ROUNDS = 6;
 
