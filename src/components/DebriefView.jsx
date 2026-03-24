@@ -683,7 +683,7 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                 className="av-btn"
                 onClick={handleAiAnalyze}
                 disabled={!rawSession}
-                title="Get AI-powered contextual recommendations via GitHub Models (gpt-4o-mini)"
+                title="Get AI-powered contextual recommendations via GitHub Copilot SDK"
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
                   border: "1px solid " + theme.accent.primary,
@@ -726,7 +726,7 @@ export default function DebriefView({ file, summary, recommendations, recommenda
           <div style={{ background: alpha(theme.accent.primary, 0.04), border: "1px solid " + alpha(theme.accent.primary, 0.2), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
             <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, display: "flex", alignItems: "center", gap: 8, marginBottom: aiSteps.length > 0 ? 10 : 0 }}>
               <span style={{ animation: "spin 1.2s linear infinite", display: "inline-block" }}>{"✦"}</span>
-              Analyzing with GitHub Models (gpt-4o-mini)...
+              Analyzing with Copilot SDK...
             </div>
             {aiSteps.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
