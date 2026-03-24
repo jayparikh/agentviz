@@ -1,29 +1,23 @@
 /**
  * AI Coach Agent
  *
- * Analyzes an AgentViz session using a tool-calling agent loop.
- * The agent can read real config files from disk before proposing changes,
- * and commits each recommendation via a structured `recommend` tool call --
- * ensuring every suggestion targets a real file with valid, apply-able content.
+ * Analyzes an AgentViz session using the @github/copilot-sdk -- the same
+ * engine that powers Copilot CLI. The agent reads real config files from disk
+ * before proposing changes, and commits each recommendation via a structured
+ * `recommend` tool call.
  *
- * Auth: GitHub Models API (OpenAI-compatible), authenticated via `gh auth token`.
- * No additional setup needed -- reuses the developer's existing gh credential.
+ * Auth: Uses the developer's logged-in Copilot credentials automatically.
+ * No additional setup needed -- reuses the same session the developer uses.
  *
  * Agent loop:
- *   1. Send session stats + tool definitions
- *   2. Model calls read_config(path) to inspect real files
- *   3. Server executes tool calls and returns results
+ *   1. Spawn Copilot CLI in server mode via JSON-RPC (SDK handles lifecycle)
+ *   2. Send session stats + system prompt + tool definitions
+ *   3. Model calls read_config(path) to inspect real files
  *   4. Model calls recommend(...) for each concrete fix
- *   5. Loop until model stops calling tools (max 6 rounds)
+ *   5. Session idles when done
  */
 
-import { execFile } from "child_process";
-import OpenAI from "openai";
-
-var GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com";
-var COACH_MODEL = "gpt-4o";
-var MAX_TOKENS = 2000;
-var MAX_AGENT_ROUNDS = 6;
+import { CopilotClient, defineTool, approveAll } from "@github/copilot-sdk";
 
 // Format-specific config paths the agent may read and target
 var CONFIG_PATHS_CLAUDE = [
@@ -58,73 +52,52 @@ export var KNOWN_CONFIG_PATHS = CONFIG_PATHS_CLAUDE.concat(CONFIG_PATHS_COPILOT.
 }));
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Token acquisition
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function getGhToken() {
-  return new Promise(function (resolve, reject) {
-    execFile("gh", ["auth", "token"], { timeout: 6000 }, function (err, stdout) {
-      var token = (stdout || "").trim();
-      if (err || !token) {
-        reject(new Error("Could not get gh auth token. Run: gh auth login"));
-        return;
-      }
-      resolve(token);
-    });
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Tool definitions (built per-request so paths match session format)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildAgentTools(configPaths) {
+function buildAgentTools(configPaths, handlers) {
   var pathList = configPaths.join(", ");
   return [
-    {
-      type: "function",
-      function: {
-        name: "read_config",
-        description:
-          "Read an actual config file from the developer's project. Call this BEFORE proposing changes so you know what already exists. Returns file content, or a 'not found' message with a starter template if the file is missing.",
-        parameters: {
-          type: "object",
-          properties: {
-            path: {
-              type: "string",
-              description: "Relative path to the config file. Must be one of: " + pathList,
-            },
+    defineTool("read_config", {
+      description:
+        "Read an actual config file from the developer's project. Call this BEFORE proposing changes so you know what already exists. Returns file content, or a 'not found' message with a starter template if the file is missing.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "Relative path to the config file. Must be one of: " + pathList,
           },
-          required: ["path"],
         },
+        required: ["path"],
       },
-    },
-    {
-      type: "function",
-      function: {
-        name: "recommend",
-        description:
-          "Commit one concrete recommendation. draftText must be valid content ready to write/append -- no pseudo-code, no placeholder URLs. Call this 2-4 times total.",
-        parameters: {
-          type: "object",
-          properties: {
-            title: { type: "string", description: "Short title (< 8 words)" },
-            priority: { type: "string", enum: ["high", "medium"] },
-            summary: { type: "string", description: "1-2 sentences describing the problem seen in the session data" },
-            fix: { type: "string", description: "Specific action to take, referencing the actual error or metric" },
-            targetPath: {
-              type: "string",
-              description: "Config file to write to. Must be one of: " + pathList + ". Use null for advice-only (no file change).",
-            },
-            draftText: {
-              type: "string",
-              description: "Content to write or append. For .mcp.json: full valid JSON with mcpServers object. For markdown: only the new section. Must be copy-paste ready.",
-            },
+      skipPermission: true,
+      handler: handlers.read_config,
+    }),
+    defineTool("recommend", {
+      description:
+        "Commit one concrete recommendation. draftText must be valid content ready to write/append -- no pseudo-code, no placeholder URLs. Call this 2-4 times total.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Short title (< 8 words)" },
+          priority: { type: "string", enum: ["high", "medium"] },
+          summary: { type: "string", description: "1-2 sentences describing the problem seen in the session data" },
+          fix: { type: "string", description: "Specific action to take, referencing the actual error or metric" },
+          targetPath: {
+            type: "string",
+            description: "Config file to write to. Must be one of: " + pathList + ". Use null for advice-only (no file change).",
           },
-          required: ["title", "priority", "summary", "fix", "targetPath", "draftText"],
+          draftText: {
+            type: "string",
+            description: "Content to write or append. For .mcp.json: full valid JSON with mcpServers object. For markdown: only the new section. Must be copy-paste ready.",
+          },
         },
+        required: ["title", "priority", "summary", "fix", "targetPath", "draftText"],
       },
-    },
+      skipPermission: true,
+      handler: handlers.recommend,
+    }),
   ];
 }
 
@@ -299,113 +272,95 @@ export function buildCoachPrompt(payload) {
  * @param {AbortSignal} [opts.signal] - cancellation signal
  * @param {function} [opts.onStep] - called with {type, label, data} as agent works
  * @param {function} [opts.readConfigFile] - (path) => string|null -- reads a file from disk
- * @returns {Promise<{ recommendations: object[], model: string, usage: object, steps: object[] }>}
+ * @returns {Promise<{ recommendations: object[], model: string, usage: object|null, steps: object[] }>}
  */
 export async function runCoachAgent(payload, opts) {
   var signal = opts && opts.signal;
   var onStep = opts && opts.onStep;
   var readConfigFile = opts && opts.readConfigFile;
 
-  var token = await getGhToken();
-
-  var client = new OpenAI({
-    apiKey: token,
-    baseURL: GITHUB_MODELS_BASE_URL,
-    defaultHeaders: { "X-GitHub-Api-Version": "2022-11-28" },
-  });
-
   var format = payload.format || "claude-code";
   var configPaths = getConfigPathsForFormat(format);
-  var agentTools = buildAgentTools(configPaths);
-
-  var messages = [
-    { role: "system", content: buildSystemPrompt(format) },
-    { role: "user", content: buildCoachPrompt(payload) },
-  ];
-
   var recommendations = [];
-  var totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
   var steps = [];
-  var usedModel = COACH_MODEL;
 
   function emit(step) {
     steps.push(step);
     if (onStep) onStep(step);
   }
 
-  emit({ type: "thinking", label: "Analyzing session..." });
+  // Tool handlers -- closures that capture emit + readConfigFile + recommendations
+  var tools = buildAgentTools(configPaths, {
+    read_config: async function ({ path: filePath }) {
+      emit({ type: "read_config", label: "Reading " + filePath + "...", path: filePath });
+      var content = readConfigFile ? readConfigFile(filePath) : null;
+      return content != null
+        ? "Content of " + filePath + ":\n" + content.substring(0, 3000)
+        : "File not found: " + filePath + "\n(This file does not exist yet -- create it via recommend())";
+    },
+    recommend: async function (args) {
+      var rec = normalizeRecommendation(args, configPaths);
+      recommendations.push(rec);
+      emit({ type: "recommend", label: "Recommendation: " + rec.title, rec: rec });
+      return "Recommendation recorded.";
+    },
+  });
 
-  for (var round = 0; round < MAX_AGENT_ROUNDS; round++) {
-    if (signal && signal.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
+  var client = new CopilotClient();
+  var session;
 
-    var completion = await client.chat.completions.create({
-      model: COACH_MODEL,
-      messages: messages,
-      tools: agentTools,
-      tool_choice: "auto",
-      temperature: 0.2,
-      max_tokens: MAX_TOKENS,
-    }, { signal });
+  try {
+    await client.start();
+    emit({ type: "start", label: "Copilot agent started" });
 
-    usedModel = completion.model || COACH_MODEL;
-    if (completion.usage) {
-      totalUsage.prompt_tokens += completion.usage.prompt_tokens || 0;
-      totalUsage.completion_tokens += completion.usage.completion_tokens || 0;
-      totalUsage.total_tokens += completion.usage.total_tokens || 0;
+    session = await client.createSession({
+      tools: tools,
+      onPermissionRequest: approveAll,
+      systemMessage: {
+        mode: "replace",
+        content: buildSystemPrompt(format),
+      },
+    });
+
+    // Wire cancellation: abort the session message when signal fires
+    if (signal) {
+      signal.addEventListener("abort", function () {
+        session && session.abort().catch(function () {});
+      }, { once: true });
     }
 
-    var assistantMsg = completion.choices[0]?.message;
-    if (!assistantMsg) break;
-    messages.push(assistantMsg);
-
-    var toolCalls = assistantMsg.tool_calls || [];
-    if (toolCalls.length === 0) break; // Model stopped calling tools
-
-    // Execute all tool calls in this round
-    var toolResults = [];
-    for (var i = 0; i < toolCalls.length; i++) {
-      var tc = toolCalls[i];
-      var fnName = tc.function?.name;
-      var fnArgs;
-      try { fnArgs = JSON.parse(tc.function?.arguments || "{}"); } catch (e) { fnArgs = {}; }
-
-      if (fnName === "read_config") {
-        var filePath = fnArgs.path || "";
-        emit({ type: "read_config", label: "Reading " + filePath + "...", path: filePath });
-        var content = readConfigFile ? readConfigFile(filePath) : null;
-        var result = content != null
-          ? "Content of " + filePath + ":\n" + content.substring(0, 3000)
-          : "File not found: " + filePath + "\n(This file does not exist yet -- you can create it with recommend())";
-        toolResults.push({ tool_call_id: tc.id, role: "tool", content: result });
-
-      } else if (fnName === "recommend") {
-        var rec = normalizeRecommendation(fnArgs, configPaths);
-        recommendations.push(rec);
-        emit({ type: "recommend", label: "Recommendation: " + rec.title, rec: rec });
-        toolResults.push({ tool_call_id: tc.id, role: "tool", content: "Recommendation recorded." });
-      } else {
-        toolResults.push({ tool_call_id: tc.id, role: "tool", content: "Unknown tool: " + fnName });
+    // Emit steps for any built-in tool the agent uses (should be rare/none)
+    session.on("tool.execution_start", function (event) {
+      var toolName = (event && event.data && event.data.toolName) || "tool";
+      if (toolName !== "read_config" && toolName !== "recommend") {
+        emit({ type: "tool", label: "Agent: " + toolName });
       }
+    });
+
+    emit({ type: "analyze", label: "Analyzing session data..." });
+    await session.sendAndWait({ prompt: buildCoachPrompt(payload) }, 90000);
+    await session.disconnect();
+
+    if (signal && signal.aborted) {
+      throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     }
 
-    messages.push(...toolResults);
+    if (recommendations.length === 0) {
+      throw new Error("Agent did not produce any recommendations. Try again.");
+    }
 
-    // Stop once we have enough recommendations
-    if (recommendations.length >= 4) break;
+    emit({ type: "done", label: recommendations.length + " recommendation" + (recommendations.length !== 1 ? "s" : "") + " ready" });
+
+    return {
+      recommendations: recommendations,
+      model: "copilot-sdk",
+      usage: null,
+      steps: steps,
+    };
+  } finally {
+    if (session) await session.disconnect().catch(function () {});
+    await client.stop().catch(function () {});
   }
-
-  if (recommendations.length === 0) {
-    throw new Error("Agent did not produce any recommendations. Try again.");
-  }
-
-  emit({ type: "done", label: recommendations.length + " recommendation" + (recommendations.length !== 1 ? "s" : "") + " ready" });
-
-  return {
-    recommendations: recommendations,
-    model: usedModel,
-    usage: totalUsage,
-    steps: steps,
-  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
