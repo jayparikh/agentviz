@@ -69,8 +69,8 @@ describe("getTargetPath", function () {
     expect(getTargetPath("agent-split", "claude-code")).toBe("AGENTS.md");
   });
 
-  it("returns null for tooling-upgrade", function () {
-    expect(getTargetPath("tooling-upgrade", "claude-code")).toBeNull();
+  it("returns .mcp.json for tooling-upgrade", function () {
+    expect(getTargetPath("tooling-upgrade", "claude-code")).toBe(".mcp.json");
   });
 
   it("returns .claude/agents path for subagent-draft (claude-code)", function () {
@@ -377,7 +377,9 @@ describe("tooling-upgrade MCP server recommendations", function () {
     var result = buildDebriefRecommendations([], [], makeMetadata(), makeAutonomyMetrics({ topTools: [{ name: "bash", count: 5 }] }), configFiles);
     var rec = findRec(result, "tooling-upgrade");
     expect(rec).not.toBeNull();
-    expect(rec.draftText).toContain("my-existing-server");
+    expect(rec.draftText).toContain("mcpServers");
+    // existing server name should appear in evidence context, not draftText
+    expect(rec.evidence.join(" ")).toContain("my-existing-server");
   });
 
   it("adds copilot note for copilot-cli format", function () {
@@ -385,7 +387,9 @@ describe("tooling-upgrade MCP server recommendations", function () {
     var result = buildDebriefRecommendations([], [], makeMetadata({ format: "copilot-cli" }), makeAutonomyMetrics({ topTools: [{ name: "bash", count: 5 }] }), configFiles);
     var rec = findRec(result, "tooling-upgrade");
     expect(rec).not.toBeNull();
-    expect(rec.draftText).toContain("github.copilot.chat.mcp.servers");
+    // copilot note goes in evidence, draftText is clean JSON
+    expect(rec.draftText).toContain("mcpServers");
+    expect(rec.evidence.join(" ")).toContain("github.copilot.chat.mcp.servers");
   });
 });
 

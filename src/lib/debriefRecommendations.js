@@ -143,7 +143,7 @@ export function getTargetPath(id, format) {
     return format === "copilot-cli" ? ".github/prompts/" : ".claude/commands/";
   }
   if (id === "tooling-upgrade") {
-    return null;
+    return ".mcp.json";
   }
   return null;
 }
@@ -582,26 +582,25 @@ export function buildDebriefRecommendations(events, turns, metadata, autonomyMet
 
     var mcpJsonSnippet = JSON.stringify(mcpSnippetObj, null, 2);
 
+    var whySummary = whyLines.join("\n");
+
     var toolingIntro;
     if (configSummary.hasMcp && configSummary.mcpServerNames.length > 0) {
-      toolingIntro = "Current MCP servers: " + configSummary.mcpServerNames.join(", ") + ".\n\nRecommended additions to .mcp.json:";
+      toolingIntro = "Current MCP servers: " + configSummary.mcpServerNames.join(", ") + ". Recommended additions:";
     } else {
-      toolingIntro = "Recommended additions to .mcp.json:";
+      toolingIntro = "No MCP servers detected. Recommended starter set:";
     }
 
     var copilotNote = format === "copilot-cli"
-      ? "\n\nFor Copilot CLI: add MCP servers in VS Code settings under `github.copilot.chat.mcp.servers` or in a `.mcp.json` at project root."
+      ? "\n\nFor Copilot CLI: add these in VS Code settings under `github.copilot.chat.mcp.servers` or in a `.mcp.json` at project root."
       : "";
 
-    var toolingDraftText = [
-      toolingIntro,
-      "",
-      mcpJsonSnippet,
-      "",
-      "Why:",
-      whyLines.join("\n"),
-      copilotNote,
-    ].filter(function (l) { return l !== undefined; }).join("\n");
+    // draftText is the clean JSON to write to .mcp.json
+    var toolingDraftText = mcpJsonSnippet;
+
+    // evidence will include the why lines + intro as readable context
+    var toolingEvidence = getToolingEvidence(metrics);
+    toolingEvidence = toolingEvidence.concat([toolingIntro, whySummary + copilotNote]);
 
     recToolingUpgrade = {
       id: "tooling-upgrade",
@@ -610,7 +609,7 @@ export function buildDebriefRecommendations(events, turns, metadata, autonomyMet
       priority: metrics.idleTime >= 90 ? "high" : "medium",
       title: "Add tooling that removes dead air",
       summary: "Reduce idle gaps by upgrading the agent's access to fast code search, workspace metadata, or safer command execution helpers.",
-      evidence: getToolingEvidence(metrics),
+      evidence: toolingEvidence,
       draftText: toolingDraftText,
       detectionKeywords: ["mcp-server-memory"],
     };
