@@ -133,6 +133,7 @@ export function buildSessionLibraryEntry(fileName, result, rawText, previousEntr
     id: id,
     file: fileName,
     format: metadata.format || "claude-code",
+    sessionId: metadata.sessionId || null,
     repository: metadata.repository || null,
     branch: metadata.branch || null,
     cwd: metadata.cwd || null,

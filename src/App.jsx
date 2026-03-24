@@ -134,6 +134,25 @@ export default function App() {
   // Filter discovered to sessions > 5KB (tiny files are Claude internal queue/ops sessions).
   var allSessions = useMemo(function () {
     try {
+      // Build a lookup: discoveredPath/sessionId -> discovered session for path enrichment
+      var discoveredByPath = {};
+      var discoveredBySessionId = {};
+      discovered.sessions.forEach(function (s) {
+        if (s.size < 5000) return;
+        if (s.path) discoveredByPath[s.path] = s;
+        if (s.sessionId) discoveredBySessionId[s.sessionId] = s;
+      });
+
+      // Enrich library entries with discoveredPath if we can match them to a discovered session
+      var enrichedLibrary = libraryEntries.map(function (e) {
+        if (e.discoveredPath) return e; // already has it
+        var match = (e.sessionId && discoveredBySessionId[e.sessionId])
+          || (e.discoveredPath && discoveredByPath[e.discoveredPath]);
+        if (match) return Object.assign({}, e, { discoveredPath: match.path });
+        return e;
+      });
+
+      // Only add discovered entries that aren't already in the library
       var discoveredOnly = discovered.sessions.filter(function (s) {
         if (s.size < 5000) return false;
         return !libraryEntries.some(function (e) {
@@ -156,7 +175,7 @@ export default function App() {
           isDiscovered: true,
         };
       });
-      return libraryEntries.concat(discoveredOnly);
+      return enrichedLibrary.concat(discoveredOnly);
     } catch (e) {
       console.error("[allSessions] merge error:", e);
       return libraryEntries;
