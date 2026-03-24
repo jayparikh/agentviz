@@ -43,3 +43,10 @@ nohup: ignoring input
   Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
   Press Ctrl+C to stop.
 
+2026-03-24T21:45:57.544Z [start] listening on http://localhost:4242
+2026-03-24T21:45:57.544Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+

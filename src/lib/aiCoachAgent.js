@@ -25,16 +25,37 @@ var COACH_MODEL = "gpt-4o-mini";
 var MAX_TOKENS = 2000;
 var MAX_AGENT_ROUNDS = 6;
 
-// Known config files the agent is allowed to read and target
-export var KNOWN_CONFIG_PATHS = [
+// Format-specific config paths the agent may read and target
+var CONFIG_PATHS_CLAUDE = [
   "CLAUDE.md",
   "AGENTS.md",
-  ".github/copilot-instructions.md",
   ".mcp.json",
   ".claude/settings.json",
-  ".github/extensions",
-  ".github/prompts",
+  ".claude/agents",
+  ".claude/commands",
 ];
+
+var CONFIG_PATHS_COPILOT = [
+  ".github/copilot-instructions.md",
+  ".github/prompts",
+  ".github/extensions",
+];
+
+// Shared paths available regardless of agent type
+var CONFIG_PATHS_SHARED = [
+  ".mcp.json",
+  ".github/copilot-instructions.md",
+];
+
+export function getConfigPathsForFormat(format) {
+  if (format === "copilot-cli") return CONFIG_PATHS_COPILOT.concat([".mcp.json"]);
+  return CONFIG_PATHS_CLAUDE; // claude-code default
+}
+
+// Kept for backwards compat / tests
+export var KNOWN_CONFIG_PATHS = CONFIG_PATHS_CLAUDE.concat(CONFIG_PATHS_COPILOT.filter(function (p) {
+  return !CONFIG_PATHS_CLAUDE.includes(p);
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Token acquisition
@@ -54,77 +75,127 @@ export function getGhToken() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tool definitions (OpenAI tool_calls format)
+// Tool definitions (built per-request so paths match session format)
 // ─────────────────────────────────────────────────────────────────────────────
 
-var AGENT_TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "read_config",
-      description:
-        "Read an actual config file from the developer's project. Call this before proposing changes to understand what already exists. Returns file content or a 'not found' message with a starter template.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description: "Relative path to the config file. Must be one of: " + KNOWN_CONFIG_PATHS.join(", "),
+function buildAgentTools(configPaths) {
+  var pathList = configPaths.join(", ");
+  return [
+    {
+      type: "function",
+      function: {
+        name: "read_config",
+        description:
+          "Read an actual config file from the developer's project. Call this BEFORE proposing changes so you know what already exists. Returns file content, or a 'not found' message with a starter template if the file is missing.",
+        parameters: {
+          type: "object",
+          properties: {
+            path: {
+              type: "string",
+              description: "Relative path to the config file. Must be one of: " + pathList,
+            },
           },
+          required: ["path"],
         },
-        required: ["path"],
       },
     },
-  },
-  {
-    type: "function",
-    function: {
-      name: "recommend",
-      description:
-        "Commit a specific, actionable recommendation that targets a real config file. The draftText must be the complete valid content to write to targetPath -- not pseudo-code. Call this once per recommendation (2-4 total).",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Short title (< 8 words)" },
-          priority: { type: "string", enum: ["high", "medium"], description: "high = blocks autonomy, medium = improvement" },
-          summary: { type: "string", description: "1-2 sentence description of the problem observed in the session data" },
-          fix: { type: "string", description: "Specific action to take, referencing the actual error or metric seen" },
-          targetPath: {
-            type: "string",
-            description: "Real config file to write to. Must be one of: " + KNOWN_CONFIG_PATHS.join(", ") + ". Use null if this is advice only (no file change).",
+    {
+      type: "function",
+      function: {
+        name: "recommend",
+        description:
+          "Commit one concrete recommendation. draftText must be valid content ready to write/append -- no pseudo-code, no placeholder URLs. Call this 2-4 times total.",
+        parameters: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Short title (< 8 words)" },
+            priority: { type: "string", enum: ["high", "medium"] },
+            summary: { type: "string", description: "1-2 sentences describing the problem seen in the session data" },
+            fix: { type: "string", description: "Specific action to take, referencing the actual error or metric" },
+            targetPath: {
+              type: "string",
+              description: "Config file to write to. Must be one of: " + pathList + ". Use null for advice-only (no file change).",
+            },
+            draftText: {
+              type: "string",
+              description: "Content to write or append. For .mcp.json: full valid JSON with mcpServers object. For markdown: only the new section. Must be copy-paste ready.",
+            },
           },
-          draftText: {
-            type: "string",
-            description: "Complete valid content to write to targetPath. For .mcp.json: full valid JSON. For markdown files: just the new section to append. Must be ready to copy-paste.",
-          },
+          required: ["title", "priority", "summary", "fix", "targetPath", "draftText"],
         },
-        required: ["title", "priority", "summary", "fix", "targetPath", "draftText"],
       },
     },
-  },
-];
+  ];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// System prompt
+// System prompt (format-aware)
 // ─────────────────────────────────────────────────────────────────────────────
 
-var SYSTEM_PROMPT = [
-  "You are an expert AI agent workflow coach. You analyze session telemetry from",
-  "AI coding agents (Claude Code, GitHub Copilot CLI) and produce specific,",
-  "evidence-based recommendations to improve autonomy and reduce human interventions.",
+var MCP_JSON_SCHEMA = [
+  "## .mcp.json schema (MUST follow exactly)",
+  "{",
+  '  "mcpServers": {',
+  '    "serverName": {',
+  '      "command": "uvx",',
+  '      "args": ["mcp-server-package-name"],',
+  '      "env": {}',
+  "    }",
+  "  }",
+  "}",
   "",
-  "IMPORTANT RULES:",
-  "1. Always call read_config() first for the most relevant config files before recommending.",
-  "   - If errors involve web_fetch: read .mcp.json to check for web search MCP servers",
-  "   - If idle time is high: read CLAUDE.md / AGENTS.md for existing autonomy instructions",
-  "   - If tool errors are frequent: read .claude/settings.json for permission config",
-  "2. Base every recommendation on ACTUAL data (errors, tool counts, idle time, interventions).",
-  "3. Never invent config keys or fake settings. Only output valid JSON or valid Markdown.",
-  "4. For .mcp.json: output complete valid JSON including existing servers plus new ones.",
-  "5. For markdown files (CLAUDE.md, AGENTS.md): output only the new section to APPEND.",
-  "6. Call recommend() 2-4 times -- once per concrete fix. Prioritize by impact.",
-  "7. If a problem has no config fix (e.g. model needs better prompting), set targetPath to null.",
+  "Common MCP servers for common problems:",
+  "- web_fetch errors: command=uvx args=[mcp-server-fetch]  -- adds real HTTP fetch capability",
+  "- filesystem access: command=npx args=[-y, @modelcontextprotocol/server-filesystem, /path]",
+  "- GitHub API: command=npx args=[-y, @modelcontextprotocol/server-github]",
+  "NEVER output {\"servers\": [...urls...]} -- that is not valid .mcp.json format.",
 ].join("\n");
+
+var CLAUDE_CODE_GUIDANCE = [
+  "This is a CLAUDE CODE session. Relevant config files:",
+  "- CLAUDE.md: main instructions, autonomy rules, permission grants",
+  "- AGENTS.md: sub-agent definitions (if used)",
+  "- .mcp.json: MCP server configuration (adds tools/capabilities)",
+  "- .claude/settings.json: permission allowlists/blocklists",
+  "- .claude/agents/: sub-agent markdown files",
+  "",
+  "If errors involve web_fetch: add the fetch MCP server to .mcp.json",
+  "If idle time is high: add autonomy instructions to CLAUDE.md",
+  "If tool calls are blocked: check .claude/settings.json allowedTools",
+].join("\n");
+
+var COPILOT_CLI_GUIDANCE = [
+  "This is a GITHUB COPILOT CLI session. Relevant config files:",
+  "- .github/copilot-instructions.md: main instructions, coding standards, context",
+  "- .github/prompts/*.prompt.md: custom slash commands / task templates",
+  "- .github/extensions/*.yml: skill extensions that add capabilities",
+  "- .mcp.json: MCP server configuration (adds tools/capabilities)",
+  "",
+  "For Copilot CLI, web_fetch is a built-in tool -- if it's failing, the issue is",
+  "usually network access or missing MCP server for the specific resource type.",
+  "If idle time is high: add task management guidance to .github/copilot-instructions.md",
+  "If the agent lacks domain knowledge: add context sections to copilot-instructions.md",
+].join("\n");
+
+function buildSystemPrompt(format) {
+  var formatGuidance = format === "copilot-cli" ? COPILOT_CLI_GUIDANCE : CLAUDE_CODE_GUIDANCE;
+  return [
+    "You are an expert AI agent workflow coach. You analyze session telemetry from",
+    "AI coding agents and produce specific, evidence-based recommendations.",
+    "",
+    formatGuidance,
+    "",
+    MCP_JSON_SCHEMA,
+    "",
+    "RULES:",
+    "1. Always call read_config() first for relevant files before recommending.",
+    "2. Base every recommendation on ACTUAL data from the session (specific errors, metrics).",
+    "3. Never invent config keys or fake URLs. Only output valid JSON or valid Markdown.",
+    "4. For .mcp.json: merge with existing content -- output the full merged JSON.",
+    "5. For markdown files: output only the new section to APPEND (not the full file).",
+    "6. Call recommend() 2-4 times. Set targetPath=null only for advice with no file fix.",
+  ].join("\n");
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt builder
@@ -138,12 +209,13 @@ export function buildCoachPrompt(payload) {
   } = payload;
 
   var agentType = format === "copilot-cli" ? "GitHub Copilot CLI" : "Claude Code";
+  var configPaths = getConfigPathsForFormat(format);
   var toolList = (topTools || []).slice(0, 10).map(function (t) { return t.name + " x" + t.count; }).join(", ");
   var errors = (errorSamples || []).slice(0, 6).map(function (e, i) { return (i + 1) + ". " + e; }).join("\n");
   var followUps = (userFollowUps || []).slice(0, 5).map(function (m) { return "- " + m; }).join("\n");
 
   var sections = [
-    "Analyze this " + agentType + " session. Use read_config() to inspect relevant files, then call recommend() for each fix.",
+    "Analyze this " + agentType + " session. Call read_config() to inspect relevant files, then recommend() for each fix.",
     "",
     "## Session stats",
     "- Model: " + (primaryModel || "unknown"),
@@ -167,7 +239,7 @@ export function buildCoachPrompt(payload) {
   sections.push(
     "",
     "## Available config paths to read/write",
-    KNOWN_CONFIG_PATHS.map(function (p) { return "- " + p; }).join("\n"),
+    configPaths.map(function (p) { return "- " + p; }).join("\n"),
   );
 
   return sections.join("\n");
@@ -200,8 +272,12 @@ export async function runCoachAgent(payload, opts) {
     defaultHeaders: { "X-GitHub-Api-Version": "2022-11-28" },
   });
 
+  var format = payload.format || "claude-code";
+  var configPaths = getConfigPathsForFormat(format);
+  var agentTools = buildAgentTools(configPaths);
+
   var messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: buildSystemPrompt(format) },
     { role: "user", content: buildCoachPrompt(payload) },
   ];
 
@@ -223,7 +299,7 @@ export async function runCoachAgent(payload, opts) {
     var completion = await client.chat.completions.create({
       model: COACH_MODEL,
       messages: messages,
-      tools: AGENT_TOOLS,
+      tools: agentTools,
       tool_choice: "auto",
       temperature: 0.2,
       max_tokens: MAX_TOKENS,
@@ -261,7 +337,7 @@ export async function runCoachAgent(payload, opts) {
         toolResults.push({ tool_call_id: tc.id, role: "tool", content: result });
 
       } else if (fnName === "recommend") {
-        var rec = normalizeRecommendation(fnArgs);
+        var rec = normalizeRecommendation(fnArgs, configPaths);
         recommendations.push(rec);
         emit({ type: "recommend", label: "Recommendation: " + rec.title, rec: rec });
         toolResults.push({ tool_call_id: tc.id, role: "tool", content: "Recommendation recorded." });
@@ -294,8 +370,9 @@ export async function runCoachAgent(payload, opts) {
 // Normalization
 // ─────────────────────────────────────────────────────────────────────────────
 
-function normalizeRecommendation(args) {
-  var targetPath = args.targetPath && args.targetPath !== "null" && KNOWN_CONFIG_PATHS.includes(args.targetPath)
+function normalizeRecommendation(args, allowedPaths) {
+  var allowed = allowedPaths || KNOWN_CONFIG_PATHS;
+  var targetPath = args.targetPath && args.targetPath !== "null" && allowed.includes(args.targetPath)
     ? args.targetPath
     : null;
   return {
