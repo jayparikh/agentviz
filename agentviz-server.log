@@ -91,3 +91,5 @@ nohup: ignoring input
   Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
   Press Ctrl+C to stop.
 
+[CLI subprocess] (node:513500) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)

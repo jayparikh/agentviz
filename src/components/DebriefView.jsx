@@ -2,7 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
 import { KNOWN_CONFIG_SURFACES, getRelevantSurfaces } from "../lib/projectConfig.js";
-import { buildDebriefRecommendations, checkApplied } from "../lib/debriefRecommendations.js";
+// ─────────────────────────────────────────────────────────────────────────────
+// Coach analysis cache (localStorage)
+// ─────────────────────────────────────────────────────────────────────────────
+var CACHE_PREFIX = "agentviz:coach:v1:";
+function loadCachedAnalysis(file) {
+  try { var raw = localStorage.getItem(CACHE_PREFIX + file); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function saveCachedAnalysis(file, data) {
+  try { localStorage.setItem(CACHE_PREFIX + file, JSON.stringify(data)); } catch (e) {}
+}
+function clearCachedAnalysis(file) {
+  try { localStorage.removeItem(CACHE_PREFIX + file); } catch (e) {}
+}
 
 // User-settable status options shown in the dropdown
 var STATUS_OPTIONS = [
@@ -76,47 +88,11 @@ function basename(filePath) {
   return parts[parts.length - 1] || filePath;
 }
 
-/**
- * Builds a baseline snapshot from an array of config file results.
- * Maps configFile.id -> { exists, entriesCount, contentLength }.
- * @param {Array} configFiles
- * @returns {object}
- */
 function buildBaselineSnapshot(configFiles) {
-  var snapshot = {};
-  for (var i = 0; i < configFiles.length; i++) {
-    var cf = configFiles[i];
-    snapshot[cf.id] = {
-      exists: Boolean(cf.exists),
-      entriesCount: cf.entries ? cf.entries.length : 0,
-      contentLength: cf.content ? cf.content.length : 0,
-    };
-  }
-  return snapshot;
+  return {};
 }
 
-/**
- * Runs checkApplied for every recommendation and returns an object
- * mapping rec.id -> "already-handled" | "partial" | null.
- * @param {Array} recs
- * @param {Array} configFiles
- * @returns {object}
- */
-function reconcileStatuses(recs, configFiles) {
-  var result = {};
-  for (var i = 0; i < recs.length; i++) {
-    var rec = recs[i];
-    var applied = checkApplied(rec, configFiles);
-    if (applied === "handled") {
-      result[rec.id] = "already-handled";
-    } else if (applied === "partial") {
-      result[rec.id] = "partial";
-    } else {
-      result[rec.id] = null;
-    }
-  }
-  return result;
-}
+function reconcileStatuses() { return {}; }
 
 export default function DebriefView({ file, summary, recommendations, recommendationState, onSetRecommendationState, metadata, rawSession }) {
   var [copiedId, setCopiedId] = useState(null);
@@ -126,9 +102,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   var [configLoaded, setConfigLoaded] = useState(false);
   var [showConfigExplorer, setShowConfigExplorer] = useState(false);
   var [expandedSurface, setExpandedSurface] = useState(null);
-  var [configAwareRecommendations, setConfigAwareRecommendations] = useState(null);
-  var [reconciledStatuses, setReconciledStatuses] = useState({});
-  var [expandedCardIds, setExpandedCardIds] = useState({});
   var [lastChecked, setLastChecked] = useState(null);
   var [aiAnalysis, setAiAnalysis] = useState(null);
   var [aiStatus, setAiStatus] = useState(null); // null | "loading" | "done" | "error"
@@ -139,8 +112,9 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   var [aiApplyHistory, setAiApplyHistory] = useState({}); // { recIdx: { original: string|null, path: string } }
   var [aiPreview, setAiPreview] = useState({}); // { recIdx: true } -- show preview pane
   var aiAbortRef = useRef(null);
+  var autoStartedRef = useRef(false);
 
-  // Baseline snapshot -- set once when config first loads, never updated
+  // Baseline snapshot -- kept for config explorer but no longer drives rec list
   var baselineRef = useRef(null);
 
   useEffect(function () {
@@ -152,44 +126,29 @@ export default function DebriefView({ file, summary, recommendations, recommenda
 
   useEffect(function () {
     if (!configLoaded || configFiles.length === 0 || !rawSession) return;
-    // Only run on first config load -- Refresh is handled explicitly by handleRefresh
     if (baselineRef.current !== null) return;
-    var rebuilt = buildDebriefRecommendations(
-      rawSession.events,
-      rawSession.turns,
-      rawSession.metadata,
-      rawSession.autonomyMetrics,
-      configFiles
-    );
-    var freshRecs = rebuilt.recommendations;
-    setConfigAwareRecommendations(freshRecs);
-
-    // Set baseline snapshot once (first load)
-    if (baselineRef.current === null) {
-      baselineRef.current = buildBaselineSnapshot(configFiles);
-    }
-
-    // Run reconciliation and pre-populate auto statuses
-    var statuses = reconcileStatuses(freshRecs, configFiles);
-    setReconciledStatuses(statuses);
-
-    // Collapse already-handled cards by default on first load
-    setExpandedCardIds(function (prev) {
-      var next = Object.assign({}, prev);
-      for (var id in statuses) {
-        if (statuses[id] === "already-handled" && !Object.prototype.hasOwnProperty.call(next, id)) {
-          next[id] = false;
-        }
-      }
-      return next;
-    });
-
+    baselineRef.current = buildBaselineSnapshot(configFiles);
     setLastChecked(Date.now());
   }, [configLoaded, configFiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  var activeRecommendations = (configLoaded && configFiles.length > 0 && configAwareRecommendations)
-    ? configAwareRecommendations
-    : recommendations;
+  // Auto-start AI analysis once config + session are ready; use cache if available
+  useEffect(function () {
+    if (!rawSession || !configLoaded || !file) return;
+    if (autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    var cached = loadCachedAnalysis(file);
+    if (cached) {
+      setAiAnalysis(cached.recommendations);
+      setAiModelInfo(cached.modelInfo || null);
+      setAiStatus("done");
+      return;
+    }
+    // Small delay so config files are populated before the agent reads them
+    var t = setTimeout(function () { handleAiAnalyze(); }, 200);
+    return function () { clearTimeout(t); };
+  }, [rawSession, configLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  var activeRecommendations = [];
 
   function getEditedDraft(recommendation) {
     return Object.prototype.hasOwnProperty.call(editedDrafts, recommendation.id)
@@ -244,17 +203,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
       .then(function (r) { return r.json(); })
       .then(function (freshData) {
         setConfigFiles(freshData);
-        var rebuilt = buildDebriefRecommendations(
-          rawSession.events,
-          rawSession.turns,
-          rawSession.metadata,
-          rawSession.autonomyMetrics,
-          freshData
-        );
-        var freshRecs = rebuilt.recommendations;
-        setConfigAwareRecommendations(freshRecs);
-        var statuses = reconcileStatuses(freshRecs, freshData);
-        setReconciledStatuses(statuses);
         setLastChecked(Date.now());
       })
       .catch(function () {});
@@ -263,19 +211,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   function buildAnalysisPayload() {
     var m = rawSession.autonomyMetrics || {};
     var met = rawSession.metadata || {};
-    // Include triggered static recommendations so agent can enhance them with real session data
-    var triggeredRecs = (activeRecommendations || []).map(function (r) {
-      var status = reconciledStatuses[r.id] || recommendationState[r.id] || "pending";
-      return {
-        id: r.id,
-        title: r.title,
-        summary: r.summary,
-        fix: r.fix || "",
-        targetPath: r.targetPath || null,
-        draftTemplate: r.draftText ? r.draftText.substring(0, 400) : "",
-        alreadyApplied: status === "already-handled" || status === "applied",
-      };
-    });
     return {
       format: met.format || "claude-code",
       primaryModel: met.primaryModel || null,
@@ -294,7 +229,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
         .filter(function (e) { return e.isError && e.text; })
         .slice(0, 6)
         .map(function (e) { return (e.toolName ? "[" + e.toolName + "] " : "") + e.text.substring(0, 150); }),
-      triggeredPatterns: triggeredRecs,
     };
   }
 
@@ -340,8 +274,10 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                 setAiSteps(function (prev) { return prev.concat(msg.step); });
               }
               if (msg.done && msg.result) {
+                var modelInfo = { model: msg.result.model, usage: msg.result.usage };
                 setAiAnalysis(msg.result.recommendations);
-                setAiModelInfo({ model: msg.result.model, usage: msg.result.usage });
+                setAiModelInfo(modelInfo);
+                saveCachedAnalysis(file, { recommendations: msg.result.recommendations, modelInfo: modelInfo, cachedAt: new Date().toISOString() });
                 setAiStatus("done");
               }
               if (msg.error) {
@@ -369,6 +305,11 @@ export default function DebriefView({ file, summary, recommendations, recommenda
     if (aiAbortRef.current) { aiAbortRef.current.abort(); aiAbortRef.current = null; }
     setAiStatus(null);
     setAiSteps([]);
+  }
+
+  function handleAiRedo() {
+    clearCachedAnalysis(file);
+    handleAiAnalyze();
   }
 
   function toggleAiPreview(idx) {
@@ -417,22 +358,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
     }).catch(function () {
       setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "error" }); });
     });
-  }
-
-  function toggleCardExpanded(id) {
-    setExpandedCardIds(function (prev) {
-      var next = Object.assign({}, prev);
-      next[id] = !prev[id];
-      return next;
-    });
-  }
-
-  function isCardCollapsed(id, autoStatus) {
-    if (Object.prototype.hasOwnProperty.call(expandedCardIds, id)) {
-      return !expandedCardIds[id];
-    }
-    // Default: collapse already-handled cards
-    return autoStatus === "already-handled";
   }
 
   function findConfigResult(surfaceId) {
@@ -764,12 +689,32 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                 <span>{"⏹"}</span>
                 Cancel
               </button>
-            ) : (
+            ) : aiStatus === "done" ? (
+              <button
+                className="av-btn"
+                onClick={handleAiRedo}
+                title="Clear cache and re-run AI analysis"
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  border: "1px solid " + theme.border.default,
+                  background: "transparent",
+                  color: theme.text.secondary,
+                  borderRadius: theme.radius.md,
+                  padding: "5px 10px",
+                  fontSize: theme.fontSize.xs,
+                  fontFamily: theme.font.ui,
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ fontSize: "0.9em" }}>{"↺"}</span>
+                Redo
+              </button>
+            ) : aiStatus !== "loading" ? (
               <button
                 className="av-btn"
                 onClick={handleAiAnalyze}
                 disabled={!rawSession}
-                title="Get AI-powered contextual recommendations via GitHub Copilot SDK"
+                title="Analyze with GitHub Copilot SDK"
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
                   border: "1px solid " + theme.accent.primary,
@@ -783,28 +728,9 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                 }}
               >
                 <span>{"✦"}</span>
-                AI Analyze
+                Analyze
               </button>
-            )}
-            <button
-              className="av-btn"
-              onClick={handleRefresh}
-              title="Re-read config files and update recommendation statuses"
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                border: "1px solid " + theme.border.default,
-                background: "transparent",
-                color: theme.text.secondary,
-                borderRadius: theme.radius.md,
-                padding: "5px 10px",
-                fontSize: theme.fontSize.xs,
-                fontFamily: theme.font.ui,
-                cursor: "pointer",
-              }}
-            >
-              <span style={{ fontSize: "0.9em" }}>{"↺"}</span>
-              Refresh
-            </button>
+            ) : null}
           </div>
         </div>
 
@@ -851,194 +777,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
           </div>
         )}
 
-        {activeRecommendations.map(function (recommendation) {
-          var state = recommendationState[recommendation.id] || null;
-          var autoStatus = reconciledStatuses[recommendation.id] || null;
-          var effectiveStatus = state || autoStatus;
-          var currentApplyStatus = applyStatus[recommendation.id] || null;
-          var editedDraft = getEditedDraft(recommendation);
-          var showApplyButton = (state === "accepted" || state === "applied") && recommendation.targetPath != null;
-          var showTargetPath = (state === "accepted" || state === "applied") && recommendation.targetPath != null;
-          var collapsed = isCardCollapsed(recommendation.id, autoStatus);
-          var isAlreadyHandled = autoStatus === "already-handled" && !state;
-
-          return (
-            <div
-              key={recommendation.id}
-              style={{
-                background: isAlreadyHandled ? alpha(theme.bg.surface, 0.5) : theme.bg.surface,
-                border: "1px solid " + (isAlreadyHandled ? theme.border.subtle : theme.border.default),
-                borderRadius: theme.radius.xl,
-                padding: "16px 18px",
-                opacity: isAlreadyHandled ? 0.75 : 1,
-              }}
-            >
-              <div
-                style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", cursor: isAlreadyHandled ? "pointer" : "default" }}
-                onClick={isAlreadyHandled ? function () { toggleCardExpanded(recommendation.id); } : undefined}
-              >
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
-                      {recommendation.surface}
-                    </span>
-                    <span style={{
-                      fontSize: theme.fontSize.xs,
-                      color: recommendation.priority === "high" ? theme.semantic.error : theme.accent.primary,
-                      border: "1px solid " + (recommendation.priority === "high" ? theme.semantic.errorBorder : theme.border.default),
-                      borderRadius: theme.radius.full,
-                      padding: "3px 8px",
-                    }}>
-                      {recommendation.priority} priority
-                    </span>
-                    <RecommendationStatus value={effectiveStatus} />
-                    {isAlreadyHandled && (
-                      <span style={{
-                        fontSize: theme.fontSize.xs,
-                        color: theme.text.dim,
-                        fontFamily: theme.font.ui,
-                      }}>
-                        {collapsed ? "click to expand" : "click to collapse"}
-                      </span>
-                    )}
-                    {showApplyButton && (
-                      <button
-                        className="av-btn"
-                        disabled={currentApplyStatus === "applying" || currentApplyStatus === "applied"}
-                        onClick={function () { applyToFile(recommendation); }}
-                        style={{
-                          border: "1px solid " + (currentApplyStatus === "applied"
-                            ? alpha(theme.semantic.success, 0.4)
-                            : alpha(theme.accent.primary, 0.5)),
-                          background: currentApplyStatus === "applied"
-                            ? alpha(theme.semantic.success, 0.08)
-                            : alpha(theme.accent.primary, 0.08),
-                          color: currentApplyStatus === "applied"
-                            ? theme.semantic.success
-                            : theme.accent.primary,
-                          borderRadius: theme.radius.md,
-                          padding: "6px 10px",
-                          fontSize: theme.fontSize.base,
-                          fontFamily: theme.font.ui,
-                          cursor: currentApplyStatus === "applying" || currentApplyStatus === "applied" ? "default" : "pointer",
-                          opacity: currentApplyStatus === "applying" ? 0.6 : 1,
-                        }}
-                      >
-                        {currentApplyStatus === "applying"
-                          ? "Applying..."
-                          : currentApplyStatus === "applied"
-                            ? "Applied"
-                            : "Apply to " + basename(recommendation.targetPath)}
-                      </button>
-                    )}
-                    {currentApplyStatus === "copy-fallback" && recommendation.targetPath && (
-                      <span style={{
-                        fontSize: theme.fontSize.xs,
-                        color: theme.text.dim,
-                        fontFamily: theme.font.ui,
-                      }}>
-                        CLI server not available - content copied, save to {recommendation.targetPath}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: theme.fontSize.xl, color: theme.text.primary, fontFamily: theme.font.ui, marginTop: 8 }}>
-                    {recommendation.title}
-                  </div>
-                  <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6, lineHeight: 1.7 }}>
-                    {recommendation.summary}
-                  </div>
-                </div>
-
-                <ToolbarButton
-                  onClick={function () { copyDraft(recommendation.id, editedDraft); }}
-                  style={{
-                    color: copiedId === recommendation.id ? theme.semantic.success : theme.accent.primary,
-                    borderColor: copiedId === recommendation.id ? alpha(theme.semantic.success, 0.4) : theme.accent.primary,
-                    background: copiedId === recommendation.id ? alpha(theme.semantic.success, 0.08) : alpha(theme.accent.primary, 0.08),
-                    flexShrink: 0,
-                    display: collapsed ? "none" : undefined,
-                  }}
-                >
-                  {copiedId === recommendation.id ? "Copied" : "Copy draft"}
-                </ToolbarButton>
-              </div>
-
-              {!collapsed && (
-                <>
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
-                      Evidence
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: 18, color: theme.text.secondary, lineHeight: 1.8 }}>
-                      {recommendation.evidence.map(function (item) {
-                        return <li key={item}>{item}</li>;
-                      })}
-                    </ul>
-                  </div>
-
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
-                      Reviewable draft
-                    </div>
-                    <textarea
-                      value={editedDraft}
-                      onChange={function (e) { setEditedDraft(recommendation.id, e.target.value); }}
-                      style={{
-                        width: "100%",
-                        minHeight: 180,
-                        background: theme.bg.base,
-                        color: theme.text.primary,
-                        border: "1px solid " + theme.border.default,
-                        borderRadius: theme.radius.lg,
-                        padding: 12,
-                        resize: "vertical",
-                        fontSize: theme.fontSize.base,
-                        fontFamily: theme.font.mono,
-                        lineHeight: 1.6,
-                      }}
-                    />
-                    {showTargetPath && (
-                      <div style={{
-                        fontSize: theme.fontSize.xs,
-                        color: theme.text.dim,
-                        marginTop: 6,
-                        fontFamily: theme.font.mono,
-                      }}>
-                        Target: {recommendation.targetPath}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                    {STATUS_OPTIONS.filter(function (option) { return option.id !== "applied"; }).map(function (option) {
-                      var active = state === option.id;
-
-                      return (
-                        <button
-                          key={option.id}
-                          className="av-btn"
-                          onClick={function () { onSetRecommendationState(recommendation.id, option.id); }}
-                          style={{
-                            border: "1px solid " + (active ? option.color : theme.border.default),
-                            background: active ? alpha(option.color, 0.12) : "transparent",
-                            color: active ? option.color : theme.text.muted,
-                            borderRadius: theme.radius.md,
-                            padding: "6px 10px",
-                            fontSize: theme.fontSize.base,
-                            fontFamily: theme.font.ui,
-                            cursor: "pointer",
-                          }}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
       </div>
     </div>
   );

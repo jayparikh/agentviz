@@ -198,7 +198,7 @@ export function buildCoachPrompt(payload) {
   var {
     format, primaryModel, totalEvents, totalTurns, errorCount, totalToolCalls,
     productiveRuntime, humanResponseTime, idleTime, interventions, autonomyEfficiency,
-    topTools, errorSamples, userFollowUps, triggeredPatterns,
+    topTools, errorSamples, userFollowUps,
   } = payload;
 
   var agentType = format === "copilot-cli" ? "GitHub Copilot CLI" : "Claude Code";
@@ -227,28 +227,6 @@ export function buildCoachPrompt(payload) {
   }
   if (followUps) {
     sections.push("", "## Human follow-up messages (where agent got stuck)", followUps);
-  }
-
-  // Pass triggered static patterns as seeds -- agent enhances these with real session data
-  var pending = (triggeredPatterns || []).filter(function (p) { return !p.alreadyApplied; });
-  var applied = (triggeredPatterns || []).filter(function (p) { return p.alreadyApplied; });
-  if (pending.length > 0) {
-    sections.push("", "## Patterns already detected in this session (enhance these -- make them specific to the data above)");
-    pending.forEach(function (p) {
-      sections.push(
-        "- [" + p.id + "] " + p.title + (p.targetPath ? " -> " + p.targetPath : " (no file target)"),
-        "  Summary: " + p.summary,
-        p.draftTemplate ? "  Template draft (improve with session-specific data): " + p.draftTemplate.split("\n")[0] + "..." : "",
-      );
-    });
-    sections.push("Use these patterns as starting points. Read the actual config file, then produce a draftText that references the specific errors/metrics from this session.");
-  }
-  if (applied.length > 0) {
-    sections.push(
-      "",
-      "## Already applied (skip these -- do NOT re-recommend)",
-      applied.map(function (p) { return "- " + p.title; }).join("\n"),
-    );
   }
 
   sections.push(

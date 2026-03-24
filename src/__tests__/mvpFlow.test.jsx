@@ -130,11 +130,9 @@ describe("AgentViz MVP flow", function () {
       return findByText(app.container, "Session coaching:");
     }, "expected debrief view to open");
 
-    expect(findByText(app.container, "AGENTS.md")).toBeTruthy();
-    expect(findByText(app.container, "Reviewable draft")).toBeTruthy();
-
-    await click(findExactButton(app.container, "Accepted"));
-    expect(findByText(app.container, "Accepted")).toBeTruthy();
+    // AI-first: static rec cards are gone; coach header and stats grid should be present
+    expect(findByText(app.container, "Session coaching:")).toBeTruthy();
+    expect(findByText(app.container, "Coach")).toBeTruthy();
 
     await app.unmount();
   });
