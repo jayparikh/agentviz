@@ -717,6 +717,25 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
           </button>
         </div>
 
+        {graphData.truncated && (
+          <div style={{
+            position: "absolute",
+            top: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: alpha(theme.bg.surface, 0.9),
+            border: "1px solid " + theme.border.default,
+            borderRadius: theme.radius.lg,
+            padding: "4px 12px",
+            fontSize: theme.fontSize.xs,
+            color: theme.text.dim,
+            fontFamily: theme.font.mono,
+            pointerEvents: "none",
+          }}>
+            Showing first 80 of {graphData.totalTurns} turns
+          </div>
+        )}
+
         {/* Legend */}
         <div style={{
           position: "absolute",

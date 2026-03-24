@@ -9,15 +9,21 @@ import ELK from "elkjs/lib/elk.bundled.js";
 var elk = new ELK();
 
 // Build an ELK graph from turns and events
+var MAX_GRAPH_TURNS = 80; // ELK gets very slow beyond ~100 nodes
+
 export function buildGraphData(eventEntries, turns, expandedTurns) {
   var nodes = [];
   var edges = [];
   var nodeMap = {};
 
-  if (!turns || turns.length === 0) return { nodes: [], edges: [] };
+  if (!turns || turns.length === 0) return { nodes: [], edges: [], truncated: false };
 
-  for (var i = 0; i < turns.length; i++) {
-    var turn = turns[i];
+  // Cap turns to avoid ELK timeout on large sessions
+  var truncated = turns.length > MAX_GRAPH_TURNS;
+  var visibleTurns = truncated ? turns.slice(0, MAX_GRAPH_TURNS) : turns;
+
+  for (var i = 0; i < visibleTurns.length; i++) {
+    var turn = visibleTurns[i];
     var turnId = "turn-" + turn.index;
     var turnEvents = getTurnEvents(eventEntries, turn);
     var toolCalls = turnEvents.filter(function (e) { return e.event.track === "tool_call"; });
@@ -130,9 +136,9 @@ export function buildGraphData(eventEntries, turns, expandedTurns) {
   }
 
   // Edges between consecutive turns
-  for (var n = 1; n < turns.length; n++) {
-    var fromId = "turn-" + turns[n - 1].index;
-    var toId = "turn-" + turns[n].index;
+  for (var n = 1; n < visibleTurns.length; n++) {
+    var fromId = "turn-" + visibleTurns[n - 1].index;
+    var toId = "turn-" + visibleTurns[n].index;
     edges.push({
       id: fromId + "->" + toId,
       sources: [fromId],
@@ -140,7 +146,7 @@ export function buildGraphData(eventEntries, turns, expandedTurns) {
     });
   }
 
-  return { nodes: nodes, edges: edges };
+  return { nodes: nodes, edges: edges, truncated: truncated, totalTurns: turns.length };
 }
 
 // Run ELK layout on the graph data

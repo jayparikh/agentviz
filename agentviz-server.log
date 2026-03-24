@@ -1,5 +1,5 @@
 nohup: ignoring input
-2026-03-24T16:02:20.354Z [start] listening on http://localhost:4242 session=events.jsonl
+2026-03-24T17:57:45.637Z [start] listening on http://localhost:4242 session=events.jsonl
 
   AGENTVIZ. running at http://localhost:4242
   Session: events.jsonl
