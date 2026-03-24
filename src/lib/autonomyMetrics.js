@@ -147,10 +147,30 @@ export function buildAutonomySummary(metrics) {
   if (!metrics) return [];
 
   return [
-    { label: "Productive runtime", value: formatDurationLong(metrics.productiveRuntime) },
-    { label: "Babysitting time", value: formatDurationLong(metrics.babysittingTime) },
-    { label: "Idle time", value: formatDurationLong(metrics.idleTime) },
-    { label: "Interventions", value: String(metrics.interventionCount) },
-    { label: "Autonomy efficiency", value: formatAutonomyEfficiency(metrics.autonomyEfficiency) },
+    {
+      label: "Productive runtime",
+      value: formatDurationLong(metrics.productiveRuntime),
+      tooltip: "Total time the agent spent actively executing: reasoning, tool calls, and outputs.",
+    },
+    {
+      label: "Human response time",
+      value: formatDurationLong(metrics.babysittingTime),
+      tooltip: "Time the agent waited for you to send a follow-up. High values mean the session needed frequent human input.",
+    },
+    {
+      label: "Idle time",
+      value: formatDurationLong(metrics.idleTime),
+      tooltip: "Long gaps (30s+) not caused by waiting for you -- the agent paused or you stepped away.",
+    },
+    {
+      label: "Interventions",
+      value: String(metrics.interventionCount),
+      tooltip: "Number of follow-up messages you sent. Each intervention is a turn where the agent needed guidance.",
+    },
+    {
+      label: "Autonomy efficiency",
+      value: formatAutonomyEfficiency(metrics.autonomyEfficiency),
+      tooltip: "Productive runtime as a share of total time (productive + human response + idle). Higher means the agent worked more independently.",
+    },
   ];
 }

@@ -9,7 +9,7 @@ var SORT_OPTIONS = [
   { id: "needs-review", label: "Needs review" },
   { id: "most-active", label: "Most active" },
   { id: "most-expensive", label: "Most expensive" },
-  { id: "highest-babysitting", label: "Highest babysitting" },
+  { id: "highest-babysitting", label: "Most human response time" },
   { id: "highest-idle", label: "Highest idle" },
   { id: "most-recent", label: "Most recent" },
 ];
@@ -275,7 +275,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                 {[
                   { label: "Needs review", value: entry.reviewScore != null ? entry.reviewScore.toFixed(1) : "--" },
                   { label: "Autonomy", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) },
-                  { label: "Babysitting", value: formatDurationLong(autonomy.babysittingTime) },
+                  { label: "Human response", value: formatDurationLong(autonomy.babysittingTime) },
                   { label: "Idle", value: formatDurationLong(autonomy.idleTime) },
                   { label: "Cost", value: formatCost(entry.totalCost || 0) },
                   { label: "Events", value: String(entry.totalEvents || 0) },

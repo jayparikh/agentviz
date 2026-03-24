@@ -55,7 +55,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
       return theme.semantic.error;
     }
 
-    if (label === "Babysitting time") {
+    if (label === "Human response time") {
       var bt = autonomyMetrics.babysittingTime || 0;
       if (bt > 60) return theme.semantic.error;
       if (bt > 15) return theme.accent.primary;
@@ -134,11 +134,13 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 return (
                   <div
                     key={item.label}
+                    title={item.tooltip || ""}
                     style={{
                       border: "1px solid " + theme.border.default,
                       borderRadius: theme.radius.lg,
                       padding: "12px 14px",
                       background: theme.bg.base,
+                      cursor: "default",
                     }}
                   >
                     <div style={{ fontSize: theme.fontSize.lg, color: metricColor, fontFamily: theme.font.ui, fontWeight: 700 }}>
