@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { theme, alpha } from "../lib/theme.js";
-import usePersistentState from "../hooks/usePersistentState.js";
 import { formatDurationLong } from "../lib/formatTime.js";
 import { formatCost } from "../lib/pricing.js";
 import { formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
@@ -82,7 +81,7 @@ function filterByQuery(entries, q) {
 }
 
 export default function InboxView({ entries, onOpenSession, maxEntries }) {
-  var [sortMode, setSortMode] = usePersistentState("agentviz:inbox-sort", "most-recent");
+  var [sortMode, setSortMode] = useState("most-recent");
   var [query, setQuery] = useState("");
 
   var parsedEntries = useMemo(function () {
@@ -291,7 +290,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries }) {
             }}>
               <div style={{ flex: 1, height: 1, background: theme.border.subtle }} />
               <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>
-                Not yet analyzed ({sortedDiscovered.length})
+                Discovered ({sortedDiscovered.length}, not yet analyzed)
               </span>
               <div style={{ flex: 1, height: 1, background: theme.border.subtle }} />
             </div>

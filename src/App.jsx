@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { theme } from "./lib/theme.js";
 import { exportSingleSession, exportComparison } from "./lib/exportHtml.js";
 import { buildFilteredEventEntries, buildTurnStartMap, buildTimeMap } from "./lib/session";
@@ -15,7 +15,7 @@ import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
 import StatsView from "./components/StatsView.jsx";
 import WaterfallView from "./components/WaterfallView.jsx";
-import GraphView from "./components/GraphView.jsx";
+var GraphView = React.lazy(function () { return import("./components/GraphView.jsx"); });
 import CommandPalette from "./components/CommandPalette.jsx";
 import ShortcutsModal from "./components/ShortcutsModal.jsx";
 import AppHeader from "./components/app/AppHeader.jsx";
@@ -75,13 +75,15 @@ function renderActiveView(activeView, props) {
 
   if (activeView === "graph") {
     return (
-      <GraphView
-        currentTime={props.playback.time}
-        eventEntries={props.filteredEventEntries}
-        totalTime={props.session.total}
-        timeMap={props.timeMap}
-        turns={props.session.turns}
-      />
+      <React.Suspense fallback={<div style={{ padding: 40, color: theme.text.dim, textAlign: "center" }}>Loading graph...</div>}>
+        <GraphView
+          currentTime={props.playback.time}
+          eventEntries={props.filteredEventEntries}
+          totalTime={props.session.total}
+          timeMap={props.timeMap}
+          turns={props.session.turns}
+        />
+      </React.Suspense>
     );
   }
 
@@ -375,7 +377,12 @@ export default function App() {
   }, [jumpToEntries, search.matchedEntries]);
 
   var focusSearch = useCallback(function () {
-    if (searchInputRef.current) searchInputRef.current.focus();
+    var el = searchInputRef.current;
+    if (el && el.offsetParent !== null) {
+      el.focus();
+      return true;
+    }
+    return false;
   }, []);
 
   useKeyboardShortcuts({

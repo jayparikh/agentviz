@@ -20,7 +20,7 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
       <div style={{ textAlign: "center", marginBottom: 8 }}>
         <BrandWordmark style={{ fontSize: theme.fontSize.hero }} />
         <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6, lineHeight: 1.6 }}>
-          Triage sessions in Inbox, inspect them in Observe, then draft next-step guidance in Coach.
+          Visualize and improve your AI coding sessions.
         </div>
       </div>
 
@@ -41,7 +41,7 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
                 Import
               </div>
               <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6, lineHeight: 1.6 }}>
-                Drop a Claude Code or Copilot CLI session to analyze it.
+                Drop a session file to add it.
               </div>
             </div>
             <FileUploader onLoad={onLoad} />

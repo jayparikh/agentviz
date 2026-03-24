@@ -2,8 +2,10 @@ import { theme, TRACK_TYPES } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
 import { estimateCost, formatCost } from "../lib/pricing.js";
 import { formatDurationLong } from "../lib/formatTime.js";
+import ToolbarButton from "./ui/ToolbarButton.jsx";
+import { buildAutonomySummary } from "../lib/autonomyMetrics.js";
 
-export default function StatsView({ events, totalTime, metadata, turns }) {
+export default function StatsView({ events, totalTime, metadata, turns, autonomyMetrics, onOpenCoach }) {
   var trackStats = {};
   events.forEach(function (e) {
     if (!trackStats[e.track]) trackStats[e.track] = { count: 0 };
@@ -40,6 +42,35 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
     { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.ghost },
     { label: "Duration", value: formatDurationLong(totalTime), color: theme.track.context },
   ];
+  var autonomySummary = buildAutonomySummary(autonomyMetrics);
+
+  function getAutonomyItemColor(label) {
+    if (!autonomyMetrics) return theme.accent.primary;
+
+    if (label === "Autonomy efficiency") {
+      var eff = autonomyMetrics.autonomyEfficiency;
+      if (eff == null) return theme.accent.primary;
+      if (eff >= 0.7) return theme.semantic.success;
+      if (eff >= 0.4) return theme.accent.primary;
+      return theme.semantic.error;
+    }
+
+    if (label === "Babysitting time") {
+      var bt = autonomyMetrics.babysittingTime || 0;
+      if (bt > 60) return theme.semantic.error;
+      if (bt > 15) return theme.accent.primary;
+      return theme.semantic.success;
+    }
+
+    if (label === "Idle time") {
+      var it = autonomyMetrics.idleTime || 0;
+      if (it > 90) return theme.semantic.error;
+      if (it > 30) return theme.accent.primary;
+      return theme.semantic.success;
+    }
+
+    return theme.accent.primary;
+  }
 
   return (
     <div style={{ display: "flex", gap: 24, height: "100%", padding: "8px 0", overflow: "auto" }}>
@@ -65,6 +96,63 @@ export default function StatsView({ events, totalTime, metadata, turns }) {
             );
           })}
         </div>
+
+        {autonomySummary.length > 0 && (
+          <div style={{
+            background: theme.bg.surface,
+            borderRadius: theme.radius.xl,
+            padding: "14px 16px",
+            border: "1px solid " + theme.border.default,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+                  Autonomy Metrics
+                </div>
+                <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6 }}>
+                  Get improvement recommendations
+                </div>
+              </div>
+              {onOpenCoach && (
+                <ToolbarButton
+                  onClick={onOpenCoach}
+                  style={{
+                    color: theme.accent.primary,
+                    borderColor: theme.accent.primary,
+                    background: theme.accent.muted,
+                    flexShrink: 0,
+                  }}
+                >
+                  Coach this session
+                </ToolbarButton>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
+              {autonomySummary.map(function (item) {
+                var metricColor = getAutonomyItemColor(item.label);
+                return (
+                  <div
+                    key={item.label}
+                    style={{
+                      border: "1px solid " + theme.border.default,
+                      borderRadius: theme.radius.lg,
+                      padding: "12px 14px",
+                      background: theme.bg.base,
+                    }}
+                  >
+                    <div style={{ fontSize: theme.fontSize.lg, color: metricColor, fontFamily: theme.font.ui, fontWeight: 700 }}>
+                      {item.value}
+                    </div>
+                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>
+                      {item.label}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {metadata && metadata.primaryModel && (
           <div style={{

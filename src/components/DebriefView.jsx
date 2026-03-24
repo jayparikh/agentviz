@@ -150,10 +150,10 @@ export default function DebriefView({ file, summary, recommendations, recommenda
             Coach
           </div>
           <div style={{ fontSize: theme.fontSize.xl, color: theme.text.primary, marginTop: 8, fontFamily: theme.font.ui }}>
-            Evidence-backed coaching drafts for {file}
+            {"Session coaching: " + file}
           </div>
           <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, marginTop: 6, lineHeight: 1.7 }}>
-            Recommendations are embedded drafts only. Review, copy, and decide whether to accept, ignore, or revisit later.
+            Review evidence-backed drafts. Accept to apply, ignore to skip.
           </div>
         </div>
 

@@ -127,7 +127,7 @@ describe("AgentViz MVP flow", function () {
 
     await click(findExactButton(app.container, "Coach"));
     await waitFor(function () {
-      return findByText(app.container, "Evidence-backed coaching");
+      return findByText(app.container, "Session coaching:");
     }, "expected debrief view to open");
 
     expect(findByText(app.container, "AGENTS.md")).toBeTruthy();
