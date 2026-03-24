@@ -1,8 +1,13 @@
-var REPLAY_ROW_BASE_HEIGHT = 44;
-var REPLAY_LINE_HEIGHT = 18;
-var REPLAY_TURN_HEADER_HEIGHT = 34;
+import { theme } from "./theme.js";
+
+var REPLAY_META_LINE_HEIGHT = Math.ceil(theme.fontSize.sm * 1.3);
+var REPLAY_CONTENT_LINE_HEIGHT = Math.ceil(theme.fontSize.md * 1.6);
+var REPLAY_ROW_VERTICAL_PADDING = 14;
+var REPLAY_ROW_HEADER_GAP = 2;
+var REPLAY_ROW_BASE_HEIGHT = REPLAY_ROW_VERTICAL_PADDING + REPLAY_META_LINE_HEIGHT + REPLAY_ROW_HEADER_GAP + REPLAY_CONTENT_LINE_HEIGHT;
+var REPLAY_TURN_HEADER_HEIGHT = 36;
 var REPLAY_ITEM_GAP = 2;
-var REPLAY_MAX_ESTIMATED_LINES = 8;
+var REPLAY_CHARS_PER_LINE = 72;
 
 function estimateTextLines(text) {
   if (!text) return 1;
@@ -11,23 +16,28 @@ function estimateTextLines(text) {
   var lines = 0;
 
   for (var i = 0; i < segments.length; i++) {
-    lines += Math.max(1, Math.ceil(segments[i].length / 78));
+    lines += Math.max(1, Math.ceil(segments[i].length / REPLAY_CHARS_PER_LINE));
   }
 
-  return Math.min(REPLAY_MAX_ESTIMATED_LINES, lines);
+  return lines;
 }
 
-export function buildReplayLayout(entries, turnStartMap) {
+export function buildReplayLayout(entries, turnStartMap, measuredHeights) {
   var top = 0;
   var items = [];
+  var measured = measuredHeights || {};
 
   for (var i = 0; i < entries.length; i++) {
     var entry = entries[i];
     var turn = turnStartMap[entry.index];
     var hasTurnHeader = Boolean(turn && turn.index > 0);
     var textLines = estimateTextLines(entry.event.text);
-    var rowHeight = REPLAY_ROW_BASE_HEIGHT + (textLines * REPLAY_LINE_HEIGHT);
-    var height = rowHeight + (hasTurnHeader ? REPLAY_TURN_HEADER_HEIGHT : 0);
+    var estimatedHeight = REPLAY_ROW_BASE_HEIGHT
+      + ((textLines - 1) * REPLAY_CONTENT_LINE_HEIGHT)
+      + (hasTurnHeader ? REPLAY_TURN_HEADER_HEIGHT : 0);
+    var height = typeof measured[entry.index] === "number"
+      ? measured[entry.index]
+      : estimatedHeight;
 
     items.push({
       entry: entry,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useLayoutEffect } from "react";
 import { theme, AGENT_COLORS, TRACK_TYPES, alpha } from "../lib/theme.js";
 import { buildReplayLayout, getReplayWindow } from "../lib/replayLayout.js";
 import DataInspector from "./DataInspector.jsx";
@@ -185,7 +185,9 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
 
 export default function ReplayView({ currentTime, eventEntries, turnStartMap, searchQuery, matchSet, metadata }) {
   var containerRef = useRef(null);
+  var itemRefs = useRef({});
   var [selectedIndex, setSelectedIndex] = useState(null);
+  var [measuredHeights, setMeasuredHeights] = useState({});
   var [scrollTop, setScrollTop] = useState(0);
   var [viewportHeight, setViewportHeight] = useState(0);
   var shouldFollowRef = useRef(true);
@@ -196,8 +198,8 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   }, [currentTime, eventEntries]);
 
   var layout = useMemo(function () {
-    return buildReplayLayout(visibleEntries, turnStartMap);
-  }, [turnStartMap, visibleEntries]);
+    return buildReplayLayout(visibleEntries, turnStartMap, measuredHeights);
+  }, [measuredHeights, turnStartMap, visibleEntries]);
 
   var windowedItems = useMemo(function () {
     return getReplayWindow(layout.items, scrollTop, viewportHeight, REPLAY_WINDOW_OVERSCAN);
@@ -224,6 +226,33 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
       window.removeEventListener("resize", updateViewportHeight);
     };
   }, []);
+
+  useEffect(function () {
+    itemRefs.current = {};
+    setMeasuredHeights({});
+  }, [eventEntries]);
+
+  useLayoutEffect(function () {
+    setMeasuredHeights(function (prev) {
+      var next = prev;
+      var changed = false;
+
+      for (var i = 0; i < windowedItems.length; i++) {
+        var index = windowedItems[i].entry.index;
+        var node = itemRefs.current[index];
+        if (!node) continue;
+
+        var height = Math.ceil(node.getBoundingClientRect().height);
+        if (!height || prev[index] === height) continue;
+
+        if (!changed) next = Object.assign({}, prev);
+        next[index] = height;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  });
 
   function handleScroll(e) {
     var nextTop = e.currentTarget.scrollTop;
@@ -315,7 +344,17 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
               : (isSelected ? theme.accent.primary : (isCurrent ? alpha(agentColor, 0.5) : "transparent"));
 
             return (
-              <div key={entry.index} style={{ position: "absolute", top: item.top, left: 0, right: 0 }}>
+              <div
+                key={entry.index}
+                ref={function (node) {
+                  if (node) {
+                    itemRefs.current[entry.index] = node;
+                  } else {
+                    delete itemRefs.current[entry.index];
+                  }
+                }}
+                style={{ position: "absolute", top: item.top, left: 0, right: 0 }}
+              >
                 {turnHeader}
                 <div
                   onClick={function () { setSelectedIndex(entry.index === selectedIndex ? null : entry.index); }}
