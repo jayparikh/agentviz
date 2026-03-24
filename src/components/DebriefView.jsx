@@ -689,7 +689,7 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                 {aiSteps.map(function (step, i) {
                   var icon = step.type === "read_config" ? "\u{1F4C4}" : step.type === "recommend" ? "\u2713" : step.type === "done" ? "\u2714" : "\u22EF";
                   return (
-                    <div key={i} style={{ fontSize: theme.fontSize.xs, color: step.type === "recommend" ? theme.accent.secondary : theme.text.dim, display: "flex", alignItems: "center", gap: 6 }}>
+                    <div key={i} style={{ fontSize: theme.fontSize.xs, color: step.type === "recommend" ? theme.semantic.success : theme.text.dim, display: "flex", alignItems: "center", gap: 6 }}>
                       <span>{icon}</span>
                       <span>{step.label}</span>
                     </div>
@@ -743,9 +743,9 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                         title={"Apply to " + rec.targetPath}
                         style={{
                           fontSize: theme.fontSize.xs, fontFamily: theme.font.ui,
-                          border: "1px solid " + theme.accent.secondary,
-                          background: alpha(theme.accent.secondary, 0.08),
-                          color: theme.accent.secondary,
+                          border: "1px solid " + theme.semantic.success,
+                          background: alpha(theme.semantic.success, 0.08),
+                          color: theme.semantic.success,
                           borderRadius: theme.radius.md, padding: "2px 10px", cursor: "pointer",
                         }}
                       >
