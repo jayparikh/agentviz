@@ -10,6 +10,95 @@ import http from "http";
 import fs from "fs";
 import path from "path";
 import url from "url";
+import { execFile, execFileSync } from "child_process";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI coach: detect available CLI and run analysis via claude -p or gh copilot
+// ─────────────────────────────────────────────────────────────────────────────
+
+function detectCli() {
+  var candidates = [
+    { name: "claude", test: ["--version"], format: "claude" },
+    { name: "gh", test: ["copilot", "--version"], format: "gh-copilot" },
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    try {
+      execFileSync(candidates[i].name, candidates[i].test, { timeout: 3000, stdio: "pipe" });
+      return candidates[i];
+    } catch (e) { /* not available */ }
+  }
+  return null;
+}
+
+function buildCoachPrompt(payload) {
+  var { format, primaryModel, totalEvents, totalTurns, errorCount, totalToolCalls,
+    productiveRuntime, humanResponseTime, idleTime, interventions, autonomyEfficiency,
+    topTools, errorSamples, userFollowUps, configSummary } = payload;
+
+  var toolList = (topTools || []).slice(0, 8).map(function (t) { return t.name + " x" + t.count; }).join(", ");
+  var errors = (errorSamples || []).slice(0, 5).map(function (e, i) { return (i + 1) + ". " + e; }).join("\n");
+  var followUps = (userFollowUps || []).slice(0, 4).map(function (m) { return "- " + m; }).join("\n");
+
+  return [
+    "You are an AI agent workflow coach. Analyze this " + (format === "copilot-cli" ? "GitHub Copilot CLI" : "Claude Code") + " session and give 2-4 specific, actionable recommendations to improve autonomy and reduce human interventions.",
+    "",
+    "## Session stats",
+    "- Model: " + (primaryModel || "unknown"),
+    "- Events: " + (totalEvents || 0) + ", Turns: " + (totalTurns || 0) + ", Tool calls: " + (totalToolCalls || 0),
+    "- Errors: " + (errorCount || 0),
+    "- Productive runtime: " + (productiveRuntime || "0s"),
+    "- Human response time: " + (humanResponseTime || "0s") + " (time agent waited for human input)",
+    "- Idle time: " + (idleTime || "0s"),
+    "- Interventions: " + (interventions || 0),
+    "- Autonomy efficiency: " + (autonomyEfficiency || "0%"),
+    "- Top tools: " + (toolList || "none"),
+    "",
+    errors ? "## Tool errors seen\n" + errors : "",
+    followUps ? "## Human follow-up messages (shows where agent got stuck)\n" + followUps : "",
+    configSummary ? "## Current config\n" + configSummary : "",
+    "",
+    "## Your response format",
+    "Return a JSON array of recommendations. Each item:",
+    '{ "title": "short title", "priority": "high|medium", "summary": "1-2 sentence problem description", "fix": "specific actionable fix", "draft": "exact text/config to copy-paste" }',
+    "",
+    "Be specific to what you see in the stats. If web fetches are failing, say exactly what to add. If there are bash errors, say what command failed and why. Do not give generic advice.",
+    "Return ONLY the JSON array, no prose.",
+  ].filter(Boolean).join("\n");
+}
+
+function runCliAnalysis(cli, prompt) {
+  return new Promise(function (resolve, reject) {
+    var args, env = Object.assign({}, process.env);
+    if (cli.format === "claude") {
+      args = ["-p", prompt, "--output-format", "text"];
+    } else {
+      // gh copilot explain takes a shell command -- use suggest instead for freeform
+      args = ["copilot", "suggest", "-t", "generic", prompt];
+    }
+    execFile(cli.name, args, { timeout: 60000, maxBuffer: 512 * 1024, env: env }, function (err, stdout, stderr) {
+      if (err) { reject(new Error(stderr || err.message)); return; }
+      resolve(stdout.trim());
+    });
+  });
+}
+
+function parseCliOutput(raw) {
+  // Extract JSON array from output -- claude may include prose around it
+  var match = raw.match(/\[[\s\S]*\]/);
+  if (!match) return null;
+  try { return JSON.parse(match[0]); } catch (e) { return null; }
+}
+
+async function runAiCoachAnalysis(payload) {
+  var cli = detectCli();
+  if (!cli) throw new Error("No AI CLI found. Install claude or gh CLI.");
+  var prompt = buildCoachPrompt(payload);
+  var raw = await runCliAnalysis(cli, prompt);
+  var recs = parseCliOutput(raw);
+  if (!recs) throw new Error("Could not parse AI response: " + raw.substring(0, 200));
+  return { recommendations: recs, cli: cli.name, raw: raw };
+}
+
 
 var MIME = {
   ".html": "text/html; charset=utf-8",
@@ -255,6 +344,25 @@ export function createServer({ sessionFile, distDir }) {
         } catch (e) {
           res.writeHead(500);
           res.end(JSON.stringify({ error: e.message || "Internal server error" }));
+        }
+      });
+      return;
+    }
+
+    if (pathname === "/api/coach/analyze") {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method !== "POST") { res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+      var coachBody = "";
+      req.on("data", function (chunk) { coachBody += chunk; });
+      req.on("end", async function () {
+        try {
+          var payload = JSON.parse(coachBody);
+          var result = await runAiCoachAnalysis(payload);
+          res.writeHead(200);
+          res.end(JSON.stringify(result));
+        } catch (e) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: e.message || "AI analysis failed" }));
         }
       });
       return;

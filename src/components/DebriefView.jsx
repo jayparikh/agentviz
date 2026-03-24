@@ -130,6 +130,9 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   var [reconciledStatuses, setReconciledStatuses] = useState({});
   var [expandedCardIds, setExpandedCardIds] = useState({});
   var [lastChecked, setLastChecked] = useState(null);
+  var [aiAnalysis, setAiAnalysis] = useState(null);
+  var [aiStatus, setAiStatus] = useState(null); // null | "loading" | "done" | "error"
+  var [aiError, setAiError] = useState(null);
 
   // Baseline snapshot -- set once when config first loads, never updated
   var baselineRef = useRef(null);
@@ -249,6 +252,49 @@ export default function DebriefView({ file, summary, recommendations, recommenda
         setLastChecked(Date.now());
       })
       .catch(function () {});
+  }
+
+  function handleAiAnalyze() {
+    if (!rawSession) return;
+    setAiStatus("loading");
+    setAiError(null);
+    var m = rawSession.autonomyMetrics || {};
+    var met = rawSession.metadata || {};
+    // Build a config summary string for context
+    var cfgLines = (configFiles || []).filter(function (f) { return f.exists; }).map(function (f) {
+      return f.id + ": " + (f.content ? f.content.substring(0, 200) : "(exists, no content)");
+    });
+    fetch("/api/coach/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        format: met.format || "claude-code",
+        primaryModel: met.primaryModel || null,
+        totalEvents: met.totalEvents || 0,
+        totalTurns: met.totalTurns || 0,
+        errorCount: met.errorCount || 0,
+        totalToolCalls: met.totalToolCalls || 0,
+        productiveRuntime: m.productiveRuntime ? Math.round(m.productiveRuntime) + "s" : "0s",
+        humanResponseTime: m.babysittingTime ? Math.round(m.babysittingTime) + "s" : "0s",
+        idleTime: m.idleTime ? Math.round(m.idleTime) + "s" : "0s",
+        interventions: m.interventionCount || 0,
+        autonomyEfficiency: m.autonomyEfficiency != null ? Math.round(m.autonomyEfficiency * 100) + "%" : "0%",
+        topTools: m.topTools || [],
+        userFollowUps: m.userFollowUps || [],
+        errorSamples: (rawSession.events || [])
+          .filter(function (e) { return e.isError && e.text; })
+          .slice(0, 6)
+          .map(function (e) { return (e.toolName ? "[" + e.toolName + "] " : "") + e.text.substring(0, 150); }),
+        configSummary: cfgLines.join("\n") || "No config files found",
+      }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { setAiError(data.error); setAiStatus("error"); return; }
+        setAiAnalysis(data.recommendations);
+        setAiStatus("done");
+      })
+      .catch(function (e) { setAiError(e.message); setAiStatus("error"); });
   }
 
   function toggleCardExpanded(id) {
@@ -489,28 +535,80 @@ export default function DebriefView({ file, summary, recommendations, recommenda
               ? "Config read at: " + formatRelativeTime(lastChecked)
               : configLoaded ? "Config loaded" : "Loading config..."}
           </div>
-          <button
-            className="av-btn"
-            onClick={handleRefresh}
-            title="Re-read config files and update recommendation statuses"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              border: "1px solid " + theme.border.default,
-              background: "transparent",
-              color: theme.text.secondary,
-              borderRadius: theme.radius.md,
-              padding: "5px 10px",
-              fontSize: theme.fontSize.xs,
-              fontFamily: theme.font.ui,
-              cursor: "pointer",
-            }}
-          >
-            <span style={{ fontSize: "0.9em" }}>{"↺"}</span>
-            Refresh
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="av-btn"
+              onClick={handleAiAnalyze}
+              disabled={aiStatus === "loading" || !rawSession}
+              title={"Get AI-powered contextual recommendations using " + (typeof window !== "undefined" ? "claude / gh copilot" : "your CLI")}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                border: "1px solid " + theme.accent.primary,
+                background: alpha(theme.accent.primary, 0.08),
+                color: theme.accent.primary,
+                borderRadius: theme.radius.md,
+                padding: "5px 10px",
+                fontSize: theme.fontSize.xs,
+                fontFamily: theme.font.ui,
+                cursor: aiStatus === "loading" ? "default" : "pointer",
+                opacity: aiStatus === "loading" ? 0.6 : 1,
+              }}
+            >
+              <span>{"✦"}</span>
+              {aiStatus === "loading" ? "Analyzing..." : "AI Analyze"}
+            </button>
+            <button
+              className="av-btn"
+              onClick={handleRefresh}
+              title="Re-read config files and update recommendation statuses"
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                border: "1px solid " + theme.border.default,
+                background: "transparent",
+                color: theme.text.secondary,
+                borderRadius: theme.radius.md,
+                padding: "5px 10px",
+                fontSize: theme.fontSize.xs,
+                fontFamily: theme.font.ui,
+                cursor: "pointer",
+              }}
+            >
+              <span style={{ fontSize: "0.9em" }}>{"↺"}</span>
+              Refresh
+            </button>
+          </div>
         </div>
+
+        {aiStatus === "error" && (
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, background: theme.semantic.errorBg, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.lg, padding: "8px 12px" }}>
+            AI analysis failed: {aiError}
+          </div>
+        )}
+
+        {aiStatus === "done" && aiAnalysis && (
+          <div style={{ background: alpha(theme.accent.primary, 0.05), border: "1px solid " + alpha(theme.accent.primary, 0.25), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
+              ✦ AI-generated recommendations
+            </div>
+            {aiAnalysis.map(function (rec, i) {
+              return (
+                <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < aiAnalysis.length - 1 ? "1px solid " + theme.border.default : "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    {rec.priority === "high" && (
+                      <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.full, padding: "1px 7px" }}>high</span>
+                    )}
+                    <span style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.ui, fontWeight: 600 }}>{rec.title}</span>
+                  </div>
+                  <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginBottom: 6, lineHeight: 1.5 }}>{rec.summary}</div>
+                  {rec.fix && <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, lineHeight: 1.5, marginBottom: 6 }}><strong>Fix:</strong> {rec.fix}</div>}
+                  {rec.draft && (
+                    <pre style={{ fontSize: theme.fontSize.xs, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "8px 12px", overflowX: "auto", whiteSpace: "pre-wrap", color: theme.text.secondary, margin: 0 }}>{rec.draft}</pre>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {activeRecommendations.map(function (recommendation) {
           var state = recommendationState[recommendation.id] || null;

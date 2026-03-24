@@ -43,6 +43,9 @@ function MetricCard({ value, label, tooltip, color }) {
 }
 
 export default function StatsView({ events, totalTime, metadata, turns, autonomyMetrics, onOpenCoach }) {
+  var [showAllTurns, setShowAllTurns] = useState(false);
+  var TURNS_PREVIEW = 15;
+
   var trackStats = {};
   events.forEach(function (e) {
     if (!trackStats[e.track]) trackStats[e.track] = { count: 0 };
@@ -110,8 +113,8 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
   }
 
   return (
-    <div style={{ display: "flex", gap: 24, height: "100%", padding: "8px 0", overflow: "auto" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", gap: 24, height: "100%", padding: "8px 0", overflow: "hidden" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16, overflowY: "auto", overflowX: "hidden" }}>
         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
           Session Overview
         </div>
@@ -278,10 +281,17 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
 
         {turns && turns.length > 0 && (
           <div>
-            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
-              Turns
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+                Turns ({turns.length})
+              </div>
+              {turns.length > TURNS_PREVIEW && (
+                <button className="av-btn" onClick={function () { setShowAllTurns(function (v) { return !v; }); }} style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                  {showAllTurns ? "Show less" : "Show all " + turns.length}
+                </button>
+              )}
             </div>
-            {turns.map(function (turn) {
+            {(showAllTurns ? turns : turns.slice(0, TURNS_PREVIEW)).map(function (turn) {
               return (
                 <div key={turn.index} style={{
                   display: "flex",
@@ -293,38 +303,44 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                   marginBottom: 6,
                   alignItems: "center",
                 }}>
-                  <span style={{ fontSize: theme.fontSize.base, color: theme.text.dim, fontWeight: 600, minWidth: 20 }}>
+                  <span style={{ fontSize: theme.fontSize.base, color: theme.text.dim, fontWeight: 600, minWidth: 20, flexShrink: 0 }}>
                     {turn.index + 1}
                   </span>
                   <span style={{
                     fontSize: theme.fontSize.base,
                     color: theme.text.secondary,
                     flex: 1,
+                    minWidth: 0,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                   }}>
-                    {turn.userMessage}
+                    {turn.userMessage || "(no message)"}
                   </span>
                   {turn.toolCount > 0 && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call }}>{turn.toolCount} tools</span>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call, flexShrink: 0 }}>{turn.toolCount} tools</span>
                   )}
                   {turnTokenMap[turn.index] && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono }}>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, flexShrink: 0 }}>
                       {formatCost(estimateCost(turnTokenMap[turn.index], metadata && metadata.primaryModel))}
                     </span>
                   )}
                   {turn.hasError && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={11} /></span>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, display: "inline-flex", alignItems: "center", flexShrink: 0 }}><Icon name="alert-circle" size={11} /></span>
                   )}
                 </div>
               );
             })}
+            {!showAllTurns && turns.length > TURNS_PREVIEW && (
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textAlign: "center", padding: "6px 0" }}>
+                {turns.length - TURNS_PREVIEW} more turns hidden
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div style={{ width: 280, borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
+      <div style={{ width: 240, flexShrink: 0, borderLeft: "1px solid " + theme.border.default, paddingLeft: 20, overflowY: "auto" }}>
         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
           Tool Usage Ranking
         </div>
