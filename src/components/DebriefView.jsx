@@ -133,8 +133,9 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   var [aiAnalysis, setAiAnalysis] = useState(null);
   var [aiStatus, setAiStatus] = useState(null); // null | "loading" | "done" | "error"
   var [aiError, setAiError] = useState(null);
-  var [aiStreamText, setAiStreamText] = useState("");
+  var [aiSteps, setAiSteps] = useState([]); // [{type, label}] live step log
   var [aiModelInfo, setAiModelInfo] = useState(null); // { model, usage }
+  var [aiApplyStatus, setAiApplyStatus] = useState({}); // { recIdx: "applying"|"applied"|"error" }
   var aiAbortRef = useRef(null);
 
   // Baseline snapshot -- set once when config first loads, never updated
@@ -287,18 +288,17 @@ export default function DebriefView({ file, summary, recommendations, recommenda
 
   function handleAiAnalyze() {
     if (!rawSession) return;
-    // Cancel any in-flight request
     if (aiAbortRef.current) aiAbortRef.current.abort();
     var controller = new AbortController();
     aiAbortRef.current = controller;
     setAiStatus("loading");
     setAiError(null);
     setAiAnalysis(null);
-    setAiStreamText("");
+    setAiSteps([]);
+    setAiApplyStatus({});
 
     var body = JSON.stringify(buildAnalysisPayload());
 
-    // Use SSE streaming for live token display
     fetch("/api/coach/analyze", {
       method: "POST",
       signal: controller.signal,
@@ -317,19 +317,18 @@ export default function DebriefView({ file, summary, recommendations, recommenda
           if (ref.done) return;
           buffer += decoder.decode(ref.value, { stream: true });
           var lines = buffer.split("\n");
-          buffer = lines.pop(); // keep incomplete line
+          buffer = lines.pop();
           lines.forEach(function (line) {
             if (!line.startsWith("data: ")) return;
             try {
               var msg = JSON.parse(line.slice(6));
-              if (msg.delta) {
-                setAiStreamText(function (t) { return t + msg.delta; });
+              if (msg.step) {
+                setAiSteps(function (prev) { return prev.concat(msg.step); });
               }
               if (msg.done && msg.result) {
                 setAiAnalysis(msg.result.recommendations);
                 setAiModelInfo({ model: msg.result.model, usage: msg.result.usage });
                 setAiStatus("done");
-                setAiStreamText("");
               }
               if (msg.error) {
                 setAiError(msg.error);
@@ -355,7 +354,25 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   function handleAiCancel() {
     if (aiAbortRef.current) { aiAbortRef.current.abort(); aiAbortRef.current = null; }
     setAiStatus(null);
-    setAiStreamText("");
+    setAiSteps([]);
+  }
+
+  function handleAiRecApply(rec, idx) {
+    if (!rec.targetPath || !rec.draft) return;
+    setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "applying" }); });
+    fetch("/api/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: rec.targetPath, content: rec.draft, mode: "append" }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.success) {
+        setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "applied" }); });
+      } else {
+        setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "error" }); });
+      }
+    }).catch(function () {
+      setAiApplyStatus(function (prev) { return Object.assign({}, prev, { [idx]: "error" }); });
+    });
   }
 
   function toggleCardExpanded(id) {
@@ -663,14 +680,22 @@ export default function DebriefView({ file, summary, recommendations, recommenda
 
         {aiStatus === "loading" && (
           <div style={{ background: alpha(theme.accent.primary, 0.04), border: "1px solid " + alpha(theme.accent.primary, 0.2), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
-            <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, display: "flex", alignItems: "center", gap: 8, marginBottom: aiStreamText ? 10 : 0 }}>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, display: "flex", alignItems: "center", gap: 8, marginBottom: aiSteps.length > 0 ? 10 : 0 }}>
               <span style={{ animation: "spin 1.2s linear infinite", display: "inline-block" }}>{"✦"}</span>
               Analyzing with GitHub Models (gpt-4o-mini)...
             </div>
-            {aiStreamText && (
-              <pre style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, margin: 0, whiteSpace: "pre-wrap", fontFamily: theme.font.mono, maxHeight: 120, overflow: "hidden" }}>
-                {aiStreamText}
-              </pre>
+            {aiSteps.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {aiSteps.map(function (step, i) {
+                  var icon = step.type === "read_config" ? "\u{1F4C4}" : step.type === "recommend" ? "\u2713" : step.type === "done" ? "\u2714" : "\u22EF";
+                  return (
+                    <div key={i} style={{ fontSize: theme.fontSize.xs, color: step.type === "recommend" ? theme.accent.secondary : theme.text.dim, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>{icon}</span>
+                      <span>{step.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
@@ -695,13 +720,41 @@ export default function DebriefView({ file, summary, recommendations, recommenda
               )}
             </div>
             {aiAnalysis.map(function (rec, i) {
+              var applyState = aiApplyStatus[i] || null;
+              var canApply = rec.targetPath && rec.draft && applyState !== "applied";
               return (
                 <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < aiAnalysis.length - 1 ? "1px solid " + theme.border.default : "none" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     {rec.priority === "high" && (
                       <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.full, padding: "1px 7px" }}>high</span>
                     )}
-                    <span style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.ui, fontWeight: 600 }}>{rec.title}</span>
+                    <span style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.ui, fontWeight: 600, flex: 1 }}>{rec.title}</span>
+                    {applyState === "applied" && (
+                      <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.success }}>{"✓ Applied"}</span>
+                    )}
+                    {applyState === "error" && (
+                      <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error }}>Apply failed</span>
+                    )}
+                    {canApply && (
+                      <button
+                        className="av-btn"
+                        onClick={function () { handleAiRecApply(rec, i); }}
+                        disabled={applyState === "applying"}
+                        title={"Apply to " + rec.targetPath}
+                        style={{
+                          fontSize: theme.fontSize.xs, fontFamily: theme.font.ui,
+                          border: "1px solid " + theme.accent.secondary,
+                          background: alpha(theme.accent.secondary, 0.08),
+                          color: theme.accent.secondary,
+                          borderRadius: theme.radius.md, padding: "2px 10px", cursor: "pointer",
+                        }}
+                      >
+                        {applyState === "applying" ? "Applying..." : "Apply \u2192 " + rec.targetPath}
+                      </button>
+                    )}
+                    {!rec.targetPath && rec.draft && (
+                      <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontStyle: "italic" }}>advice only</span>
+                    )}
                   </div>
                   <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginBottom: 6, lineHeight: 1.5 }}>{rec.summary}</div>
                   {rec.fix && <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, lineHeight: 1.5, marginBottom: 6 }}><strong>Fix:</strong> {rec.fix}</div>}

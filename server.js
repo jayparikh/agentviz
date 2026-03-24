@@ -222,11 +222,13 @@ export function createServer({ sessionFile, distDir }) {
       req.on("end", function () {
         try {
           var payload = JSON.parse(body);
-          var relativePath = payload.relativePath;
+          // Accept both 'relativePath' (static recs) and 'path' (AI recs)
+          var relativePath = payload.relativePath || payload.path;
           var content = payload.content;
+          var mode = payload.mode || "auto"; // "auto"|"append"|"merge"|"overwrite"
           if (typeof relativePath !== "string" || !relativePath) {
             res.writeHead(400);
-            res.end(JSON.stringify({ error: "relativePath is required" }));
+            res.end(JSON.stringify({ error: "path is required" }));
             return;
           }
           if (typeof content !== "string") {
@@ -245,10 +247,28 @@ export function createServer({ sessionFile, distDir }) {
           fs.mkdirSync(parentDir, { recursive: true });
           var fileExists = false;
           try { fs.accessSync(resolvedPath); fileExists = true; } catch (e) {}
-          if (fileExists) {
-            fs.appendFileSync(resolvedPath, "\n\n---\n\n" + content, "utf8");
-          } else {
+
+          if (!fileExists || mode === "overwrite") {
             fs.writeFileSync(resolvedPath, content, "utf8");
+          } else if (relativePath.endsWith(".mcp.json") || relativePath === ".mcp.json") {
+            // Smart merge: merge mcpServers objects
+            var existingRaw = fs.readFileSync(resolvedPath, "utf8");
+            try {
+              var existing = JSON.parse(existingRaw);
+              var incoming = JSON.parse(content);
+              var merged = Object.assign({}, existing);
+              if (incoming.mcpServers) {
+                merged.mcpServers = Object.assign({}, existing.mcpServers || {}, incoming.mcpServers);
+              }
+              fs.writeFileSync(resolvedPath, JSON.stringify(merged, null, 2), "utf8");
+            } catch (e) {
+              // Fall back to append if JSON parse fails
+              fs.appendFileSync(resolvedPath, "\n\n" + content, "utf8");
+            }
+          } else if (mode === "append" || relativePath.endsWith(".md")) {
+            fs.appendFileSync(resolvedPath, "\n\n" + content, "utf8");
+          } else {
+            fs.appendFileSync(resolvedPath, "\n\n---\n\n" + content, "utf8");
           }
           res.writeHead(200);
           res.end(JSON.stringify({ success: true, path: resolvedPath }));
@@ -273,43 +293,49 @@ export function createServer({ sessionFile, distDir }) {
         // req.on("close") fires too early when POST body is consumed -- do NOT use for SSE
         res.on("close", function () { abort.abort(); });
 
-        // SSE streaming: if client sends Accept: text/event-stream, stream tokens live
-        var wantsStream = (req.headers["accept"] || "").includes("text/event-stream");
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.writeHead(200);
 
-        if (wantsStream) {
-          res.setHeader("Content-Type", "text/event-stream");
-          res.setHeader("Cache-Control", "no-cache");
-          res.setHeader("Connection", "keep-alive");
-          res.writeHead(200);
-        } else {
-          res.setHeader("Content-Type", "application/json");
+        function sseEvent(data) {
+          if (!res.writableEnded) res.write("data: " + JSON.stringify(data) + "\n\n");
+        }
+
+        // Provide the agent with a readConfigFile function backed by disk
+        var cwd = process.cwd();
+        function readConfigFile(filePath) {
+          try {
+            var resolved = path.resolve(cwd, filePath);
+            // Security: must stay within cwd
+            if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) return null;
+            var stat = fs.statSync(resolved);
+            if (stat.isDirectory()) {
+              // Return listing for directories
+              var entries = fs.readdirSync(resolved);
+              return "Directory listing:\n" + entries.join("\n");
+            }
+            return fs.readFileSync(resolved, "utf8");
+          } catch (e) {
+            return null;
+          }
         }
 
         try {
           var payload = JSON.parse(coachBody);
 
-          if (wantsStream) {
-            var result = await runCoachAgent(payload, {
-              signal: abort.signal,
-              onChunk: function (delta) {
-                if (!res.writableEnded) res.write("data: " + JSON.stringify({ delta: delta }) + "\n\n");
-              },
-            });
-            if (!res.writableEnded) {
-              res.write("data: " + JSON.stringify({ done: true, result: result }) + "\n\n");
-              res.end();
-            }
-          } else {
-            var result = await runCoachAgent(payload, { signal: abort.signal });
-            if (!res.writableEnded) { res.writeHead(200); res.end(JSON.stringify(result)); }
-          }
+          var result = await runCoachAgent(payload, {
+            signal: abort.signal,
+            readConfigFile: readConfigFile,
+            onStep: function (step) { sseEvent({ step: step }); },
+          });
+
+          sseEvent({ done: true, result: result });
+          if (!res.writableEnded) res.end();
         } catch (e) {
           if (e.name === "AbortError") { if (!res.writableEnded) res.end(); return; }
-          var errPayload = JSON.stringify({ error: e.message || "AI analysis failed" });
-          if (!res.writableEnded) {
-            if (wantsStream) { res.write("data: " + errPayload + "\n\n"); res.end(); }
-            else { res.writeHead(500); res.end(errPayload); }
-          }
+          sseEvent({ error: e.message || "AI analysis failed" });
+          if (!res.writableEnded) res.end();
         }
       });
       return;

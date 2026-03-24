@@ -56,9 +56,10 @@ describe("buildCoachPrompt", function () {
     expect(prompt).toContain("try again");
   });
 
-  it("includes config summary", function () {
+  it("includes available config paths", function () {
     var prompt = buildCoachPrompt(basePayload);
-    expect(prompt).toContain(".claude.json");
+    expect(prompt).toContain("Available config paths");
+    expect(prompt).toContain(".mcp.json");
   });
 
   it("omits error section when no errors", function () {
