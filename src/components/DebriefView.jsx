@@ -18,7 +18,7 @@ function clearCachedAnalysis(file) {
 export default function DebriefView({ file, summary, metadata, rawSession }) {
   var [configFiles, setConfigFiles] = useState([]);
   var [configLoaded, setConfigLoaded] = useState(false);
-  var [showConfigExplorer, setShowConfigExplorer] = useState(false);
+  var [showConfigExplorer, setShowConfigExplorer] = useState(true);
   var [expandedSurface, setExpandedSurface] = useState(null);
   var [aiAnalysis, setAiAnalysis] = useState(null);
   var [aiStatus, setAiStatus] = useState(null); // null | "loading" | "done" | "error"

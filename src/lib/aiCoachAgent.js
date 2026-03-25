@@ -64,7 +64,7 @@ function buildAgentTools(configPaths, handlers) {
         properties: {
           path: {
             type: "string",
-            description: "Relative path to the config file. Must be one of: " + pathList,
+            description: "Relative path to the config file. Use one of: " + pathList + ". Also accepts any .github/skills/<name>/SKILL.md path to read an existing skill.",
           },
         },
         required: ["path"],
@@ -84,7 +84,7 @@ function buildAgentTools(configPaths, handlers) {
           fix: { type: "string", description: "Specific action to take, referencing the actual error or metric" },
           targetPath: {
             type: "string",
-            description: "Config file to write to. Must be one of: " + pathList + ". Use null for advice-only (no file change).",
+            description: "Config file to write to. Use a path from: " + pathList + ". For new skills use '.github/skills/<name>/SKILL.md'. For new prompts use '.github/prompts/<name>.prompt.md'. Use null for advice-only (no file change).",
           },
           draftText: {
             type: "string",
@@ -330,6 +330,7 @@ function buildSystemPrompt(format) {
     "4. For each config problem, call recommend() with:",
     "   - A draftText referencing SPECIFIC errors/metrics/messages from THIS session.",
     "   - The targetPath from the decision tree.",
+    "   - For NEW skills: targetPath = '.github/skills/<name>/SKILL.md' (exact path, not just directory).",
     "   - NEVER put domain knowledge, tool guides, or ecosystem context into instructions.",
     "     That always belongs in a skill (.github/skills/<topic>/SKILL.md).",
     "5. Scan human follow-up messages for missed prompting opportunities (Copilot CLI only).",
@@ -548,9 +549,21 @@ export async function runCoachAgent(payload, opts, _attempt) {
 
 function normalizeRecommendation(args, allowedPaths) {
   var allowed = allowedPaths || KNOWN_CONFIG_PATHS;
-  var targetPath = args.targetPath && args.targetPath !== "null" && allowed.includes(args.targetPath)
-    ? args.targetPath
-    : null;
+  var raw = args.targetPath && args.targetPath !== "null" ? args.targetPath : null;
+  var targetPath = null;
+  if (raw) {
+    // Exact match against known paths
+    if (allowed.includes(raw)) {
+      targetPath = raw;
+    // Skill subdirectory: .github/skills/<name>/SKILL.md or .github/prompts/<name>.prompt.md
+    } else if (/^\.github\/skills\/[^/]+\/SKILL\.md$/.test(raw) ||
+               /^\.github\/prompts\/[^/]+\.prompt\.md$/.test(raw) ||
+               /^\.claude\/skills\/[^/]+\/SKILL\.md$/.test(raw) ||
+               /^\.github\/agents\/[^/]+\.md$/.test(raw) ||
+               /^\.claude\/agents\/[^/]+\.md$/.test(raw)) {
+      targetPath = raw;
+    }
+  }
   return {
     title: String(args.title || "Recommendation"),
     priority: args.priority === "high" ? "high" : "medium",
