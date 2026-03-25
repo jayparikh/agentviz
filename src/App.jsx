@@ -175,6 +175,11 @@ export default function App() {
     session.handleFile(text, name);
   }, [resetVisualizerState, session.handleFile]);
 
+  var loadRecentSession = useCallback(function (sessionPath) {
+    resetVisualizerState();
+    session.loadServerFile(sessionPath);
+  }, [resetVisualizerState, session.loadServerFile]);
+
   var loadSample = useCallback(function () {
     resetVisualizerState();
     session.loadSample();
@@ -305,6 +310,7 @@ export default function App() {
       <AppLandingState
         error={session.error}
         onLoad={handleFile}
+        onLoadRecent={loadRecentSession}
         onLoadSample={loadSample}
         onStartCompare={function () { setCompareLanding(true); }}
       />

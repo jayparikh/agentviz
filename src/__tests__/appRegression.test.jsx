@@ -39,13 +39,19 @@ function createTextResponse(payload) {
 }
 
 function createInactiveFetch() {
-  return vi.fn(async function () {
+  return vi.fn(async function (url) {
+    if (String(url).includes("/api/sessions")) {
+      return createJsonResponse({ sessions: [] });
+    }
     return { ok: false };
   });
 }
 
 function createBootstrapFetch(filename, text, live) {
   return vi.fn(async function (url) {
+    if (String(url).includes("/api/sessions")) {
+      return createJsonResponse({ sessions: [] });
+    }
     if (String(url).includes("/api/meta")) {
       return createJsonResponse({ filename: filename, live: live });
     }
@@ -62,6 +68,32 @@ function createLiveFetch(filename, text) {
 
 function createExportBootstrapFetch(filename, text) {
   return createBootstrapFetch(filename, text, false);
+}
+
+function createRecentSessionsFetch(sessionPath, text) {
+  return vi.fn(async function (url) {
+    if (String(url).includes("/api/sessions")) {
+      return createJsonResponse({
+        sessions: [{
+          path: sessionPath,
+          name: "recent.jsonl",
+          sourceKind: "copilot",
+          sourceLabel: "Copilot CLI",
+          mtimeMs: 1,
+          mtimeIso: "1970-01-01T00:00:00.001Z",
+          eventCount: 42,
+          sizeBytes: 8192,
+        }],
+      });
+    }
+    if (String(url).includes("/api/meta")) {
+      return createJsonResponse({ filename: null, live: false });
+    }
+    if (String(url).includes("/api/file?path=")) {
+      return createTextResponse(text);
+    }
+    throw new Error("Unexpected fetch: " + url);
+  });
 }
 
 function click(node) {
@@ -259,6 +291,26 @@ describe("App browser regressions", function () {
 
     expect(findByText(app.container, "Drop a session file here")).toBeFalsy();
     expect(fetchMock).toHaveBeenCalledWith("/api/file");
+
+    await app.unmount();
+  });
+
+  it("loads a recent local session from landing", async function () {
+    var app = await renderApp(createRecentSessionsFetch("/tmp/recent.jsonl", FIXTURE_TEXT));
+
+    await click(findClickableText(app.container, "browse local sessions"));
+
+    await waitFor(function () {
+      return findByText(app.container, "Recent local sessions");
+    }, "expected recent sessions heading");
+
+    await click(findClickableText(app.container, "recent.jsonl"));
+
+    await waitFor(function () {
+      return !findByText(app.container, "Drop a session file here");
+    }, "expected selected recent session to load");
+
+    expect(findByText(app.container, "Drop a session file here")).toBeFalsy();
 
     await app.unmount();
   });

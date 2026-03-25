@@ -131,6 +131,49 @@ export default function useSessionLoader(options) {
     setShowHero(false);
   }, []);
 
+  var loadServerFile = useCallback(function (sessionPath) {
+    if (!sessionPath) return;
+
+    requestIdRef.current += 1;
+    var requestId = requestIdRef.current;
+
+    if (parseTimeoutRef.current) {
+      clearTimeout(parseTimeoutRef.current);
+      parseTimeoutRef.current = null;
+    }
+
+    setError(null);
+    setLoading(true);
+    setIsLive(false);
+    liveRequestIdRef.current = 0;
+
+    fetch("/api/file?path=" + encodeURIComponent(sessionPath))
+      .then(function (r) { return r.ok ? r.text() : null; })
+      .then(function (text) {
+        if (!text || requestId !== requestIdRef.current) {
+          if (requestId === requestIdRef.current) setLoading(false);
+          return;
+        }
+
+        rawTextRef.current = text;
+        var name = sessionPath.split(/[\\/]/).pop() || sessionPath;
+        var parsed = parseSessionText(text);
+
+        setLoading(false);
+        if (!parsed.result) {
+          setError(parsed.error || "Could not parse selected session.");
+          return;
+        }
+
+        applySession(parsed.result, name);
+      })
+      .catch(function () {
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
+        setError("Could not load selected session from local server.");
+      });
+  }, [applySession]);
+
   // When served by the CLI (server.js), /api/meta tells us the filename
   // and /api/file provides the initial content. Bootstrap from there.
   useEffect(function () {
@@ -193,6 +236,7 @@ export default function useSessionLoader(options) {
     loadSample: loadSample,
     resetSession: resetSession,
     dismissHero: dismissHero,
+    loadServerFile: loadServerFile,
     getRawText: function () { return rawTextRef.current; },
   };
 }

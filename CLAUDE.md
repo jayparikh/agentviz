@@ -54,7 +54,8 @@ bin/
   agentviz.js          # CLI entry point: finds free port, starts server, opens browser
 mcp/
   server.js            # MCP server: launch_agentviz and close_agentviz tools
-server.js              # HTTP server: serves dist/ SPA + SSE /api/stream file tail
+server.js              # HTTP server: serves dist/ SPA + SSE /api/stream file tail + /api/sessions listing
+sessionSources.js      # Shared session discovery: known source dirs, listing, path validation
 ```
 
 ## Key data types

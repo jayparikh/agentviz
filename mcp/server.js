@@ -21,72 +21,15 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createServer } from "../server.js";
+import { findLatestSessionFile } from "../sessionSources.js";
 import fs from "fs";
 import path from "path";
 import net from "net";
-import os from "os";
 import { exec } from "child_process";
 import { fileURLToPath } from "url";
 
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var distDir = path.resolve(__dirname, "../dist");
-
-// Known session directories and how to find .jsonl files within them.
-var SESSION_SOURCES = [
-  {
-    // Claude Code: ~/.claude/projects/<project-dir>/<uuid>.jsonl
-    root: path.join(os.homedir(), ".claude", "projects"),
-    find: function (root) {
-      var results = [];
-      try {
-        for (var proj of fs.readdirSync(root)) {
-          var projPath = path.join(root, proj);
-          try { if (!fs.statSync(projPath).isDirectory()) continue; } catch (e) { continue; }
-          try {
-            for (var f of fs.readdirSync(projPath)) {
-              if (f.endsWith(".jsonl")) results.push(path.join(projPath, f));
-            }
-          } catch (e) {}
-        }
-      } catch (e) {}
-      return results;
-    },
-  },
-  {
-    // Copilot CLI: ~/.copilot/session-state/<uuid>/events.jsonl
-    root: path.join(os.homedir(), ".copilot", "session-state"),
-    find: function (root) {
-      var results = [];
-      try {
-        for (var sess of fs.readdirSync(root)) {
-          var candidate = path.join(root, sess, "events.jsonl");
-          if (fs.existsSync(candidate)) results.push(candidate);
-        }
-      } catch (e) {}
-      return results;
-    },
-  },
-];
-
-// Find the most recently modified session file across all known sources.
-function findLatestSessionFile() {
-  var best = null;
-  var bestMtime = 0;
-
-  for (var i = 0; i < SESSION_SOURCES.length; i++) {
-    var source = SESSION_SOURCES[i];
-    if (!fs.existsSync(source.root)) continue;
-    var files = source.find(source.root);
-    for (var j = 0; j < files.length; j++) {
-      try {
-        var mtime = fs.statSync(files[j]).mtimeMs;
-        if (mtime > bestMtime) { bestMtime = mtime; best = files[j]; }
-      } catch (e) {}
-    }
-  }
-
-  return best;
-}
 
 function findFreePort(preferred, cb) {
   var server = net.createServer();

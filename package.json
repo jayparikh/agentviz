@@ -15,6 +15,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "app": "npm run build && node bin/agentviz.js",
     "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",

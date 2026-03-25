@@ -1,8 +1,9 @@
 /**
  * AgentViz local server.
  * Serves dist/ as a static SPA and provides:
- *   GET /api/file   -- returns the watched session file as text
+ *   GET /api/file   -- returns the watched session file as text, or a known session via ?path=
  *   GET /api/meta   -- returns { filename } JSON
+ *   GET /api/sessions -- returns recent local sessions from known source directories
  *   GET /api/stream -- SSE endpoint, pushes new JSONL lines as the file grows
  */
 
@@ -10,6 +11,7 @@ import http from "http";
 import fs from "fs";
 import path from "path";
 import url from "url";
+import { isKnownSessionPath, listKnownSessionFiles } from "./sessionSources.js";
 
 var MIME = {
   ".html": "text/html; charset=utf-8",
@@ -68,6 +70,14 @@ export function createServer({ sessionFile, distDir }) {
   var watcher = null;
   var watcherClosed = false;
   var pollInterval = null;
+
+  function normalizeRequestedSessionPath(inputPath) {
+    if (!inputPath || typeof inputPath !== "string") return null;
+    var resolved = path.resolve(inputPath);
+    if (!resolved.endsWith(".jsonl")) return null;
+    if (!isKnownSessionPath(resolved)) return null;
+    return resolved;
+  }
 
   function broadcastNewLines() {
     if (!sessionFile || clients.size === 0) return;
@@ -139,15 +149,49 @@ export function createServer({ sessionFile, distDir }) {
     res.setHeader("Access-Control-Allow-Origin", "*");
 
     if (pathname === "/api/file") {
-      if (!sessionFile) { res.writeHead(404); res.end("No session file"); return; }
+      var requestedPath = normalizeRequestedSessionPath(parsed.query && parsed.query.path);
+      var targetFile = requestedPath || sessionFile;
+
+      if (parsed.query && parsed.query.path && !requestedPath) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "invalid_session_path" }));
+        return;
+      }
+
+      if (!targetFile) { res.writeHead(404); res.end("No session file"); return; }
+
       try {
-        var text = fs.readFileSync(sessionFile, "utf8");
+        var text = fs.readFileSync(targetFile, "utf8");
         res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
         res.end(text);
       } catch (e) {
         res.writeHead(500);
         res.end(e.message);
       }
+      return;
+    }
+
+    if (pathname === "/api/sessions") {
+      var limit = Number(parsed.query && parsed.query.limit);
+      var sessions = listKnownSessionFiles(limit)
+        .map(function (entry) {
+          return {
+            path: entry.path,
+            name: entry.name,
+            sourceKind: entry.sourceKind,
+            sourceLabel: entry.sourceLabel,
+            mtimeMs: entry.mtimeMs,
+            mtimeIso: new Date(entry.mtimeMs).toISOString(),
+            sizeBytes: entry.sizeBytes,
+            eventCount: entry.eventCount,
+          };
+        });
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        sessions: sessions,
+        selectedPath: sessionFile || null,
+      }));
       return;
     }
 
