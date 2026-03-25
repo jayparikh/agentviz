@@ -205,6 +205,20 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
     return getReplayWindow(layout.items, scrollTop, viewportHeight, REPLAY_WINDOW_OVERSCAN);
   }, [layout.items, scrollTop, viewportHeight]);
 
+  var windowMeasurementKey = useMemo(function () {
+    if (!windowedItems.length) return "";
+    return windowedItems.map(function (item) { return item.entry.index; }).join(",");
+  }, [windowedItems]);
+
+  var eventEntriesResetKey = useMemo(function () {
+    if (!eventEntries.length) return "empty";
+    return [
+      eventEntries.length,
+      eventEntries[0].index,
+      eventEntries[eventEntries.length - 1].index,
+    ].join(":");
+  }, [eventEntries]);
+
   useEffect(function () {
     if (containerRef.current && visibleEntries.length > prevCount.current && shouldFollowRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
@@ -230,9 +244,11 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   useEffect(function () {
     itemRefs.current = {};
     setMeasuredHeights({});
-  }, [eventEntries]);
+  }, [eventEntriesResetKey]);
 
   useLayoutEffect(function () {
+    if (!windowMeasurementKey) return;
+
     setMeasuredHeights(function (prev) {
       var next = prev;
       var changed = false;
@@ -252,7 +268,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
 
       return changed ? next : prev;
     });
-  });
+  }, [viewportHeight, windowMeasurementKey]);
 
   function handleScroll(e) {
     var nextTop = e.currentTarget.scrollTop;

@@ -24,6 +24,35 @@ function createMemoryStorage() {
   };
 }
 
+function createQuotaStorage(maxContentEntries) {
+  var storage = {};
+
+  function countContentEntries() {
+    return Object.keys(storage).filter(function (key) {
+      return key.indexOf("agentviz:session-content:v1:") === 0;
+    }).length;
+  }
+
+  return {
+    getItem: function (key) { return Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null; },
+    setItem: function (key, value) {
+      var nextValue = String(value);
+      var isContentKey = key.indexOf("agentviz:session-content:v1:") === 0;
+      var isNewKey = !Object.prototype.hasOwnProperty.call(storage, key);
+
+      if (isContentKey && isNewKey && countContentEntries() >= maxContentEntries) {
+        var error = new Error("Quota exceeded");
+        error.name = "QuotaExceededError";
+        throw error;
+      }
+
+      storage[key] = nextValue;
+    },
+    removeItem: function (key) { delete storage[key]; },
+    clear: function () { storage = {}; },
+  };
+}
+
 describe("session library persistence", function () {
   it("stores metadata summaries and raw content for imported copilot sessions", function () {
     var parsed = parseSessionText(COPILOT_FIXTURE);
@@ -58,5 +87,24 @@ describe("session library persistence", function () {
     expect(entries[0].format).toBe("claude-code");
     expect(entries[0].autonomyMetrics.interventionCount).toBe(1);
     expect(entries[0].errorCount).toBeGreaterThan(0);
+  });
+
+  it("evicts older cached content when storage quota is exceeded", function () {
+    var parsed = parseSessionText(COPILOT_FIXTURE);
+    var storage = createQuotaStorage(1);
+    var alternateFixture = COPILOT_FIXTURE + "\n";
+    var secondResult = {
+      events: parsed.result.events,
+      turns: parsed.result.turns,
+      metadata: Object.assign({}, parsed.result.metadata, { sessionId: String(parsed.result.metadata.sessionId || "session") + "-2" }),
+    };
+
+    var first = persistSessionSnapshot("session-a.jsonl", parsed.result, COPILOT_FIXTURE, storage);
+    var second = persistSessionSnapshot("session-b.jsonl", secondResult, alternateFixture, storage);
+
+    expect(first.entry.hasContent).toBe(true);
+    expect(second.entry.hasContent).toBe(true);
+    expect(loadStoredSessionContent(first.entry.id, storage)).toBe("");
+    expect(loadStoredSessionContent(second.entry.id, storage)).toBe(alternateFixture);
   });
 });

@@ -5,7 +5,7 @@ import App from './App.jsx'
 class RootErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, resetKey: 0 };
+    this.state = { hasError: false, error: null, componentStack: "", resetKey: 0 };
     this.handleReset = this.handleReset.bind(this);
   }
 
@@ -14,12 +14,22 @@ class RootErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
+    var componentStack = info && info.componentStack ? info.componentStack : "";
+    if (typeof window !== "undefined") {
+      window.__AGENTVIZ_LAST_CRASH__ = {
+        message: error && error.message ? error.message : String(error),
+        stack: error && error.stack ? error.stack : "",
+        componentStack: componentStack,
+        timestamp: new Date().toISOString(),
+      };
+    }
     console.error("[AgentViz crash]", error, info && info.componentStack);
+    this.setState({ componentStack: componentStack });
   }
 
   handleReset() {
     this.setState(function (prev) {
-      return { hasError: false, error: null, resetKey: (prev.resetKey || 0) + 1 };
+      return { hasError: false, error: null, componentStack: "", resetKey: (prev.resetKey || 0) + 1 };
     });
   }
 
@@ -41,6 +51,22 @@ class RootErrorBoundary extends React.Component {
             overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word",
           }
         }, msg),
+        !!(this.state.error && this.state.error.stack) && React.createElement("pre", {
+          style: {
+            background: "#0f141a", border: "1px solid #30363d", borderRadius: 8,
+            padding: "12px 16px", fontSize: 12, color: "#8b949e", maxWidth: 680,
+            overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word",
+            margin: 0,
+          }
+        }, this.state.error.stack),
+        !!this.state.componentStack && React.createElement("pre", {
+          style: {
+            background: "#0f141a", border: "1px solid #30363d", borderRadius: 8,
+            padding: "12px 16px", fontSize: 12, color: "#8b949e", maxWidth: 680,
+            overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word",
+            margin: 0,
+          }
+        }, this.state.componentStack),
         React.createElement("button", {
           onClick: this.handleReset,
           style: {
