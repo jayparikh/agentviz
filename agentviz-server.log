@@ -110,3 +110,5 @@ nohup: ignoring input
 [CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
 [CLI subprocess] (node:532662) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 [CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:537016) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)

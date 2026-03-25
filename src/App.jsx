@@ -26,10 +26,8 @@ import CompareLandingState from "./components/app/CompareLandingState.jsx";
 import CompareShell from "./components/app/CompareShell.jsx";
 import { APP_VIEWS, PLAYBACK_SPEEDS } from "./components/app/constants.js";
 import DebriefView from "./components/DebriefView.jsx";
-import { buildAutonomyMetrics } from "./lib/autonomyMetrics.js";
-import { buildDebriefRecommendations } from "./lib/debriefRecommendations.js";
+import { buildAutonomyMetrics, buildAutonomySummary } from "./lib/autonomyMetrics.js";
 import {
-  createSessionStorageId,
   loadStoredSessionContent,
   persistSessionSnapshot,
   readSessionLibrary,
@@ -93,7 +91,6 @@ function renderActiveView(activeView, props) {
       <DebriefView
         file={props.session.file}
         summary={props.debrief.summary}
-        recommendations={props.debrief.recommendations}
         recommendationState={props.recommendationState}
         onSetRecommendationState={props.onSetRecommendationState}
         metadata={props.session.metadata}
@@ -120,7 +117,6 @@ export default function App() {
   var [libraryEntries, setLibraryEntries] = useState(function () {
     return readSessionLibrary();
   });
-  var [coachState, setCoachState] = useState({});
   var [showPalette, setShowPalette] = useState(false);
   var [showShortcuts, setShowShortcuts] = useState(false);
   var [showFilters, setShowFilters] = useState(false);
@@ -219,14 +215,8 @@ export default function App() {
     return buildAutonomyMetrics(session.events, session.turns, session.metadata);
   }, [session.events, session.turns, session.metadata]);
   var debrief = useMemo(function () {
-    return buildDebriefRecommendations(session.events, session.turns, session.metadata, autonomyMetrics);
-  }, [session.events, session.turns, session.metadata, autonomyMetrics]);
-  var currentSessionId = useMemo(function () {
-    var rawText = session.getRawText();
-    if (!session.file || !session.metadata || !rawText) return null;
-    return createSessionStorageId(session.file, session.metadata, rawText);
-  }, [session.events, session.file, session.metadata, session.turns]);
-  var currentRecommendationState = currentSessionId ? (coachState[currentSessionId] || {}) : {};
+    return { summary: buildAutonomySummary(autonomyMetrics) };
+  }, [autonomyMetrics]);
 
   var turnStartMap = useMemo(function () {
     return buildTurnStartMap(session.turns);
@@ -378,18 +368,6 @@ export default function App() {
   }, [setTrackFilters]);
 
   var activeFilterCount = Object.keys(trackFilters).length;
-  var setRecommendationState = useCallback(function (recommendationId, nextState) {
-    if (!currentSessionId) return;
-
-    setCoachState(function (prev) {
-      return Object.assign({}, prev, {
-        [currentSessionId]: Object.assign({}, prev[currentSessionId] || {}, {
-          [recommendationId]: nextState,
-        }),
-      });
-    });
-  }, [currentSessionId]);
-
   var cycleSpeed = useCallback(function () {
     var idx = PLAYBACK_SPEEDS.indexOf(playback.speed);
     var next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
@@ -585,8 +563,6 @@ export default function App() {
           turnStartMap: turnStartMap,
           autonomyMetrics: autonomyMetrics,
           debrief: debrief,
-          recommendationState: currentRecommendationState,
-          onSetRecommendationState: setRecommendationState,
           onOpenCoach: function () { setView("coach"); },
         })}
       </div>

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
-import ToolbarButton from "./ui/ToolbarButton.jsx";
-import { KNOWN_CONFIG_SURFACES, getRelevantSurfaces } from "../lib/projectConfig.js";
+import { getRelevantSurfaces } from "../lib/projectConfig.js";
 // ─────────────────────────────────────────────────────────────────────────────
 // Coach analysis cache (localStorage)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16,93 +15,11 @@ function clearCachedAnalysis(file) {
   try { localStorage.removeItem(CACHE_PREFIX + file); } catch (e) {}
 }
 
-// User-settable status options shown in the dropdown
-var STATUS_OPTIONS = [
-  { id: "accepted", label: "Accepted", color: theme.semantic.success },
-  { id: "applied", label: "Applied", color: theme.semantic.success },
-  { id: "ignored", label: "Ignored", color: theme.semantic.error },
-  { id: "not-now", label: "Not now", color: theme.accent.primary },
-];
-
-// Auto-detected statuses (not shown in dropdown, set by reconciliation)
-var AUTO_STATUS_DISPLAY = {
-  "already-handled": { label: "Already covered", icon: "✓", color: theme.semantic.success },
-  "partial": { label: "Partial", icon: "~", color: "#f59e0b" },
-};
-
-function RecommendationStatus({ value }) {
-  if (!value) return null;
-
-  // Check auto statuses first
-  if (AUTO_STATUS_DISPLAY[value]) {
-    var auto = AUTO_STATUS_DISPLAY[value];
-    return (
-      <span style={{
-        fontSize: theme.fontSize.xs,
-        color: auto.color,
-        border: "1px solid " + alpha(auto.color, 0.35),
-        background: alpha(auto.color, 0.1),
-        borderRadius: theme.radius.full,
-        padding: "3px 8px",
-      }}>
-        {auto.icon + " " + auto.label}
-      </span>
-    );
-  }
-
-  var match = STATUS_OPTIONS.find(function (option) { return option.id === value; });
-  if (!match) return null;
-
-  return (
-    <span style={{
-      fontSize: theme.fontSize.xs,
-      color: match.color,
-      border: "1px solid " + alpha(match.color, 0.35),
-      background: alpha(match.color, 0.1),
-      borderRadius: theme.radius.full,
-      padding: "3px 8px",
-    }}>
-      {match.label}
-    </span>
-  );
-}
-
-/**
- * Returns a human-readable relative timestamp string (e.g. "5 seconds ago").
- * @param {number|null} ts -- Date.now() value
- * @returns {string}
- */
-function formatRelativeTime(ts) {
-  if (!ts) return "";
-  var diff = Math.floor((Date.now() - ts) / 1000);
-  if (diff < 5) return "just now";
-  if (diff < 60) return diff + " seconds ago";
-  var mins = Math.floor(diff / 60);
-  if (mins === 1) return "1 minute ago";
-  return mins + " minutes ago";
-}
-
-function basename(filePath) {
-  if (!filePath) return filePath;
-  var parts = filePath.replace(/\\/g, "/").split("/");
-  return parts[parts.length - 1] || filePath;
-}
-
-function buildBaselineSnapshot(configFiles) {
-  return {};
-}
-
-function reconcileStatuses() { return {}; }
-
-export default function DebriefView({ file, summary, recommendations, recommendationState, onSetRecommendationState, metadata, rawSession }) {
-  var [copiedId, setCopiedId] = useState(null);
-  var [editedDrafts, setEditedDrafts] = useState({});
-  var [applyStatus, setApplyStatus] = useState({});
+export default function DebriefView({ file, summary, metadata, rawSession }) {
   var [configFiles, setConfigFiles] = useState([]);
   var [configLoaded, setConfigLoaded] = useState(false);
   var [showConfigExplorer, setShowConfigExplorer] = useState(false);
   var [expandedSurface, setExpandedSurface] = useState(null);
-  var [lastChecked, setLastChecked] = useState(null);
   var [aiAnalysis, setAiAnalysis] = useState(null);
   var [aiStatus, setAiStatus] = useState(null); // null | "loading" | "done" | "error"
   var [aiError, setAiError] = useState(null);
@@ -114,22 +31,12 @@ export default function DebriefView({ file, summary, recommendations, recommenda
   var aiAbortRef = useRef(null);
   var autoStartedRef = useRef(false);
 
-  // Baseline snapshot -- kept for config explorer but no longer drives rec list
-  var baselineRef = useRef(null);
-
   useEffect(function () {
     fetch("/api/config")
       .then(function (r) { return r.json(); })
       .then(function (data) { setConfigFiles(data); setConfigLoaded(true); })
       .catch(function () { setConfigLoaded(true); });
   }, []);
-
-  useEffect(function () {
-    if (!configLoaded || configFiles.length === 0 || !rawSession) return;
-    if (baselineRef.current !== null) return;
-    baselineRef.current = buildBaselineSnapshot(configFiles);
-    setLastChecked(Date.now());
-  }, [configLoaded, configFiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-start AI analysis once config + session are ready; use cache if available
   useEffect(function () {
@@ -147,66 +54,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
     var t = setTimeout(function () { handleAiAnalyze(); }, 200);
     return function () { clearTimeout(t); };
   }, [rawSession, configLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  var activeRecommendations = [];
-
-  function getEditedDraft(recommendation) {
-    return Object.prototype.hasOwnProperty.call(editedDrafts, recommendation.id)
-      ? editedDrafts[recommendation.id]
-      : recommendation.draftText;
-  }
-
-  function setEditedDraft(id, value) {
-    setEditedDrafts(function (prev) {
-      var next = Object.assign({}, prev);
-      next[id] = value;
-      return next;
-    });
-  }
-
-  function copyDraft(id, text) {
-    if (typeof navigator === "undefined" || !navigator.clipboard || !navigator.clipboard.writeText) return;
-
-    navigator.clipboard.writeText(text).then(function () {
-      setCopiedId(id);
-      window.setTimeout(function () {
-        setCopiedId(function (current) { return current === id ? null : current; });
-      }, 1500);
-    }).catch(function () {});
-  }
-
-  function applyToFile(recommendation) {
-    var editedDraft = getEditedDraft(recommendation);
-    setApplyStatus(function (prev) { return Object.assign({}, prev, { [recommendation.id]: "applying" }); });
-
-    fetch("/api/apply", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ relativePath: recommendation.targetPath, content: editedDraft }),
-    }).then(function (response) {
-      if (response.ok) {
-        onSetRecommendationState(recommendation.id, "applied");
-        setApplyStatus(function (prev) { return Object.assign({}, prev, { [recommendation.id]: "applied" }); });
-      } else {
-        copyDraft(recommendation.id, editedDraft);
-        setApplyStatus(function (prev) { return Object.assign({}, prev, { [recommendation.id]: "copy-fallback" }); });
-      }
-    }).catch(function () {
-      copyDraft(recommendation.id, editedDraft);
-      setApplyStatus(function (prev) { return Object.assign({}, prev, { [recommendation.id]: "copy-fallback" }); });
-    });
-  }
-
-  function handleRefresh() {
-    if (!rawSession) return;
-    fetch("/api/config")
-      .then(function (r) { return r.json(); })
-      .then(function (freshData) {
-        setConfigFiles(freshData);
-        setLastChecked(Date.now());
-      })
-      .catch(function () {});
-  }
 
   function buildAnalysisPayload() {
     var m = rawSession.autonomyMetrics || {};
@@ -562,18 +409,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                       var isExpanded = expandedSurface === surface.id;
                       var fullContent = isExpanded ? getSurfaceFullContent(result) : null;
 
-                      // Detect if this surface changed since baseline
-                      var baseline = baselineRef.current && baselineRef.current[surface.id];
-                      var wasUpdated = false;
-                      if (baseline && result) {
-                        var currentExists = Boolean(result.exists);
-                        var currentEntries = result.entries ? result.entries.length : 0;
-                        var currentContentLen = result.content ? result.content.length : 0;
-                        if (!baseline.exists && currentExists) wasUpdated = true;
-                        else if (baseline.entriesCount < currentEntries) wasUpdated = true;
-                        else if (baseline.contentLength < currentContentLen) wasUpdated = true;
-                      }
-
                       return (
                         <div
                           key={surface.id}
@@ -593,18 +428,6 @@ export default function DebriefView({ file, summary, recommendations, recommenda
                               {surface.label}
                             </span>
                             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                              {wasUpdated && (
-                                <span style={{
-                                  fontSize: theme.fontSize.xs,
-                                  color: theme.semantic.success,
-                                  background: alpha(theme.semantic.success, 0.1),
-                                  border: "1px solid " + alpha(theme.semantic.success, 0.3),
-                                  borderRadius: theme.radius.full,
-                                  padding: "2px 6px",
-                                }}>
-                                  updated
-                                </span>
-                              )}
                               <span style={{
                                 fontSize: theme.fontSize.xs,
                                 color: exists ? theme.semantic.success : theme.text.dim,
@@ -662,12 +485,7 @@ export default function DebriefView({ file, summary, recommendations, recommenda
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontFamily: theme.font.ui }}>
-            {lastChecked
-              ? "Config read at: " + formatRelativeTime(lastChecked)
-              : configLoaded ? "Config loaded" : "Loading config..."}
-          </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <div style={{ display: "flex", gap: 8 }}>
             {aiStatus === "loading" ? (
               <button
