@@ -24,7 +24,7 @@ function getFormatLabel(format) {
 }
 
 function getFormatColor(format) {
-  if (format === "copilot-cli") return theme.accent.secondary || "#22c55e";
+  if (format === "copilot-cli") return theme.semantic.success;
   return theme.accent.primary;
 }
 

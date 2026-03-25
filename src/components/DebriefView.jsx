@@ -477,9 +477,9 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                                 return (
                                   <span key={name} style={{
                                     fontSize: theme.fontSize.xs,
-                                    color: theme.text.accent,
-                                    background: alpha(theme.text.accent, 0.1),
-                                    border: "1px solid " + alpha(theme.text.accent, 0.25),
+                                    color: theme.accent.primary,
+                                    background: alpha(theme.accent.primary, 0.1),
+                                    border: "1px solid " + alpha(theme.accent.primary, 0.25),
                                     borderRadius: theme.radius.full,
                                     padding: "1px 7px",
                                     fontFamily: theme.font.mono,
