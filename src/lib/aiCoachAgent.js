@@ -351,7 +351,7 @@ export function buildCoachPrompt(payload) {
   var {
     format, primaryModel, totalEvents, totalTurns, errorCount, totalToolCalls,
     productiveRuntime, humanResponseTime, idleTime, interventions, autonomyEfficiency,
-    topTools, errorSamples, userFollowUps,
+    topTools, errorSamples, userFollowUps, existingSkills, existingMcpServers,
   } = payload;
 
   var agentType = format === "copilot-cli" ? "GitHub Copilot CLI" : "Claude Code";
@@ -391,6 +391,22 @@ export function buildCoachPrompt(payload) {
     "## Available config paths to read/write",
     configPaths.map(function (p) { return "- " + p; }).join("\n"),
   );
+
+  if (existingSkills && existingSkills.length > 0) {
+    sections.push(
+      "",
+      "## Existing skills (DO NOT duplicate these)",
+      existingSkills.map(function (s) { return "- " + s; }).join("\n"),
+    );
+  }
+
+  if (existingMcpServers && existingMcpServers.length > 0) {
+    sections.push(
+      "",
+      "## Existing MCP servers already configured",
+      existingMcpServers.map(function (s) { return "- " + s; }).join("\n"),
+    );
+  }
 
   return sections.join("\n");
 }

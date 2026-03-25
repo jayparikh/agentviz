@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
-import { getRelevantSurfaces } from "../lib/projectConfig.js";
+import { getRelevantSurfaces, parseMcpServerNames, parseSkillNames } from "../lib/projectConfig.js";
 // ─────────────────────────────────────────────────────────────────────────────
 // Coach analysis cache (localStorage)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,6 +58,24 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
   function buildAnalysisPayload() {
     var m = rawSession.autonomyMetrics || {};
     var met = rawSession.metadata || {};
+
+    // Extract existing skills and MCP server names from loaded config files
+    var existingSkills = [];
+    var existingMcpServers = [];
+    for (var ci = 0; ci < configFiles.length; ci++) {
+      var cf = configFiles[ci];
+      if (!cf.exists) continue;
+      if (cf.id === "github-skills" || cf.id === "github-extensions" || cf.id === "github-prompts" ||
+          cf.id === "claude-skills") {
+        var names = parseSkillNames(cf);
+        existingSkills = existingSkills.concat(names);
+      }
+      if (cf.id === "mcp-json") {
+        var mcpNames = cf.mcpServers || parseMcpServerNames(cf.content);
+        existingMcpServers = existingMcpServers.concat(mcpNames);
+      }
+    }
+
     return {
       format: met.format || "claude-code",
       primaryModel: met.primaryModel || null,
@@ -76,6 +94,8 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
         .filter(function (e) { return e.isError && e.text; })
         .slice(0, 6)
         .map(function (e) { return (e.toolName ? "[" + e.toolName + "] " : "") + e.text.substring(0, 150); }),
+      existingSkills: existingSkills,
+      existingMcpServers: existingMcpServers,
     };
   }
 
@@ -409,6 +429,17 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                       var isExpanded = expandedSurface === surface.id;
                       var fullContent = isExpanded ? getSurfaceFullContent(result) : null;
 
+                      // Extract named items for skills and MCP surfaces
+                      var namedItems = null;
+                      if (exists && surface.type === "skills" && result) {
+                        var skillNames = parseSkillNames(result);
+                        if (skillNames.length > 0) namedItems = skillNames;
+                      }
+                      if (exists && surface.type === "mcp" && result) {
+                        var serverNames = result.mcpServers || parseMcpServerNames(result.content);
+                        if (serverNames.length > 0) namedItems = serverNames;
+                      }
+
                       return (
                         <div
                           key={surface.id}
@@ -440,7 +471,26 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                               </span>
                             </div>
                           </div>
-                          {preview && (
+                          {namedItems && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                              {namedItems.map(function (name) {
+                                return (
+                                  <span key={name} style={{
+                                    fontSize: theme.fontSize.xs,
+                                    color: theme.text.accent,
+                                    background: alpha(theme.text.accent, 0.1),
+                                    border: "1px solid " + alpha(theme.text.accent, 0.25),
+                                    borderRadius: theme.radius.full,
+                                    padding: "1px 7px",
+                                    fontFamily: theme.font.mono,
+                                  }}>
+                                    {name}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {!namedItems && preview && (
                             <div style={{
                               fontSize: theme.fontSize.xs,
                               color: theme.text.muted,

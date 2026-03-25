@@ -158,24 +158,44 @@ export function createServer({ sessionFile, distDir }) {
       }
 
       var CONFIG_SURFACES = [
-        { id: "claude-md",            path: "CLAUDE.md",                       glob: null         },
-        { id: "copilot-instructions", path: ".github/copilot-instructions.md", glob: null         },
-        { id: "agents-md",            path: "AGENTS.md",                       glob: null         },
-        { id: "claude-agents",        path: ".claude/agents",                  glob: ".md"        },
-        { id: "claude-commands",      path: ".claude/commands",                glob: ".md"        },
-        { id: "claude-rules",         path: ".claude/rules",                   glob: ".md"        },
-        { id: "claude-skills",        path: ".claude/skills",                  glob: null         },
-        { id: "mcp-json",             path: ".mcp.json",                       glob: null         },
-        { id: "claude-settings",      path: ".claude/settings.json",           glob: null         },
-        { id: "github-prompts",       path: ".github/prompts",                 glob: ".prompt.md" },
-        { id: "github-extensions",    path: ".github/extensions",              glob: ".yml"       },
+        { id: "claude-md",            path: "CLAUDE.md",                       glob: null,         skillDirs: false },
+        { id: "copilot-instructions", path: ".github/copilot-instructions.md", glob: null,         skillDirs: false },
+        { id: "agents-md",            path: "AGENTS.md",                       glob: null,         skillDirs: false },
+        { id: "claude-agents",        path: ".claude/agents",                  glob: ".md",        skillDirs: false },
+        { id: "claude-commands",      path: ".claude/commands",                glob: ".md",        skillDirs: false },
+        { id: "claude-rules",         path: ".claude/rules",                   glob: ".md",        skillDirs: false },
+        { id: "claude-skills",        path: ".claude/skills",                  glob: null,         skillDirs: false },
+        { id: "mcp-json",             path: ".mcp.json",                       glob: null,         skillDirs: false },
+        { id: "claude-settings",      path: ".claude/settings.json",           glob: null,         skillDirs: false },
+        { id: "github-prompts",       path: ".github/prompts",                 glob: ".prompt.md", skillDirs: false },
+        { id: "github-skills",        path: ".github/skills",                  glob: null,         skillDirs: true  },
+        { id: "github-extensions",    path: ".github/extensions",              glob: ".yml",       skillDirs: false },
       ];
 
       var cwd = process.cwd();
       var configResults = CONFIG_SURFACES.map(function (surface) {
         var resolvedPath = path.resolve(cwd, surface.path);
 
-        // Directory surface
+        // Skills directory: each skill is a subdirectory containing SKILL.md
+        if (surface.skillDirs) {
+          try {
+            var skillEntries = [];
+            var subdirs = fs.readdirSync(resolvedPath, { withFileTypes: true });
+            for (var si = 0; si < subdirs.length; si++) {
+              if (!subdirs[si].isDirectory()) continue;
+              var skillFile = path.join(resolvedPath, subdirs[si].name, "SKILL.md");
+              try {
+                var skillContent = fs.readFileSync(skillFile, "utf8");
+                skillEntries.push({ path: path.join(surface.path, subdirs[si].name, "SKILL.md"), content: skillContent });
+              } catch (e2) {}
+            }
+            return { id: surface.id, path: surface.path, exists: true, entries: skillEntries };
+          } catch (e) {
+            return { id: surface.id, path: surface.path, exists: false, entries: [] };
+          }
+        }
+
+        // Regular directory surface
         if (surface.glob !== null) {
           try {
             var entries = [];
@@ -199,7 +219,15 @@ export function createServer({ sessionFile, distDir }) {
         // Single file surface
         try {
           var fileContent = fs.readFileSync(resolvedPath, "utf8");
-          return { id: surface.id, path: surface.path, exists: true, content: fileContent };
+          // For .mcp.json, also extract server names for convenience
+          var extra = {};
+          if (surface.id === "mcp-json") {
+            try {
+              var mcpParsed = JSON.parse(fileContent);
+              extra.mcpServers = Object.keys(mcpParsed.mcpServers || mcpParsed.servers || {});
+            } catch (pe) {}
+          }
+          return Object.assign({ id: surface.id, path: surface.path, exists: true, content: fileContent }, extra);
         } catch (e) {
           return { id: surface.id, path: surface.path, exists: false, content: null };
         }

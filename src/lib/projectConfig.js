@@ -25,8 +25,9 @@ export var KNOWN_CONFIG_SURFACES = [
   { id: "claude-skills",        path: ".claude/skills",                  glob: null,          label: ".claude/skills/",           format: "claude-code",  type: "skills" },
   { id: "mcp-json",             path: ".mcp.json",                       glob: null,          label: ".mcp.json",                 format: "claude-code",  type: "mcp" },
   { id: "claude-settings",      path: ".claude/settings.json",           glob: null,          label: ".claude/settings.json",     format: "claude-code",  type: "settings" },
-  // Copilot CLI: prompt templates and extensions
+  // Copilot CLI: prompt templates, skills, and extensions
   { id: "github-prompts",       path: ".github/prompts",                 glob: "*.prompt.md", label: ".github/prompts/",          format: "copilot-cli",  type: "skills" },
+  { id: "github-skills",        path: ".github/skills",                  glob: null,          label: ".github/skills/",           format: "copilot-cli",  type: "skills" },
   { id: "github-extensions",    path: ".github/extensions",              glob: "*.yml",       label: ".github/extensions/",       format: "copilot-cli",  type: "skills" },
 ];
 
@@ -99,6 +100,31 @@ export function parseMcpServerNames(content) {
   } catch (e) {
     return [];
   }
+}
+
+/**
+ * Extracts skill names from a github-skills result (subdirectory listing with SKILL.md entries).
+ * Also works for claude-skills entries array.
+ * @param {object|null} result - config surface result with entries[]
+ * @returns {string[]}
+ */
+export function parseSkillNames(result) {
+  if (!result || !result.exists) return [];
+  // entries are { path, content } where path is e.g. ".github/skills/foo/SKILL.md"
+  if (result.entries && result.entries.length > 0) {
+    return result.entries.map(function (e) {
+      // Extract skill name from frontmatter `name:` field, fall back to directory name
+      var nameMatch = e.content && e.content.match(/^name:\s*(.+)$/m);
+      if (nameMatch) return nameMatch[1].trim();
+      var parts = e.path.replace(/\\/g, "/").split("/");
+      // For paths like .github/skills/foo/SKILL.md, the skill name is the second-to-last segment
+      if (parts.length >= 2) return parts[parts.length - 2];
+      return parts[parts.length - 1].replace(/\.(md|yml)$/, "");
+    });
+  }
+  // Directory scan result with subdirNames
+  if (result.subdirNames && result.subdirNames.length > 0) return result.subdirNames;
+  return [];
 }
 
 /**
