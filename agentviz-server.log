@@ -93,3 +93,20 @@ nohup: ignoring input
 
 [CLI subprocess] (node:513500) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 [CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+2026-03-24T23:10:21.199Z [start] listening on http://localhost:4243
+2026-03-24T23:10:21.199Z [start] listening on http://localhost:4243
+
+  AGENTVIZ. running at http://localhost:4243
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+[CLI subprocess] (node:528030) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:529760) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:531417) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:532253) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:532662) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)

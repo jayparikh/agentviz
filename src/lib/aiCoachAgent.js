@@ -170,6 +170,8 @@ function buildSystemPrompt(format) {
     "- Every recommendation MUST cite a specific error text, metric, or user message from the session.",
     "- If you cannot connect a recommendation to a specific session observation, do NOT make it.",
     "- Prefer fewer, higher-quality recommendations over many generic ones.",
+    "- Do NOT use web_fetch. Your analysis is based entirely on session stats, errors, and local config files.",
+    "- Do NOT fetch external documentation, changelogs, or research papers.",
     "",
     formatGuidance,
     "",
@@ -177,16 +179,14 @@ function buildSystemPrompt(format) {
     "",
     "WORKFLOW:",
     "1. Read the session stats and errors carefully.",
-    "2. Check the 'Patterns already detected' section -- these are your starting points.",
-    "3. For each triggered pattern: call read_config() for its targetPath, then recommend() with",
-    "   a draftText that references the SPECIFIC errors/metrics/tool names from THIS session.",
-    "   Do NOT copy the template verbatim -- make it specific. E.g. if the pattern says 'add autonomy rules'",
-    "   and the session shows 8 interventions about file editing, write: 'You may create/edit/delete files",
-    "   in src/ without asking for confirmation.'",
-    "4. If there are errors/metrics with no matching pattern, add a new recommendation for those.",
-    "5. Skip patterns that are already-applied.",
-    "6. For .mcp.json: read it first, then output the FULL merged JSON with new servers added.",
-    "7. For markdown: output ONLY the new section to append (be specific, not generic).",
+    "2. Call read_config() for each relevant config file to understand the current state.",
+    "3. For each observed problem (error, high idle time, repeated interventions): call recommend()",
+    "   with a draftText that references SPECIFIC errors/metrics/tool names from THIS session.",
+    "   Do NOT write generic advice -- if the session shows 8 interventions about file editing, write:",
+    "   'You may create/edit/delete files in src/ without asking for confirmation.'",
+    "4. For .mcp.json: read it first, then output the FULL merged JSON with new servers added.",
+    "5. For markdown: output ONLY the new section to append (be specific, not generic).",
+    "6. Stop after calling recommend() for each distinct problem. Do not over-recommend.",
   ].join("\n");
 }
 
@@ -316,7 +316,26 @@ export async function runCoachAgent(payload, opts) {
     });
 
     emit({ type: "analyze", label: "Analyzing session data..." });
-    await session.sendAndWait({ prompt: buildCoachPrompt(payload) }, 90000);
+
+    // Use session.send() + listen for session.idle directly -- no timeout
+    await new Promise(function (resolve, reject) {
+      var done = false;
+      var unsubscribe = session.on(function (event) {
+        if (done) return;
+        if (event.type === "session.idle") {
+          done = true;
+          unsubscribe();
+          resolve();
+        } else if (event.type === "session.error") {
+          done = true;
+          unsubscribe();
+          reject(new Error(event.data && event.data.message ? event.data.message : "Session error"));
+        }
+      });
+      session.send({ prompt: buildCoachPrompt(payload) }).catch(function (err) {
+        if (!done) { done = true; unsubscribe(); reject(err); }
+      });
+    });
     await session.disconnect();
 
     if (signal && signal.aborted) {
