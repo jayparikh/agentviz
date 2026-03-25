@@ -439,12 +439,28 @@ export function createServer({ sessionFile, distDir }) {
             var summary = null;
             try {
               var yamlText = fs.readFileSync(path.join(sessionDir, "workspace.yaml"), "utf8");
-              var summaryMatch = yamlText.match(/^summary:\s*(.+)$/m);
+              // Handle both inline summary and YAML block scalar (summary: |-)
+              var inlineMatch = yamlText.match(/^summary:\s+(?!\|-\s*$)(.+)$/m);
+              var blockMatch = yamlText.match(/^summary:\s*\|-\s*\n([ \t]+)(.+)$/m);
               var repoMatch = yamlText.match(/^repository:\s*(.+)$/m);
               var branchMatch = yamlText.match(/^branch:\s*(.+)$/m);
-              if (summaryMatch && summaryMatch[1].trim()) summary = summaryMatch[1].trim();
+              if (inlineMatch && inlineMatch[1].trim()) {
+                summary = inlineMatch[1].trim();
+              } else if (blockMatch && blockMatch[2].trim()) {
+                summary = blockMatch[2].trim();
+              }
               if (repoMatch) repo = repoMatch[1].trim();
               if (branchMatch) branch = branchMatch[1].trim();
+
+              // Filter out AI coach subprocess sessions:
+              // These are spawned by the coach agent itself and have a prompt as their summary.
+              if (summary && (
+                summary.startsWith("Analyze this") ||
+                (summary.includes("Session stats") && summary.includes("read_config"))
+              )) {
+                return; // skip
+              }
+
               if (summary) label = summary;
             } catch (e) {}
             results.push({ id: "copilot-cli:" + sessionDirName + ":events.jsonl", path: eventsFile, filename: "events.jsonl", project: label, projectDir: sessionDirName, sessionId: sessionDirName, repository: repo, branch: branch, summary: summary, format: "copilot-cli", size: stat.size, mtime: stat.mtime.toISOString() });
