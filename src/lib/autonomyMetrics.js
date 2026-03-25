@@ -55,7 +55,8 @@ export function buildAutonomyMetrics(events, turns, metadata) {
   var eventRuntime = safeEvents.reduce(function (sum, event) {
     return sum + Math.max(0, event.duration || 0);
   }, 0);
-  var interventionCount = Math.max(0, (metadata && metadata.totalTurns ? metadata.totalTurns : (turns || []).length) - 1);
+  var realUserTurns = (turns || []).filter(function (turn) { return !isContinuationMessage(turn.userMessage); });
+  var interventionCount = Math.max(0, realUserTurns.length - 1);
   var userMessages = getTurnMessages(turns);
   var topTools = getTopTools(safeEvents);
   var idleTime = 0;

@@ -56,7 +56,7 @@ describe("autonomy metrics", function () {
 
     var metrics = buildAutonomyMetrics(events, turns, metadata);
 
-    expect(metrics.interventionCount).toBe(1);
+    expect(metrics.interventionCount).toBe(0);
     expect(metrics.babysittingTime).toBe(45);
     expect(metrics.userFollowUps).toEqual([]);
   });
