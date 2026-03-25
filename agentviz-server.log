@@ -1,0 +1,114 @@
+nohup: ignoring input
+2026-03-24T19:25:48.315Z [start] listening on http://localhost:4242
+2026-03-24T19:29:02.918Z [start] listening on http://localhost:4242
+2026-03-24T19:31:53.491Z [start] listening on http://localhost:4242
+2026-03-24T19:31:53.491Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T19:44:47.693Z [start] listening on http://localhost:4242
+2026-03-24T19:44:47.693Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T19:46:27.792Z [start] listening on http://localhost:4242
+2026-03-24T19:46:27.792Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T19:47:10.977Z [start] listening on http://localhost:4242
+2026-03-24T19:47:10.977Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T21:35:38.922Z [start] listening on http://localhost:4242
+2026-03-24T21:35:38.922Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T21:39:38.186Z [start] listening on http://localhost:4242
+2026-03-24T21:39:38.186Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T21:45:57.544Z [start] listening on http://localhost:4242
+2026-03-24T21:45:57.544Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T21:55:45.266Z [start] listening on http://localhost:4242
+2026-03-24T21:55:45.266Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T21:59:51.547Z [start] listening on http://localhost:4242
+2026-03-24T21:59:51.547Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+2026-03-24T22:08:22.733Z [start] listening on http://localhost:4242
+2026-03-24T22:08:22.733Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+[CLI subprocess] (node:506204) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+2026-03-24T22:12:32.234Z [start] listening on http://localhost:4242
+2026-03-24T22:12:32.234Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+[CLI subprocess] (node:507849) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:509046) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+2026-03-24T22:18:15.034Z [start] listening on http://localhost:4242
+2026-03-24T22:18:15.034Z [start] listening on http://localhost:4242
+
+  AGENTVIZ. running at http://localhost:4242
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+[CLI subprocess] (node:513500) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+2026-03-24T23:10:21.199Z [start] listening on http://localhost:4243
+2026-03-24T23:10:21.199Z [start] listening on http://localhost:4243
+
+  AGENTVIZ. running at http://localhost:4243
+  Logs: /home/vibhadauria/workspace/viveks-scratch/agentviz/agentviz-server.log
+  Press Ctrl+C to stop.
+
+[CLI subprocess] (node:528030) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:529760) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:531417) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:532253) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:532662) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)
+[CLI subprocess] (node:537016) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[CLI subprocess] (Use `node --trace-warnings ...` to show where the warning was created)

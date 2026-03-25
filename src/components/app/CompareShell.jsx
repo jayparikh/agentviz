@@ -12,6 +12,8 @@ export default function CompareShell({
   onExportComparison,
   exportState,
   exportError,
+  onOpenSessionA,
+  onOpenSessionB,
 }) {
   return (
     <ShellFrame>
@@ -52,6 +54,8 @@ export default function CompareShell({
         <CompareView
           sessionA={sessionA}
           sessionB={sessionB}
+          onOpenSessionA={onOpenSessionA}
+          onOpenSessionB={onOpenSessionB}
         />
       </div>
     </ShellFrame>

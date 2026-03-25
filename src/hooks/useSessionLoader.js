@@ -13,6 +13,8 @@ export function shouldApplyLiveLines(liveRequestId, requestId) {
 }
 
 export default function useSessionLoader(options) {
+  var autoBootstrap = !options || options.autoBootstrap !== false;
+  var onSessionParsed = options ? options.onSessionParsed : null;
   var [events, setEvents] = useState(null);
   var [turns, setTurns] = useState([]);
   var [metadata, setMetadata] = useState(null);
@@ -40,6 +42,12 @@ export default function useSessionLoader(options) {
     setError(applied.error);
     setShowHero(applied.showHero);
   }, []);
+
+  var notifySessionParsed = useCallback(function (result, name, text) {
+    if (typeof onSessionParsed === "function") {
+      onSessionParsed(result, name, text);
+    }
+  }, [onSessionParsed]);
 
   var handleFile = useCallback(function (text, name) {
     requestIdRef.current += 1;
@@ -70,8 +78,9 @@ export default function useSessionLoader(options) {
       }
 
       applySession(parsed.result, name);
+      notifySessionParsed(parsed.result, name, text);
     }, 16);
-  }, [applySession]);
+  }, [applySession, notifySessionParsed]);
 
   // Called by useLiveStream with each batch of new JSONL lines.
   // Appends to rawText and re-parses the full accumulated text.
@@ -87,7 +96,8 @@ export default function useSessionLoader(options) {
     setTurns(parsed.result.turns);
     setMetadata(parsed.result.metadata);
     setTotal(getSessionTotal(parsed.result.events));
-  }, []);
+    notifySessionParsed(parsed.result, file || "live-session.jsonl", rawTextRef.current);
+  }, [file, notifySessionParsed]);
 
   var loadSample = useCallback(function () {
     requestIdRef.current += 1;
@@ -134,7 +144,7 @@ export default function useSessionLoader(options) {
   // When served by the CLI (server.js), /api/meta tells us the filename
   // and /api/file provides the initial content. Bootstrap from there.
   useEffect(function () {
-    if (options && options.autoBootstrap === false) return;
+    if (!autoBootstrap) return;
 
     fetch("/api/meta")
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -163,10 +173,11 @@ export default function useSessionLoader(options) {
             setFile(meta.filename);
             setError(null);
             setShowHero(true);
+            notifySessionParsed(parsed.result, meta.filename, text);
           });
       })
       .catch(function () {});
-  }, [options && options.autoBootstrap]);
+  }, [autoBootstrap, notifySessionParsed]);
 
   useEffect(function () {
     return function () {

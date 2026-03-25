@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import { estimateCost, formatCost } from "../lib/pricing.js";
 import { formatDurationLong as formatDuration } from "../lib/formatTime.js";
+import { buildAutonomyMetrics, formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
+import ToolbarButton from "./ui/ToolbarButton.jsx";
 
 function fmt(n) {
   if (n == null || n === 0) return "--";
@@ -60,6 +62,7 @@ function buildMetrics(session) {
     turns: meta.totalTurns || 0,
     filesTouched: getFilesTouched(session.events),
     toolCounts: getToolCounts(session.events),
+    autonomy: buildAutonomyMetrics(session.events, session.turns || [], meta),
   };
 }
 
@@ -113,7 +116,7 @@ function Row({ label, valA, valB, a, b, lowerIsBetter, indent }) {
   );
 }
 
-function Scorecard({ mA, mB, fileA, fileB }) {
+function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
   var cacheAvailable = mA.cacheRead > 0 || mB.cacheRead > 0;
   var crossAgent = mA.format !== mB.format;
   var hasPRU = mA.pru !== null || mB.pru !== null;
@@ -162,6 +165,27 @@ function Scorecard({ mA, mB, fileA, fileB }) {
           A vs B
         </span>
       </div>
+
+      {(onOpenSessionA || onOpenSessionB) && (
+        <div style={{ display: "flex", gap: 8, padding: "12px 10px", borderBottom: "1px solid " + theme.border.subtle }}>
+          {onOpenSessionA && (
+            <ToolbarButton
+              onClick={onOpenSessionA}
+              style={{ color: theme.accent.primary, borderColor: theme.accent.primary, background: alpha(theme.accent.primary, 0.08) }}
+            >
+              Coach session A
+            </ToolbarButton>
+          )}
+          {onOpenSessionB && (
+            <ToolbarButton
+              onClick={onOpenSessionB}
+              style={{ color: "#a78bfa", borderColor: "#a78bfa", background: alpha("#a78bfa", 0.08) }}
+            >
+              Coach session B
+            </ToolbarButton>
+          )}
+        </div>
+      )}
 
       {/* Model */}
       <div style={{
@@ -213,6 +237,11 @@ function Scorecard({ mA, mB, fileA, fileB }) {
       <Row label="Errors"        valA={fmt(mA.errors) === "--" ? "0" : fmt(mA.errors)} valB={fmt(mB.errors) === "--" ? "0" : fmt(mB.errors)} a={mA.errors} b={mB.errors} lowerIsBetter={true} />
       <Row label="Turns"         valA={fmt(mA.turns)}                  valB={fmt(mB.turns)}                  a={mA.turns}       b={mB.turns}       lowerIsBetter={null} />
       <Row label="Files touched" valA={fmt(mA.filesTouched)}           valB={fmt(mB.filesTouched)}           a={mA.filesTouched} b={mB.filesTouched} lowerIsBetter={null} />
+      <Row label="Productive runtime" valA={formatDuration(mA.autonomy.productiveRuntime)} valB={formatDuration(mB.autonomy.productiveRuntime)} a={mA.autonomy.productiveRuntime} b={mB.autonomy.productiveRuntime} lowerIsBetter={null} />
+      <Row label="Human response time" valA={formatDuration(mA.autonomy.babysittingTime)} valB={formatDuration(mB.autonomy.babysittingTime)} a={mA.autonomy.babysittingTime} b={mB.autonomy.babysittingTime} lowerIsBetter={true} />
+      <Row label="Idle time" valA={formatDuration(mA.autonomy.idleTime)} valB={formatDuration(mB.autonomy.idleTime)} a={mA.autonomy.idleTime} b={mB.autonomy.idleTime} lowerIsBetter={true} />
+      <Row label="Interventions" valA={fmt(mA.autonomy.interventionCount)} valB={fmt(mB.autonomy.interventionCount)} a={mA.autonomy.interventionCount} b={mB.autonomy.interventionCount} lowerIsBetter={true} />
+      <Row label="Autonomy efficiency" valA={formatAutonomyEfficiency(mA.autonomy.autonomyEfficiency)} valB={formatAutonomyEfficiency(mB.autonomy.autonomyEfficiency)} a={mA.autonomy.autonomyEfficiency} b={mB.autonomy.autonomyEfficiency} lowerIsBetter={null} />
     </div>
   );
 }
@@ -319,7 +348,7 @@ var TABS = [
   { id: "tools", label: "Tools" },
 ];
 
-export default function CompareView({ sessionA, sessionB }) {
+export default function CompareView({ sessionA, sessionB, onOpenSessionA, onOpenSessionB }) {
   var [tab, setTab] = useState("scorecard");
 
   var mA = useMemo(function () { return buildMetrics(sessionA); }, [sessionA]);
@@ -362,7 +391,7 @@ export default function CompareView({ sessionA, sessionB }) {
         border: "1px solid " + theme.border.default,
         display: "flex", flexDirection: "column",
       }}>
-        {tab === "scorecard" && <Scorecard mA={mA} mB={mB} fileA={sessionA.file} fileB={sessionB.file} />}
+        {tab === "scorecard" && <Scorecard mA={mA} mB={mB} fileA={sessionA.file} fileB={sessionB.file} onOpenSessionA={onOpenSessionA} onOpenSessionB={onOpenSessionB} />}
         {tab === "tools" && <ToolsChart mA={mA} mB={mB} fileA={sessionA.file} fileB={sessionB.file} />}
       </div>
     </div>

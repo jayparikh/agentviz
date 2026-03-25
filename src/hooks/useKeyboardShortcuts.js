@@ -77,9 +77,9 @@ export function handleKeyboardShortcut(e, options) {
   }
 
   if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
-    e.preventDefault();
-    options.onFocusSearch();
-    return true;
+    var focused = options.onFocusSearch();
+    if (focused) e.preventDefault();
+    return Boolean(focused);
   }
 
   if (e.key === "?") {

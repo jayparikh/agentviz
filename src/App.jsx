@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { theme } from "./lib/theme.js";
 import { exportSingleSession, exportComparison } from "./lib/exportHtml.js";
 import { buildFilteredEventEntries, buildTurnStartMap, buildTimeMap } from "./lib/session";
@@ -9,12 +9,14 @@ import useSearch from "./hooks/useSearch.js";
 import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts.js";
 import useLiveStream from "./hooks/useLiveStream.js";
 import useAsyncStatus from "./hooks/useAsyncStatus.js";
+import useDiscoveredSessions from "./hooks/useDiscoveredSessions.js";
+import useHashRouter from "./hooks/useHashRouter.js";
 import Timeline from "./components/Timeline.jsx";
 import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
 import StatsView from "./components/StatsView.jsx";
 import WaterfallView from "./components/WaterfallView.jsx";
-import GraphView from "./components/GraphView.jsx";
+var GraphView = React.lazy(function () { return import("./components/GraphView.jsx"); });
 import CommandPalette from "./components/CommandPalette.jsx";
 import ShortcutsModal from "./components/ShortcutsModal.jsx";
 import AppHeader from "./components/app/AppHeader.jsx";
@@ -23,6 +25,13 @@ import AppLoadingState from "./components/app/AppLoadingState.jsx";
 import CompareLandingState from "./components/app/CompareLandingState.jsx";
 import CompareShell from "./components/app/CompareShell.jsx";
 import { APP_VIEWS, PLAYBACK_SPEEDS } from "./components/app/constants.js";
+import DebriefView from "./components/DebriefView.jsx";
+import { buildAutonomyMetrics, buildAutonomySummary } from "./lib/autonomyMetrics.js";
+import {
+  loadStoredSessionContent,
+  persistSessionSnapshot,
+  readSessionLibrary,
+} from "./lib/sessionLibrary.js";
 
 function renderActiveView(activeView, props) {
   if (activeView === "replay") {
@@ -65,12 +74,27 @@ function renderActiveView(activeView, props) {
 
   if (activeView === "graph") {
     return (
-      <GraphView
-        currentTime={props.playback.time}
-        eventEntries={props.filteredEventEntries}
-        totalTime={props.session.total}
-        timeMap={props.timeMap}
-        turns={props.session.turns}
+      <React.Suspense fallback={<div style={{ padding: 40, color: theme.text.dim, textAlign: "center" }}>Loading graph...</div>}>
+        <GraphView
+          currentTime={props.playback.time}
+          eventEntries={props.filteredEventEntries}
+          totalTime={props.session.total}
+          timeMap={props.timeMap}
+          turns={props.session.turns}
+        />
+      </React.Suspense>
+    );
+  }
+
+  if (activeView === "coach") {
+    return (
+      <DebriefView
+        file={props.session.file}
+        summary={props.debrief.summary}
+        recommendationState={props.recommendationState}
+        onSetRecommendationState={props.onSetRecommendationState}
+        metadata={props.session.metadata}
+        rawSession={{ events: props.session.events, turns: props.session.turns, metadata: props.session.metadata, autonomyMetrics: props.autonomyMetrics }}
       />
     );
   }
@@ -81,6 +105,8 @@ function renderActiveView(activeView, props) {
       totalTime={props.session.total}
       metadata={props.session.metadata}
       turns={props.session.turns}
+      autonomyMetrics={props.autonomyMetrics}
+      onOpenCoach={props.onOpenCoach}
     />
   );
 }
@@ -88,6 +114,9 @@ function renderActiveView(activeView, props) {
 export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
   var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
+  var [libraryEntries, setLibraryEntries] = useState(function () {
+    return readSessionLibrary();
+  });
   var [showPalette, setShowPalette] = useState(false);
   var [showShortcuts, setShowShortcuts] = useState(false);
   var [showFilters, setShowFilters] = useState(false);
@@ -95,8 +124,67 @@ export default function App() {
   var searchInputRef = useRef(null);
   var filtersRef = useRef(null);
 
-  var session = useSessionLoader();
-  var sessionB = useSessionLoader({ autoBootstrap: false });
+  var discovered = useDiscoveredSessions();
+
+  // Merge discovered sessions with library: library entries (already parsed) take precedence.
+  // Filter discovered to sessions > 5KB (tiny files are Claude internal queue/ops sessions).
+  var allSessions = useMemo(function () {
+    try {
+      // Build a lookup: discoveredPath/sessionId -> discovered session for path enrichment
+      var discoveredByPath = {};
+      var discoveredBySessionId = {};
+      discovered.sessions.forEach(function (s) {
+        if (s.size < 5000) return;
+        if (s.path) discoveredByPath[s.path] = s;
+        if (s.sessionId) discoveredBySessionId[s.sessionId] = s;
+      });
+
+      // Enrich library entries with discoveredPath if we can match them to a discovered session
+      var enrichedLibrary = libraryEntries.map(function (e) {
+        if (e.discoveredPath) return e; // already has it
+        var match = (e.sessionId && discoveredBySessionId[e.sessionId])
+          || (e.discoveredPath && discoveredByPath[e.discoveredPath]);
+        if (match) return Object.assign({}, e, { discoveredPath: match.path });
+        return e;
+      });
+
+      // Only add discovered entries that aren't already in the library
+      var discoveredOnly = discovered.sessions.filter(function (s) {
+        if (s.size < 5000) return false;
+        return !libraryEntries.some(function (e) {
+          return e.discoveredPath === s.path || e.sessionId === s.sessionId;
+        });
+      }).map(function (s) {
+        return {
+          id: s.id,
+          file: s.summary || s.filename,
+          filename: s.filename,
+          format: s.format,
+          project: s.project,
+          repository: s.repository || null,
+          branch: s.branch || null,
+          discoveredPath: s.path,
+          sessionId: s.sessionId || null,
+          importedAt: s.mtime,
+          updatedAt: s.mtime,
+          size: s.size,
+          isDiscovered: true,
+        };
+      });
+      return enrichedLibrary.concat(discoveredOnly);
+    } catch (e) {
+      console.error("[allSessions] merge error:", e);
+      return libraryEntries;
+    }
+  }, [libraryEntries, discovered.sessions]);
+
+  var handleSessionParsed = useCallback(function (result, name, rawText) {
+    var persisted = persistSessionSnapshot(name, result, rawText);
+    setLibraryEntries(persisted.entries);
+  }, []);
+
+  var session = useSessionLoader({ onSessionParsed: handleSessionParsed });
+  var sessionB = useSessionLoader({ autoBootstrap: false, onSessionParsed: handleSessionParsed });
   var sessionExport = useAsyncStatus();
   var compareExport = useAsyncStatus();
 
@@ -123,6 +211,12 @@ export default function App() {
   var filteredEvents = useMemo(function () {
     return filteredEventEntries.map(function (entry) { return entry.event; });
   }, [filteredEventEntries]);
+  var autonomyMetrics = useMemo(function () {
+    return buildAutonomyMetrics(session.events, session.turns, session.metadata);
+  }, [session.events, session.turns, session.metadata]);
+  var debrief = useMemo(function () {
+    return { summary: buildAutonomySummary(autonomyMetrics) };
+  }, [autonomyMetrics]);
 
   var turnStartMap = useMemo(function () {
     return buildTurnStartMap(session.turns);
@@ -175,6 +269,41 @@ export default function App() {
     session.handleFile(text, name);
   }, [resetVisualizerState, session.handleFile]);
 
+  var openStoredSession = useCallback(function (entry) {
+    if (!entry) return;
+
+    function afterLoad(rawText) {
+      setView("stats");
+      handleFile(rawText, entry.file);
+      // Persist discoveredPath onto library entry so future loads can refetch from disk
+      if (entry.discoveredPath) {
+        setLibraryEntries(function (prev) {
+          return prev.map(function (e) {
+            if (e.id === entry.id && !e.discoveredPath) {
+              return Object.assign({}, e, { discoveredPath: entry.discoveredPath });
+            }
+            return e;
+          });
+        });
+      }
+    }
+
+    // Discovered-only session (not yet in library): fetch content from server
+    if (entry.isDiscovered && entry.discoveredPath) {
+      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () {});
+      return;
+    }
+
+    // Library session: try localStorage cache first, fall back to file on disk
+    var rawText = loadStoredSessionContent(entry.id);
+    if (rawText) { afterLoad(rawText); return; }
+    if (entry.discoveredPath) {
+      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () {});
+      return;
+    }
+    // No content available
+  }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);
+
   var loadSample = useCallback(function () {
     resetVisualizerState();
     session.loadSample();
@@ -187,10 +316,25 @@ export default function App() {
     setCompareLanding(false);
   }, [resetVisualizerState, session.resetSession, sessionB.resetSession]);
 
+  useHashRouter({
+    hasSession: Boolean(session.events),
+    onNavigateToLanding: reset,
+  });
+
   var exitCompare = useCallback(function () {
     sessionB.resetSession();
     setCompareLanding(false);
   }, [sessionB.resetSession]);
+
+  var openCompareSessionInCoach = useCallback(function (loader) {
+    var rawText = loader.getRawText();
+    if (!rawText) return;
+    resetVisualizerState();
+    session.handleFile(rawText, loader.file);
+    sessionB.resetSession();
+    setCompareLanding(false);
+    setView("coach");
+  }, [resetVisualizerState, session.handleFile, sessionB.resetSession, setView]);
 
   var handleExportSession = useCallback(function () {
     var rawText = session.getRawText();
@@ -224,7 +368,6 @@ export default function App() {
   }, [setTrackFilters]);
 
   var activeFilterCount = Object.keys(trackFilters).length;
-
   var cycleSpeed = useCallback(function () {
     var idx = PLAYBACK_SPEEDS.indexOf(playback.speed);
     var next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
@@ -267,7 +410,12 @@ export default function App() {
   }, [jumpToEntries, search.matchedEntries]);
 
   var focusSearch = useCallback(function () {
-    if (searchInputRef.current) searchInputRef.current.focus();
+    var el = searchInputRef.current;
+    if (el && el.offsetParent !== null) {
+      el.focus();
+      return true;
+    }
+    return false;
   }, []);
 
   useKeyboardShortcuts({
@@ -307,6 +455,8 @@ export default function App() {
         onLoad={handleFile}
         onLoadSample={loadSample}
         onStartCompare={function () { setCompareLanding(true); }}
+        inboxEntries={allSessions}
+        onOpenInboxSession={openStoredSession}
       />
     );
   }
@@ -320,6 +470,8 @@ export default function App() {
         onExportComparison={handleExportComparison}
         exportState={compareExport.state}
         exportError={compareExport.error}
+        onOpenSessionA={function () { openCompareSessionInCoach(session); }}
+        onOpenSessionB={function () { openCompareSessionInCoach(sessionB); }}
       />
     );
   }
@@ -380,6 +532,9 @@ export default function App() {
         onExportSession={handleExportSession}
         exportSessionState={sessionExport.state}
         exportSessionError={sessionExport.error}
+        recentSessions={allSessions}
+        onOpenRecentSession={openStoredSession}
+        currentFile={session.file}
       />
 
       <div style={{ padding: "8px 20px 0", flexShrink: 0 }}>
@@ -406,6 +561,9 @@ export default function App() {
           search: search,
           timeMap: timeMap,
           turnStartMap: turnStartMap,
+          autonomyMetrics: autonomyMetrics,
+          debrief: debrief,
+          onOpenCoach: function () { setView("coach"); },
         })}
       </div>
     </div>

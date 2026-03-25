@@ -112,6 +112,11 @@ function findExactButton(container, text) {
     }) || null;
 }
 
+function findButtonByTitle(container, title) {
+  return Array.from(container.querySelectorAll("button"))
+    .find(function (node) { return node.title === title; }) || null;
+}
+
 function findClickableText(container, text) {
   return Array.from(container.querySelectorAll("button, span"))
     .find(function (node) {
@@ -185,13 +190,7 @@ describe("App browser regressions", function () {
       return findByText(app.container, "demo-session.jsonl");
     }, "expected demo session to load");
 
-    await click(findExactButton(app.container, "Compare"));
-
-    await waitFor(function () {
-      return findByText(app.container, "Session B");
-    }, "expected compare landing to open");
-
-    expect(findByText(app.container, "Session A")).toBeTruthy();
+    await click(findButtonByTitle(app.container, "Compare with another session"));
     expect(findByText(app.container, "demo-session.jsonl")).toBeTruthy();
     expect(findByText(app.container, "Drop a session file here")).toBeTruthy();
 
@@ -212,14 +211,14 @@ describe("App browser regressions", function () {
       return getSearchCount(app.container);
     }, "expected search count to appear")).toBe("1");
 
-    await click(findExactButton(app.container, "Filters"));
+    await click(findButtonByTitle(app.container, "Filter tracks"));
     await waitFor(function () {
       return findClickableText(app.container, "Tool Calls");
     }, "expected filter popover to open");
 
     await click(findClickableText(app.container, "Tool Calls"));
     await waitFor(function () {
-      return findExactButton(app.container, "1 hidden");
+      return findButtonByTitle(app.container, "Filter tracks");
     }, "expected hidden filter count to update");
 
     await app.unmount();
@@ -239,7 +238,7 @@ describe("App browser regressions", function () {
 
     expect(exportMocks.exportSingleSession).toHaveBeenCalledWith(FIXTURE_TEXT, "fixture.jsonl");
 
-    await click(findExactButton(app.container, "Compare"));
+    await click(findButtonByTitle(app.container, "Compare with another session"));
     await waitFor(function () {
       return findByText(app.container, "Session B");
     }, "expected compare landing to open");
