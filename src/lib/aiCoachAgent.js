@@ -21,28 +21,23 @@ import { CopilotClient, defineTool, approveAll } from "@github/copilot-sdk";
 
 // Format-specific config paths the agent may read and target
 var CONFIG_PATHS_CLAUDE = [
-  "CLAUDE.md",
-  "AGENTS.md",
+  ".claude/commands",
+  ".claude/agents",
   ".mcp.json",
   ".claude/settings.json",
-  ".claude/agents",
-  ".claude/commands",
+  "CLAUDE.md",
+  "AGENTS.md",
 ];
 
 var CONFIG_PATHS_COPILOT = [
-  ".github/copilot-instructions.md",
   ".github/prompts",
   ".github/extensions",
-];
-
-// Shared paths available regardless of agent type
-var CONFIG_PATHS_SHARED = [
   ".mcp.json",
   ".github/copilot-instructions.md",
 ];
 
 export function getConfigPathsForFormat(format) {
-  if (format === "copilot-cli") return CONFIG_PATHS_COPILOT.concat([".mcp.json"]);
+  if (format === "copilot-cli") return CONFIG_PATHS_COPILOT;
   return CONFIG_PATHS_CLAUDE; // claude-code default
 }
 
@@ -122,38 +117,68 @@ var MCP_JSON_SCHEMA = [
 
 var CLAUDE_CODE_GUIDANCE = [
   "Agent type: CLAUDE CODE",
-  "Config files and what they control:",
-  "  CLAUDE.md -- main instructions, autonomy rules, what the agent can do without asking",
-  "  .mcp.json -- adds new tools (MCP servers) the agent can call",
-  "  .claude/settings.json -- allowedTools/disallowedTools permission lists",
-  "  .claude/agents/ -- sub-agent definitions for delegating tasks",
+  "Config files and WHEN to use each one:",
+  "  CLAUDE.md -- persistent rules: autonomy grants, safety boundaries, coding standards.",
+  "    Use when: the problem recurs across many sessions (agent keeps asking for permission, uses wrong patterns).",
+  "    Do NOT use for task-specific guidance or one-off workflows.",
+  "  .claude/agents/<name>.md -- sub-agent that the main agent can delegate specialized work to.",
+  "    Use when: the session shows a repeated multi-step workflow (research+implement, write+review, build+test).",
+  "    Example: if agent always does web_search -> read -> summarize, create a 'researcher' sub-agent.",
+  "  .claude/commands/<name>.md -- slash command the human can invoke to kick off a workflow.",
+  "    Use when: human sent a similar instruction multiple times across turns (e.g., 'review this', 'ship it').",
+  "    Example: if human asked 'run tests and summarize failures' 3 times, create /test-summary command.",
+  "  .mcp.json -- adds new tools (MCP servers) the agent can call.",
+  "    Use when: there are errors about a MISSING capability (web_fetch, file search, database access).",
+  "    Do NOT add MCP servers for capabilities that already work or just need permission grants.",
+  "  .claude/settings.json -- allowedTools/disallowedTools permission lists.",
+  "    Use when: there are 'permission denied' or tool-blocked errors.",
   "",
-  "Diagnosis guide (match errors to fixes):",
-  "  web_fetch errors repeatedly: add mcp-server-fetch to .mcp.json so the agent can fetch URLs",
-  "  'permission denied' / tool blocked: add the tool to allowedTools in .claude/settings.json",
-  "  High idle time / many user follow-ups: agent is asking permission -- add autonomy grants to CLAUDE.md",
-  "  'apply_patch failed': patch too large or agent needs smaller steps -- add guidance to CLAUDE.md",
-  "  Agent uses wrong tool repeatedly: add tool usage guidance to CLAUDE.md",
+  "Diagnosis guide -- map session observations to the RIGHT config target:",
+  "  'permission denied' / tool blocked -> .claude/settings.json allowedTools",
+  "  High idle time / agent keeps asking permission -> CLAUDE.md autonomy grants",
+  "  Agent uses wrong tool repeatedly, misunderstands codebase -> CLAUDE.md persistent rules",
+  "  Human sends same instruction pattern across multiple turns -> .claude/commands/<name>.md",
+  "  Repeated multi-step workflow (research, implement, verify) -> .claude/agents/<name>.md",
+  "  Missing tool capability (web_fetch fails, no search) -> .mcp.json new server",
+  "  apply_patch too large, agent needs smaller steps -> CLAUDE.md step-size guidance",
 ].join("\n");
 
 var COPILOT_CLI_GUIDANCE = [
   "Agent type: GITHUB COPILOT CLI",
-  "Config files and what they control:",
-  "  .github/copilot-instructions.md -- instructions, context, autonomy rules, coding standards",
-  "  .github/prompts/*.prompt.md -- custom slash commands / reusable task templates",
-  "  .github/extensions/*.yml -- skill extensions that add new tool capabilities",
-  "  .mcp.json -- adds new MCP server tools (NOT for built-in tools)",
+  "Config files and WHEN to use each one:",
+  "  .github/copilot-instructions.md -- persistent rules: autonomy grants, project context, coding standards.",
+  "    Use when: the problem recurs across many sessions (agent keeps asking for permission, misunderstands project).",
+  "    Do NOT use for task-specific guidance -- that belongs in prompts.",
+  "  .github/prompts/<name>.prompt.md -- reusable slash command the human invokes for a specific workflow.",
+  "    Use when: human sent a similar instruction multiple times across turns in this session.",
+  "    Example: if human asked 'run lint and fix errors' 3 times, create a /fix-lint prompt.",
+  "    Example: if human repeatedly asked 'summarize what changed', create a /summarize prompt.",
+  "  .github/extensions/<name>.yml -- skill extension that adds new tool capabilities.",
+  "    Use when: agent failed because it lacked a specific tool (e.g., couldn't search, couldn't run a command).",
+  "    Skills wrap external tools/APIs that don't exist as MCP servers.",
+  "  .mcp.json -- adds new MCP server tools.",
+  "    Use when: agent needs a specific MCP-compatible tool. NOT for built-in Copilot CLI tools.",
   "",
-  "Diagnosis guide (match errors to fixes):",
-  "  web_fetch errors: web_fetch is a BUILT-IN tool in Copilot CLI -- the issue is not a missing MCP server.",
-  "    If URLs consistently fail: add instructions to copilot-instructions.md like",
-  "    'If web_fetch fails, try an alternative source or skip and continue rather than retrying'",
-  "    If a specific domain fails: that domain may be blocked -- note it in instructions",
-  "  High idle time: agent is waiting for human approval -- add autonomy permissions to copilot-instructions.md",
+  "Diagnosis guide -- map session observations to the RIGHT config target:",
+  "  web_fetch errors: web_fetch is BUILT-IN -- do NOT add mcp-server-fetch.",
+  "    If a specific domain fails: note it in copilot-instructions.md as 'skip and continue'.",
+  "  High idle time / agent awaiting approval -> copilot-instructions.md autonomy grants.",
   "    Example: 'You may create, edit, and delete files without asking for confirmation.'",
-  "  Agent lacks domain knowledge: add project context, architecture overview to copilot-instructions.md",
-  "  Agent repeats same mistake: add explicit 'never do X, instead do Y' rules to copilot-instructions.md",
-  "  Many human corrections: analyze WHAT the human corrected and add that as a rule",
+  "  Human corrected the same thing multiple times -> add a rule to copilot-instructions.md.",
+  "  Human invoked the same multi-step task multiple times -> create a .github/prompts/<name>.prompt.md.",
+  "  Agent lacked a tool (couldn't search, couldn't call an API) -> .github/extensions/<name>.yml.",
+  "  Agent needs project context (architecture, coding style, test patterns) -> copilot-instructions.md.",
+  "",
+  "PROMPT FILE FORMAT (.github/prompts/<name>.prompt.md):",
+  "---",
+  "mode: agent",
+  "description: <one line description of what this does>",
+  "---",
+  "",
+  "<Clear task description with steps>",
+  "1. Step one",
+  "2. Step two",
+  "Output: <what to produce>",
 ].join("\n");
 
 function buildSystemPrompt(format) {
@@ -172,6 +197,11 @@ function buildSystemPrompt(format) {
     "- Prefer fewer, higher-quality recommendations over many generic ones.",
     "- Do NOT use web_fetch. Your analysis is based entirely on session stats, errors, and local config files.",
     "- Do NOT fetch external documentation, changelogs, or research papers.",
+    "- Do NOT default to copilot-instructions.md or CLAUDE.md when a prompt or skill/agent is the better fit.",
+    "  Rule: if the human repeated the same instruction multiple times -> create a prompt file.",
+    "  Rule: if a repeated multi-step workflow exists -> create a sub-agent or prompt.",
+    "  Rule: if agent lacked a specific tool capability -> create a skill/extension or MCP server.",
+    "  Rule: only use the global instructions file for persistent cross-session rules.",
     "",
     formatGuidance,
     "",
@@ -179,14 +209,20 @@ function buildSystemPrompt(format) {
     "",
     "WORKFLOW:",
     "1. Read the session stats and errors carefully.",
-    "2. Call read_config() for each relevant config file to understand the current state.",
-    "3. For each observed problem (error, high idle time, repeated interventions): call recommend()",
-    "   with a draftText that references SPECIFIC errors/metrics/tool names from THIS session.",
+    "2. Look for patterns in the human follow-up messages -- repeated instructions suggest a prompt file.",
+    "3. Call read_config() for each relevant config file to understand the current state.",
+    "4. For each observed problem, pick the RIGHT config target (see format guidance above).",
+    "   - Repeated human instructions -> create .github/prompts/<name>.prompt.md or .claude/commands/",
+    "   - Missing tool capability -> .github/extensions/ or .mcp.json",
+    "   - Agent asking for permission -> global instructions autonomy grants",
+    "   - Persistent wrong behavior -> global instructions rules",
+    "5. Call recommend() with a draftText that references SPECIFIC errors/metrics/tool names from THIS session.",
     "   Do NOT write generic advice -- if the session shows 8 interventions about file editing, write:",
     "   'You may create/edit/delete files in src/ without asking for confirmation.'",
-    "4. For .mcp.json: read it first, then output the FULL merged JSON with new servers added.",
-    "5. For markdown: output ONLY the new section to append (be specific, not generic).",
-    "6. Stop after calling recommend() for each distinct problem. Do not over-recommend.",
+    "6. For .mcp.json: read it first, then output the FULL merged JSON with new servers added.",
+    "7. For markdown: output ONLY the new section to append (be specific, not generic).",
+    "8. For prompt files: output the complete .prompt.md content following the format in the guidance.",
+    "9. Stop after calling recommend() for each distinct problem. Do not over-recommend.",
   ].join("\n");
 }
 
