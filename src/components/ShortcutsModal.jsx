@@ -38,7 +38,7 @@ export default function ShortcutsModal({ onClose }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: alpha(theme.bg, 0.75),
+        background: alpha(theme.bg.base, 0.75),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -48,13 +48,13 @@ export default function ShortcutsModal({ onClose }) {
       <div
         onClick={function (e) { e.stopPropagation(); }}
         style={{
-          background: theme.surface,
-          border: "1px solid " + theme.border,
+          background: theme.bg.surface,
+          border: "1px solid " + theme.border.default,
           borderRadius: 10,
           padding: "24px 28px",
           minWidth: 320,
           maxWidth: 420,
-          boxShadow: "0 8px 32px " + alpha(theme.bg, 0.8),
+          boxShadow: "0 8px 32px " + alpha(theme.bg.base, 0.8),
         }}
       >
         <div style={{
@@ -63,7 +63,7 @@ export default function ShortcutsModal({ onClose }) {
           justifyContent: "space-between",
           marginBottom: 20,
         }}>
-          <span style={{ color: theme.text, fontSize: 14, fontWeight: 600, letterSpacing: "0.05em" }}>
+          <span style={{ color: theme.text.primary, fontSize: 14, fontWeight: 600, letterSpacing: "0.05em" }}>
             KEYBOARD SHORTCUTS
           </span>
           <button
@@ -71,7 +71,7 @@ export default function ShortcutsModal({ onClose }) {
             style={{
               background: "none",
               border: "none",
-              color: theme.textMuted,
+              color: theme.text.muted,
               cursor: "pointer",
               fontSize: 18,
               lineHeight: 1,
@@ -86,7 +86,7 @@ export default function ShortcutsModal({ onClose }) {
           if (item.section) {
             return (
               <div key={i} style={{
-                color: theme.textMuted,
+                color: theme.text.muted,
                 fontSize: 10,
                 fontWeight: 600,
                 letterSpacing: "0.1em",
@@ -104,14 +104,14 @@ export default function ShortcutsModal({ onClose }) {
               alignItems: "center",
               justifyContent: "space-between",
               padding: "5px 0",
-              borderBottom: "1px solid " + alpha(theme.border, 0.4),
+              borderBottom: "1px solid " + alpha(theme.border.default, 0.4),
             }}>
-              <span style={{ color: theme.textMuted, fontSize: 12 }}>{item.label}</span>
+              <span style={{ color: theme.text.muted, fontSize: 12 }}>{item.label}</span>
               <kbd style={{
-                background: alpha(theme.border, 0.5),
-                border: "1px solid " + theme.border,
+                background: alpha(theme.border.default, 0.5),
+                border: "1px solid " + theme.border.default,
                 borderRadius: 4,
-                color: theme.text,
+                color: theme.text.primary,
                 fontSize: 11,
                 fontFamily: "inherit",
                 padding: "2px 7px",
@@ -124,8 +124,8 @@ export default function ShortcutsModal({ onClose }) {
         })}
 
         <div style={{ marginTop: 16, textAlign: "center" }}>
-          <span style={{ color: alpha(theme.textMuted, 0.6), fontSize: 11 }}>
-            Press <kbd style={{ background: alpha(theme.border, 0.5), border: "1px solid " + theme.border, borderRadius: 3, color: theme.text, fontSize: 10, padding: "1px 5px" }}>Esc</kbd> or <kbd style={{ background: alpha(theme.border, 0.5), border: "1px solid " + theme.border, borderRadius: 3, color: theme.text, fontSize: 10, padding: "1px 5px" }}>?</kbd> to close
+          <span style={{ color: alpha(theme.text.muted, 0.6), fontSize: 11 }}>
+            Press <kbd style={{ background: alpha(theme.border.default, 0.5), border: "1px solid " + theme.border.default, borderRadius: 3, color: theme.text.primary, fontSize: 10, padding: "1px 5px" }}>Esc</kbd> or <kbd style={{ background: alpha(theme.border.default, 0.5), border: "1px solid " + theme.border.default, borderRadius: 3, color: theme.text.primary, fontSize: 10, padding: "1px 5px" }}>?</kbd> to close
           </span>
         </div>
       </div>
