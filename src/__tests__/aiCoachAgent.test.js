@@ -52,7 +52,7 @@ describe("buildCoachPrompt", function () {
 
   it("includes human follow-ups section", function () {
     var prompt = buildCoachPrompt(basePayload);
-    expect(prompt).toContain("follow-up messages");
+    expect(prompt).toContain("Human messages verbatim");
     expect(prompt).toContain("try again");
   });
 
