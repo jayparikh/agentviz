@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
+- **Interventions counted incorrectly** — Copilot CLI sessions spawn `"(continuation)"` turns when there is no real user message; these were being counted as interventions. Fix mirrors the `isContinuationMessage` guard already used by `userFollowUps`, counting only turns with a real user message.
 - **Inbox: YAML block-scalar summaries not parsed** — `workspace.yaml` files using the `summary: |-` block scalar form were silently dropped, leaving sessions unlabeled. Regex now handles both inline and block scalar forms.
 - **Inbox: AI coach subprocess sessions polluting inbox** — Child CLI sessions spawned by the coach agent (summaries starting with "Analyze this" or containing "Session stats"+"read\_config") are now filtered out of the inbox listing.
 - **Config panel: default open + skill paths applicable** — Config panel now opens by default; skill path suggestions correctly reflect discovered paths.
