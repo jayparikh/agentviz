@@ -179,10 +179,16 @@ var COPILOT_CLI_GUIDANCE = [
   "  NO  -> continue to step 5.",
   "",
   "Step 5. Is this a persistent problem that recurs every session?",
-  "  YES -> CUSTOM INSTRUCTIONS: .github/copilot-instructions.md",
-  "         or .github/instructions/<topic>.instructions.md for a focused concern.",
-  "         ONLY for: autonomy grants, build commands, coding standards, architecture context.",
-  "         KEEP IT SHORT. Lengthy instructions dilute model attention.",
+  "  YES -> Ask one more question: Is this relevant to EVERY interaction in this repo,",
+  "         or only when working on a specific domain, framework, or workflow?",
+  "         EVERY interaction -> CUSTOM INSTRUCTIONS: .github/copilot-instructions.md",
+  "           ONLY for: autonomy grants, build/test commands, commit format.",
+  "           KEEP IT SHORT. Do NOT add domain knowledge, tool guides, or procedures here.",
+  "         Specific domain/framework/workflow -> SKILL: .github/skills/<name>/SKILL.md",
+  "           Examples: 'knowledge of MAF/Foundry ecosystem' -> skill",
+  "                     'how to debug CI failures' -> skill",
+  "                     'how to process claims' -> skill",
+  "           Instructions that say 'when working on X, do Y' are ALWAYS better as a skill.",
   "  NO  -> this may not need a config change.",
   "",
   "== ARTIFACT FORMATS ==",
@@ -305,6 +311,12 @@ function buildSystemPrompt(format) {
     "- Do NOT use web_fetch. Your analysis is based entirely on session stats, errors, and local config files.",
     "- Do NOT default to copilot-instructions.md when a skill, prompt file, or agent is the better fit.",
     "  Use the DECISION TREE in the format guidance to pick the right artifact every time.",
+    "  COMMON MISTAKE: treating domain/framework knowledge as instructions.",
+    "    BAD:  Add a '## Project Context' section about MAF/Foundry to copilot-instructions.md",
+    "    GOOD: Create .github/skills/coreai-ecosystem/SKILL.md -- Copilot loads it when relevant",
+    "    BAD:  Add 'when debugging CI, do these steps' to copilot-instructions.md",
+    "    GOOD: Create .github/skills/debug-ci/SKILL.md",
+    "  Instructions are for: autonomy grants, build commands, coding conventions. Nothing else.",
     "",
     formatGuidance,
     "",
@@ -313,18 +325,19 @@ function buildSystemPrompt(format) {
     "WORKFLOW:",
     "1. Read session stats, errors, and human follow-up messages carefully.",
     "2. Use the DECISION TREE (in format guidance) to pick the right artifact for each problem.",
-    "   Walk through steps 1-5 for each issue -- do NOT default to instructions.",
+    "   Walk steps 1-5 explicitly. For step 5, ask: 'every session?' vs 'specific domain?' -> skill.",
     "3. Call read_config() for each relevant config file BEFORE proposing changes.",
     "4. For each config problem, call recommend() with:",
     "   - A draftText referencing SPECIFIC errors/metrics/messages from THIS session.",
-    "   - The targetPath from the decision tree (skill, prompt, agent, instructions, mcp).",
-    "   Do NOT write generic advice. Cite the actual metric: 'X tool errors', 'N interventions'.",
+    "   - The targetPath from the decision tree.",
+    "   - NEVER put domain knowledge, tool guides, or ecosystem context into instructions.",
+    "     That always belongs in a skill (.github/skills/<topic>/SKILL.md).",
     "5. Scan human follow-up messages for missed prompting opportunities (Copilot CLI only).",
     "   Patterns: 'continue/proceed' -> autopilot; tangential tasks -> /delegate;",
     "   no planning on complex changes -> /plan; mixed topics -> /new.",
     "   Call recommend() for each with targetPath: null and a concrete example prompt.",
     "6. For .mcp.json: read it first, output the FULL merged JSON.",
-    "7. For skills: output complete SKILL.md content with correct frontmatter and numbered steps.",
+    "7. For skills: output complete SKILL.md with correct frontmatter and numbered steps.",
     "8. For prompt files: output complete .prompt.md content.",
     "9. Stop after 2-4 total recommendations. Quality over quantity.",
   ].join("\n");
@@ -396,10 +409,11 @@ export function buildCoachPrompt(payload) {
  * @param {function} [opts.readConfigFile] - (path) => string|null -- reads a file from disk
  * @returns {Promise<{ recommendations: object[], model: string, usage: object|null, steps: object[] }>}
  */
-export async function runCoachAgent(payload, opts) {
+export async function runCoachAgent(payload, opts, _attempt) {
   var signal = opts && opts.signal;
   var onStep = opts && opts.onStep;
   var readConfigFile = opts && opts.readConfigFile;
+  var attempt = _attempt || 1;
 
   var format = payload.format || "claude-code";
   var configPaths = getConfigPathsForFormat(format);
@@ -433,7 +447,7 @@ export async function runCoachAgent(payload, opts) {
 
   try {
     await client.start();
-    emit({ type: "start", label: "Copilot agent started" });
+    emit({ type: "start", label: attempt > 1 ? "Copilot agent started (retry " + attempt + ")" : "Copilot agent started" });
 
     session = await client.createSession({
       tools: tools,
@@ -461,7 +475,7 @@ export async function runCoachAgent(payload, opts) {
 
     emit({ type: "analyze", label: "Analyzing session data..." });
 
-    // Use session.send() + listen for session.idle directly -- no timeout
+    // Use session.send() + listen for session.idle directly -- no SDK timeout applied
     await new Promise(function (resolve, reject) {
       var done = false;
       var unsubscribe = session.on(function (event) {
@@ -498,6 +512,14 @@ export async function runCoachAgent(payload, opts) {
       usage: null,
       steps: steps,
     };
+  } catch (err) {
+    if (err && err.name !== "AbortError" && attempt < 3 && /Timeout|timeout/.test(err.message)) {
+      // CLI subprocess timed out waiting for model response -- retry automatically
+      emit({ type: "retry", label: "Model timed out, retrying..." });
+      await client.stop().catch(function () {});
+      return runCoachAgent(payload, opts, attempt + 1);
+    }
+    throw err;
   } finally {
     if (session) await session.disconnect().catch(function () {});
     await client.stop().catch(function () {});
