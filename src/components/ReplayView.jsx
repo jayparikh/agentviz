@@ -384,6 +384,12 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                   role="button"
                   tabIndex={0}
                   onClick={function () { setSelectedIndex(entry.index === selectedIndex ? null : entry.index); }}
+                  onKeyDown={function (e) {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedIndex(entry.index === selectedIndex ? null : entry.index);
+                    }
+                  }}
                   style={{
                     display: "flex",
                     gap: 10,
