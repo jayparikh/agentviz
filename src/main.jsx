@@ -14,7 +14,7 @@ class RootErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error("[AgentViz crash]", error, info && info.componentStack);
+    console.error("[AGENTVIZ crash]", error, info && info.componentStack);
   }
 
   handleReset() {
@@ -33,7 +33,7 @@ class RootErrorBoundary extends React.Component {
           background: "#0d1117", color: "#e6edf3", fontFamily: "'JetBrains Mono', monospace", padding: 32,
         }
       },
-        React.createElement("div", { style: { fontSize: 18, color: "#ff6b6b" } }, "AgentViz crashed"),
+        React.createElement("div", { style: { fontSize: 18, color: "#ff6b6b" } }, "AGENTVIZ crashed"),
         React.createElement("pre", {
           style: {
             background: "#161b22", border: "1px solid #30363d", borderRadius: 8,

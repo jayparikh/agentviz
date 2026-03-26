@@ -20,21 +20,35 @@ src/
     useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
     useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js # localStorage-backed useState with debounced writes
+    useDiscoveredSessions.js # Auto-discovery of Copilot CLI sessions via /api/sessions
+    useHashRouter.js   # Hash-based routing between inbox and session views
+    useAsyncStatus.js  # Async operation state machine (idle/loading/success/error)
   lib/
     theme.js           # Design token system ("Midnight Circuit" theme), TRACK_TYPES, AGENT_COLORS
     constants.js       # SAMPLE_EVENTS data for demo mode
-    parser.js          # parseClaudeCodeJSONL() - Claude Code JSONL parser
-    copilotCliParser.js # parseCopilotCliJSONL() - Copilot CLI JSONL parser
-    parseSession.js    # Auto-detect format router: detectFormat() + parseSession()
-    session.js         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
+    parser.ts          # parseClaudeCodeJSONL() - Claude Code JSONL parser
+    copilotCliParser.ts # parseCopilotCliJSONL() - Copilot CLI JSONL parser
+    parseSession.ts    # Auto-detect format router: detectFormat() + parseSession()
+    session.ts         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
+    sessionLibrary.js  # localStorage-backed session library with content persistence
+    sessionParsing.ts  # Session parsing utilities and types
+    sessionTypes.ts    # TypeScript type definitions for session data
+    autonomyMetrics.js # Human response time, idle gaps, intervention scoring
+    projectConfig.js   # Project config surface detection (CLAUDE.md, .github/, etc.)
+    aiCoachAgent.js    # AI Coach powered by @github/copilot-sdk (gpt-4o)
     replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
     commandPalette.js  # Precomputed search index with scoring and per-type caps
     diffUtils.js       # Diff detection (isFileEditEvent) + Myers line diff algorithm
-    waterfall.js       # Waterfall view helpers: item building, stats, layout, windowing
+    waterfall.ts       # Waterfall view helpers: item building, stats, layout, windowing
     graphLayout.js     # Graph view helpers: ELKjs DAG builder, layout runner, position merger
     pricing.js         # Claude model pricing table and cost estimation
     exportHtml.js      # Self-contained HTML export for single sessions and comparisons
+    dataInspector.js   # Payload summary and preview helpers for inspector panels
+    formatTime.js      # Duration and date formatting utilities
+    playbackUtils.js   # Playback state helpers
   components/
+    InboxView.jsx      # Session inbox with auto-discovery, sorting, and review priority
+    DebriefView.jsx    # AI Coach panel with cached analysis and one-click apply
     FileUploader.jsx   # Drag-and-drop file input with error handling
     Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
     ReplayView.jsx     # Windowed event stream + resizable inspector sidebar
@@ -45,11 +59,17 @@ src/
     CompareView.jsx    # Side-by-side session comparison: Scorecard + Tools tabs
     CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
     DiffViewer.jsx     # Inline unified diff view for file-editing tool calls
+    DataInspector.jsx  # Readable payload inspector with summaries and copy support
     LiveIndicator.jsx  # Pulsing LIVE badge shown in CLI streaming mode
+    ShortcutsModal.jsx # Keyboard shortcuts overlay
+    RecentSessionsPicker.jsx # Recent sessions dropdown picker
     SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
     ResizablePanel.jsx # Drag-to-resize split panel utility
     ErrorBoundary.jsx  # React error boundary with resetKey for recovery
     Icon.jsx           # Lucide icon wrapper
+    app/               # Shell components: AppHeader, AppLandingState, AppLoadingState, CompareShell
+    ui/                # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton
+    waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, TimeAxis
 bin/
   agentviz.js          # CLI entry point: finds free port, starts server, opens browser
 mcp/
@@ -82,7 +102,7 @@ Agent types: user, assistant, system
 ## Dev commands
 - `npm run dev` - Start dev server on port 3000
 - `npm run build` - Production build to dist/
-- `npm test` - Run tests (40 Claude parser + 42 Copilot parser + 6 UX helpers + 23 waterfall + 33 diff + 13 graph layout + more) via Vitest
+- `npm test` - Run 253 tests via Vitest (parsers, layout, diff, graph, autonomy, regressions, and more)
 - `npm run test:watch` - Watch mode for tests
 
 ## Conventions
@@ -93,7 +113,6 @@ Agent types: user, assistant, system
 - "Midnight Circuit" theme defined in src/lib/theme.js
 
 ## Planned features
-- Conversation flow graph (directed graph of turns/decisions)
 - Bookmarks and annotations (persisted to localStorage)
 - Vim-style keyboard navigation
 - Parsers for: LangSmith traces, OpenTelemetry

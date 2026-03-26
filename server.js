@@ -1,5 +1,5 @@
 /**
- * AgentViz local server.
+ * AGENTVIZ local server.
  * Serves dist/ as a static SPA and provides:
  *   GET /api/file   -- returns the watched session file as text
  *   GET /api/meta   -- returns { filename } JSON

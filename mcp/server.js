@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * AgentViz MCP server.
+ * AGENTVIZ MCP server.
  *
  * Exposes one tool: launch_agentviz
  *   - Finds the current (or most recent) Claude Code session file
- *   - Starts the AgentViz HTTP server on a free port
+ *   - Starts the AGENTVIZ HTTP server on a free port
  *   - Opens the browser with live streaming enabled
  *   - Returns the URL
  *

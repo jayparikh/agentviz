@@ -8,4 +8,4 @@ else
   nohup node "$SCRIPT_DIR/bin/agentviz.js" --no-open >> "$LOG" 2>&1 &
 fi
 disown $!
-echo "AgentViz started PID=$! at http://localhost:4242  logs: $LOG"
+echo "AGENTVIZ started PID=$! at http://localhost:4242  logs: $LOG"

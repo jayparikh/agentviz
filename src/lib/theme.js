@@ -1,5 +1,5 @@
 /**
- * AgentViz Design Tokens
+ * AGENTVIZ Design Tokens
  *
  * Dark palette, blue/purple/grey accents. Color means something.
  * Inspired by Linear, Raycast, Vercel -- tools that feel quiet and fast.

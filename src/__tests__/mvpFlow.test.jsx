@@ -106,7 +106,7 @@ afterEach(function () {
   document.body.innerHTML = "";
 });
 
-describe("AgentViz MVP flow", function () {
+describe("AGENTVIZ MVP flow", function () {
   it("opens a stored inbox session into observe and then reviews coach drafts", async function () {
     var parsed = parseSessionText(FIXTURE_TEXT);
     persistSessionSnapshot("fixture.jsonl", parsed.result, FIXTURE_TEXT, global.localStorage);

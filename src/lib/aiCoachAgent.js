@@ -1,7 +1,7 @@
 /**
  * AI Coach Agent
  *
- * Analyzes an AgentViz session using the @github/copilot-sdk -- the same
+ * Analyzes an AGENTVIZ session using the @github/copilot-sdk -- the same
  * engine that powers Copilot CLI. The agent reads real config files from disk
  * before proposing changes, and commits each recommendation via a structured
  * `recommend` tool call.

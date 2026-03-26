@@ -31,6 +31,8 @@ AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, b
 - **Analyze** tool usage patterns, error rates, and model behavior at a glance
 - **Debug** failures by jumping directly between errors with one keystroke
 - **Stream live** as a session unfolds -- the view updates in real time
+- **Discover sessions** automatically from the Copilot CLI session store
+- **Get AI coaching** on prompt engineering, skills, and MCP setup grounded in best practices
 
 ## Quick Start
 
@@ -138,6 +140,12 @@ To stop it, ask: "Close agentviz"
 | `launch_agentviz` | Start the server and open the browser. Accepts an optional `session_file` path. |
 | `close_agentviz` | Stop a running server. Accepts an optional `port`; omit to stop all. |
 
+## Inbox and AI Coach
+
+When running via the CLI, AGENTVIZ automatically discovers recent sessions from `~/.copilot/session-state/` and lists them in an inbox sorted by review priority. Click any session to open it in the visualizer.
+
+Each session also gets an AI Coach analysis powered by the `@github/copilot-sdk` (gpt-4o). The coach reads your actual project config (`.github/copilot-instructions.md`, skills, MCP servers) and produces actionable recommendations for prompts, skills, and tooling setup. Recommendations can be applied directly with one click.
+
 ## Session Comparison
 
 Load two agent traces side by side to compare them head to head. Great for benchmarking Claude Code vs Copilot CLI on the same task, or comparing two different prompting strategies.
@@ -239,6 +247,9 @@ Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn s
 | **Auto-detect Format** | Supports Claude Code and Copilot CLI JSONL. Format detected from first line. |
 | **Session Comparison** | Load two traces side by side. Scorecard and tool-usage chart with delta badges. |
 | **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
+| **Inbox Auto-discovery** | Automatically finds recent Copilot CLI sessions and ranks them by review priority. |
+| **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
+| **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
 
 ## Keyboard Shortcuts
 
@@ -273,12 +284,20 @@ src/
     useSessionLoader.js  # File parsing, live init from /api/file, session reset
     useLiveStream.js     # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js    # localStorage-backed useState with debounced writes
+    useDiscoveredSessions.js # Auto-discovery of Copilot CLI sessions via /api/sessions
+    useHashRouter.js     # Hash-based routing between inbox and session views
+    useAsyncStatus.js    # Async operation state machine (idle/loading/success/error)
   lib/
     parseSession.ts      # Auto-detect format router
     parser.ts            # Claude Code JSONL parser
     copilotCliParser.ts  # Copilot CLI JSONL parser
     dataInspector.js     # Payload summary and preview helpers for inspector panels
     session.ts           # Pure helpers: getSessionTotal, buildFilteredEventEntries
+    sessionLibrary.js    # localStorage-backed session library with content persistence
+    sessionParsing.ts    # Session parsing utilities and types
+    autonomyMetrics.js   # Human response time, idle gaps, intervention scoring
+    projectConfig.js     # Project config surface detection (CLAUDE.md, .github/, etc.)
+    aiCoachAgent.js      # AI Coach powered by @github/copilot-sdk (gpt-4o)
     theme.js             # Design tokens (true black base, blue/purple/green accents)
     constants.js         # Sample events for demo mode
     replayLayout.js      # Virtualized windowing for large sessions
@@ -288,7 +307,11 @@ src/
     graphLayout.js       # ELKjs graph builder and layout merger for Graph view
     pricing.js           # Claude model pricing table and cost estimation
     exportHtml.js        # Self-contained HTML export for single sessions and comparisons
+    formatTime.js        # Duration and date formatting utilities
+    playbackUtils.js     # Playback state helpers
   components/
+    InboxView.jsx        # Session inbox with auto-discovery, sorting, and review priority
+    DebriefView.jsx      # AI Coach panel with cached analysis and one-click apply
     ReplayView.jsx       # Windowed event stream + inspector sidebar
     TracksView.jsx       # DAW-style multi-track timeline
     WaterfallView.jsx    # Tool execution waterfall with nesting and inspector
@@ -300,11 +323,16 @@ src/
     DiffViewer.jsx       # Inline unified diff for file-editing tool calls
     DataInspector.jsx    # Readable payload inspector with summaries and copy support
     LiveIndicator.jsx    # Pulsing LIVE badge shown in CLI streaming mode
+    ShortcutsModal.jsx   # Keyboard shortcuts overlay
+    RecentSessionsPicker.jsx # Recent sessions dropdown picker
     SyntaxHighlight.jsx  # Lightweight code syntax coloring for payload previews
     ResizablePanel.jsx   # Drag-to-resize split panel utility
     FileUploader.jsx     # Drag-and-drop file input with error handling
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # SVG icon component
+    app/                 # Shell components: AppHeader, AppLandingState, AppLoadingState
+    ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton
+    waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, TimeAxis
 bin/
   agentviz.js            # CLI entry point: finds free port, starts server, opens browser
 mcp/
@@ -361,6 +389,9 @@ Please open an issue to discuss larger changes before submitting a PR.
 - [x] Session comparison (dual-trace scorecard + tool usage chart)
 - [x] HTML export (self-contained shareable file, single session or comparison)
 - [x] Conversation flow graph (directed graph of turns and decisions)
+- [x] Inbox auto-discovery (Copilot CLI sessions found and ranked automatically)
+- [x] AI Coach agent (session analysis with one-click config recommendations)
+- [x] Autonomy metrics (human response time, idle gaps, intervention frequency)
 - [ ] Bookmarks and annotations (persisted to localStorage)
 - [ ] Graph minimap and large-session clustering
 - [ ] Multi-agent hierarchy (parent/child agents, nested tracks)
