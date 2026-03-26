@@ -121,7 +121,11 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
       body: body,
     }).then(function (resp) {
       if (!resp.ok) {
-        return resp.json().then(function (d) { throw new Error(d.error || "HTTP " + resp.status); });
+        return resp.text().then(function (text) {
+          var d = null;
+          try { d = JSON.parse(text); } catch (_) {}
+          throw new Error((d && d.error) || "HTTP " + resp.status);
+        });
       }
       var reader = resp.body.getReader();
       var decoder = new TextDecoder();

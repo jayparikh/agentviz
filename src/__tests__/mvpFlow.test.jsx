@@ -54,8 +54,8 @@ function findExactButton(container, text) {
     }) || null;
 }
 
-async function renderApp() {
-  global.fetch = createInactiveFetch();
+async function renderApp(fetchImpl) {
+  global.fetch = fetchImpl || createInactiveFetch();
   var container = document.createElement("div");
   document.body.appendChild(container);
   var root = createRoot(container);
@@ -133,6 +133,46 @@ describe("AGENTVIZ MVP flow", function () {
     // AI-first: static rec cards are gone; coach header and stats grid should be present
     expect(findByText(app.container, "Session coaching:")).toBeTruthy();
     expect(findByText(app.container, "Coach")).toBeTruthy();
+
+    await app.unmount();
+  });
+
+  it("shows a clean HTTP error when coach endpoint returns empty body", async function () {
+    var parsed = parseSessionText(FIXTURE_TEXT);
+    persistSessionSnapshot("fixture.jsonl", parsed.result, FIXTURE_TEXT, global.localStorage);
+
+    // Simulate a server returning 503 with no body (e.g. endpoint not available in dev mode)
+    var fetchMock = vi.fn(async function (url) {
+      if (String(url).includes("/api/coach/analyze")) {
+        return { ok: false, status: 503, text: async function () { return ""; } };
+      }
+      return { ok: false };
+    });
+
+    var app = await renderApp(fetchMock);
+
+    await waitFor(function () {
+      return findByText(app.container, "Inbox");
+    }, "expected landing inbox to render");
+
+    await click(findExactButton(app.container, "Open in Observe"));
+    await waitFor(function () {
+      return findByText(app.container, "fixture.jsonl");
+    }, "expected stored session to open");
+
+    await click(findExactButton(app.container, "Coach"));
+    await waitFor(function () {
+      return findByText(app.container, "Session coaching:");
+    }, "expected debrief view to open");
+
+    // Wait for the auto-started analysis to fail and display an error
+    await waitFor(function () {
+      return findByText(app.container, "AI analysis failed: HTTP 503");
+    }, "expected AI analysis error to appear");
+
+    // Error should be the clean HTTP status, not a JSON parse error
+    expect(findByText(app.container, "AI analysis failed: HTTP 503")).toBeTruthy();
+    expect(findByText(app.container, "Unexpected end of JSON input")).toBeFalsy();
 
     await app.unmount();
   });
