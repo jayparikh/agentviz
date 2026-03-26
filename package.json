@@ -14,7 +14,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:debug": "vite build --mode debug",
     "preview": "vite preview",
+    "app": "npm run build && node ./bin/agentviz.js",
+    "app:debug": "npm run build:debug && node ./bin/agentviz.js",
     "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
