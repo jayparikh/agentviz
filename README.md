@@ -230,6 +230,14 @@ Aggregate metrics, event distribution bars, tool usage ranking, and a per-turn s
 <img src="docs/screenshots/stats-view.svg" alt="Stats View" width="800" />
 </div>
 
+### Coach View
+
+AI-powered session coaching available directly from any session. The coach reads your autonomy metrics, project config (`.github/copilot-instructions.md`, MCP servers, skills), and session patterns to produce evidence-backed recommendations for prompts, tooling, and workflow. Click **Analyze** to run, then accept or ignore each draft recommendation. Requires the CLI server -- run via `node bin/agentviz.js` or the MCP tool.
+
+<div align="center">
+<img src="docs/screenshots/coach-view.svg" alt="Coach View" width="800" />
+</div>
+
 ### More Features
 
 | Feature | Description |
