@@ -32,6 +32,8 @@ export default function WaterfallRow({
   return (
     <div
       key={item.originalIndex}
+      role="button"
+      tabIndex={0}
       onClick={function () { onSelect(isSelected ? null : idx); }}
       onMouseEnter={function () { onMouseEnter(idx); }}
       onMouseLeave={onMouseLeave}
@@ -67,7 +69,7 @@ export default function WaterfallRow({
         <div style={{
           width: 6,
           height: 6,
-          borderRadius: "50%",
+          borderRadius: theme.radius.full,
           background: barColor,
           flexShrink: 0,
         }} />
@@ -107,7 +109,7 @@ export default function WaterfallRow({
           transition: "border-color " + theme.transition.fast + ", box-shadow " + theme.transition.fast,
         }}>
           {ev.isError && (
-            <span style={{ fontSize: 8, marginRight: 2, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={10} /></span>
+            <span style={{ fontSize: theme.fontSize.xs, marginRight: 2, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={10} /></span>
           )}
           <span style={{
             fontSize: theme.fontSize.xs,

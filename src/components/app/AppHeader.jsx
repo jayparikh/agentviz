@@ -73,7 +73,7 @@ export default function AppHeader({
         <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, display: "flex", alignItems: "center", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
           {session.metadata.totalEvents} events
           {session.metadata.errorCount > 0 && (
-            <span style={{ color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 3 }}>
+            <span style={{ color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Icon name="alert-circle" size={12} /> {session.metadata.errorCount}
             </span>
           )}
@@ -101,7 +101,7 @@ export default function AppHeader({
                 border: "none",
                 borderRadius: theme.radius.md,
                 color: isActive ? theme.accent.primary : theme.text.muted,
-                padding: "4px 9px",
+                padding: "4px 8px",
                 fontSize: theme.fontSize.sm,
                 fontFamily: theme.font.ui,
                 display: "flex",
@@ -112,7 +112,7 @@ export default function AppHeader({
             >
               <Icon name={item.icon} size={13} style={{ opacity: isActive ? 1 : 0.6 }} /> {item.label}
               {item.experimental && (
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, marginLeft: 1 }}>exp</span>
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, marginLeft: 2 }}>exp</span>
               )}
             </button>
           );
@@ -146,7 +146,7 @@ export default function AppHeader({
                 border: "1px solid " + theme.border.default,
                 borderRadius: theme.radius.md,
                 color: theme.text.primary,
-                padding: "3px 8px",
+                padding: "4px 8px",
                 fontSize: theme.fontSize.base,
                 fontFamily: theme.font.mono,
                 width: 100,
@@ -164,7 +164,7 @@ export default function AppHeader({
           </div>
         )}
 
-        <ToolbarButton onClick={onShowPalette} title="Command Palette (Cmd+K)" style={{ padding: "2px 6px", color: theme.text.dim, fontSize: theme.fontSize.xs }}>
+        <ToolbarButton onClick={onShowPalette} title="Command Palette (Cmd+K)" aria-label="Command palette" style={{ padding: "2px 6px", color: theme.text.dim, fontSize: theme.fontSize.xs }}>
           <Icon name="command" size={11} />
         </ToolbarButton>
 
@@ -173,6 +173,7 @@ export default function AppHeader({
             <ToolbarButton
               onClick={function () { onJumpToError("prev"); }}
               title="Previous error (Shift+E)"
+              aria-label="Previous error"
               style={{
                 border: "1px solid " + theme.semantic.errorBorder,
                 borderRadius: theme.radius.sm,
@@ -183,12 +184,13 @@ export default function AppHeader({
             >
               <Icon name="chevron-left" size={12} />
             </ToolbarButton>
-            <span style={{ fontSize: theme.fontSize.sm, color: theme.semantic.error, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: theme.fontSize.sm, color: theme.semantic.error, display: "flex", alignItems: "center", gap: 4 }}>
               <Icon name="alert-circle" size={12} /> {errorEntries.length}
             </span>
             <ToolbarButton
               onClick={function () { onJumpToError("next"); }}
               title="Next error (E)"
+              aria-label="Next error"
               style={{
                 border: "1px solid " + theme.semantic.errorBorder,
                 borderRadius: theme.radius.sm,
@@ -209,6 +211,7 @@ export default function AppHeader({
             <ToolbarButton
               onClick={onToggleFilters}
               title="Filter tracks"
+              aria-label="Filter tracks"
               style={{
                 background: activeFilterCount > 0 ? alpha(theme.accent.primary, 0.08) : "transparent",
                 border: "1px solid " + (activeFilterCount > 0 ? theme.accent.primary : theme.border.default),
@@ -216,7 +219,7 @@ export default function AppHeader({
               }}
             >
               <Icon name="filter" size={12} />
-              {activeFilterCount > 0 && <span style={{ fontSize: 10 }}>{activeFilterCount}</span>}
+              {activeFilterCount > 0 && <span style={{ fontSize: theme.fontSize.xs }}>{activeFilterCount}</span>}
             </ToolbarButton>
             {showFilters && (
               <div style={{
@@ -288,8 +291,8 @@ export default function AppHeader({
           </ToolbarButton>
         )}
 
-        <ToolbarButton onClick={onStartCompare} title="Compare with another session" style={{ padding: "2px 6px" }}>
-          <Icon name="columns" size={12} />
+        <ToolbarButton onClick={onStartCompare} title="Compare with another session" aria-label="Compare with another session" style={{ padding: "2px 6px" }}>
+          <Icon name="arrow-up-down" size={12} />
         </ToolbarButton>
 
         {onOpenRecentSession && recentSessions && (
@@ -297,6 +300,7 @@ export default function AppHeader({
             <ToolbarButton
               onClick={function () { setShowRecent(function (v) { return !v; }); }}
               title="Recent sessions"
+              aria-label="Recent sessions"
               style={{
                 background: showRecent ? alpha(theme.accent.primary, 0.08) : "transparent",
                 border: "1px solid " + (showRecent ? theme.accent.primary : theme.border.default),
@@ -328,7 +332,7 @@ export default function AppHeader({
           />
         )}
 
-        <ToolbarButton onClick={onReset} title="Close session" style={{ padding: "2px 6px" }}>
+        <ToolbarButton onClick={onReset} title="Close session" aria-label="Close session" style={{ padding: "2px 6px" }}>
           <Icon name="close" size={12} />
         </ToolbarButton>
       </div>

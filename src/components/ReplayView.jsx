@@ -29,8 +29,8 @@ function highlightText(text, query) {
         style={{
           background: alpha(theme.accent.primary, 0.2),
           color: theme.accent.primary,
-          borderRadius: 2,
-          padding: "0 1px",
+          borderRadius: theme.radius.sm,
+          padding: "0 2px",
         }}
       >
         {text.substring(idx, idx + query.length)}
@@ -101,7 +101,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
         )}
         {toolEntries.map(function (pair) {
           return (
-            <div key={pair[0]} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+            <div key={pair[0]} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
               <span style={{ fontSize: theme.fontSize.base, color: theme.track.tool_call, fontFamily: theme.font.mono }}>{pair[0]}</span>
               <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>{pair[1]}x</span>
             </div>
@@ -145,16 +145,20 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
             <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
               Diff
             </div>
-            <div
+            <button
+              type="button"
               onClick={function () { setShowRaw(true); }}
               style={{
                 fontSize: theme.fontSize.xs,
                 color: theme.accent.primary,
                 cursor: "pointer",
+                background: "none",
+                border: "none",
+                padding: 0,
               }}
             >
               Show Raw
-            </div>
+            </button>
           </div>
           <DiffViewer event={selected} />
         </div>
@@ -164,16 +168,20 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
         <div>
           {hasDiff && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 8 }}>
-              <div
+              <button
+                type="button"
                 onClick={function () { setShowRaw(false); }}
                 style={{
                   fontSize: theme.fontSize.xs,
                   color: theme.accent.primary,
                   cursor: "pointer",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
                 }}
               >
                 Show Diff
-              </div>
+              </button>
             </div>
           )}
           <DataInspector title="Event Payload" value={selected.raw} maxLines={24} maxChars={20000} />
@@ -192,6 +200,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   var [viewportHeight, setViewportHeight] = useState(0);
   var shouldFollowRef = useRef(true);
   var prevCount = useRef(0);
+  var measurePassRef = useRef(0);
 
   var visibleEntries = useMemo(function () {
     return eventEntries.filter(function (entry) { return entry.event.t <= currentTime; });
@@ -230,9 +239,14 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   useEffect(function () {
     itemRefs.current = {};
     setMeasuredHeights({});
+    measurePassRef.current = 0;
   }, [eventEntries]);
 
   useLayoutEffect(function () {
+    // Cap measurement rounds to prevent infinite loops when
+    // estimated and actual heights differ enough to shift the window
+    if (measurePassRef.current >= 3) return;
+
     setMeasuredHeights(function (prev) {
       var next = prev;
       var changed = false;
@@ -250,6 +264,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
         changed = true;
       }
 
+      if (changed) measurePassRef.current++;
       return changed ? next : prev;
     });
   });
@@ -259,6 +274,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
     var nearBottom = nextTop + e.currentTarget.clientHeight >= e.currentTarget.scrollHeight - REPLAY_BOTTOM_THRESHOLD;
     setScrollTop(nextTop);
     shouldFollowRef.current = nearBottom;
+    measurePassRef.current = 0;
   }
 
   // Clear selection when the selected entry is filtered out (track filter change)
@@ -333,7 +349,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                     <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call }}>{item.turn.toolCount} tools</span>
                   )}
                   {item.turn.hasError && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 3 }}><Icon name="alert-circle" size={11} /> error</span>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="alert-circle" size={11} /> error</span>
                   )}
                 </div>
               );
@@ -357,29 +373,31 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
               >
                 {turnHeader}
                 <div
+                  role="button"
+                  tabIndex={0}
                   onClick={function () { setSelectedIndex(entry.index === selectedIndex ? null : entry.index); }}
                   style={{
                     display: "flex",
                     gap: 10,
-                    padding: "7px 12px",
+                    padding: "8px 12px",
                     borderRadius: theme.radius.lg,
                     background: isMatch ? alpha(theme.accent.primary, 0.03) : (isSelected ? theme.bg.raised : (isCurrent ? theme.bg.overlay : "transparent")),
                     borderLeft: "2px solid " + borderColor,
                     opacity: isCurrent || isSelected || isMatch ? 1 : 0.88,
                     cursor: "pointer",
-                    transition: "all " + theme.transition.base,
+                    transition: "background " + theme.transition.base + ", border-color " + theme.transition.base + ", opacity " + theme.transition.base,
                     animation: "none",
                   }}
                 >
-                  <div style={{ minWidth: 40, fontFamily: theme.font.mono, fontSize: theme.fontSize.sm, color: theme.text.dim, paddingTop: 3 }}>
+                  <div style={{ minWidth: 40, fontFamily: theme.font.mono, fontSize: theme.fontSize.sm, color: theme.text.dim, paddingTop: 4 }}>
                     {ev.t.toFixed(1)}s
                   </div>
                   <div style={{
                     minWidth: 8,
                     height: 8,
-                    borderRadius: "50%",
+                    borderRadius: theme.radius.full,
                     background: isError ? theme.semantic.error : agentColor,
-                    marginTop: 5,
+                    marginTop: 4,
                     boxShadow: "none",
                     animation: "none",
                   }} />
@@ -393,17 +411,17 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                           fontSize: theme.fontSize.xs,
                           color: isError ? theme.semantic.error : info.color,
                           background: alpha(isError ? theme.semantic.error : info.color, 0.08),
-                          padding: "1px 5px",
+                          padding: "2px 6px",
                           borderRadius: theme.radius.sm,
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: 3,
+                          gap: 4,
                         }}>
                           <Icon name={ev.track} size={11} /> {info.label}
                         </span>
                       )}
                       {ev.toolName && (
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call, background: alpha(theme.track.tool_call, 0.06), padding: "1px 5px", borderRadius: theme.radius.sm }}>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call, background: alpha(theme.track.tool_call, 0.06), padding: "2px 6px", borderRadius: theme.radius.sm }}>
                           {ev.toolName}
                         </span>
                       )}
@@ -420,7 +438,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                       )}
                     </div>
                     <div style={{
-                      fontSize: theme.fontSize.md,
+                      fontSize: theme.fontSize.base,
                       color: isError ? theme.semantic.errorText : theme.text.primary,
                       lineHeight: 1.6,
                       fontFamily: ev.track === "tool_call" || ev.track === "context" ? theme.font.mono : theme.font.ui,

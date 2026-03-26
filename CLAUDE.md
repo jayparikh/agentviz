@@ -6,7 +6,7 @@ Session replay visualizer for AI agent workflows. Renders Claude Code and Copilo
 - React 18 + Vite 6
 - No CSS framework, all inline styles
 - Font: JetBrains Mono (loaded from Google Fonts in index.html)
-- No TypeScript yet (plain JSX)
+- Mixed JS/TS: components and hooks are plain JSX, parsers and data libs are TypeScript
 
 ## Architecture
 ```
@@ -24,7 +24,7 @@ src/
     useHashRouter.js   # Hash-based routing between inbox and session views
     useAsyncStatus.js  # Async operation state machine (idle/loading/success/error)
   lib/
-    theme.js           # Design token system ("Midnight Circuit" theme), TRACK_TYPES, AGENT_COLORS
+    theme.js           # Design token system, TRACK_TYPES, AGENT_COLORS
     constants.js       # SAMPLE_EVENTS data for demo mode
     parser.ts          # parseClaudeCodeJSONL() - Claude Code JSONL parser
     copilotCliParser.ts # parseCopilotCliJSONL() - Copilot CLI JSONL parser
@@ -110,7 +110,9 @@ Agent types: user, assistant, system
 - All styles are inline (no CSS files), all colors reference theme.js tokens
 - Unicode characters used directly or as escape sequences in JS
 - Components receive data as props, no global state management
-- "Midnight Circuit" theme defined in src/lib/theme.js
+- Design tokens defined in src/lib/theme.js
+- Product name is always AGENTVIZ (all caps, no spaces)
+- UI/UX design system: see docs/ui-ux-style-guide.md -- all UI changes must conform to it
 
 ## Planned features
 - Bookmarks and annotations (persisted to localStorage)
@@ -118,4 +120,4 @@ Agent types: user, assistant, system
 - Parsers for: LangSmith traces, OpenTelemetry
 - Multi-agent hierarchy (parent/child agents, nested tracks)
 - Fork-from-any-point replay
-- `npx agentviz` (publish to npm)
+- Publish to npm (`npx agentviz`)

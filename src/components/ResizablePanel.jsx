@@ -94,7 +94,7 @@ export default function ResizablePanel({ children, initialSplit, minPx, directio
           [isHoriz ? "width" : "height"]: 2,
           [isHoriz ? "height" : "width"]: 24,
           background: theme.border.strong,
-          borderRadius: 1,
+          borderRadius: theme.radius.sm,
           transition: "background " + theme.transition.fast,
         }} />
       </div>

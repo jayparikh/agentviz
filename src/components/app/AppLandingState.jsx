@@ -52,7 +52,7 @@ function DragOverlay({ onLoad }) {
   return (
     <div
       style={{
-        position: "fixed", inset: 0, zIndex: active ? 999 : -1,
+        position: "fixed", inset: 0, zIndex: active ? theme.z.overlay : -1,
         pointerEvents: active ? "all" : "none",
       }}
     >
@@ -62,14 +62,14 @@ function DragOverlay({ onLoad }) {
           background: alpha(theme.bg.base, 0.92),
           border: "2px dashed " + theme.accent.primary,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
-          zIndex: 999,
+          zIndex: theme.z.overlay,
         }}>
           <Icon name="upload" size={32} style={{ color: theme.accent.primary }} />
           <div style={{ fontSize: theme.fontSize.xl, color: theme.accent.primary, fontFamily: theme.font.ui }}>
             Drop session file to import
           </div>
-          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
-            Claude Code or Copilot CLI .jsonl
+        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
+          Claude Code and Copilot CLI .jsonl sessions
           </div>
         </div>
       )}
@@ -114,7 +114,7 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
           background: theme.semantic.errorBg,
           border: "1px solid " + theme.semantic.error,
           borderRadius: theme.radius.xl,
-          padding: "10px 16px",
+          padding: "12px 16px",
           fontSize: theme.fontSize.md,
           color: theme.semantic.errorText,
           maxWidth: 500,
@@ -124,13 +124,40 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
       )}
 
       <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-        <span onClick={onLoadSample} style={{ color: theme.text.muted, cursor: "pointer", fontSize: theme.fontSize.sm }}>
+        <button
+          type="button"
+          onClick={onLoadSample}
+          style={{
+            color: theme.accent.primary,
+            cursor: "pointer",
+            fontSize: theme.fontSize.sm,
+            fontFamily: theme.font.ui,
+            background: "none",
+            border: "none",
+            padding: 0,
+          }}
+        >
           load a demo session
-        </span>
+        </button>
         <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>or</span>
-        <span onClick={onStartCompare} style={{ color: theme.accent.primary, cursor: "pointer", fontSize: theme.fontSize.sm, display: "flex", alignItems: "center", gap: 4 }}>
+        <button
+          type="button"
+          onClick={onStartCompare}
+          style={{
+            color: theme.accent.primary,
+            cursor: "pointer",
+            fontSize: theme.fontSize.sm,
+            fontFamily: theme.font.ui,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            background: "none",
+            border: "none",
+            padding: 0,
+          }}
+        >
           <Icon name="arrow-up-down" size={12} /> compare two sessions
-        </span>
+        </button>
       </div>
     </ShellFrame>
   );

@@ -28,7 +28,7 @@ export default function CompareShell({
           {sessionA.file}
         </span>
         <span style={{ fontSize: theme.fontSize.base, color: theme.text.ghost, fontFamily: theme.font.ui }}>vs</span>
-        <span style={{ fontSize: theme.fontSize.base, color: "#a78bfa", fontFamily: theme.font.mono,
+        <span style={{ fontSize: theme.fontSize.base, color: theme.agent.system, fontFamily: theme.font.mono,
           maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {sessionB.file}
         </span>

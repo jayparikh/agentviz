@@ -262,7 +262,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
       <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < totalCount - 1 ? "1px solid " + theme.border.default : "none" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
           {rec.priority === "high" && (
-            <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.full, padding: "1px 7px", flexShrink: 0, marginTop: 2 }}>high</span>
+            <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, border: "1px solid " + theme.semantic.errorBorder, borderRadius: theme.radius.full, padding: "2px 8px", flexShrink: 0, marginTop: 2 }}>high</span>
           )}
           <span style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.ui, fontWeight: 600, flex: 1 }}>{rec.title}</span>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -465,7 +465,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                                 background: exists ? alpha(theme.semantic.success, 0.1) : alpha(theme.text.dim, 0.1),
                                 border: "1px solid " + (exists ? alpha(theme.semantic.success, 0.3) : alpha(theme.text.dim, 0.2)),
                                 borderRadius: theme.radius.full,
-                                padding: "2px 7px",
+                                padding: "2px 8px",
                               }}>
                                 {exists ? "exists" : "not configured"}
                               </span>
@@ -481,7 +481,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                                     background: alpha(theme.accent.primary, 0.1),
                                     border: "1px solid " + alpha(theme.accent.primary, 0.25),
                                     borderRadius: theme.radius.full,
-                                    padding: "1px 7px",
+                                    padding: "2px 8px",
                                     fontFamily: theme.font.mono,
                                   }}>
                                     {name}
@@ -574,7 +574,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                   cursor: "pointer",
                 }}
               >
-                <span style={{ fontSize: "0.9em" }}>{"↺"}</span>
+                <span style={{ fontSize: theme.fontSize.sm }}>{"↺"}</span>
                 Redo
               </button>
             ) : aiStatus !== "loading" ? (

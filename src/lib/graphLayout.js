@@ -109,8 +109,8 @@ export function buildGraphData(eventEntries, turns, expandedTurns) {
         layoutOptions: {
           "elk.algorithm": "layered",
           "elk.direction": "DOWN",
-          "elk.spacing.nodeNode": "12",
-          "elk.padding": "[top=40,left=12,bottom=12,right=12]",
+          "elk.spacing.nodeNode": "16",
+          "elk.padding": "[top=40,left=20,bottom=16,right=20]",
         },
       });
     } else {
@@ -203,8 +203,8 @@ export function mergeLayout(graphData, elkResult) {
         for (var j = 0; j < elkNode.children.length; j++) {
           var elkChild = elkNode.children[j];
           positionMap[elkChild.id] = {
-            x: elkNode.x + elkChild.x,
-            y: elkNode.y + elkChild.y,
+            x: elkChild.x,
+            y: elkChild.y,
             width: elkChild.width,
             height: elkChild.height,
           };
@@ -221,6 +221,14 @@ export function mergeLayout(graphData, elkResult) {
         var childPos = positionMap[child.id] || { x: 0, y: 0, width: child.width || 160, height: child.height || 36 };
         return Object.assign({}, child, childPos);
       });
+      // Force all children to the same centered x position
+      if (result.children.length > 0) {
+        var childW = result.children[0].width;
+        var centeredX = (pos.width - childW) / 2;
+        for (var ci = 0; ci < result.children.length; ci++) {
+          result.children[ci] = Object.assign({}, result.children[ci], { x: centeredX });
+        }
+      }
     }
     return result;
   });
@@ -337,5 +345,12 @@ export function getGraphBounds(positionedNodes) {
     if (n.y + n.height > maxY) maxY = n.y + n.height;
   }
   var pad = 40;
-  return { x: minX - pad, y: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 };
+  var w = maxX - minX + pad * 2;
+  var h = maxY - minY + pad * 2;
+  // Enforce minimum viewBox so small graphs don't blow up to fill the viewport
+  var minW = 1200;
+  var minH = 700;
+  if (w < minW) { minX -= (minW - w) / 2; w = minW; }
+  if (h < minH) { minY -= (minH - h) / 2; h = minH; }
+  return { x: minX - pad, y: minY - pad, width: w, height: h };
 }

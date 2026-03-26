@@ -10,6 +10,7 @@ export default function ToolbarButton({
   title,
   style,
   type,
+  "aria-label": ariaLabel,
 }) {
   return (
     <button
@@ -18,6 +19,7 @@ export default function ToolbarButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-label={ariaLabel}
       style={Object.assign({
         background: "transparent",
         border: "1px solid " + theme.border.default,

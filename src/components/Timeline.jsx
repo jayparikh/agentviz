@@ -51,11 +51,12 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
   }, [eventEntries]);
 
   return (
-    <div style={{ padding: "0 0 8px 0" }}>
+    <div style={{ paddingBottom: theme.space.md }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         {!isLive && (
           <button
             onClick={onPlayPause}
+            aria-label={isPlaying ? "Pause playback" : "Play playback"}
             style={{
               background: "none",
               border: "1px solid " + theme.border.strong,
@@ -127,7 +128,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
               bottom: 0,
               width: 1,
               background: theme.border.strong,
-              zIndex: 1,
+              zIndex: theme.z.base,
               opacity: 0.6,
             }} />
           );
@@ -150,7 +151,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
                 bottom: 2,
                 background: color,
                 opacity: binData.isMatch ? 0.9 : (binData.isError ? 0.7 : binData.intensity * 0.4),
-                borderRadius: 2,
+                borderRadius: theme.radius.sm,
                 boxShadow: "none",
               }} />
             );
@@ -172,7 +173,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
               bottom: 2,
               background: color,
               opacity: isMatch ? 0.9 : (ev.isError ? 0.7 : ev.intensity * 0.4),
-              borderRadius: 2,
+              borderRadius: theme.radius.sm,
               boxShadow: "none",
             }} />
           );
@@ -186,7 +187,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           background: theme.accent.primary,
           boxShadow: "none",
           transition: "left 0.08s linear",
-          zIndex: 2,
+          zIndex: theme.z.active,
         }} />
       </div>
     </div>

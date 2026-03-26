@@ -27,7 +27,7 @@ export default function FileUploader({ onLoad }) {
         border: "2px dashed " + (over ? theme.accent.primary : theme.border.strong),
         borderRadius: theme.radius.xxl, padding: "48px 32px", textAlign: "center",
         cursor: "pointer", background: over ? alpha(theme.accent.primary, 0.03) : theme.bg.surface,
-        transition: "all " + theme.transition.smooth, maxWidth: 560, margin: "0 auto",
+        transition: "background " + theme.transition.smooth + ", border-color " + theme.transition.smooth, maxWidth: 560, margin: "0 auto",
       }}
     >
       <input
@@ -36,7 +36,7 @@ export default function FileUploader({ onLoad }) {
         onChange={function (e) { handleFile(e.target.files[0]); }}
       />
       <div style={{
-        fontSize: 32, marginBottom: 12, color: theme.accent.primary,
+        fontSize: theme.fontSize.hero, marginBottom: 12, color: theme.accent.primary,
         transition: "transform " + theme.transition.smooth,
         transform: over ? "scale(1.1)" : "scale(1)",
       }}><Icon name="upload" size={32} /></div>
@@ -44,7 +44,7 @@ export default function FileUploader({ onLoad }) {
         Drop a session file here
       </div>
       <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, lineHeight: 1.8 }}>
-        Claude Code .jsonl sessions
+        Claude Code and Copilot CLI .jsonl sessions
         <br />
         <span style={{ color: theme.text.dim, fontSize: theme.fontSize.base }}>
           Also accepts .json and .txt

@@ -47,7 +47,7 @@ export default function CompareLandingState({ session, sessionB, onLoadSessionA,
         </div>
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: theme.fontSize.sm, color: "#a78bfa", fontFamily: theme.font.ui, letterSpacing: 1, textTransform: "uppercase" }}>
+          <div style={{ fontSize: theme.fontSize.sm, color: theme.agent.system, fontFamily: theme.font.ui, letterSpacing: 1, textTransform: "uppercase" }}>
             Session B
           </div>
           {sessionB.events ? (
@@ -69,9 +69,21 @@ export default function CompareLandingState({ session, sessionB, onLoadSessionA,
         </div>
       </div>
 
-      <span onClick={onExitCompare} style={{ color: theme.text.dim, cursor: "pointer", fontSize: theme.fontSize.sm }}>
+      <button
+        type="button"
+        onClick={onExitCompare}
+        style={{
+          color: theme.text.dim,
+          cursor: "pointer",
+          fontSize: theme.fontSize.sm,
+          fontFamily: theme.font.ui,
+          background: "none",
+          border: "none",
+          padding: 0,
+        }}
+      >
         cancel
-      </span>
+      </button>
     </ShellFrame>
   );
 }

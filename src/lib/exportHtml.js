@@ -6,8 +6,8 @@
 
 var INLINE_STYLES = `
   :root {
-    --av-bg-hover: #262629;
-    --av-bg-active: #2c2c30;
+    --av-bg-hover: #20202e;
+    --av-bg-active: #26263a;
     --av-focus: #6475e8;
     --av-border: #2c2c30;
     --av-border-strong: #3a3a3f;
@@ -29,6 +29,12 @@ var INLINE_STYLES = `
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 `;
 
 // JSON-serialize a value so it is safe to embed inside a <script> block.

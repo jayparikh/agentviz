@@ -94,7 +94,7 @@ function Row({ label, valA, valB, a, b, lowerIsBetter, indent }) {
       display: "grid",
       gridTemplateColumns: COL.label + " " + COL.val + " " + COL.val + " " + COL.delta,
       alignItems: "center",
-      padding: "9px " + (indent ? "10px 9px 26px" : "10px"),
+      padding: "8px " + (indent ? "10px 8px 24px" : "10px"),
       borderBottom: "1px solid " + theme.border.subtle,
     }}>
       <span style={{
@@ -142,7 +142,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
         borderBottom: "1px solid " + theme.border.strong,
         position: "sticky", top: 0,
         background: theme.bg.base,
-        zIndex: 1,
+        zIndex: theme.z.base,
       }}>
         <span />
         <span style={{
@@ -154,7 +154,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
           A: {fileA}
         </span>
         <span style={{
-          fontSize: theme.fontSize.sm, color: "#a78bfa",
+          fontSize: theme.fontSize.sm, color: theme.agent.system,
           fontFamily: theme.font.mono, letterSpacing: 0.3,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           paddingRight: 12,
@@ -179,7 +179,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
           {onOpenSessionB && (
             <ToolbarButton
               onClick={onOpenSessionB}
-              style={{ color: "#a78bfa", borderColor: "#a78bfa", background: alpha("#a78bfa", 0.08) }}
+              style={{ color: theme.agent.system, borderColor: theme.agent.system, background: alpha(theme.agent.system, 0.08) }}
             >
               Coach session B
             </ToolbarButton>
@@ -192,7 +192,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
         display: "grid",
         gridTemplateColumns: COL.label + " " + COL.val + " " + COL.val + " " + COL.delta,
         alignItems: "center",
-        padding: "9px 10px",
+        padding: "8px 10px",
         borderBottom: "1px solid " + theme.border.subtle,
       }}>
         <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted, fontFamily: theme.font.ui }}>Model</span>
@@ -280,13 +280,13 @@ function ToolsChart({ mA, mB, fileA, fileB }) {
       {/* Legend */}
       <div style={{ display: "flex", gap: 16, padding: "8px 10px 14px", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: theme.accent.primary }} />
+          <div style={{ width: 10, height: 10, borderRadius: theme.radius.sm, background: theme.accent.primary }} />
           <span style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, fontFamily: theme.font.mono }}>
             A: {fileA}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: "#a78bfa" }} />
+          <div style={{ width: 10, height: 10, borderRadius: theme.radius.sm, background: theme.agent.system }} />
           <span style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, fontFamily: theme.font.mono }}>
             B: {fileB}
           </span>
@@ -312,11 +312,11 @@ function ToolsChart({ mA, mB, fileA, fileB }) {
             }}>
               {row.name}
             </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {/* Bar A */}
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{
-                  width: wA || 2, height: 10, borderRadius: 2,
+                  width: wA || 2, height: 10, borderRadius: theme.radius.sm,
                   background: row.a > 0 ? theme.accent.primary : theme.border.default,
                   transition: "width 200ms ease-out",
                 }} />
@@ -327,8 +327,8 @@ function ToolsChart({ mA, mB, fileA, fileB }) {
               {/* Bar B */}
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{
-                  width: wB || 2, height: 10, borderRadius: 2,
-                  background: row.b > 0 ? "#a78bfa" : theme.border.default,
+                  width: wB || 2, height: 10, borderRadius: theme.radius.sm,
+                  background: row.b > 0 ? theme.agent.system : theme.border.default,
                   transition: "width 200ms ease-out",
                 }} />
                 <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono }}>

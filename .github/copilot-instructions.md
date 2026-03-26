@@ -1,22 +1,28 @@
-# Autonomous run contract
-- Work independently until you hit a destructive action, missing permission, or a requirement conflict.
-- Before asking the user for help, finish the next obvious investigation step and summarize what you already checked.
-- When editing code, run the narrowest relevant tests or build command before handing back control.
-- If the run stalls on repeated clarification, propose one concrete plan with tradeoffs instead of asking an open-ended question.
-- Surface reviewable drafts for config or workflow changes; do not silently apply them.
+# AGENTVIZ
 
----
+Session replay visualizer for AI agent workflows (Claude Code, Copilot CLI).
 
-Add these missing sections to .github/copilot-instructions.md:
+## Stack
+- React 18 + Vite 6, inline styles only, JetBrains Mono font
+- Mixed JS/TS: components and hooks are plain JSX, parsers and data libs are TypeScript
+- Design tokens in `src/lib/theme.js`
 
 ## Commands
-See `.github/prompts/` for slash commands and `.github/extensions/` for skills.
+```bash
+npm run dev          # Dev server
+npm run build        # Production build to dist/
+npm test             # Run tests via Vitest
+npm run test:watch   # Watch mode
+npm run typecheck    # tsc --noEmit
+```
 
 ## Rules
 - Search existing code before writing new abstractions.
 - Run tests after every non-trivial change.
 - Prefer editing existing files over creating new ones.
 - Never silently apply config changes — surface drafts first.
+- Product name is always AGENTVIZ (all caps, no spaces). Never "AgentViz" or "Agentviz".
+- All UI changes must conform to `docs/ui-ux-style-guide.md`. Review the checklist at the bottom of that file before approving any PR that touches components, styles, or visual behavior.
 
 
 ## Autonomy Grants — execute these WITHOUT asking for confirmation

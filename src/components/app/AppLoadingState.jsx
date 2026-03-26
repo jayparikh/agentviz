@@ -16,7 +16,7 @@ export default function AppLoadingState() {
         height: 40,
         border: "3px solid " + theme.border.default,
         borderTopColor: theme.accent.primary,
-        borderRadius: "50%",
+        borderRadius: theme.radius.full,
         animation: "spin 0.8s linear infinite",
       }} />
       <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, letterSpacing: 1 }}>

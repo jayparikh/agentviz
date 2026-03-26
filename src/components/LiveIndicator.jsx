@@ -17,7 +17,7 @@ export default function LiveIndicator() {
       <div style={{
         width: 6,
         height: 6,
-        borderRadius: "50%",
+        borderRadius: theme.radius.full,
         background: "#34d399",
         animation: "pulse 1.4s ease-in-out infinite",
         flexShrink: 0,

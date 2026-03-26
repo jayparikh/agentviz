@@ -552,7 +552,7 @@ export default function App() {
         />
       </div>
 
-      <div style={{ flex: 1, padding: "6px 20px 16px", minHeight: 0, overflow: "hidden" }}>
+      <div style={{ flex: 1, padding: "8px 20px 16px", minHeight: 0, overflow: "hidden" }}>
         {renderActiveView(activeView, {
           playback: playback,
           filteredEventEntries: filteredEventEntries,

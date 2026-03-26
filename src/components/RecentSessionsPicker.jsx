@@ -133,7 +133,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
                   alignItems: "center",
                   gap: 10,
                   width: "100%",
-                  padding: "9px 14px",
+                  padding: "8px 14px",
                   background: isActive && !isCurrent ? alpha(theme.accent.primary, 0.08) : "transparent",
                   border: "none",
                   borderLeft: "2px solid " + (isActive && !isCurrent ? theme.accent.primary : "transparent"),
@@ -162,7 +162,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
                       color: getFormatColor(entry.format),
                       border: "1px solid " + alpha(getFormatColor(entry.format), 0.3),
                       borderRadius: theme.radius.full,
-                      padding: "1px 6px",
+                      padding: "2px 8px",
                       flexShrink: 0,
                     }}>
                       {getFormatLabel(entry.format)}
@@ -198,7 +198,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
 
       {sorted.length > 0 && (
         <div style={{
-          padding: "7px 14px",
+          padding: "8px 14px",
           borderTop: "1px solid " + theme.border.default,
           fontSize: theme.fontSize.xs,
           color: theme.text.ghost,

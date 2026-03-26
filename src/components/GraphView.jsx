@@ -22,9 +22,37 @@ function getTrackColor(track) {
   return NODE_COLORS[track] || theme.track.reasoning;
 }
 
+function usePrefersReducedMotion() {
+  var [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(function () {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    var media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(media.matches);
+
+    function handleChange(e) {
+      setPrefersReducedMotion(e.matches);
+    }
+
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", handleChange);
+      return function () {
+        media.removeEventListener("change", handleChange);
+      };
+    }
+
+    media.addListener(handleChange);
+    return function () {
+      media.removeListener(handleChange);
+    };
+  }, []);
+
+  return prefersReducedMotion;
+}
+
 // ── Edge rendering with animated flowing dots ──
 
-function GraphEdge({ sections, parentOffset, isActive }) {
+function GraphEdge({ sections, parentOffset, isActive, prefersReducedMotion }) {
   if (!sections || sections.length === 0) return null;
 
   var paths = sections.map(function (section, si) {
@@ -50,7 +78,7 @@ function GraphEdge({ sections, parentOffset, isActive }) {
           strokeOpacity={isActive ? 0.9 : 0.4}
           strokeLinecap="round"
         />
-        {isActive && (
+        {isActive && !prefersReducedMotion && (
           <circle r="3" fill={theme.accent.primary}>
             <animateMotion dur="1.5s" repeatCount="indefinite" path={d} />
           </circle>
@@ -64,7 +92,7 @@ function GraphEdge({ sections, parentOffset, isActive }) {
 
 // ── Turn node (collapsed) ──
 
-function TurnNode({ node, isActive, isFuture, isSelected, onSelect, onExpand }) {
+function TurnNode({ node, isActive, isFuture, isSelected, onSelect, onExpand, prefersReducedMotion }) {
   var color = getTrackColor(node.track);
   var opacity = isFuture ? 0.25 : 1;
   var glowFilter = isActive ? "url(#activeGlow)" : "none";
@@ -156,12 +184,14 @@ function TurnNode({ node, isActive, isFuture, isSelected, onSelect, onExpand }) 
           strokeWidth={1.5}
           opacity={0.5}
         >
-          <animate
-            attributeName="opacity"
-            values="0.5;0.15;0.5"
-            dur="2s"
-            repeatCount="indefinite"
-          />
+          {!prefersReducedMotion && (
+            <animate
+              attributeName="opacity"
+              values="0.5;0.15;0.5"
+              dur="2s"
+              repeatCount="indefinite"
+            />
+          )}
         </rect>
       )}
     </g>
@@ -170,7 +200,7 @@ function TurnNode({ node, isActive, isFuture, isSelected, onSelect, onExpand }) 
 
 // ── Tool call node (inside expanded turn) ──
 
-function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect }) {
+function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect, prefersReducedMotion }) {
   var color = getTrackColor("tool_call");
   var opacity = isFuture ? 0.25 : 1;
 
@@ -186,8 +216,8 @@ function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect }) {
       <rect
         width={node.width}
         height={node.height}
-        rx={6}
-        ry={6}
+        rx={theme.radius.md}
+        ry={theme.radius.md}
         fill={isSelected ? alpha(color, 0.15) : theme.bg.surface}
         stroke={isActive ? color : isSelected ? color : theme.border.default}
         strokeWidth={isActive ? 1.5 : 1}
@@ -196,18 +226,18 @@ function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect }) {
         <rect
           width={node.width}
           height={node.height}
-          rx={6}
-          ry={6}
+          rx={theme.radius.md}
+          ry={theme.radius.md}
           fill={alpha(theme.semantic.error, 0.08)}
           stroke={theme.semantic.errorBorder}
           strokeWidth={1}
         />
       )}
       <text
-        x={10}
+        x={12}
         y={22}
         fill={isActive ? color : theme.text.secondary}
-        fontSize={10}
+        fontSize={theme.fontSize.xs}
         fontFamily={theme.font.mono}
         fontWeight={500}
       >
@@ -219,19 +249,21 @@ function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect }) {
           height={node.height + 2}
           x={-1}
           y={-1}
-          rx={7}
-          ry={7}
+          rx={theme.radius.md + 1}
+          ry={theme.radius.md + 1}
           fill="none"
           stroke={color}
           strokeWidth={1}
           opacity={0.4}
         >
-          <animate
-            attributeName="opacity"
-            values="0.4;0.1;0.4"
-            dur="2s"
-            repeatCount="indefinite"
-          />
+          {!prefersReducedMotion && (
+            <animate
+              attributeName="opacity"
+              values="0.4;0.1;0.4"
+              dur="2s"
+              repeatCount="indefinite"
+            />
+          )}
         </rect>
       )}
     </g>
@@ -252,8 +284,8 @@ function ExpandedTurnNode({ node, isActive, isFuture, isSelected, onSelect, onCo
       <rect
         width={node.width}
         height={node.height}
-        rx={10}
-        ry={10}
+        rx={theme.radius.xl}
+        ry={theme.radius.xl}
         fill={alpha(theme.bg.surface, 0.5)}
         stroke={isActive ? color : theme.border.default}
         strokeWidth={isActive ? 2 : 1}
@@ -261,10 +293,10 @@ function ExpandedTurnNode({ node, isActive, isFuture, isSelected, onSelect, onCo
       />
       {/* Header */}
       <text
-        x={12}
-        y={22}
+        x={16}
+        y={24}
         fill={color}
-        fontSize={11}
+        fontSize={theme.fontSize.sm}
         fontFamily={theme.font.mono}
         fontWeight={600}
         style={{ cursor: "pointer" }}
@@ -439,6 +471,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
   var [selectedNode, setSelectedNode] = useState(null);
   var [layoutResult, setLayoutResult] = useState(null);
   var [viewBox, setViewBox] = useState(null);
+  var prefersReducedMotion = usePrefersReducedMotion();
   var svgRef = useRef(null);
   var isPanning = useRef(false);
   var panStart = useRef({ x: 0, y: 0 });
@@ -461,10 +494,8 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
       var result = mergeLayout(graphData, elkResult);
       setLayoutResult(result);
       var bounds = getGraphBounds(result.nodes);
-      if (!viewBoxRef.current) {
-        setViewBox(bounds);
-        viewBoxRef.current = bounds;
-      }
+      setViewBox(bounds);
+      viewBoxRef.current = bounds;
     }).catch(function (err) {
       console.warn("ELK layout failed:", err);
     });
@@ -586,6 +617,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
           style={{
             background: theme.bg.base,
             cursor: isPanning.current ? "grabbing" : "grab",
+            userSelect: "none",
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -616,6 +648,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
                 key={edge.id}
                 sections={edge.sections}
                 isActive={isActive}
+                prefersReducedMotion={prefersReducedMotion}
               />
             );
           })}
@@ -630,6 +663,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
                   sections={edge.sections}
                   parentOffset={edge.parentOffset}
                   isActive={activeTurnIndex === node.turnIndex}
+                  prefersReducedMotion={prefersReducedMotion}
                 />
               );
             });
@@ -667,6 +701,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
                         isFuture={childFuture}
                         isSelected={childSelected}
                         onSelect={handleSelectNode}
+                        prefersReducedMotion={prefersReducedMotion}
                       />
                     );
                   })}
@@ -683,6 +718,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
                 isSelected={isSelected}
                 onSelect={handleSelectNode}
                 onExpand={handleExpand}
+                prefersReducedMotion={prefersReducedMotion}
               />
             );
           })}

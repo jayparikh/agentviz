@@ -31,9 +31,9 @@ function MetricCard({ value, label, tooltip, color }) {
           whiteSpace: "normal",
           width: 220,
           lineHeight: 1.5,
-          zIndex: 100,
+          zIndex: theme.z.modal,
           pointerEvents: "none",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+          boxShadow: theme.shadow.md,
         }}>
           {tooltip}
         </div>
@@ -128,7 +128,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 padding: "14px 16px",
                 border: "1px solid " + theme.border.default,
               }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: card.color, fontFamily: theme.font.ui }}>
+                <div style={{ fontSize: theme.fontSize.xxl, fontWeight: 700, color: card.color, fontFamily: theme.font.ui }}>
                   {card.value}
                 </div>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>{card.label}</div>
@@ -265,13 +265,13 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                   </span>
                   <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>{count} ({pct.toFixed(0)}%)</span>
                 </div>
-                <div style={{ height: 6, background: theme.bg.base, borderRadius: 3 }}>
+                <div style={{ height: 6, background: theme.bg.base, borderRadius: theme.radius.sm }}>
                   <div style={{
                     height: "100%",
                     width: pct + "%",
                     background: info.color,
-                    borderRadius: 3,
-                    transition: "width 0.4s",
+                    borderRadius: theme.radius.sm,
+                    transition: "width " + theme.transition.smooth,
                   }} />
                 </div>
               </div>
@@ -354,18 +354,18 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
           var pct = (count / maxCount) * 100;
           return (
             <div key={name} style={{ marginBottom: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                 <span style={{ fontSize: theme.fontSize.base, color: theme.track.tool_call, fontFamily: theme.font.mono }}>
                   {i + 1}. {name}
                 </span>
                 <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>{count}x</span>
               </div>
-              <div style={{ height: 4, background: theme.bg.base, borderRadius: 2 }}>
+              <div style={{ height: 4, background: theme.bg.base, borderRadius: theme.radius.sm }}>
                 <div style={{
                   height: "100%",
                   width: pct + "%",
                   background: theme.track.tool_call,
-                  borderRadius: 2,
+                  borderRadius: theme.radius.sm,
                 }} />
               </div>
             </div>

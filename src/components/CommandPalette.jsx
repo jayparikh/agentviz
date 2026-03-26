@@ -109,6 +109,8 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
             return (
               <div
                 key={i}
+                role="button"
+                tabIndex={0}
                 onClick={function () { runItemAction(item); }}
                 onMouseEnter={function () { setSelectedIdx(i); }}
                 style={{
@@ -118,7 +120,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
                   transition: "background " + theme.transition.fast,
                 }}
               >
-                <span style={{ fontSize: 12, color: itemColor, width: 16, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: theme.fontSize.base, color: itemColor, width: 16, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {item.iconName ? <Icon name={item.iconName} size={13} /> : (trackInfo ? <Icon name={item.track} size={13} /> : <Icon name="circle" size={10} />)}
                 </span>
                 <span style={{

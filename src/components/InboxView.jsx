@@ -160,7 +160,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
             }}
           />
           {query && (
-            <button className="av-btn" onClick={function () { setQuery(""); }} style={{ background: "transparent", border: "none", color: theme.text.ghost, padding: 0, cursor: "pointer", lineHeight: 1 }}>
+            <button className="av-btn" aria-label="Clear search" onClick={function () { setQuery(""); }} style={{ background: "transparent", border: "none", color: theme.text.ghost, padding: 0, cursor: "pointer", lineHeight: 1 }}>
               <Icon name="close" size={11} />
             </button>
           )}
@@ -333,7 +333,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                       <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
                         {entry.file}
                       </div>
-                      <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 3 }}>
+                      <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>
                         {[
                           entry.format === "copilot-cli" ? "Copilot CLI" : "Claude Code",
                           entry.project || null,

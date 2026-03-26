@@ -36,7 +36,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
             ["Total calls", stats.totalCalls],
             ["Max concurrency", stats.maxConcurrency],
             ["Max depth", stats.maxDepth],
-            ["Longest tool", stats.longestTool || "n/a"],
+            ["Longest tool", stats.longestTool || "--"],
           ].map(function (pair) {
             return (
               <div key={pair[0]} style={{
@@ -83,7 +83,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                     <div style={{
                       width: 6,
                       height: 6,
-                      borderRadius: "50%",
+                      borderRadius: theme.radius.full,
                       background: color,
                       flexShrink: 0,
                     }} />
@@ -103,7 +103,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                       width: 40,
                       height: 3,
                       background: theme.bg.raised,
-                      borderRadius: 2,
+                      borderRadius: theme.radius.sm,
                       flexShrink: 0,
                       overflow: "hidden",
                     }}>
@@ -111,7 +111,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                         width: pct + "%",
                         height: "100%",
                         background: color,
-                        borderRadius: 2,
+                        borderRadius: theme.radius.sm,
                       }} />
                     </div>
                   </div>
@@ -184,16 +184,20 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                   }}>
                     Diff
                   </div>
-                  <div
+                  <button
+                    type="button"
                     onClick={function () { setShowRaw(true); }}
                     style={{
                       fontSize: theme.fontSize.xs,
                       color: theme.accent.primary,
                       cursor: "pointer",
+                      background: "none",
+                      border: "none",
+                      padding: 0,
                     }}
                   >
                     Show Raw
-                  </div>
+                  </button>
                 </div>
                 <DiffViewer event={selected} />
               </div>
@@ -208,16 +212,20 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                     justifyContent: "flex-end",
                     marginBottom: theme.space.sm,
                   }}>
-                    <div
+                    <button
+                      type="button"
                       onClick={function () { setShowRaw(false); }}
                       style={{
                         fontSize: theme.fontSize.xs,
                         color: theme.accent.primary,
                         cursor: "pointer",
+                        background: "none",
+                        border: "none",
+                        padding: 0,
                       }}
                     >
                       Show Diff
-                    </div>
+                    </button>
                   </div>
                 )}
                 <DataInspector title="Input" value={selected.toolInput} maxLines={24} maxChars={20000} />

@@ -61,7 +61,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
             transition: "opacity " + theme.transition.smooth,
           }}>
             <div style={{
-              width: 140,
+              width: 180,
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -69,33 +69,57 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
               borderRight: "1px solid " + theme.border.default,
               flexShrink: 0,
             }}>
-              <span style={{ color: info.color, fontSize: 14, display: "flex", alignItems: "center" }}><Icon name={key} size={14} /></span>
-              <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontWeight: 500 }}>{info.label}</span>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 2 }}>
-                <button onClick={function () { toggleSolo(key); }} style={{
-                  background: solo === key ? info.color : "transparent",
-                  border: "1px solid " + (solo === key ? info.color : theme.border.strong),
-                  color: solo === key ? theme.bg.surface : theme.text.muted,
-                  borderRadius: theme.radius.sm,
-                  fontSize: theme.fontSize.xs,
-                  padding: "1px 4px",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                }}>S</button>
-                <button onClick={function () { toggleMute(key); }} style={{
-                  background: muted[key] ? theme.semantic.error : "transparent",
-                  border: "1px solid " + (muted[key] ? theme.semantic.error : theme.border.strong),
-                  color: muted[key] ? theme.text.primary : theme.text.muted,
-                  borderRadius: theme.radius.sm,
-                  fontSize: theme.fontSize.xs,
-                  padding: "1px 4px",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                }}>M</button>
+              <span style={{ color: info.color, fontSize: theme.fontSize.md, display: "flex", alignItems: "center" }}><Icon name={key} size={14} /></span>
+              <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontWeight: 500, whiteSpace: "nowrap" }}>{info.label}</span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 2, alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={function () { toggleSolo(key); }}
+                  aria-label={"Solo " + info.label + " track"}
+                  aria-pressed={solo === key}
+                  title={"Solo " + info.label + " track"}
+                  style={{
+                   background: solo === key ? info.color : "transparent",
+                   border: "1px solid " + (solo === key ? info.color : theme.border.strong),
+                   color: solo === key ? theme.bg.surface : theme.text.muted,
+                   borderRadius: theme.radius.sm,
+                   fontSize: theme.fontSize.xs,
+                   padding: "2px 6px",
+                   minWidth: 24,
+                   minHeight: 24,
+                   cursor: "pointer",
+                   fontWeight: 700,
+                   display: "inline-flex",
+                   alignItems: "center",
+                   justifyContent: "center",
+                 }}
+                >S</button>
+                <button
+                  type="button"
+                  onClick={function () { toggleMute(key); }}
+                  aria-label={(muted[key] ? "Unmute " : "Mute ") + info.label + " track"}
+                  aria-pressed={Boolean(muted[key])}
+                  title={(muted[key] ? "Unmute " : "Mute ") + info.label + " track"}
+                  style={{
+                   background: muted[key] ? theme.semantic.error : "transparent",
+                   border: "1px solid " + (muted[key] ? theme.semantic.error : theme.border.strong),
+                   color: muted[key] ? theme.text.primary : theme.text.muted,
+                   borderRadius: theme.radius.sm,
+                   fontSize: theme.fontSize.xs,
+                   padding: "2px 6px",
+                   minWidth: 24,
+                   minHeight: 24,
+                   cursor: "pointer",
+                   fontWeight: 700,
+                   display: "inline-flex",
+                   alignItems: "center",
+                   justifyContent: "center",
+                 }}
+                >M</button>
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, minWidth: 16, textAlign: "right", marginLeft: 2 }}>
+                  {trackEntries.length || ""}
+                </span>
               </div>
-              <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, minWidth: 20, textAlign: "right" }}>
-                {trackEntries.length}
-              </span>
             </div>
 
             <div style={{ flex: 1, position: "relative", background: theme.bg.base, borderBottom: "1px solid " + theme.border.subtle }}>
@@ -143,11 +167,11 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                       alignItems: "center",
                       padding: "0 5px",
                       overflow: "hidden",
-                      zIndex: active ? 2 : 1,
+                      zIndex: active ? theme.z.active : theme.z.base,
                     }}
                   >
                     {ev.isError && (
-                      <span style={{ fontSize: 8, marginRight: 3, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={10} /></span>
+                      <span style={{ fontSize: theme.fontSize.xs, marginRight: 4, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={10} /></span>
                     )}
                     <span style={{
                       fontSize: theme.fontSize.xs,

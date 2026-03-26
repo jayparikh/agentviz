@@ -42,7 +42,7 @@ export default function ShortcutsModal({ onClose }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 9000,
+        zIndex: theme.z.modal,
       }}
     >
       <div
@@ -50,11 +50,11 @@ export default function ShortcutsModal({ onClose }) {
         style={{
           background: theme.bg.surface,
           border: "1px solid " + theme.border.default,
-          borderRadius: 10,
-          padding: "24px 28px",
+          borderRadius: theme.radius.xl,
+          padding: theme.space.xxl + "px 28px",
           minWidth: 320,
           maxWidth: 420,
-          boxShadow: "0 8px 32px " + alpha(theme.bg.base, 0.8),
+          boxShadow: theme.shadow.lg,
         }}
       >
         <div style={{
@@ -63,17 +63,18 @@ export default function ShortcutsModal({ onClose }) {
           justifyContent: "space-between",
           marginBottom: 20,
         }}>
-          <span style={{ color: theme.text.primary, fontSize: 14, fontWeight: 600, letterSpacing: "0.05em" }}>
+          <span style={{ color: theme.text.primary, fontSize: theme.fontSize.lg, fontWeight: 600, letterSpacing: "0.05em" }}>
             KEYBOARD SHORTCUTS
           </span>
           <button
             onClick={onClose}
+            aria-label="Close keyboard shortcuts"
             style={{
               background: "none",
               border: "none",
               color: theme.text.muted,
               cursor: "pointer",
-              fontSize: 18,
+              fontSize: theme.fontSize.xl,
               lineHeight: 1,
               padding: "0 2px",
             }}
@@ -87,7 +88,7 @@ export default function ShortcutsModal({ onClose }) {
             return (
               <div key={i} style={{
                 color: theme.text.muted,
-                fontSize: 10,
+                fontSize: theme.fontSize.xs,
                 fontWeight: 600,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
@@ -103,18 +104,18 @@ export default function ShortcutsModal({ onClose }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "5px 0",
+              padding: "4px 0",
               borderBottom: "1px solid " + alpha(theme.border.default, 0.4),
             }}>
-              <span style={{ color: theme.text.muted, fontSize: 12 }}>{item.label}</span>
+              <span style={{ color: theme.text.muted, fontSize: theme.fontSize.base }}>{item.label}</span>
               <kbd style={{
                 background: alpha(theme.border.default, 0.5),
                 border: "1px solid " + theme.border.default,
-                borderRadius: 4,
+                borderRadius: theme.radius.sm,
                 color: theme.text.primary,
-                fontSize: 11,
+                fontSize: theme.fontSize.sm,
                 fontFamily: "inherit",
-                padding: "2px 7px",
+                padding: "2px 8px",
                 whiteSpace: "nowrap",
               }}>
                 {item.key}
@@ -124,8 +125,8 @@ export default function ShortcutsModal({ onClose }) {
         })}
 
         <div style={{ marginTop: 16, textAlign: "center" }}>
-          <span style={{ color: alpha(theme.text.muted, 0.6), fontSize: 11 }}>
-            Press <kbd style={{ background: alpha(theme.border.default, 0.5), border: "1px solid " + theme.border.default, borderRadius: 3, color: theme.text.primary, fontSize: 10, padding: "1px 5px" }}>Esc</kbd> or <kbd style={{ background: alpha(theme.border.default, 0.5), border: "1px solid " + theme.border.default, borderRadius: 3, color: theme.text.primary, fontSize: 10, padding: "1px 5px" }}>?</kbd> to close
+          <span style={{ color: alpha(theme.text.muted, 0.6), fontSize: theme.fontSize.sm }}>
+            Press <kbd style={{ background: alpha(theme.border.default, 0.5), border: "1px solid " + theme.border.default, borderRadius: theme.radius.sm, color: theme.text.primary, fontSize: theme.fontSize.xs, padding: "2px 8px" }}>Esc</kbd> or <kbd style={{ background: alpha(theme.border.default, 0.5), border: "1px solid " + theme.border.default, borderRadius: theme.radius.sm, color: theme.text.primary, fontSize: theme.fontSize.xs, padding: "2px 8px" }}>?</kbd> to close
           </span>
         </div>
       </div>

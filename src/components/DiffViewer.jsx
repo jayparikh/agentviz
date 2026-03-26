@@ -233,7 +233,8 @@ export default function DiffViewer({ event }) {
         })}
       </div>
       {isLong && (
-        <div
+        <button
+          type="button"
           onClick={function () { setExpanded(!expanded); }}
           style={{
             padding: theme.space.md,
@@ -243,12 +244,17 @@ export default function DiffViewer({ event }) {
             cursor: "pointer",
             borderTop: "1px solid " + theme.border.subtle,
             background: alpha(theme.accent.primary, 0.03),
+            border: "none",
+            borderTopStyle: "solid",
+            borderTopWidth: 1,
+            borderTopColor: theme.border.subtle,
+            width: "100%",
           }}
         >
           {expanded
             ? <><Icon name="chevron-up" size={12} style={{ display: "inline" }} /> Collapse</>
             : <><Icon name="chevron-down" size={12} style={{ display: "inline" }} /> Show all {totalLines} lines ({totalLines - MAX_COLLAPSED_LINES} more)</>}
-        </div>
+        </button>
       )}
     </div>
   );
