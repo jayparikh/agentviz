@@ -494,8 +494,10 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
       var result = mergeLayout(graphData, elkResult);
       setLayoutResult(result);
       var bounds = getGraphBounds(result.nodes);
-      setViewBox(bounds);
-      viewBoxRef.current = bounds;
+      if (!viewBoxRef.current) {
+        setViewBox(bounds);
+        viewBoxRef.current = bounds;
+      }
     }).catch(function (err) {
       console.warn("ELK layout failed:", err);
     });
