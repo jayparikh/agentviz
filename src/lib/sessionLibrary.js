@@ -98,6 +98,17 @@ function getSessionContentKey(id) {
   return SESSION_CONTENT_PREFIX + id;
 }
 
+function removeStoredSessionContent(id, storage) {
+  var target = getStorage(storage);
+  if (!target || !id) return;
+
+  try {
+    target.removeItem(getSessionContentKey(id));
+  } catch (error) {
+    console.warn("Could not remove stored session content", error);
+  }
+}
+
 export function loadStoredSessionContent(id, storage) {
   var target = getStorage(storage);
   if (!target || !id) return "";
@@ -110,7 +121,7 @@ export function loadStoredSessionContent(id, storage) {
   }
 }
 
-function storeSessionContent(id, rawText, storage) {
+function storeSessionContent(id, rawText, storage, existingEntries) {
   var target = getStorage(storage);
   if (!target || !id || !rawText) return false;
 
@@ -118,9 +129,36 @@ function storeSessionContent(id, rawText, storage) {
     target.setItem(getSessionContentKey(id), rawText);
     return true;
   } catch (error) {
-    console.warn("Could not persist session content", error);
-    return false;
+    if (!(error && error.name === "QuotaExceededError")) {
+      console.warn("Could not persist session content", error);
+      return false;
+    }
   }
+
+  var evictableEntries = Array.isArray(existingEntries)
+    ? existingEntries
+      .filter(function (entry) { return entry && entry.id && entry.id !== id && entry.hasContent; })
+      .sort(function (left, right) {
+        return String(left.updatedAt || left.importedAt || "").localeCompare(String(right.updatedAt || right.importedAt || ""));
+      })
+    : [];
+
+  for (var index = 0; index < evictableEntries.length; index += 1) {
+    removeStoredSessionContent(evictableEntries[index].id, target);
+
+    try {
+      target.setItem(getSessionContentKey(id), rawText);
+      return true;
+    } catch (retryError) {
+      if (!(retryError && retryError.name === "QuotaExceededError")) {
+        console.warn("Could not persist session content", retryError);
+        return false;
+      }
+    }
+  }
+
+  console.warn("Could not persist session content because storage quota was exceeded", { id: id });
+  return false;
 }
 
 export function buildSessionLibraryEntry(fileName, result, rawText, previousEntry) {
@@ -175,7 +213,7 @@ export function persistSessionSnapshot(fileName, result, rawText, storage) {
 
   var previousEntry = existingIndex >= 0 ? existingEntries[existingIndex] : null;
   var entry = buildSessionLibraryEntry(fileName, result, rawText, previousEntry);
-  entry.hasContent = storeSessionContent(entry.id, rawText, target);
+  entry.hasContent = storeSessionContent(entry.id, rawText, target, existingEntries);
 
   var nextEntries = existingEntries.slice();
   if (existingIndex >= 0) {

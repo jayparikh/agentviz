@@ -200,7 +200,6 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   var [viewportHeight, setViewportHeight] = useState(0);
   var shouldFollowRef = useRef(true);
   var prevCount = useRef(0);
-  var measurePassRef = useRef(0);
 
   var visibleEntries = useMemo(function () {
     return eventEntries.filter(function (entry) { return entry.event.t <= currentTime; });
@@ -213,6 +212,20 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   var windowedItems = useMemo(function () {
     return getReplayWindow(layout.items, scrollTop, viewportHeight, REPLAY_WINDOW_OVERSCAN);
   }, [layout.items, scrollTop, viewportHeight]);
+
+  var windowMeasurementKey = useMemo(function () {
+    if (!windowedItems.length) return "";
+    return windowedItems.map(function (item) { return item.entry.index; }).join(",");
+  }, [windowedItems]);
+
+  var eventEntriesResetKey = useMemo(function () {
+    if (!eventEntries.length) return "empty";
+    return [
+      eventEntries.length,
+      eventEntries[0].index,
+      eventEntries[eventEntries.length - 1].index,
+    ].join(":");
+  }, [eventEntries]);
 
   useEffect(function () {
     if (containerRef.current && visibleEntries.length > prevCount.current && shouldFollowRef.current) {
@@ -239,13 +252,10 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   useEffect(function () {
     itemRefs.current = {};
     setMeasuredHeights({});
-    measurePassRef.current = 0;
-  }, [eventEntries]);
+  }, [eventEntriesResetKey]);
 
   useLayoutEffect(function () {
-    // Cap measurement rounds to prevent infinite loops when
-    // estimated and actual heights differ enough to shift the window
-    if (measurePassRef.current >= 3) return;
+    if (!windowMeasurementKey) return;
 
     setMeasuredHeights(function (prev) {
       var next = prev;
@@ -264,17 +274,15 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
         changed = true;
       }
 
-      if (changed) measurePassRef.current++;
       return changed ? next : prev;
     });
-  });
+  }, [viewportHeight, windowMeasurementKey]);
 
   function handleScroll(e) {
     var nextTop = e.currentTarget.scrollTop;
     var nearBottom = nextTop + e.currentTarget.clientHeight >= e.currentTarget.scrollHeight - REPLAY_BOTTOM_THRESHOLD;
     setScrollTop(nextTop);
     shouldFollowRef.current = nearBottom;
-    measurePassRef.current = 0;
   }
 
   // Clear selection when the selected entry is filtered out (track filter change)

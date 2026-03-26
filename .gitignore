@@ -25,3 +25,6 @@ vite.config.js.timestamp-*
 
 # Test coverage
 coverage/
+
+# Local debug artifacts
+.vitest-targeted-output.txt
