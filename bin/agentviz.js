@@ -5,6 +5,7 @@
  */
 
 import { createServer } from "../server.js";
+import { DEFAULT_API_PORT } from "../config.js";
 import { createRequire } from "module";
 import fs from "fs";
 import path from "path";
@@ -108,7 +109,7 @@ if (!fs.existsSync(path.join(distDir, "index.html"))) {
   process.exit(1);
 }
 
-findFreePort(4242, function (err, port) {
+findFreePort(DEFAULT_API_PORT, function (err, port) {
   var server = createServer({ sessionFile: sessionFile, distDir: distDir });
   server.listen(port, "127.0.0.1", function () {
     var url = "http://localhost:" + port;
