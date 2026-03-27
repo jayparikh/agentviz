@@ -366,11 +366,14 @@ server.js                # HTTP server: serves dist/ SPA + SSE /api/stream file 
 ## Development
 
 ```bash
-npm run dev         # Dev server on port 3000
-npm run build       # Production build to dist/
-npm test            # Run all tests via Vitest
-npm run test:watch  # Watch mode
+npm run dev             # Vite dev server on port 3000
+node bin/agentviz.js    # API backend on port 4242
+npm run build           # Production build to dist/
+npm test                # Run all tests via Vitest
+npm run test:watch      # Watch mode
 ```
+
+> **Full dev setup requires both servers.** `npm run dev` starts the Vite frontend; `node bin/agentviz.js` starts the API backend (Coach, session discovery, config, apply, live streaming). Vite proxies `/api/*` to the backend automatically.
 
 ### Design System
 
