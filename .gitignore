@@ -28,3 +28,10 @@ coverage/
 
 # Local debug artifacts
 .vitest-targeted-output.txt
+
+# AGENTVIZ runtime artifacts
+agentviz-server.log
+ag.log
+ag-*.log
+ag.*.log
+*.ag.log
