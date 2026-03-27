@@ -24,7 +24,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
       <div>
         <div style={{
           fontSize: theme.fontSize.xs,
-          color: theme.text.dim,
+          color: theme.text.secondary,
           textTransform: "uppercase",
           letterSpacing: 1,
           marginBottom: theme.space.md,
@@ -56,7 +56,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
         <div>
           <div style={{
             fontSize: theme.fontSize.xs,
-            color: theme.text.dim,
+            color: theme.text.secondary,
             textTransform: "uppercase",
             letterSpacing: 1,
             marginBottom: theme.space.md,
@@ -96,7 +96,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                     }}>
                       {name}
                     </span>
-                    <span style={{ color: theme.text.dim, flexShrink: 0 }}>
+                    <span style={{ color: theme.text.secondary, flexShrink: 0 }}>
                       {count}
                     </span>
                     <div style={{
@@ -125,7 +125,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
         <div>
           <div style={{
             fontSize: theme.fontSize.xs,
-            color: theme.text.dim,
+            color: theme.text.secondary,
             textTransform: "uppercase",
             letterSpacing: 1,
             marginBottom: theme.space.md,
@@ -180,7 +180,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                 }}>
                   <div style={{
                     fontSize: theme.fontSize.xs,
-                    color: theme.text.dim,
+                    color: theme.text.secondary,
                   }}>
                     Diff
                   </div>
@@ -189,7 +189,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                     onClick={function () { setShowRaw(true); }}
                     style={{
                       fontSize: theme.fontSize.xs,
-                      color: theme.accent.primary,
+                      color: theme.accent.light,
                       cursor: "pointer",
                       background: "none",
                       border: "none",
@@ -217,7 +217,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
                       onClick={function () { setShowRaw(false); }}
                       style={{
                         fontSize: theme.fontSize.xs,
-                        color: theme.accent.primary,
+                        color: theme.accent.light,
                         cursor: "pointer",
                         background: "none",
                         border: "none",
@@ -244,7 +244,7 @@ export default function WaterfallInspector({ selectedItem, stats }) {
       {!selected && stats.totalCalls > 0 && (
         <div style={{
           fontSize: theme.fontSize.sm,
-          color: theme.text.dim,
+          color: theme.text.secondary,
           fontStyle: "italic",
           marginTop: theme.space.md,
         }}>

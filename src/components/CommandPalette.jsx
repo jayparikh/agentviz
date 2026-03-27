@@ -66,7 +66,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
           display: "flex", alignItems: "center", gap: 10,
           padding: "14px 18px", borderBottom: "1px solid " + theme.border.default,
         }}>
-          <Icon name="search" size={16} style={{ color: theme.accent.primary }} />
+          <Icon name="search" size={16} style={{ color: theme.accent.light }} />
           <input
             ref={inputRef}
             value={query}
@@ -79,7 +79,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
             }}
           />
           <span style={{
-            fontSize: theme.fontSize.xs, color: theme.text.ghost,
+            fontSize: theme.fontSize.xs, color: theme.text.muted,
             background: theme.bg.raised, padding: "2px 6px", borderRadius: theme.radius.sm,
           }}>
             ESC
@@ -91,7 +91,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
           {results.length === 0 && (
             <div style={{
               padding: "20px 18px", textAlign: "center",
-              color: theme.text.dim, fontSize: theme.fontSize.md,
+              color: theme.text.secondary, fontSize: theme.fontSize.md,
             }}>
               No results found
             </div>
@@ -129,11 +129,11 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
                 }}>
                   {item.label}
                 </span>
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: 1 }}>
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, textTransform: "uppercase", letterSpacing: 1 }}>
                   {item.type}
                 </span>
                 {item.time !== undefined && (
-                  <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
+                  <span style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary }}>
                     {item.time.toFixed(1)}s
                   </span>
                 )}
@@ -145,7 +145,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onClo
         {/* Footer hint */}
         <div style={{
           padding: "8px 18px", borderTop: "1px solid " + theme.border.default,
-          display: "flex", gap: 16, fontSize: theme.fontSize.xs, color: theme.text.ghost,
+          display: "flex", gap: 16, fontSize: theme.fontSize.xs, color: theme.text.muted,
         }}>
           <span><Icon name="arrow-up-down" size={11} /> navigate</span>
           <span><Icon name="enter" size={11} /> select</span>

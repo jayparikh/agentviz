@@ -49,7 +49,7 @@ export default function TimeAxis({ totalTime, timeMap }) {
             }} />
             <span style={{
               fontSize: theme.fontSize.xs,
-              color: theme.text.dim,
+              color: theme.text.secondary,
               padding: "0 2px",
               whiteSpace: "nowrap",
             }}>

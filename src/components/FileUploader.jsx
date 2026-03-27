@@ -24,9 +24,9 @@ export default function FileUploader({ onLoad }) {
       onDrop={function (e) { e.preventDefault(); setOver(false); handleFile(e.dataTransfer.files[0]); }}
       onClick={function () { ref.current && ref.current.click(); }}
       style={{
-        border: "2px dashed " + (over ? theme.accent.primary : theme.border.strong),
-        borderRadius: theme.radius.xxl, padding: "48px 32px", textAlign: "center",
-        cursor: "pointer", background: over ? alpha(theme.accent.primary, 0.03) : theme.bg.surface,
+        border: "1px solid " + (over ? theme.accent.primary : theme.border.default),
+        borderRadius: theme.radius.lg, padding: "48px 32px", textAlign: "center",
+        cursor: "pointer", background: over ? alpha(theme.accent.primary, 0.05) : theme.bg.surface,
         transition: "background " + theme.transition.smooth + ", border-color " + theme.transition.smooth, maxWidth: 560, margin: "0 auto",
       }}
     >
@@ -36,17 +36,17 @@ export default function FileUploader({ onLoad }) {
         onChange={function (e) { handleFile(e.target.files[0]); }}
       />
       <div style={{
-        fontSize: theme.fontSize.hero, marginBottom: 12, color: theme.accent.primary,
+        fontSize: theme.fontSize.hero, marginBottom: 12, color: theme.accent.light,
         transition: "transform " + theme.transition.smooth,
         transform: over ? "scale(1.1)" : "scale(1)",
       }}><Icon name="upload" size={32} /></div>
       <div style={{ fontSize: theme.fontSize.xl, color: theme.text.primary, marginBottom: 8, fontWeight: 600 }}>
         Drop a session file here
       </div>
-      <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, lineHeight: 1.8 }}>
+      <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, lineHeight: 1.8 }}>
         Claude Code and Copilot CLI .jsonl sessions
         <br />
-        <span style={{ color: theme.text.dim, fontSize: theme.fontSize.base }}>
+        <span style={{ color: theme.text.muted, fontSize: theme.fontSize.base }}>
           Also accepts .json and .txt
         </span>
       </div>

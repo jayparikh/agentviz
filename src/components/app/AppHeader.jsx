@@ -70,7 +70,7 @@ export default function AppHeader({
       </span>
       {session.isLive && <LiveIndicator />}
       {session.metadata && (
-        <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, display: "flex", alignItems: "center", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, display: "flex", alignItems: "center", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
           {session.metadata.totalEvents} events
           {session.metadata.errorCount > 0 && (
             <span style={{ color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -112,7 +112,7 @@ export default function AppHeader({
             >
               <Icon name={item.icon} size={13} style={{ opacity: isActive ? 1 : 0.6 }} /> {item.label}
               {item.experimental && (
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, marginLeft: 2 }}>exp</span>
+                                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginLeft: 2 }}>exp</span>
               )}
             </button>
           );
@@ -122,7 +122,7 @@ export default function AppHeader({
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
         {showSearch && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
-            <Icon name="search" size={13} style={{ color: theme.text.dim }} />
+            <Icon name="search" size={13} style={{ color: theme.text.muted }} />
             <input
               ref={searchInputRef}
               id="agentviz-search"
@@ -164,7 +164,7 @@ export default function AppHeader({
           </div>
         )}
 
-        <ToolbarButton onClick={onShowPalette} title="Command Palette (Cmd+K)" aria-label="Command palette" style={{ padding: "2px 6px", color: theme.text.dim, fontSize: theme.fontSize.xs }}>
+        <ToolbarButton onClick={onShowPalette} title="Command Palette (Cmd+K)" aria-label="Command palette" style={{ padding: "2px 6px", color: theme.text.muted, fontSize: theme.fontSize.xs }}>
           <Icon name="command" size={11} />
         </ToolbarButton>
 
@@ -256,18 +256,18 @@ export default function AppHeader({
                         textAlign: "left",
                       }}
                     >
-                      <Icon name={key} size={13} style={{ color: isHidden ? theme.text.ghost : info.color }} />
+                      <Icon name={key} size={13} style={{ color: isHidden ? theme.text.muted : info.color }} />
                       <span style={{
                         fontSize: theme.fontSize.base,
                         fontFamily: theme.font.ui,
-                        color: isHidden ? theme.text.ghost : theme.text.secondary,
+                        color: isHidden ? theme.text.muted : theme.text.secondary,
                         textDecoration: isHidden ? "line-through" : "none",
                         flex: 1,
                       }}>
                         {info.label}
                       </span>
                       {isHidden && (
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>hidden</span>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted }}>hidden</span>
                       )}
                     </button>
                   );

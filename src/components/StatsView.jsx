@@ -76,10 +76,10 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
 
   var cards = [
     { label: "Total Events", value: events.length, color: theme.text.primary },
-    { label: "Turns", value: metadata ? metadata.totalTurns : (turns ? turns.length : 0), color: theme.accent.primary },
-    { label: "User Messages", value: userMsgs, color: theme.accent.primary },
+    { label: "Turns", value: metadata ? metadata.totalTurns : (turns ? turns.length : 0), color: theme.accent.light },
+    { label: "User Messages", value: userMsgs, color: theme.accent.light },
     { label: "Tool Calls", value: (trackStats.tool_call || {}).count || 0, color: theme.track.tool_call },
-    { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.ghost },
+    { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.muted },
     { label: "Duration", value: formatDurationLong(totalTime), color: theme.track.context },
   ];
   var autonomySummary = buildAutonomySummary(autonomyMetrics);
@@ -115,7 +115,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
   return (
     <div style={{ display: "flex", gap: 24, height: "100%", padding: "8px 0", overflow: "hidden" }}>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16, overflowY: "auto", overflowX: "hidden" }}>
-        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2 }}>
           Session Overview
         </div>
 
@@ -146,7 +146,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2 }}>
                   Autonomy Metrics
                 </div>
                 <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6 }}>
@@ -157,8 +157,8 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 <ToolbarButton
                   onClick={onOpenCoach}
                   style={{
-                    color: theme.accent.primary,
-                    borderColor: theme.accent.primary,
+                    color: theme.accent.light,
+                    bordercolor: theme.accent.light,
                     background: theme.accent.muted,
                     flexShrink: 0,
                   }}
@@ -195,7 +195,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             alignItems: "center",
           }}>
             <div>
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
                 Model
               </div>
               <div style={{ fontSize: theme.fontSize.lg, color: theme.track.context, fontFamily: theme.font.mono }}>
@@ -204,11 +204,11 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             </div>
             {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
               <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
                   Tokens
                 </div>
                 <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
-                  <span style={{ color: theme.accent.primary }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
+                  <span style={{ color: theme.accent.light }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
                   {" in / "}
                   <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
                   {" out"}
@@ -222,7 +222,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             )}
             {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
               <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
                   Est. Cost
                 </div>
                 <div style={{ fontSize: theme.fontSize.lg, color: theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
@@ -235,7 +235,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             )}
             {Object.keys(metadata.models).length > 1 && (
               <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
                   All Models
                 </div>
                 <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
@@ -249,7 +249,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         )}
 
         <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
             Event Distribution
           </div>
           {Object.entries(TRACK_TYPES).map(function (entry) {
@@ -282,11 +282,11 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         {turns && turns.length > 0 && (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2 }}>
                 Turns ({turns.length})
               </div>
               {turns.length > TURNS_PREVIEW && (
-                <button className="av-btn" onClick={function () { setShowAllTurns(function (v) { return !v; }); }} style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                <button className="av-btn" onClick={function () { setShowAllTurns(function (v) { return !v; }); }} style={{ fontSize: theme.fontSize.xs, color: theme.accent.light, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
                   {showAllTurns ? "Show less" : "Show all " + turns.length}
                 </button>
               )}
@@ -303,7 +303,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                   marginBottom: 6,
                   alignItems: "center",
                 }}>
-                  <span style={{ fontSize: theme.fontSize.base, color: theme.text.dim, fontWeight: 600, minWidth: 20, flexShrink: 0 }}>
+                  <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontWeight: 600, minWidth: 20, flexShrink: 0 }}>
                     {turn.index + 1}
                   </span>
                   <span style={{
@@ -332,7 +332,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               );
             })}
             {!showAllTurns && turns.length > TURNS_PREVIEW && (
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textAlign: "center", padding: "6px 0" }}>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textAlign: "center", padding: "6px 0" }}>
                 {turns.length - TURNS_PREVIEW} more turns hidden
               </div>
             )}
@@ -341,11 +341,11 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
       </div>
 
       <div style={{ width: 240, flexShrink: 0, borderLeft: "1px solid " + theme.border.default, paddingLeft: 20, overflowY: "auto" }}>
-        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
+        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
           Tool Usage Ranking
         </div>
         {sortedTools.length === 0 && (
-          <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, fontStyle: "italic" }}>No tool calls detected</div>
+          <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, fontStyle: "italic" }}>No tool calls detected</div>
         )}
         {sortedTools.map(function (pair, i) {
           var name = pair[0];

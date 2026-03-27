@@ -300,7 +300,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
               </button>
             )}
             {!rec.targetPath && rec.draft && (
-              <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontStyle: "italic" }}>advice only</span>
+              <span style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, fontStyle: "italic" }}>advice only</span>
             )}
           </div>
         </div>
@@ -319,7 +319,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                 {"+ will append to " + rec.targetPath}
               </span>
               <button className="av-btn" onClick={function () { toggleAiPreview(i); }}
-                style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}>
+                style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}>
                 {"collapse"}
               </button>
             </div>
@@ -346,7 +346,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
     <div style={{ display: "flex", gap: 20, height: "100%", overflow: "hidden" }}>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16, overflowY: "auto", paddingRight: 4 }}>
         <div>
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2 }}>
             Coach
           </div>
           <div style={{ fontSize: theme.fontSize.xl, color: theme.text.primary, marginTop: 8, fontFamily: theme.font.ui }}>
@@ -369,7 +369,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                   padding: "12px 14px",
                 }}
               >
-                <div style={{ fontSize: theme.fontSize.lg, color: theme.accent.primary, fontFamily: theme.font.ui, fontWeight: 700 }}>
+                <div style={{ fontSize: theme.fontSize.lg, color: theme.accent.light, fontFamily: theme.font.ui, fontWeight: 700 }}>
                   {item.value}
                 </div>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>
@@ -404,7 +404,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
             }}
           >
             <span style={{ fontWeight: 600 }}>Project configuration</span>
-            <span style={{ color: theme.text.dim, fontSize: theme.fontSize.base }}>
+            <span style={{ color: theme.text.secondary, fontSize: theme.fontSize.base }}>
               {showConfigExplorer ? "collapse" : "expand"}
             </span>
           </button>
@@ -412,12 +412,12 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
           {showConfigExplorer && (
             <div style={{ padding: "0 16px 16px" }}>
               {!configLoaded && (
-                <div style={{ fontSize: theme.fontSize.base, color: theme.text.dim, fontFamily: theme.font.ui, padding: "8px 0" }}>
+                <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.ui, padding: "8px 0" }}>
                   Detecting project configs...
                 </div>
               )}
               {configLoaded && configFiles.length === 0 && (
-                <div style={{ fontSize: theme.fontSize.base, color: theme.text.dim, fontFamily: theme.font.ui, padding: "8px 0" }}>
+                <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.ui, padding: "8px 0" }}>
                   Start via CLI to detect project configs.
                 </div>
               )}
@@ -465,9 +465,9 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                               <span style={{
                                 fontSize: theme.fontSize.xs,
-                                color: exists ? theme.semantic.success : theme.text.dim,
-                                background: exists ? alpha(theme.semantic.success, 0.1) : alpha(theme.text.dim, 0.1),
-                                border: "1px solid " + (exists ? alpha(theme.semantic.success, 0.3) : alpha(theme.text.dim, 0.2)),
+                                color: exists ? theme.semantic.success : theme.text.secondary,
+                                background: exists ? alpha(theme.semantic.success, 0.1) : alpha(theme.text.secondary, 0.1),
+                                border: "1px solid " + (exists ? alpha(theme.semantic.success, 0.3) : alpha(theme.text.secondary, 0.2)),
                                 borderRadius: theme.radius.full,
                                 padding: "2px 8px",
                               }}>
@@ -481,7 +481,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                                 return (
                                   <span key={name} style={{
                                     fontSize: theme.fontSize.xs,
-                                    color: theme.accent.primary,
+                                    color: theme.accent.light,
                                     background: alpha(theme.accent.primary, 0.1),
                                     border: "1px solid " + alpha(theme.accent.primary, 0.25),
                                     borderRadius: theme.radius.full,
@@ -591,7 +591,7 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
                   display: "flex", alignItems: "center", gap: 5,
                   border: "1px solid " + theme.accent.primary,
                   background: alpha(theme.accent.primary, 0.08),
-                  color: theme.accent.primary,
+                  color: theme.accent.light,
                   borderRadius: theme.radius.md,
                   padding: "5px 10px",
                   fontSize: theme.fontSize.xs,
@@ -609,17 +609,17 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
         {aiStatus === "loading" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ background: alpha(theme.accent.primary, 0.04), border: "1px solid " + alpha(theme.accent.primary, 0.2), borderRadius: theme.radius.xl, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.light, display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ animation: "spin 1.2s linear infinite", display: "inline-block" }}>{"✦"}</span>
                 {progressStep ? progressStep.label : "Analyzing with Copilot SDK..."}
               </div>
               {liveRecs.length > 0 && (
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>{liveRecs.length} rec{liveRecs.length !== 1 ? "s" : ""} so far</span>
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary }}>{liveRecs.length} rec{liveRecs.length !== 1 ? "s" : ""} so far</span>
               )}
             </div>
             {liveRecs.length > 0 && (
               <div style={{ background: alpha(theme.accent.primary, 0.05), border: "1px solid " + alpha(theme.accent.primary, 0.25), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>{"✦ AI recommendations"}</div>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.light, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>{"✦ AI recommendations"}</div>
                 {liveRecs.map(function (rec, i) { return renderAiRecCard(rec, i, liveRecs.length); })}
               </div>
             )}
@@ -635,11 +635,11 @@ export default function DebriefView({ file, summary, metadata, rawSession }) {
         {aiStatus === "done" && aiAnalysis && (
           <div style={{ background: alpha(theme.accent.primary, 0.05), border: "1px solid " + alpha(theme.accent.primary, 0.25), borderRadius: theme.radius.xl, padding: "14px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, textTransform: "uppercase", letterSpacing: 2 }}>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.light, textTransform: "uppercase", letterSpacing: 2 }}>
                 {"✦ AI recommendations"}
               </div>
               {aiModelInfo && (
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary }}>
                   {aiModelInfo.model}
                   {aiModelInfo.usage ? " \u00b7 " + (aiModelInfo.usage.total_tokens || 0) + " tokens" : ""}
                 </div>

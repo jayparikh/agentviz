@@ -100,7 +100,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: theme.text.dim,
+        color: theme.text.secondary,
         fontSize: theme.fontSize.md,
         fontStyle: "italic",
       }}>

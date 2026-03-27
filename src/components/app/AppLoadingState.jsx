@@ -15,7 +15,7 @@ export default function AppLoadingState() {
         width: 40,
         height: 40,
         border: "3px solid " + theme.border.default,
-        borderTopColor: theme.accent.primary,
+        borderTopcolor: theme.accent.light,
         borderRadius: theme.radius.full,
         animation: "spin 0.8s linear infinite",
       }} />

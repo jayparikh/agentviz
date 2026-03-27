@@ -23,11 +23,11 @@ export default function CompareShell({
       }}>
         <BrandWordmark />
         <div style={{ height: 16, width: 1, background: theme.border.default }} />
-        <span style={{ fontSize: theme.fontSize.base, color: theme.accent.primary, fontFamily: theme.font.mono,
+        <span style={{ fontSize: theme.fontSize.base, color: theme.accent.light, fontFamily: theme.font.mono,
           maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {sessionA.file}
         </span>
-        <span style={{ fontSize: theme.fontSize.base, color: theme.text.ghost, fontFamily: theme.font.ui }}>vs</span>
+        <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted, fontFamily: theme.font.ui }}>vs</span>
         <span style={{ fontSize: theme.fontSize.base, color: theme.agent.system, fontFamily: theme.font.mono,
           maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {sessionB.file}

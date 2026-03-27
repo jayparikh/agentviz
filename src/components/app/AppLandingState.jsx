@@ -64,8 +64,8 @@ function DragOverlay({ onLoad }) {
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
           zIndex: theme.z.overlay,
         }}>
-          <Icon name="upload" size={32} style={{ color: theme.accent.primary }} />
-          <div style={{ fontSize: theme.fontSize.xl, color: theme.accent.primary, fontFamily: theme.font.ui }}>
+          <Icon name="upload" size={32} style={{ color: theme.accent.light }} />
+          <div style={{ fontSize: theme.fontSize.xl, color: theme.accent.light, fontFamily: theme.font.ui }}>
             Drop session file to import
           </div>
         <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
@@ -94,7 +94,7 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
 
       <div style={{ textAlign: "center" }}>
         <BrandWordmark style={{ fontSize: theme.fontSize.hero }} />
-        <div style={{ fontSize: theme.fontSize.md, color: theme.text.dim, marginTop: 6, lineHeight: 1.6 }}>
+        <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6, lineHeight: 1.6 }}>
           Visualize and improve your AI coding sessions.
         </div>
       </div>
@@ -127,33 +127,41 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
         <button
           type="button"
           onClick={onLoadSample}
+          className="av-btn"
           style={{
-            color: theme.accent.primary,
+            color: theme.text.link,
             cursor: "pointer",
-            fontSize: theme.fontSize.sm,
+            fontSize: theme.fontSize.base,
             fontFamily: theme.font.ui,
             background: "none",
             border: "none",
-            padding: 0,
+            padding: "4px 8px",
+            borderRadius: theme.radius.md,
+            textDecoration: "underline",
+            textUnderlineOffset: 3,
           }}
         >
           load a demo session
         </button>
-        <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>or</span>
+        <span style={{ color: theme.text.muted, fontSize: theme.fontSize.base }}>or</span>
         <button
           type="button"
           onClick={onStartCompare}
+          className="av-btn"
           style={{
-            color: theme.accent.primary,
+            color: theme.text.link,
             cursor: "pointer",
-            fontSize: theme.fontSize.sm,
+            fontSize: theme.fontSize.base,
             fontFamily: theme.font.ui,
             display: "flex",
             alignItems: "center",
             gap: 4,
             background: "none",
             border: "none",
-            padding: 0,
+            padding: "4px 8px",
+            borderRadius: theme.radius.md,
+            textDecoration: "underline",
+            textUnderlineOffset: 3,
           }}
         >
           <Icon name="arrow-up-down" size={12} /> compare two sessions

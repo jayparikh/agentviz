@@ -1,129 +1,139 @@
 /**
  * AGENTVIZ Design Tokens
  *
- * Dark palette, blue/purple/grey accents. Color means something.
- * Inspired by Linear, Raycast, Vercel -- tools that feel quiet and fast.
+ * Microsoft Foundry NextGen Design System - refined neutral dark theme
+ * with minimal purple accents for primary actions only.
+ *
+ * CRITICAL: Purple (#8251EE) is ONLY for primary buttons, active indicators,
+ * links, and focus rings. Everything else uses neutral dark greys.
  */
 
 export const theme = {
   // ── Backgrounds ──
-  // True black base, cool dark grays
+  // Neutral dark greys (NOT purple-tinted)
   bg: {
-    base: "#000000",
-    surface: "#0f0f16",
-    raised: "#1a1a24",
+    base: "#0A0A0A",      // Page background - near black
+    sidebar: "#0D0D0D",   // Sidebar and top bar
+    surface: "#141414",   // Cards, panels, dialogs
+    raised: "#1C1C1C",    // Elevated surfaces, table rows
+    elevated: "#242424",  // Dropdowns, popovers
     overlay: "rgba(0, 0, 0, 0.7)",
-    hover: "#20202e",
-    active: "#26263a",
+    hover: "#2A2A2A",     // Hover states
+    active: "#333333",    // Pressed/active backgrounds
   },
 
   // ── Borders ──
-  // Depth through thin lines, not shadows
+  // Subtle dark grey lines
   border: {
-    subtle: "#1a1a24",
-    default: "#232333",
-    strong: "#2e2e42",
-    focus: "#6475e8",
+    subtle: "#1F1F1F",    // Very subtle dividers
+    default: "#2A2A2A",   // Standard borders
+    strong: "#333333",    // Emphasized borders
+    focus: "#8251EE",     // Focus rings - purple
   },
 
   // ── Text ──
-  // Clear hierarchy, no lavender tint
+  // White and greys (NOT lavender/purple-tinted)
   text: {
-    primary: "#ededef",
-    secondary: "#8b8b92",
-    muted: "#5c5c63",
-    dim: "#45454b",
-    ghost: "#333338",
+    primary: "#FFFFFF",   // Main body text - pure white
+    secondary: "#A1A1A1", // Secondary text, labels
+    muted: "#6B6B6B",     // Placeholder, disabled hints
+    dim: "#4A4A4A",       // Disabled text
+    ghost: "#333333",     // Very subtle text
+    link: "#A37EF5",      // Links - light purple
   },
 
-  // ── Accent ──
-  // One color. Used for: selection, focus, primary actions.
+  // ── Accent (Brand Purple) ──
+  // Use sparingly! Only for primary actions and active indicators.
   accent: {
-    primary: "#6475e8",
-    hover: "#7585f0",
-    muted: "#6475e820",
+    primary: "#8251EE",   // Primary buttons, active indicators
+    hover: "#9366F5",     // Hover on purple elements
+    light: "#A37EF5",     // Links, active sidebar icons
+    muted: "rgba(130, 81, 238, 0.2)", // Focus shadows, selection hints
+    cta: "#E91E8C",       // Magenta for sliders, critical CTAs
   },
 
   // ── Semantic ──
   semantic: {
-    success: "#10d97a",
-    warning: "#d14d4d",
-    error: "#ef4444",
-    errorBg: "#ef444415",
-    errorBorder: "#ef444430",
-    errorText: "#f87171",
-    info: "#6475e8",
+    success: "#10B981",
+    successBg: "rgba(16, 185, 129, 0.15)",
+    warning: "#F59E0B",
+    warningBg: "rgba(245, 158, 11, 0.15)",
+    error: "#EF4444",
+    errorBg: "rgba(239, 68, 68, 0.15)",
+    errorBorder: "rgba(239, 68, 68, 0.3)",
+    errorText: "#EF4444",
+    info: "#3B82F6",
   },
 
   // ── Agent colors ──
-  // Subtle. The content matters, not who said it.
+  // Subtle neutral tones - content matters, not who said it
   agent: {
-    user: "#8b8b99",
-    assistant: "#6475e8",
-    system: "#a78bfa",
+    user: "#A1A1A1",      // Grey for user
+    assistant: "#8251EE", // Purple for assistant (active indicator)
+    system: "#6B6B6B",    // Muted grey for system
   },
 
   // ── Track colors ──
-  // Balanced luminance so no track dominates
+  // Balanced, distinct colors for data visualization
   track: {
-    reasoning: "#94a3b8",
-    tool_call: "#3b9eff",
-    context: "#a78bfa",
-    output: "#10d97a",
+    reasoning: "#A1A1A1", // Neutral grey
+    tool_call: "#3B82F6", // Blue (info color)
+    context: "#8251EE",   // Purple (brand)
+    output: "#10B981",    // Green (success)
   },
 
   // ── Typography ──
   font: {
     mono: "'JetBrains Mono', monospace",
-    ui: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    ui: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   fontSize: {
-    xs: 10,
-    sm: 11,
-    base: 12,
-    md: 13,
-    lg: 15,
-    xl: 18,
-    xxl: 24,
+    xs: 12,   // Captions, timestamps
+    sm: 13,   // Table headers, labels
+    base: 14, // Body text
+    md: 16,   // Subheadings
+    lg: 20,   // Section headings
+    xl: 24,   // Page titles
+    xxl: 28,
     hero: 32,
   },
 
   // ── Spacing ──
   // 4px grid
   space: {
-    xs: 2,
-    sm: 4,
-    md: 8,
-    lg: 12,
-    xl: 16,
-    xxl: 24,
-    xxxl: 32,
-    huge: 40,
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    xxl: 32,
+    xxxl: 40,
+    huge: 48,
     giant: 56,
   },
 
   // ── Radii ──
   radius: {
-    sm: 4,
-    md: 6,
-    lg: 8,
-    xl: 10,
-    xxl: 12,
-    full: 9999,
+    sm: 4,    // Small elements, tags
+    md: 6,    // Buttons, inputs
+    lg: 8,    // Cards, panels
+    xl: 12,   // Modals, large cards
+    xxl: 16,
+    full: 9999, // Pills, avatars
   },
 
   // ── Shadows ──
-  // Minimal. No glows.
   shadow: {
     sm: "0 1px 2px rgba(0,0,0,0.3)",
-    md: "0 4px 12px rgba(0,0,0,0.25)",
-    lg: "0 12px 32px rgba(0,0,0,0.35)",
+    md: "0 4px 12px rgba(0,0,0,0.4)",
+    lg: "0 8px 24px rgba(0,0,0,0.5)",
+    focus: "0 0 0 2px rgba(130, 81, 238, 0.25)",
     inset: "inset 0 1px 2px rgba(0,0,0,0.2)",
   },
 
   // ── Focus ──
   focus: {
-    ring: "0 0 0 2px #6475e8",
+    ring: "0 0 0 2px #8251EE",
   },
 
   // ── Animation ──

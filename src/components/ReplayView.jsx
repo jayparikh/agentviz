@@ -28,7 +28,7 @@ function highlightText(text, query) {
         key={idx}
         style={{
           background: alpha(theme.accent.primary, 0.2),
-          color: theme.accent.primary,
+          color: theme.accent.light,
           borderRadius: theme.radius.sm,
           padding: "0 2px",
         }}
@@ -60,7 +60,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
     }}>
       {metadata && (
         <div>
-          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
+          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
             Session Info
           </div>
           <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, lineHeight: 2.2 }}>
@@ -74,7 +74,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
               <div>Model: <span style={{ color: theme.track.context }}>{metadata.primaryModel.split("-").slice(0, 3).join("-")}</span></div>
             )}
             {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
-              <div>Tokens: <span style={{ color: theme.accent.primary }}>
+              <div>Tokens: <span style={{ color: theme.accent.light }}>
                 {(metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens).toLocaleString()}
               </span></div>
             )}
@@ -93,11 +93,11 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
       )}
 
       <div>
-        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
+        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
           Tools Used
         </div>
         {toolEntries.length === 0 && (
-          <div style={{ fontSize: theme.fontSize.base, color: theme.text.ghost }}>No tools visible</div>
+          <div style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>No tools visible</div>
         )}
         {toolEntries.map(function (pair) {
           return (
@@ -111,14 +111,14 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
 
       {selected && (
         <div>
-          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
+          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
             {hasExplicitSelection ? "Selected Event" : "Current Event"}
           </div>
           <div style={{
             background: theme.bg.surface,
             borderRadius: theme.radius.lg,
             padding: 10,
-            border: "1px solid " + alpha(selected.isError ? theme.semantic.error : ((TRACK_TYPES[selected.track] || {}).color || theme.text.ghost), 0.2),
+            border: "1px solid " + alpha(selected.isError ? theme.semantic.error : ((TRACK_TYPES[selected.track] || {}).color || theme.text.muted), 0.2),
           }}>
             {TRACK_TYPES[selected.track] && (
               <div style={{ fontSize: theme.fontSize.base, color: selected.isError ? theme.semantic.error : TRACK_TYPES[selected.track].color, marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
@@ -142,7 +142,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
       {selected && hasDiff && !showRaw && (
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+            <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2 }}>
               Diff
             </div>
             <button
@@ -150,7 +150,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
               onClick={function () { setShowRaw(true); }}
               style={{
                 fontSize: theme.fontSize.xs,
-                color: theme.accent.primary,
+                color: theme.accent.light,
                 cursor: "pointer",
                 background: "none",
                 border: "none",
@@ -173,7 +173,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
                 onClick={function () { setShowRaw(false); }}
                 style={{
                   fontSize: theme.fontSize.xs,
-                  color: theme.accent.primary,
+                  color: theme.accent.light,
                   cursor: "pointer",
                   background: "none",
                   border: "none",
@@ -349,7 +349,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                   borderTop: "1px solid " + theme.border.default,
                   marginTop: 8,
                 }}>
-                  <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+                  <span style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2 }}>
                     Turn {item.turn.index + 1}
                   </span>
                   <div style={{ flex: 1, height: 1, background: theme.border.default }} />
@@ -403,7 +403,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                     animation: "none",
                   }}
                 >
-                  <div style={{ minWidth: 40, fontFamily: theme.font.mono, fontSize: theme.fontSize.sm, color: theme.text.dim, paddingTop: 4 }}>
+                  <div style={{ minWidth: 40, fontFamily: theme.font.mono, fontSize: theme.fontSize.sm, color: theme.text.secondary, paddingTop: 4 }}>
                     {ev.t.toFixed(1)}s
                   </div>
                   <div style={{
@@ -446,7 +446,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                         <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted }}>{ev.model}</span>
                       )}
                       {ev.tokenUsage && (ev.tokenUsage.inputTokens + ev.tokenUsage.outputTokens) > 0 && (
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontFamily: theme.font.mono, marginLeft: "auto" }}>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, fontFamily: theme.font.mono, marginLeft: "auto" }}>
                           {(ev.tokenUsage.inputTokens + ev.tokenUsage.outputTokens).toLocaleString()} tok
                         </span>
                       )}

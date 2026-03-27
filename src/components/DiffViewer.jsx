@@ -29,7 +29,7 @@ function DiffHeader({ filePath, type, oldLineCount, newLineCount }) {
     }}>
       <span style={{ fontSize: theme.fontSize.sm }}>{icon}</span>      <span style={{
         fontSize: theme.fontSize.sm,
-        color: theme.accent.primary,
+        color: theme.accent.light,
         fontFamily: theme.font.mono,
         flex: 1,
         overflow: "hidden",
@@ -68,7 +68,7 @@ function HunkHeader({ hunk }) {
       background: alpha(theme.accent.primary, 0.04),
       fontFamily: theme.font.mono,
       fontSize: theme.fontSize.xs,
-      color: theme.accent.primary,
+      color: theme.accent.light,
       borderTop: "1px solid " + theme.border.subtle,
       borderBottom: "1px solid " + theme.border.subtle,
     }}>
@@ -94,7 +94,7 @@ var lineColors = {
   context: {
     bg: "transparent",
     gutter: "transparent",
-    marker: theme.text.ghost,
+    marker: theme.text.muted,
     text: theme.text.secondary,
   },
 };
@@ -116,7 +116,7 @@ function DiffLine({ line }) {
         width: 38,
         textAlign: "right",
         paddingRight: 6,
-        color: theme.text.ghost,
+        color: theme.text.muted,
         background: colors.gutter,
         flexShrink: 0,
         userSelect: "none",
@@ -127,7 +127,7 @@ function DiffLine({ line }) {
         width: 38,
         textAlign: "right",
         paddingRight: 6,
-        color: theme.text.ghost,
+        color: theme.text.muted,
         background: colors.gutter,
         flexShrink: 0,
         userSelect: "none",
@@ -240,7 +240,7 @@ export default function DiffViewer({ event }) {
             padding: theme.space.md,
             textAlign: "center",
             fontSize: theme.fontSize.xs,
-            color: theme.accent.primary,
+            color: theme.accent.light,
             cursor: "pointer",
             borderTop: "1px solid " + theme.border.subtle,
             background: alpha(theme.accent.primary, 0.03),

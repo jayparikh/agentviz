@@ -70,8 +70,8 @@ function buildMetrics(session) {
 // lowerIsBetter=true  -> negative pct is green (A wins)
 // lowerIsBetter=null  -> always grey (neutral)
 function DeltaBadge({ a, b, lowerIsBetter }) {
-  if (!a && !b) return <span style={{ color: theme.text.ghost }}>--</span>;
-  if (!b) return <span style={{ color: theme.text.ghost }}>--</span>;
+  if (!a && !b) return <span style={{ color: theme.text.muted }}>--</span>;
+  if (!b) return <span style={{ color: theme.text.muted }}>--</span>;
   var pct = Math.round(((a - b) / b) * 100);
   var sign = pct > 0 ? "+" : "";
   var color = theme.text.muted;
@@ -99,7 +99,7 @@ function Row({ label, valA, valB, a, b, lowerIsBetter, indent }) {
     }}>
       <span style={{
         fontSize: theme.fontSize.base,
-        color: indent ? theme.text.dim : theme.text.muted,
+        color: indent ? theme.text.secondary : theme.text.muted,
         fontFamily: theme.font.ui,
         paddingLeft: indent ? 12 : 0,
       }}>
@@ -146,7 +146,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
       }}>
         <span />
         <span style={{
-          fontSize: theme.fontSize.sm, color: theme.accent.primary,
+          fontSize: theme.fontSize.sm, color: theme.accent.light,
           fontFamily: theme.font.mono, letterSpacing: 0.3,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           paddingRight: 12,
@@ -161,7 +161,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
         }}>
           B: {fileB}
         </span>
-        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, fontFamily: theme.font.ui }}>
+        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.ui }}>
           A vs B
         </span>
       </div>
@@ -171,7 +171,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
           {onOpenSessionA && (
             <ToolbarButton
               onClick={onOpenSessionA}
-              style={{ color: theme.accent.primary, borderColor: theme.accent.primary, background: alpha(theme.accent.primary, 0.08) }}
+              style={{ color: theme.accent.light, bordercolor: theme.accent.light, background: alpha(theme.accent.primary, 0.08) }}
             >
               Coach session A
             </ToolbarButton>

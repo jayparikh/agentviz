@@ -132,18 +132,18 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
         borderBottom: "1px solid " + theme.border.default,
         flexShrink: 0,
       }}>
-        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginRight: 4, flexShrink: 0 }}>
+        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2, marginRight: 4, flexShrink: 0 }}>
           Inbox
         </div>
         {(analyzedCount > 0 || discoveredCount > 0) && (
-          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, flexShrink: 0 }}>
+          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, flexShrink: 0 }}>
             {analyzedCount > 0 && analyzedCount + " analyzed"}
             {analyzedCount > 0 && discoveredCount > 0 && ", "}
             {discoveredCount > 0 && discoveredCount + " unanalyzed"}
           </span>
         )}
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "4px 8px" }}>
-          <Icon name="search" size={12} style={{ color: theme.text.ghost, flexShrink: 0 }} />
+          <Icon name="search" size={12} style={{ color: theme.text.muted, flexShrink: 0 }} />
           <input
             type="text"
             value={query}
@@ -160,7 +160,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
             }}
           />
           {query && (
-            <button className="av-btn" aria-label="Clear search" onClick={function () { setQuery(""); }} style={{ background: "transparent", border: "none", color: theme.text.ghost, padding: 0, cursor: "pointer", lineHeight: 1 }}>
+            <button className="av-btn" aria-label="Clear search" onClick={function () { setQuery(""); }} style={{ background: "transparent", border: "none", color: theme.text.muted, padding: 0, cursor: "pointer", lineHeight: 1 }}>
               <Icon name="close" size={11} />
             </button>
           )}
@@ -189,7 +189,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
           <label title="Import a session file" style={{
             display: "flex", alignItems: "center", gap: 4, padding: "5px 8px",
             background: alpha(theme.accent.primary, 0.08), border: "1px solid " + alpha(theme.accent.primary, 0.4),
-            borderRadius: theme.radius.md, color: theme.accent.primary, fontSize: theme.fontSize.xs,
+            borderRadius: theme.radius.md, color: theme.accent.light, fontSize: theme.fontSize.xs,
             fontFamily: theme.font.ui, cursor: "pointer", flexShrink: 0, userSelect: "none",
           }}>
             <Icon name="upload" size={11} /> Import
@@ -257,7 +257,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                   title={!entry.hasContent && !entry.discoveredPath ? "Session content not cached. Import the file again to reload." : ""}
                   style={{
                     background: (entry.hasContent || entry.discoveredPath) ? alpha(theme.accent.primary, 0.12) : "transparent",
-                    color: (entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.text.ghost,
+                    color: (entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.text.muted,
                     border: "1px solid " + ((entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.border.default),
                     borderRadius: theme.radius.md,
                     padding: "6px 10px",
@@ -311,7 +311,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
               marginTop: sortedParsed.length > 0 ? 4 : 0,
             }}>
               <div style={{ flex: 1, height: 1, background: theme.border.subtle }} />
-              <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>
+              <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>
                 Discovered ({sortedDiscovered.length}, not yet analyzed)
               </span>
               <div style={{ flex: 1, height: 1, background: theme.border.subtle }} />
@@ -333,7 +333,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                       <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
                         {entry.file}
                       </div>
-                      <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>
+                      <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginTop: 4 }}>
                         {[
                           entry.format === "copilot-cli" ? "Copilot CLI" : "Claude Code",
                           entry.project || null,
@@ -347,7 +347,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                       onClick={function () { onOpenSession(entry); }}
                       style={{
                         background: alpha(theme.accent.primary, 0.08),
-                        color: theme.accent.primary,
+                        color: theme.accent.light,
                         border: "1px solid " + alpha(theme.accent.primary, 0.4),
                         borderRadius: theme.radius.md,
                         padding: "5px 10px",
@@ -374,7 +374,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                   background: "transparent",
                   border: "1px dashed " + theme.border.default,
                   borderRadius: theme.radius.lg,
-                  color: theme.text.dim,
+                  color: theme.text.secondary,
                   fontSize: theme.fontSize.sm,
                   fontFamily: theme.font.ui,
                   cursor: "pointer",

@@ -23,14 +23,14 @@ export default function BrandWordmark({ onClick, title, style }) {
           border: "none",
         })}
       >
-        AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
+        AGENTVIZ<span style={{ color: theme.accent.light }}>.</span>
       </button>
     );
   }
 
   return (
     <span style={baseStyle}>
-      AGENTVIZ<span style={{ color: theme.accent.primary }}>.</span>
+      AGENTVIZ<span style={{ color: theme.accent.light }}>.</span>
     </span>
   );
 }

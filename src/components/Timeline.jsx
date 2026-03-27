@@ -20,7 +20,7 @@ export function buildTimelineBins(eventEntries, totalTime, timeMap, matchSet) {
 
     for (var bin = startBin; bin <= endBin; bin++) {
       bins[bin].count++;
-      bins[bin].intensity = Math.max(bins[bin].intensity, ev.intensity || 0.3);
+      bins[bin].intensity = Math.max(bins[bin].intensity, ev.intensity || 0.5);
       if (ev.isError) bins[bin].isError = true;
       if (matchSet && matchSet.has(eventEntries[i].index)) bins[bin].isMatch = true;
       if (!bins[bin].color && info) bins[bin].color = info.color;
@@ -86,7 +86,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           if (!currentTurn && turns.length > 0) currentTurn = turns[turns.length - 1];
           if (!currentTurn) return null;
           return (
-            <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, display: "flex", alignItems: "center", gap: 4 }}>
               Turn {currentTurn.index + 1}/{turns.length}
               {currentTurn.hasError && <span style={{ color: theme.semantic.error }}><Icon name="alert-circle" size={11} /></span>}
             </span>
@@ -97,7 +97,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           var info = TRACK_TYPES[track];
           if (!info) return null;
           return (
-            <span key={track} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: theme.fontSize.base, color: theme.text.muted }}>
+            <span key={track} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: theme.fontSize.base, color: theme.text.secondary }}>
               <span style={{ color: info.color }}><Icon name={track} size={12} /></span>
               {counts[track]}
             </span>
@@ -108,12 +108,12 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
         ref={barRef}
         onClick={handleClick}
         style={{
-          height: 28,
-          background: theme.bg.surface,
+          height: 32,
+          background: theme.bg.raised,
           borderRadius: theme.radius.md,
           position: "relative",
           cursor: "crosshair",
-          border: "1px solid " + theme.border.default,
+          border: "1px solid " + theme.border.strong,
           overflow: "hidden",
         }}
       >
@@ -127,9 +127,9 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
               top: 0,
               bottom: 0,
               width: 1,
-              background: theme.border.strong,
+              background: theme.text.muted,
               zIndex: theme.z.base,
-              opacity: 0.6,
+              opacity: 0.5,
             }} />
           );
         })}
@@ -140,19 +140,19 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
             if (bins[j].count === 0) continue;
             var binData = bins[j];
             var left = (j / TIMELINE_BINS) * 100;
-            var width = Math.max(0.3, 100 / TIMELINE_BINS);
-            var color = binData.isError ? theme.semantic.error : (binData.color || theme.text.muted);
+            var width = Math.max(0.4, 100 / TIMELINE_BINS);
+            var color = binData.isError ? theme.semantic.error : (binData.color || theme.text.secondary);
+            var opacity = binData.isMatch ? 1 : (binData.isError ? 0.9 : Math.max(0.5, binData.intensity * 0.8));
             result.push(
               <div key={"bin-" + j} style={{
                 position: "absolute",
                 left: left + "%",
                 width: width + "%",
-                top: 2,
-                bottom: 2,
+                top: 3,
+                bottom: 3,
                 background: color,
-                opacity: binData.isMatch ? 0.9 : (binData.isError ? 0.7 : binData.intensity * 0.4),
+                opacity: opacity,
                 borderRadius: theme.radius.sm,
-                boxShadow: "none",
               }} />
             );
           }
@@ -160,21 +160,21 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
         })() : eventEntries.map(function (entry) {
           var ev = entry.event;
           var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
-          var width = Math.max(0.3, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 1));
+          var width = Math.max(0.4, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 1));
           var info = TRACK_TYPES[ev.track];
-          var color = ev.isError ? theme.semantic.error : (info ? info.color : theme.text.muted);
+          var color = ev.isError ? theme.semantic.error : (info ? info.color : theme.text.secondary);
           var isMatch = matchSet && matchSet.has(entry.index);
+          var opacity = isMatch ? 1 : (ev.isError ? 0.9 : Math.max(0.5, ev.intensity * 0.8));
           return (
             <div key={entry.index} style={{
               position: "absolute",
               left: left + "%",
               width: width + "%",
-              top: 2,
-              bottom: 2,
+              top: 3,
+              bottom: 3,
               background: color,
-              opacity: isMatch ? 0.9 : (ev.isError ? 0.7 : ev.intensity * 0.4),
+              opacity: opacity,
               borderRadius: theme.radius.sm,
-              boxShadow: "none",
             }} />
           );
         })}
@@ -183,11 +183,12 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           left: pct + "%",
           top: 0,
           bottom: 0,
-          width: 2,
-          background: theme.accent.primary,
-          boxShadow: "none",
+          width: 3,
+          background: theme.accent.light,
+          boxShadow: "0 0 8px " + theme.accent.primary,
           transition: "left 0.08s linear",
           zIndex: theme.z.active,
+          borderRadius: 1,
         }} />
       </div>
     </div>

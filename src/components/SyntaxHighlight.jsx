@@ -24,7 +24,7 @@ export function highlightSyntaxToHtml(text) {
     }
 
     var color = theme.accent.primary;
-    if (match[1]) color = theme.text.dim;
+    if (match[1]) color = theme.text.secondary;
     if (match[2]) color = theme.semantic.success;
     if (match[3]) color = theme.accent.primary;
     if (match[4]) color = theme.track.context;
@@ -51,7 +51,7 @@ export default function SyntaxHighlight({ text, maxLines }) {
   var display = truncated ? lines.slice(0, maxLines).join("\n") : text;
   var html = highlightSyntaxToHtml(display);
   if (truncated) {
-    html += '\n<span style="color:' + theme.text.ghost + '">... ' + (lines.length - maxLines) + ' more lines</span>';
+    html += '\n<span style="color:' + theme.text.muted + '">... ' + (lines.length - maxLines) + ' more lines</span>';
   }
 
   return (

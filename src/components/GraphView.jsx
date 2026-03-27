@@ -323,7 +323,7 @@ function GraphInspector({ selectedNode }) {
         alignItems: "center",
         justifyContent: "center",
         height: "100%",
-        color: theme.text.ghost,
+        color: theme.text.muted,
         fontFamily: theme.font.mono,
         fontSize: theme.fontSize.sm,
       }}>
@@ -360,7 +360,7 @@ function GraphInspector({ selectedNode }) {
 
       {isTurn && selectedNode.snippet && (
         <div style={{ marginBottom: 12 }}>
-          <div style={{ color: theme.text.dim, fontSize: theme.fontSize.sm, marginBottom: 4 }}>User message</div>
+          <div style={{ color: theme.text.secondary, fontSize: theme.fontSize.sm, marginBottom: 4 }}>User message</div>
           <div style={{
             background: theme.bg.surface,
             borderRadius: theme.radius.md,
@@ -379,17 +379,17 @@ function GraphInspector({ selectedNode }) {
       {isTurn && (
         <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
           <div>
-            <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Tools</div>
+            <div style={{ color: theme.text.secondary, fontSize: theme.fontSize.xs }}>Tools</div>
             <div style={{ color: theme.text.primary, fontSize: theme.fontSize.md }}>{selectedNode.toolCount || 0}</div>
           </div>
           <div>
-            <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Error</div>
+            <div style={{ color: theme.text.secondary, fontSize: theme.fontSize.xs }}>Error</div>
             <div style={{ color: selectedNode.hasError ? theme.semantic.error : theme.text.primary, fontSize: theme.fontSize.md }}>
               {selectedNode.hasError ? "Yes" : "No"}
             </div>
           </div>
           <div>
-            <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Time</div>
+            <div style={{ color: theme.text.secondary, fontSize: theme.fontSize.xs }}>Time</div>
             <div style={{ color: theme.text.primary, fontSize: theme.fontSize.md }}>
               {formatTime(selectedNode.startTime)}
             </div>
@@ -400,12 +400,12 @@ function GraphInspector({ selectedNode }) {
       {!isTurn && event && (
         <div>
           <div style={{ marginBottom: 12 }}>
-            <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs, marginBottom: 4 }}>Tool</div>
+            <div style={{ color: theme.text.secondary, fontSize: theme.fontSize.xs, marginBottom: 4 }}>Tool</div>
             <div style={{ color: theme.text.primary }}>{event.toolName || "unknown"}</div>
           </div>
           {event.duration > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs, marginBottom: 4 }}>Duration</div>
+              <div style={{ color: theme.text.secondary, fontSize: theme.fontSize.xs, marginBottom: 4 }}>Duration</div>
               <div style={{ color: theme.text.primary }}>{event.duration.toFixed(1)}s</div>
             </div>
           )}
@@ -418,7 +418,7 @@ function GraphInspector({ selectedNode }) {
           )}
           {event.toolInput && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs, marginBottom: 4 }}>Input</div>
+              <div style={{ color: theme.text.secondary, fontSize: theme.fontSize.xs, marginBottom: 4 }}>Input</div>
               <pre style={{
                 background: theme.bg.surface,
                 borderRadius: theme.radius.md,
@@ -440,7 +440,7 @@ function GraphInspector({ selectedNode }) {
           )}
           {event.text && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs, marginBottom: 4 }}>Output</div>
+              <div style={{ color: theme.text.secondary, fontSize: theme.fontSize.xs, marginBottom: 4 }}>Output</div>
               <pre style={{
                 background: theme.bg.surface,
                 borderRadius: theme.radius.md,
@@ -766,7 +766,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
             borderRadius: theme.radius.lg,
             padding: "4px 12px",
             fontSize: theme.fontSize.xs,
-            color: theme.text.dim,
+            color: theme.text.secondary,
             fontFamily: theme.font.mono,
             pointerEvents: "none",
           }}>
@@ -782,7 +782,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
           display: "flex",
           gap: 12,
           fontSize: theme.fontSize.xs,
-          color: theme.text.dim,
+          color: theme.text.secondary,
           fontFamily: theme.font.mono,
         }}>
           <span>Click: select</span>

@@ -100,7 +100,7 @@ export default function DataInspector({ title, value, maxChars, maxLines }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
-        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
+        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, textTransform: "uppercase", letterSpacing: 2 }}>
           {title}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

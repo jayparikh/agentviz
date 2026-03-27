@@ -8,24 +8,34 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
+      /* Foundry NextGen Design System */
       :root {
-        --av-bg-hover: #20202e;
-        --av-bg-active: #26263a;
-        --av-focus: #6475e8;
-        --av-border: #2c2c30;
-        --av-border-strong: #3a3a3f;
+        --av-bg-base: #0A0A0A;
+        --av-bg-surface: #141414;
+        --av-bg-raised: #1C1C1C;
+        --av-bg-hover: #2A2A2A;
+        --av-bg-active: #333333;
+        --av-focus: #8251EE;
+        --av-border: #2A2A2A;
+        --av-border-strong: #333333;
+        --av-text-primary: #FFFFFF;
+        --av-text-secondary: #A1A1A1;
+        --av-text-muted: #6B6B6B;
+        --av-accent: #8251EE;
+        --av-accent-hover: #9366F5;
       }
 
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
-        background: #000000;
+        background: var(--av-bg-base);
         overflow: hidden;
         font-family: 'JetBrains Mono', monospace;
+        color: var(--av-text-primary);
       }
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #3a3a3f; border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: #45454b; }
+      ::-webkit-scrollbar-thumb { background: var(--av-border-strong); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #4A4A4A; }
 
       *:focus-visible { outline: 2px solid var(--av-focus); outline-offset: 2px; }
       *:focus:not(:focus-visible) { outline: none; }

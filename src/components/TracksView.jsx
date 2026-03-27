@@ -116,7 +116,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                    justifyContent: "center",
                  }}
                 >M</button>
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, minWidth: 16, textAlign: "right", marginLeft: 2 }}>
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, minWidth: 16, textAlign: "right", marginLeft: 2 }}>
                   {trackEntries.length || ""}
                 </span>
               </div>
