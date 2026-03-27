@@ -100,10 +100,14 @@ Track types: reasoning, tool_call, context, output
 Agent types: user, assistant, system
 
 ## Dev commands
-- `npm run dev` - Start dev server on port 3000
+- `npm run dev` - Start Vite dev server on port 3000
+- `node bin/agentviz.js` - Start API backend on port 4242 (Coach, sessions, config, apply, streaming)
 - `npm run build` - Production build to dist/
 - `npm test` - Run 253 tests via Vitest (parsers, layout, diff, graph, autonomy, regressions, and more)
 - `npm run test:watch` - Watch mode for tests
+
+For full functionality in dev mode, run BOTH `node bin/agentviz.js` and `npm run dev`.
+Vite proxies `/api/*` to the backend. Without the backend, Coach and session discovery return 404.
 
 ## Conventions
 - No em dashes in any content or comments

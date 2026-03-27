@@ -9,6 +9,12 @@ export default defineConfig(function ({ mode }) {
     server: {
       port: 3000,
       open: true,
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:4242',
+          changeOrigin: true,
+        },
+      },
     },
     build: {
       minify: isDebugBuild ? false : 'esbuild',
