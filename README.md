@@ -373,7 +373,7 @@ npm test                # Run all tests via Vitest
 npm run test:watch      # Watch mode
 ```
 
-> **Full dev setup requires both servers.** `npm run dev` starts the Vite frontend; `node bin/agentviz.js` starts the API backend (Coach, session discovery, config, apply, live streaming). Vite proxies `/api/*` requests to the backend on port 4242. Without the backend running, features like Coach will return 404.
+> **Full dev setup requires both servers.** `npm run dev` starts the Vite frontend; `node bin/agentviz.js` starts the API backend (Coach, session discovery, config, apply, live streaming). Vite proxies `/api/*` requests to the backend on port 4242. The backend auto-selects a free port starting from 4242, so ensure port 4242 is free or the proxy will not connect.
 
 ### Design System
 

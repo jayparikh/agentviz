@@ -107,7 +107,8 @@ Agent types: user, assistant, system
 - `npm run test:watch` - Watch mode for tests
 
 For full functionality in dev mode, run BOTH `node bin/agentviz.js` and `npm run dev`.
-Vite proxies `/api/*` to the backend. Without the backend, Coach and session discovery return 404.
+Vite proxies `/api/*` to the backend on port 4242. The backend auto-selects a free port
+starting from 4242, so port 4242 must be free for the proxy to connect.
 
 ## Conventions
 - No em dashes in any content or comments
