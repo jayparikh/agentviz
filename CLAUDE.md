@@ -107,7 +107,7 @@ Agent types: user, assistant, system
 - `npm run test:watch` - Watch mode for tests
 
 For full functionality in dev mode, run BOTH `node bin/agentviz.js` and `npm run dev`.
-Vite proxies `/api/*` to the backend. Both read the port from `config.js` (default 4242).
+Vite proxies `/api/*` to the backend automatically.
 
 ## Conventions
 - No em dashes in any content or comments

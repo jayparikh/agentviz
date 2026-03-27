@@ -373,7 +373,7 @@ npm test                # Run all tests via Vitest
 npm run test:watch      # Watch mode
 ```
 
-> **Full dev setup requires both servers.** `npm run dev` starts the Vite frontend; `node bin/agentviz.js` starts the API backend (Coach, session discovery, config, apply, live streaming). Both read the default port from `config.js` (4242). Vite proxies `/api/*` requests to the backend automatically.
+> **Full dev setup requires both servers.** `npm run dev` starts the Vite frontend; `node bin/agentviz.js` starts the API backend (Coach, session discovery, config, apply, live streaming). Vite proxies `/api/*` to the backend automatically.
 
 ### Design System
 
