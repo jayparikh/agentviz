@@ -9,22 +9,22 @@ export const SAMPLE_EVENTS = [
   { t: 13, agent: "assistant", track: "reasoning", text: "Now adding error handling middleware and wiring up the main app entry point. Should also add rate limiting on auth routes.", duration: 2, intensity: 0.7, isError: false, turnIndex: 0 },
   { t: 15, agent: "assistant", track: "tool_call", text: "write_file(path: src/index.ts) - Main Express app with middleware chain", toolName: "write_file", duration: 2, intensity: 0.9, isError: false, turnIndex: 0 },
   { t: 17, agent: "assistant", track: "tool_call", text: "bash(command: npx tsc --noEmit) - Type checking", toolName: "bash", duration: 2, intensity: 0.8, isError: false, turnIndex: 0 },
-  { t: 19, agent: "assistant", track: "context", text: "Result: 2 type errors in auth.ts - JWT_SECRET assertion needed, missing return type", duration: 1, intensity: 0.8, isError: true, turnIndex: 0 },
-  { t: 20, agent: "assistant", track: "tool_call", text: "edit_file(path: src/routes/auth.ts) - Fixing type errors", toolName: "edit_file", duration: 2, intensity: 0.9, isError: false, turnIndex: 0 },
+  { t: 19, agent: "assistant", track: "context", text: "Result: Type check passed. No errors.", duration: 1, intensity: 0.5, isError: false, turnIndex: 0 },
+  { t: 20, agent: "assistant", track: "tool_call", text: "bash(command: npm test) - Running test suite", toolName: "bash", duration: 2, intensity: 0.9, isError: false, turnIndex: 0 },
   { t: 22, agent: "assistant", track: "output", text: "REST API with JWT auth is ready. 5 files, 380 lines of TypeScript. Run npm run dev to start.", duration: 2, intensity: 0.8, isError: false, turnIndex: 0 },
 ];
 
 export const SAMPLE_TOTAL = 25;
 
 export const SAMPLE_TURNS = [
-  { index: 0, startTime: 0, endTime: 24, eventIndices: [0,1,2,3,4,5,6,7,8,9,10,11,12], userMessage: "Build a REST API with JWT authentication in Express.js and TypeScript", toolCount: 7, hasError: true },
+  { index: 0, startTime: 0, endTime: 24, eventIndices: [0,1,2,3,4,5,6,7,8,9,10,11,12], userMessage: "Build a REST API with JWT authentication in Express.js and TypeScript", toolCount: 7, hasError: false },
 ];
 
 export const SAMPLE_METADATA = {
   totalEvents: 13,
   totalTurns: 1,
   totalToolCalls: 7,
-  errorCount: 1,
+  errorCount: 0,
   duration: 25,
   models: { "claude-sonnet-4-20250514": 2 },
   primaryModel: "claude-sonnet-4-20250514",
