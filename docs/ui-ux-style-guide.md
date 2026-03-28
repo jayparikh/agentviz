@@ -47,11 +47,11 @@ Five-level hierarchy. Use the minimum contrast level that communicates the infor
 
 | Token | Hex | Use |
 |-------|-----|-----|
-| `theme.text.primary` | `#ededef` | Body text, values, important content |
-| `theme.text.secondary` | `#8b8b92` | Labels, metadata, descriptions |
-| `theme.text.muted` | `#5c5c63` | Disabled text, tertiary info |
-| `theme.text.dim` | `#45454b` | Section headers (uppercase), subtle labels |
-| `theme.text.ghost` | `#333338` | Placeholders, gutter numbers, near-invisible |
+| `theme.text.primary` | `#f0f0f2` | Body text, values, important content |
+| `theme.text.secondary` | `#a1a1a8` | Labels, metadata, descriptions |
+| `theme.text.muted` | `#717178` | Disabled text, tertiary info |
+| `theme.text.dim` | `#585860` | Section headers (uppercase), subtle labels |
+| `theme.text.ghost` | `#454548` | Placeholders, gutter numbers, near-invisible |
 
 ### Accent
 
@@ -713,7 +713,7 @@ Custom scrollbars match the dark theme (defined in `index.html`):
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3a3a3f; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #45454b; }
+::-webkit-scrollbar-thumb:hover { background: #585860; }
 ```
 
 - Thin (6px), unobtrusive, transparent track.
