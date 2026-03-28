@@ -55,12 +55,12 @@ export default function AppHeader({
       minWidth: 0,
     }}>
       <BrandWordmark onClick={onReset} title="Back to start" style={{ flexShrink: 0 }} />
-      <div style={{ height: 16, width: 1, background: theme.border.default, flexShrink: 0 }} />
+      <div style={{ height: 16, width: 1, background: theme.border.strong, flexShrink: 0 }} />
       <span style={{
         fontSize: theme.fontSize.base,
-        color: theme.text.muted,
+        color: theme.text.secondary,
         fontFamily: theme.font.mono,
-        maxWidth: 140,
+        maxWidth: 160,
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
@@ -70,7 +70,7 @@ export default function AppHeader({
       </span>
       {session.isLive && <LiveIndicator />}
       {session.metadata && (
-        <span style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, display: "flex", alignItems: "center", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, display: "flex", alignItems: "center", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
           {session.metadata.totalEvents} events
           {session.metadata.errorCount > 0 && (
             <span style={{ color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -86,8 +86,9 @@ export default function AppHeader({
         margin: "0 auto",
         background: theme.bg.surface,
         borderRadius: theme.radius.lg,
-        padding: 2,
+        padding: 3,
         flexShrink: 0,
+        border: "1px solid " + theme.border.default,
       }}>
         {views.map(function (item) {
           var isActive = activeView === item.id;
@@ -97,22 +98,23 @@ export default function AppHeader({
               className="av-btn"
               onClick={function () { onSetView(item.id); }}
               style={{
-                background: isActive ? theme.bg.raised : "transparent",
+                background: isActive ? theme.accent.primary : "transparent",
                 border: "none",
                 borderRadius: theme.radius.md,
-                color: isActive ? theme.accent.primary : theme.text.muted,
-                padding: "4px 8px",
-                fontSize: theme.fontSize.sm,
+                color: isActive ? "#FFFFFF" : theme.text.secondary,
+                padding: "5px 10px",
+                fontSize: theme.fontSize.base,
                 fontFamily: theme.font.ui,
+                fontWeight: isActive ? 500 : 400,
                 display: "flex",
                 alignItems: "center",
-                gap: 4,
+                gap: 5,
                 whiteSpace: "nowrap",
               }}
             >
-              <Icon name={item.icon} size={13} style={{ opacity: isActive ? 1 : 0.6 }} /> {item.label}
+              <Icon name={item.icon} size={14} style={{ opacity: isActive ? 1 : 0.8 }} /> {item.label}
               {item.experimental && (
-                                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginLeft: 2 }}>exp</span>
+                <span style={{ fontSize: theme.fontSize.xs, color: isActive ? "rgba(255,255,255,0.7)" : theme.text.muted, marginLeft: 2 }}>exp</span>
               )}
             </button>
           );
