@@ -163,12 +163,13 @@ background: alpha(theme.accent.primary, 0.08)  // 8% accent
 
 | Token | Stack | Use |
 |-------|-------|-----|
-| `theme.font.mono` | `'JetBrains Mono', monospace` | Default for all UI, code, data, timestamps |
-| `theme.font.ui` | `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, ...` | Brand wordmark, toolbar buttons, metric values, loading screen |
+| `theme.font.mono` | `'JetBrains Mono', monospace` | Default for ALL UI -- body text, labels, buttons, inputs, metrics, timestamps, data |
+| `theme.font.ui` | `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, ...` | **BrandWordmark and nav tab buttons only** |
 
-JetBrains Mono is loaded via Google Fonts in `index.html`. It is the primary typeface.
-The system UI font is reserved for elements that benefit from native readability at small sizes
-(buttons, labels, wordmark).
+JetBrains Mono is loaded via Google Fonts in `index.html`. It is the primary typeface for
+all content -- including tool labels, coach metrics, dropdowns, and stat values.
+`font.ui` is intentionally limited to two places: the brand wordmark (`BrandWordmark` component)
+and the view-switcher tab buttons in `AppHeader`. Using it elsewhere is a violation.
 
 ### Font Scale
 
@@ -240,7 +241,8 @@ The system UI font is reserved for elements that benefit from native readability
 
 ### Rules
 
-- Default font is mono. Use `theme.font.ui` for buttons, labels, the wordmark, metric values, and the loading screen.
+- Default font is **mono**. Use `theme.font.ui` ONLY for the `BrandWordmark` component and the view-switcher tab buttons.
+  Everything else -- buttons, dropdowns, labels, metric values, stat numbers, loading screen, coach panel -- must use `theme.font.mono`.
 - Font weight: `400` normal, `500` medium (tool labels), `600` semi-bold (headers, brand), `700` bold (metric values, solo/mute).
 - Never use font weights above 700.
 - `letterSpacing: 2` for uppercase section labels. `letterSpacing: 1` for uppercase badges.
@@ -358,6 +360,18 @@ Cards and panels rely on borders, not shadows, for depth.
 ## 5. Icons
 
 All icons come from **Lucide React** via the `Icon` component (`src/components/Icon.jsx`).
+
+### Registry Rule
+
+Every icon used in the app must be:
+1. Imported from `lucide-react` at the top of `Icon.jsx`, AND
+2. Added to the `ICON_MAP` object in `Icon.jsx`.
+
+Importing an icon from `lucide-react` without adding it to `ICON_MAP` results in a **silent
+null render** -- the element renders as an empty space with no error thrown. In development
+mode, `Icon.jsx` emits a `console.warn` for unknown names to help catch this.
+
+When adding a new icon, both steps are required in the same commit.
 
 ### Defaults
 
@@ -604,6 +618,13 @@ dim the partial cards:
 - Always set `minWidth: 0` on flex children that contain truncated text.
 - Virtual scrolling for large lists (ReplayView, WaterfallView) with overscan.
 - `maxWidth: 560px` centered for modal and drop zone content.
+
+**Toolbar containers with dropdowns must NOT use `overflow: hidden`.**
+Applying `overflow: hidden` to a toolbar or header row clips any absolutely-positioned
+dropdowns, menus, or tooltips that extend outside its bounds. Instead:
+- Set `position: relative` on the container to establish a stacking context.
+- Set `zIndex: theme.z.active` (2) on the container so it layers above scroll content.
+- Set `zIndex: theme.z.tooltip` (10) on the dropdown itself.
 
 ---
 
@@ -990,13 +1011,13 @@ These are goals for the project. Some are not fully implemented yet.
 When reviewing a PR that touches UI, verify each of these:
 
 - [ ] **Colors**: Color values reference `theme.*` tokens. No new hardcoded hex in components.
-- [ ] **Typography**: Font family uses `theme.font.mono` or `theme.font.ui`. Font sizes use `theme.fontSize.*`.
+- [ ] **Typography**: Font family uses `theme.font.mono` for all UI. `theme.font.ui` is only used in `BrandWordmark` and nav tab buttons. Font sizes use `theme.fontSize.*`.
 - [ ] **Spacing**: Padding and gaps use values from the 4px grid or `theme.space.*` tokens.
 - [ ] **Borders**: Border colors use `theme.border.*`. Radius uses `theme.radius.*`.
 - [ ] **Shadows**: Only on floating elements (modals, tooltips). Uses `theme.shadow.*`.
 - [ ] **Hover/Focus**: Interactive elements use `.av-btn` or `.av-interactive` class, or inline transition with `theme.transition.fast`.
 - [ ] **Disabled state**: `opacity: 0.6`, `cursor: "default"`.
-- [ ] **Icons**: Uses `Icon` component with Lucide. Default size 14, strokeWidth 1.5.
+- [ ] **Icons**: Uses `Icon` component with Lucide. Default size 14, strokeWidth 1.5. New icons are both imported from `lucide-react` AND added to `ICON_MAP` in `Icon.jsx`.
 - [ ] **Modals**: Uses one of the documented overlay variants. Click-to-dismiss.
 - [ ] **Inline styles only**: No new CSS files or classes added.
 - [ ] **No em dashes**: Use `--` or commas instead.
