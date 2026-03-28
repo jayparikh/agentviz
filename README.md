@@ -190,6 +190,14 @@ Export is available in two places:
 
 ## Features
 
+### Landing View
+
+Drop zone for session files, with a demo session available instantly. When running via the CLI, the inbox is shown here instead -- auto-discovered sessions from `~/.copilot/session-state/` sorted by review priority.
+
+<div align="center">
+<img src="docs/screenshots/landing.svg" alt="Landing View" width="800" />
+</div>
+
 ### Replay View
 
 Chronological event stream with a resizable inspector sidebar. Click any event to see full details plus a payload inspector with readable JSON or text, top-level keys, line and character counts, copy support, and expand or collapse controls. The colorful timeline bar at top shows event density and error locations.
@@ -337,7 +345,7 @@ src/
     ResizablePanel.jsx   # Drag-to-resize split panel utility
     FileUploader.jsx     # Drag-and-drop file input with error handling
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
-    Icon.jsx             # SVG icon component
+    Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
     app/                 # Shell components: AppHeader, AppLandingState, AppLoadingState
     ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, TimeAxis
