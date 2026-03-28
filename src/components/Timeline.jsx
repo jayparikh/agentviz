@@ -50,6 +50,18 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
     return nextCounts;
   }, [eventEntries]);
 
+  var currentTurn = useMemo(function () {
+    if (!turns || turns.length === 0) return null;
+    var lo = 0, hi = turns.length - 1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (currentTime < turns[mid].startTime) hi = mid - 1;
+      else if (currentTime > turns[mid].endTime) lo = mid + 1;
+      else return turns[mid];
+    }
+    return turns[turns.length - 1];
+  }, [currentTime, turns]);
+
   return (
     <div style={{ paddingBottom: theme.space.md }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -75,23 +87,12 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
         <span style={{ fontFamily: theme.font.mono, fontSize: theme.fontSize.md, color: theme.text.secondary, letterSpacing: 1 }}>
           {isLive ? totalTime.toFixed(1) + "s" : currentTime.toFixed(1) + "s / " + totalTime.toFixed(1) + "s"}
         </span>
-        {turns && turns.length > 0 && (function () {
-          var currentTurn = null;
-          for (var i = 0; i < turns.length; i++) {
-            if (currentTime >= turns[i].startTime && currentTime <= turns[i].endTime) {
-              currentTurn = turns[i];
-              break;
-            }
-          }
-          if (!currentTurn && turns.length > 0) currentTurn = turns[turns.length - 1];
-          if (!currentTurn) return null;
-          return (
+        {currentTurn && (
             <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, display: "flex", alignItems: "center", gap: 4 }}>
               Turn {currentTurn.index + 1}/{turns.length}
               {currentTurn.hasError && <span style={{ color: theme.semantic.error }}><Icon name="alert-circle" size={11} /></span>}
             </span>
-          );
-        })()}
+          )}
         <div style={{ flex: 1 }} />
         {Object.keys(counts).map(function (track) {
           var info = TRACK_TYPES[track];
