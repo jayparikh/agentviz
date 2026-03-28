@@ -51,14 +51,15 @@ export default function AppHeader({
       gap: 8,
       borderBottom: "1px solid " + theme.border.default,
       flexShrink: 0,
-      overflow: "hidden",
       minWidth: 0,
+      position: "relative",
+      zIndex: theme.z.active,
     }}>
       <BrandWordmark onClick={onReset} title="Back to start" style={{ flexShrink: 0 }} />
       <div style={{ height: 16, width: 1, background: theme.border.default, flexShrink: 0 }} />
       <span style={{
         fontSize: theme.fontSize.base,
-        color: theme.text.muted,
+        color: theme.text.secondary,
         fontFamily: theme.font.mono,
         maxWidth: 140,
         overflow: "hidden",
@@ -70,7 +71,7 @@ export default function AppHeader({
       </span>
       {session.isLive && <LiveIndicator />}
       {session.metadata && (
-        <span style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, display: "flex", alignItems: "center", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, display: "flex", alignItems: "center", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
           {session.metadata.totalEvents} events
           {session.metadata.errorCount > 0 && (
             <span style={{ color: theme.semantic.error, display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -142,12 +143,13 @@ export default function AppHeader({
               }}
               placeholder="Search (/)"
               style={{
-                background: theme.bg.surface,
-                border: "1px solid " + theme.border.default,
-                borderRadius: theme.radius.md,
+                background: "transparent",
+                border: "none",
+                borderBottom: "1px solid " + theme.border.default,
+                borderRadius: 0,
                 color: theme.text.primary,
-                padding: "4px 8px",
-                fontSize: theme.fontSize.base,
+                padding: "2px 4px",
+                fontSize: theme.fontSize.sm,
                 fontFamily: theme.font.mono,
                 width: 100,
                 outline: "none",
@@ -247,7 +249,7 @@ export default function AppHeader({
                         display: "flex",
                         alignItems: "center",
                         gap: 8,
-                        padding: "6px 10px",
+                        padding: "4px 10px",
                         borderRadius: theme.radius.md,
                         width: "100%",
                         background: "transparent",
@@ -256,10 +258,10 @@ export default function AppHeader({
                         textAlign: "left",
                       }}
                     >
-                      <Icon name={key} size={13} style={{ color: isHidden ? theme.text.ghost : info.color }} />
+                      <Icon name={key} size={12} style={{ color: isHidden ? theme.text.ghost : info.color }} />
                       <span style={{
-                        fontSize: theme.fontSize.base,
-                        fontFamily: theme.font.ui,
+                        fontSize: theme.fontSize.xs,
+                        fontFamily: theme.font.mono,
                         color: isHidden ? theme.text.ghost : theme.text.secondary,
                         textDecoration: isHidden ? "line-through" : "none",
                         flex: 1,
@@ -267,7 +269,7 @@ export default function AppHeader({
                         {info.label}
                       </span>
                       {isHidden && (
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>hidden</span>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, fontFamily: theme.font.mono }}>hidden</span>
                       )}
                     </button>
                   );

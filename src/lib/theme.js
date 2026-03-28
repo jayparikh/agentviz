@@ -29,11 +29,11 @@ export const theme = {
   // ── Text ──
   // Clear hierarchy, no lavender tint
   text: {
-    primary: "#ededef",
-    secondary: "#8b8b92",
-    muted: "#5c5c63",
-    dim: "#45454b",
-    ghost: "#333338",
+    primary: "#f0f0f2",
+    secondary: "#a1a1a8",
+    muted: "#717178",
+    dim: "#585860",
+    ghost: "#454548",
   },
 
   // ── Accent ──

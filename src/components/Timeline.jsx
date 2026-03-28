@@ -150,7 +150,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
                 top: 2,
                 bottom: 2,
                 background: color,
-                opacity: binData.isMatch ? 0.9 : (binData.isError ? 0.7 : binData.intensity * 0.4),
+                opacity: binData.isMatch ? 0.9 : (binData.isError ? 0.7 : Math.max(0.5, binData.intensity * 0.8)),
                 borderRadius: theme.radius.sm,
                 boxShadow: "none",
               }} />
@@ -172,7 +172,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
               top: 2,
               bottom: 2,
               background: color,
-              opacity: isMatch ? 0.9 : (ev.isError ? 0.7 : ev.intensity * 0.4),
+              opacity: isMatch ? 0.9 : (ev.isError ? 0.7 : Math.max(0.5, ev.intensity * 0.8)),
               borderRadius: theme.radius.sm,
               boxShadow: "none",
             }} />
