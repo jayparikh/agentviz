@@ -35,3 +35,5 @@ ag.log
 ag-*.log
 ag.*.log
 *.ag.log
+playwright-report/
+test-results/

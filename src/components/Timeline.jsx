@@ -107,6 +107,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
       </div>
       <div
         ref={barRef}
+        data-testid="timeline-bar"
         onClick={handleClick}
         style={{
           height: 28,

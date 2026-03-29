@@ -7,6 +7,9 @@ export default defineConfig(function ({ mode }) {
 
   return {
     plugins: [react()],
+    test: {
+      exclude: ['e2e/**', 'node_modules/**'],
+    },
     server: {
       port: 3000,
       open: true,
