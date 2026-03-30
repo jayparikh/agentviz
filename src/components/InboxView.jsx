@@ -80,7 +80,7 @@ function filterByQuery(entries, q) {
   });
 }
 
-export default function InboxView({ entries, onOpenSession, maxEntries, onImport }) {
+export default function InboxView({ entries, onOpenSession, maxEntries, onImport, onLoadSample, onStartCompare }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [query, setQuery] = useState("");
 
@@ -148,7 +148,8 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
             type="text"
             value={query}
             onChange={function (e) { setQuery(e.target.value); }}
-            placeholder="Search sessions..."
+            placeholder="Search sessions (/)"
+            className="av-search"
             style={{
               background: "transparent",
               border: "none",
@@ -176,7 +177,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
             borderRadius: theme.radius.md,
             padding: "5px 8px",
             fontSize: theme.fontSize.xs,
-            fontFamily: theme.font.ui,
+            fontFamily: theme.font.mono,
             outline: "none",
             flexShrink: 0,
           }}
@@ -190,7 +191,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
             display: "flex", alignItems: "center", gap: 4, padding: "5px 8px",
             background: alpha(theme.accent.primary, 0.08), border: "1px solid " + alpha(theme.accent.primary, 0.4),
             borderRadius: theme.radius.md, color: theme.accent.primary, fontSize: theme.fontSize.xs,
-            fontFamily: theme.font.ui, cursor: "pointer", flexShrink: 0, userSelect: "none",
+            fontFamily: theme.font.mono, cursor: "pointer", flexShrink: 0, userSelect: "none",
           }}>
             <Icon name="upload" size={11} /> Import
             <input type="file" accept=".jsonl" style={{ display: "none" }} onChange={function (e) {
@@ -219,6 +220,50 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
               ? "No sessions matching \"" + query + "\""
               : <>Sessions from <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
             }
+            {!query && (onLoadSample || onStartCompare) && (
+              <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 12 }}>
+                {onLoadSample && (
+                  <button
+                    type="button"
+                    onClick={onLoadSample}
+                    style={{
+                      color: theme.accent.primary,
+                      cursor: "pointer",
+                      fontSize: theme.fontSize.sm,
+                      fontFamily: theme.font.mono,
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                    }}
+                  >
+                    load a demo session
+                  </button>
+                )}
+                {onLoadSample && onStartCompare && (
+                  <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>or</span>
+                )}
+                {onStartCompare && (
+                  <button
+                    type="button"
+                    onClick={onStartCompare}
+                    style={{
+                      color: theme.accent.primary,
+                      cursor: "pointer",
+                      fontSize: theme.fontSize.sm,
+                      fontFamily: theme.font.mono,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                    }}
+                  >
+                    <Icon name="arrow-up-down" size={12} /> compare two sessions
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -262,7 +307,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                     borderRadius: theme.radius.md,
                     padding: "6px 10px",
                     fontSize: theme.fontSize.base,
-                    fontFamily: theme.font.ui,
+                    fontFamily: theme.font.mono,
                     cursor: (entry.hasContent || entry.discoveredPath) ? "pointer" : "default",
                     flexShrink: 0,
                   }}
@@ -352,7 +397,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                         borderRadius: theme.radius.md,
                         padding: "5px 10px",
                         fontSize: theme.fontSize.sm,
-                        fontFamily: theme.font.ui,
+                        fontFamily: theme.font.mono,
                         cursor: "pointer",
                         flexShrink: 0,
                       }}
@@ -376,7 +421,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                   borderRadius: theme.radius.lg,
                   color: theme.text.dim,
                   fontSize: theme.fontSize.sm,
-                  fontFamily: theme.font.ui,
+                  fontFamily: theme.font.mono,
                   cursor: "pointer",
                   marginTop: 4,
                 }}

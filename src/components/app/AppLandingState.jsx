@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../../lib/theme.js";
-import FileUploader from "../FileUploader.jsx";
-import Icon from "../Icon.jsx";
 import InboxView from "../InboxView.jsx";
+import Icon from "../Icon.jsx";
 import BrandWordmark from "../ui/BrandWordmark.jsx";
 import ShellFrame from "../ui/ShellFrame.jsx";
 
@@ -78,8 +77,6 @@ function DragOverlay({ onLoad }) {
 }
 
 export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare, inboxEntries, onOpenInboxSession }) {
-  var hasSessions = (inboxEntries || []).length > 0;
-
   return (
     <ShellFrame
       style={{
@@ -99,15 +96,15 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
         </div>
       </div>
 
-      {hasSessions ? (
-        <div style={{ width: "100%", maxWidth: 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <InboxView entries={inboxEntries} onOpenSession={onOpenInboxSession} onImport={onLoad} />
-        </div>
-      ) : (
-        <div style={{ width: "100%", maxWidth: 560 }}>
-          <FileUploader onLoad={onLoad} />
-        </div>
-      )}
+      <div style={{ width: "100%", maxWidth: 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <InboxView
+          entries={inboxEntries}
+          onOpenSession={onOpenInboxSession}
+          onImport={onLoad}
+          onLoadSample={onLoadSample}
+          onStartCompare={onStartCompare}
+        />
+      </div>
 
       {error && (
         <div style={{
@@ -123,42 +120,6 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-        <button
-          type="button"
-          onClick={onLoadSample}
-          style={{
-            color: theme.accent.primary,
-            cursor: "pointer",
-            fontSize: theme.fontSize.sm,
-            fontFamily: theme.font.ui,
-            background: "none",
-            border: "none",
-            padding: 0,
-          }}
-        >
-          load a demo session
-        </button>
-        <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>or</span>
-        <button
-          type="button"
-          onClick={onStartCompare}
-          style={{
-            color: theme.accent.primary,
-            cursor: "pointer",
-            fontSize: theme.fontSize.sm,
-            fontFamily: theme.font.ui,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            background: "none",
-            border: "none",
-            padding: 0,
-          }}
-        >
-          <Icon name="arrow-up-down" size={12} /> compare two sessions
-        </button>
-      </div>
     </ShellFrame>
   );
 }
