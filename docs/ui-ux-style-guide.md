@@ -419,7 +419,8 @@ Three CSS utility classes handle hover/active (defined in `index.html`):
 |-------|-------|--------|-----|
 | `.av-btn` | `var(--av-bg-hover)` | `var(--av-bg-active)` | Buttons, clickable controls |
 | `.av-interactive` | `var(--av-bg-hover)` | -- | Rows, cards, list items |
-| `.av-search` | Focus: `border-color: var(--av-focus)` | -- | Search/filter inputs |
+| `.av-search` | Focus: `border-color: var(--av-focus)` | -- | Borderless search inputs (nav) |
+| `.av-search-wrap` | Focus-within: `border-color: var(--av-focus)` | -- | Boxed search wrappers (inbox, Q&A) |
 
 **Inline hover pattern** (when CSS class is insufficient):
 ```jsx
@@ -661,6 +662,24 @@ Three overlay patterns exist:
   background: alpha(theme.bg.base, 0.92),
 }
 ```
+
+**Slide-over Drawer** (QADrawer) -- anchored to right edge, full height:
+```jsx
+{
+  position: "fixed",
+  top: 0,
+  right: 0,
+  height: "100dvh",
+  width: 400,
+  background: theme.bg.surface,
+  borderLeft: "1px solid " + theme.border.default,
+  boxShadow: theme.shadow.lg,
+  zIndex: theme.z.modal,
+  boxSizing: "border-box",
+  overflow: "hidden",
+}
+```
+Drawers use flex column layout with a scrollable middle area (`flex: 1; minHeight: 0; overflowY: auto`) and a fixed input area at bottom. Dismiss via close button, Escape key, or a footer "Disable" link.
 
 All overlays dismiss on backdrop click via `e.stopPropagation()` on the inner container.
 
@@ -982,6 +1001,18 @@ get keyboard shortcuts -- they are selected by app state, not user toggle.
 
 New aggregate/multi-session views belong in the landing state. New single-session analysis views
 belong in the session state (add to `APP_VIEWS`).
+
+### Feature Flags
+
+Experimental features are gated via `useFeatureFlag(key)`. Flags are stored in localStorage
+with the prefix `av_flag_`. Enable flags via browser console:
+
+```js
+localStorage.setItem('av_flag_qa-drawer', 'true')
+```
+
+The Q&A drawer uses this pattern. When the flag is disabled, the drawer is hidden from the
+UI and the `Cmd+Shift+K` shortcut is a no-op.
 
 ---
 

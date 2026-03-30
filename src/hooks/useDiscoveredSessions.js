@@ -3,11 +3,15 @@ import { useState, useEffect, useCallback } from "react";
 var POLL_INTERVAL_MS = 30000; // re-scan every 30s to pick up new sessions
 
 export default function useDiscoveredSessions() {
+  var params = new URLSearchParams(window.location.search);
+  var forceEmpty = params.get("demo") === "empty";
+
   var [sessions, setSessions] = useState([]);
   var [loading, setLoading] = useState(false);
   var [available, setAvailable] = useState(false); // false when no CLI server
 
   var fetchSessions = useCallback(function () {
+    if (forceEmpty) return;
     setLoading(true);
     fetch("/api/sessions")
       .then(function (r) {

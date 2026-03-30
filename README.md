@@ -208,7 +208,7 @@ Chronological event stream with a resizable inspector sidebar. Click any event t
 
 ### Tracks View
 
-DAW-style multi-track lanes for Reasoning, Tool Calls, Context, and Output. Solo (**S**) isolates one track. Mute (**M**) hides it. See at a glance how your agent's time was spent.
+DAW-style multi-track lanes for Reasoning, Tool Calls, Context, and Output. **Solo** isolates one track. **Mute** hides it. See at a glance how your agent's time was spent.
 
 <div align="center">
 <img src="docs/screenshots/tracks-view.svg" alt="Tracks View" width="800" />
@@ -265,6 +265,7 @@ AI-powered session coaching available directly from any session. The coach reads
 | **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
 | **Inbox Auto-discovery** | Automatically finds recent Copilot CLI sessions and ranks them by review priority. |
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
+| **Session Q&A** | Slide-over drawer (`Cmd+Shift+K`) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
 
 ## Keyboard Shortcuts
@@ -277,6 +278,7 @@ AI-powered session coaching available directly from any session. The coach reads
 | `/` | Focus search |
 | `E` / `Shift+E` | Next / Previous error |
 | `Cmd+K` | Command palette |
+| `Cmd+Shift+K` | Toggle Session Q&A drawer |
 | `Enter` / `Shift+Enter` | Next / Previous search match |
 
 ## Supported Formats
@@ -298,6 +300,8 @@ src/
     useSearch.js         # Debounced full-text search with match highlighting
     useKeyboardShortcuts.js  # Centralized keyboard handler
     useSessionLoader.js  # File parsing, live init from /api/file, session reset
+    useQA.js             # Session Q&A state: messages, classifier, SSE streaming
+    useFeatureFlag.js    # localStorage-backed feature flag evaluation
     useLiveStream.js     # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js    # localStorage-backed useState with debounced writes
     useDiscoveredSessions.js # Auto-discovery of Copilot CLI sessions via /api/sessions
@@ -314,6 +318,8 @@ src/
     autonomyMetrics.js   # Human response time, idle gaps, intervention scoring
     projectConfig.js     # Project config surface detection (CLAUDE.md, .github/, etc.)
     aiCoachAgent.js      # AI Coach powered by @github/copilot-sdk (gpt-4o)
+    qaClassifier.js      # Session Q&A instant answer engine (9 patterns + model context)
+    qaAgent.js           # Q&A agent powered by @github/copilot-sdk for model fallback
     theme.js             # Design tokens (true black base, blue/purple/green accents)
     constants.js         # Sample events for demo mode
     replayLayout.js      # Virtualized windowing for large sessions
@@ -340,6 +346,7 @@ src/
     DataInspector.jsx    # Readable payload inspector with summaries and copy support
     LiveIndicator.jsx    # Pulsing LIVE badge shown in CLI streaming mode
     ShortcutsModal.jsx   # Keyboard shortcuts overlay
+    QADrawer.jsx         # Session Q&A slide-over drawer with instant answers
     RecentSessionsPicker.jsx # Recent sessions dropdown picker
     SyntaxHighlight.jsx  # Lightweight code syntax coloring for payload previews
     ResizablePanel.jsx   # Drag-to-resize split panel utility
@@ -410,6 +417,7 @@ Please open an issue to discuss larger changes before submitting a PR.
 - [x] Conversation flow graph (directed graph of turns and decisions)
 - [x] Inbox auto-discovery (Copilot CLI sessions found and ranked automatically)
 - [x] AI Coach agent (session analysis with one-click config recommendations)
+- [x] Session Q&A drawer (instant answers + Copilot SDK model fallback)
 - [x] Autonomy metrics (human response time, idle gaps, intervention frequency)
 - [ ] Bookmarks and annotations (persisted to localStorage)
 - [ ] Graph minimap and large-session clustering

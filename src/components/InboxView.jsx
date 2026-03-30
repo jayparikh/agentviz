@@ -80,6 +80,94 @@ function filterByQuery(entries, q) {
   });
 }
 
+function CustomSelect({ ariaLabel, value, onChange, options }) {
+  var [open, setOpen] = useState(false);
+  var ref = useRef(null);
+  var selected = options.find(function (o) { return o.id === value; });
+
+  useEffect(function () {
+    if (!open) return;
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return function () { document.removeEventListener("mousedown", handleClick); };
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        type="button"
+        className="av-btn"
+        aria-label={ariaLabel}
+        onClick={function () { setOpen(function (v) { return !v; }); }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: theme.bg.base,
+          color: theme.text.muted,
+          border: "1px solid " + theme.border.default,
+          borderRadius: theme.radius.md,
+          padding: "5px 10px",
+          fontSize: theme.fontSize.xs,
+          fontFamily: theme.font.mono,
+          cursor: "pointer",
+          minWidth: 120,
+        }}
+      >
+        <span style={{ flex: 1, textAlign: "left" }}>{selected ? selected.label : ""}</span>
+        <Icon name="chevron-down" size={10} style={{ opacity: 0.5 }} />
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute",
+          top: "calc(100% + 4px)",
+          right: 0,
+          background: theme.bg.surface,
+          border: "1px solid " + theme.border.strong,
+          borderRadius: theme.radius.lg,
+          padding: 4,
+          zIndex: theme.z.tooltip,
+          boxShadow: theme.shadow.md,
+          minWidth: 180,
+        }}>
+          {options.map(function (option) {
+            var isActive = option.id === value;
+            return (
+              <button
+                key={option.id}
+                className="av-interactive"
+                onClick={function () { onChange(option.id); setOpen(false); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                  padding: "5px 10px",
+                  borderRadius: theme.radius.md,
+                  background: isActive ? theme.bg.raised : "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontSize: theme.fontSize.xs,
+                  fontFamily: theme.font.mono,
+                  color: isActive ? theme.accent.primary : theme.text.secondary,
+                }}
+              >
+                <span style={{ width: 12, textAlign: "center", fontSize: theme.fontSize.xs }}>
+                  {isActive ? "\u2713" : ""}
+                </span>
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [query, setQuery] = useState("");
@@ -154,8 +242,8 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             {discoveredCount > 0 && discoveredCount + " unanalyzed"}
           </span>
         )}
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "4px 8px" }}>
-          <Icon name="search" size={12} style={{ color: theme.text.ghost, flexShrink: 0 }} />
+        <div className="av-search-wrap" style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "4px 8px", transition: "border-color 150ms ease-out" }}>
+          <Icon name="search" size={13} style={{ color: theme.text.dim, flexShrink: 0 }} />
           <input
             ref={searchRef}
             type="text"
@@ -168,7 +256,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               border: "none",
               outline: "none",
               color: theme.text.primary,
-              fontSize: theme.fontSize.base,
+              fontSize: theme.fontSize.sm,
               fontFamily: theme.font.mono,
               width: "100%",
             }}
@@ -179,26 +267,12 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             </button>
           )}
         </div>
-        <select
-          aria-label="Sort inbox sessions"
+        <CustomSelect
+          ariaLabel="Sort inbox sessions"
           value={sortMode}
-          onChange={function (event) { setSortMode(event.target.value); }}
-          style={{
-            background: theme.bg.base,
-            color: theme.text.muted,
-            border: "1px solid " + theme.border.default,
-            borderRadius: theme.radius.md,
-            padding: "5px 8px",
-            fontSize: theme.fontSize.xs,
-            fontFamily: theme.font.mono,
-            outline: "none",
-            flexShrink: 0,
-          }}
-        >
-          {SORT_OPTIONS.map(function (option) {
-            return <option key={option.id} value={option.id}>{option.label}</option>;
-          })}
-        </select>
+          onChange={function (val) { setSortMode(val); }}
+          options={SORT_OPTIONS}
+        />
         {onImport && (
           <label title="Import a session file" style={{
             display: "flex", alignItems: "center", gap: 4, padding: "5px 8px",
@@ -226,12 +300,14 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             borderRadius: theme.radius.xl,
             padding: "18px 16px",
             color: theme.text.muted,
+            fontSize: theme.fontSize.sm,
+            fontFamily: theme.font.mono,
             lineHeight: 1.8,
             background: alpha(theme.bg.base, 0.4),
           }}>
             {query
               ? "No sessions matching \"" + query + "\""
-              : <>Sessions from <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
+              : <>Sessions from <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.copilot/session-state/</span> and <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
             }
             {!query && (onLoadSample || onStartCompare) && (
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 12 }}>
@@ -415,7 +491,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                         flexShrink: 0,
                       }}
                     >
-                      Analyze
+                      Open
                     </button>
                   </div>
                 </div>

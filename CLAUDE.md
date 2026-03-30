@@ -17,6 +17,8 @@ src/
     usePlayback.js     # Playback state: time, playing, speed, seek, playPause
     useSearch.js       # Debounced search with matchSet/matchedEntries
     useKeyboardShortcuts.js # Centralized keyboard handler (ref-based, stable listener)
+    useQA.js           # Session Q&A state: messages, classifier, SSE streaming, abort
+    useFeatureFlag.js  # localStorage-backed feature flag evaluation
     useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
     useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js # localStorage-backed useState with debounced writes
@@ -36,6 +38,8 @@ src/
     autonomyMetrics.js # Human response time, idle gaps, intervention scoring
     projectConfig.js   # Project config surface detection (CLAUDE.md, .github/, etc.)
     aiCoachAgent.js    # AI Coach powered by @github/copilot-sdk (gpt-4o)
+    qaClassifier.js    # Session Q&A instant answer engine (9 patterns + model context)
+    qaAgent.js         # Q&A agent powered by @github/copilot-sdk for model fallback
     replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
     commandPalette.js  # Precomputed search index with scoring and per-type caps
     diffUtils.js       # Diff detection (isFileEditEvent) + Myers line diff algorithm
@@ -62,6 +66,7 @@ src/
     DataInspector.jsx  # Readable payload inspector with summaries and copy support
     LiveIndicator.jsx  # Pulsing LIVE badge shown in CLI streaming mode
     ShortcutsModal.jsx # Keyboard shortcuts overlay
+    QADrawer.jsx       # Session Q&A slide-over drawer with instant answers
     RecentSessionsPicker.jsx # Recent sessions dropdown picker
     SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
     ResizablePanel.jsx # Drag-to-resize split panel utility
@@ -103,7 +108,7 @@ Agent types: user, assistant, system
 - `npm run dev` - Start Vite dev server on port 3000
 - `node bin/agentviz.js` - Start API backend on port 4242 (Coach, sessions, config, apply, streaming)
 - `npm run build` - Production build to dist/
-- `npm test` - Run 253 tests via Vitest (parsers, layout, diff, graph, autonomy, regressions, and more)
+- `npm test` - Run 300 tests via Vitest (parsers, layout, diff, graph, autonomy, QA, regressions, and more)
 - `npm run test:watch` - Watch mode for tests
 
 For full functionality in dev mode, run BOTH `node bin/agentviz.js` and `npm run dev`.

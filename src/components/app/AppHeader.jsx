@@ -52,6 +52,8 @@ export default function AppHeader({
       borderBottom: "1px solid " + theme.border.default,
       flexShrink: 0,
       minWidth: 0,
+      height: 44,
+      boxSizing: "border-box",
       position: "relative",
       zIndex: theme.z.active,
     }}>
@@ -84,7 +86,9 @@ export default function AppHeader({
       <div style={{
         display: "flex",
         gap: 2,
-        margin: "0 auto",
+        position: "absolute",
+        left: "50%",
+        transform: "translateX(-50%)",
         background: theme.bg.surface,
         borderRadius: theme.radius.lg,
         padding: 2,
@@ -117,10 +121,10 @@ export default function AppHeader({
         })}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: "auto" }}>
         {showSearch && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
-            <Icon name="search" size={13} style={{ color: theme.text.dim }} />
+          <div className="av-search-wrap" style={{ display: "flex", alignItems: "center", gap: 6, position: "relative", background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "4px 8px", transition: "border-color 150ms ease-out" }}>
+            <Icon name="search" size={13} style={{ color: theme.text.dim, flexShrink: 0 }} />
             <input
               ref={searchInputRef}
               id="agentviz-search"
@@ -142,10 +146,8 @@ export default function AppHeader({
               style={{
                 background: "transparent",
                 border: "none",
-                borderBottom: "1px solid " + theme.border.default,
-                borderRadius: 0,
                 color: theme.text.primary,
-                padding: "2px 4px",
+                padding: "2px 0",
                 fontSize: theme.fontSize.sm,
                 fontFamily: theme.font.mono,
                 width: 100,
@@ -203,7 +205,9 @@ export default function AppHeader({
           </div>
         )}
 
-        <div style={{ height: 12, width: 1, background: theme.border.default }} />
+        {(showSearch || showFiltersBtn) && (
+          <div style={{ height: 12, width: 1, background: theme.border.default }} />
+        )}
 
         {showFiltersBtn && (
           <div ref={filtersRef} style={{ position: "relative" }}>

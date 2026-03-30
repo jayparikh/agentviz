@@ -343,7 +343,7 @@ export function createServer({ sessionFile, distDir }) {
           }
           res.writeHead(200);
           // Return original content so the client can offer a revert
-          res.end(JSON.stringify({ success: true, path: resolvedPath, originalContent: originalContent }));
+          res.end(JSON.stringify({ success: true, path: path.relative(cwd, resolvedPath), originalContent: originalContent }));
         } catch (e) {
           res.writeHead(500);
           res.end(JSON.stringify({ error: e.message || "Internal server error" }));

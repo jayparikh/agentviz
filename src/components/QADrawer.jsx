@@ -358,6 +358,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
         <div style={{ flexShrink: 0, borderTop: "1px solid " + theme.border.default, padding: "12px 16px 20px" }}>
           <form
             onSubmit={handleSubmit}
+            className="av-search-wrap"
             style={{
               display: "flex",
               alignItems: "center",
@@ -366,6 +367,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               border: "1px solid " + theme.border.default,
               borderRadius: theme.radius.md,
               padding: "4px 8px",
+              transition: "border-color 150ms ease-out",
             }}
           >
             <input
