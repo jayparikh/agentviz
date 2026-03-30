@@ -55,19 +55,30 @@ function buildSessionIndex(data) {
   var turns = data.turns || [];
 
   // Tool index: toolName -> [{turn, snippet, isError}]
-  // searchText is kept only in memory (not persisted) to save localStorage space
   var toolIndex = {};
   for (var i = 0; i < events.length; i++) {
     var e = events[i];
     if (e.track !== "tool_call" || !e.toolName) continue;
     var name = e.toolName.toLowerCase();
     if (!toolIndex[name]) toolIndex[name] = [];
-    var inputStr = e.toolInput ? (typeof e.toolInput === "string" ? e.toolInput : JSON.stringify(e.toolInput)) : "";
-    var textStr = e.text || "";
-    var combined = (textStr + " " + inputStr).trim();
+    // Build a clean, readable snippet from text and toolInput
+    var snippet = "";
+    if (e.toolInput && typeof e.toolInput === "object") {
+      // Extract the most useful field from structured input
+      var inp = e.toolInput;
+      snippet = inp.query || inp.command || inp.cmd || inp.file_path || inp.path || inp.content || inp.code || "";
+      if (!snippet && Object.keys(inp).length > 0) snippet = JSON.stringify(inp);
+    } else if (e.toolInput && typeof e.toolInput === "string") {
+      snippet = e.toolInput;
+    }
+    if (!snippet && e.text) {
+      // Strip the tool name prefix from text if present
+      snippet = e.text.replace(new RegExp("^" + e.toolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[:\\s]*", "i"), "");
+    }
+    if (!snippet) snippet = e.text || "";
     toolIndex[name].push({
       turn: e.turnIndex,
-      snippet: combined.slice(0, 150),
+      snippet: snippet.slice(0, 250),
       isError: e.isError || false,
     });
   }
@@ -763,7 +774,7 @@ function truncate(text, maxLen) {
   return text.slice(0, maxLen) + "...";
 }
 
-var STOP_WORDS = new Set(["the","a","an","is","was","were","are","in","on","to","for","of","and","or","how","many","what","which","did","does","do","this","that","it","its","with","from","by","at","be","been","has","have","had","not","but","they","them","their","there","will","would","could","should","can","may","about","than","then","more","most","also","just","any","all","some","much","each","both"]);
+var STOP_WORDS = new Set(["the","a","an","is","was","were","are","in","on","to","for","of","and","or","how","many","what","which","did","does","do","this","that","it","its","with","from","by","at","be","been","has","have","had","not","but","they","them","their","there","will","would","could","should","can","may","about","than","then","more","most","also","just","any","all","some","much","each","both","first","last","run","ran","running","used","using","get","got","set","made","make","when","where","who","why","show","find","found","give","take","tell","look"]);
 
 function extractKeyTerms(question) {
   var words = question.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/);
