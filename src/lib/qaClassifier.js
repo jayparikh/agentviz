@@ -54,7 +54,8 @@ function buildSessionIndex(data) {
   var events = data.events || [];
   var turns = data.turns || [];
 
-  // Tool index: toolName -> [{turn, snippet, isError, searchText}]
+  // Tool index: toolName -> [{turn, snippet, isError}]
+  // searchText is kept only in memory (not persisted) to save localStorage space
   var toolIndex = {};
   for (var i = 0; i < events.length; i++) {
     var e = events[i];
@@ -63,13 +64,11 @@ function buildSessionIndex(data) {
     if (!toolIndex[name]) toolIndex[name] = [];
     var inputStr = e.toolInput ? (typeof e.toolInput === "string" ? e.toolInput : JSON.stringify(e.toolInput)) : "";
     var textStr = e.text || "";
-    // Combine text + input for both display and search
     var combined = (textStr + " " + inputStr).trim();
     toolIndex[name].push({
       turn: e.turnIndex,
       snippet: combined.slice(0, 150),
       isError: e.isError || false,
-      searchText: combined.toLowerCase().slice(0, 500),
     });
   }
 
@@ -138,13 +137,12 @@ export function searchToolIndex(index, keyword) {
     }
   }
 
-  // Also search full text (tool input + event text) across all tools
+  // Also search snippets (tool input + event text) across all tools
   if (results.length === 0) {
     for (var tn in index.toolIndex) {
       var entries = index.toolIndex[tn];
       for (var i = 0; i < entries.length; i++) {
-        var searchIn = entries[i].searchText || entries[i].snippet.toLowerCase();
-        if (searchIn.indexOf(kw) !== -1) {
+        if (entries[i].snippet.toLowerCase().indexOf(kw) !== -1) {
           results.push(Object.assign({ tool: tn }, entries[i]));
         }
       }
@@ -284,12 +282,10 @@ export function buildModelContext(question, data, sessionIndex) {
     ctx.topTools = getTopTools(data.events, 10);
   }
 
-  // For domain-specific questions, use the tool index for targeted search
-  if (!wantsErrors && !wantsFiles && !wantsCommands && !turnRef && !turnRangeRef) {
+  // Search tool index for domain-specific terms (always, regardless of topic)
+  if (sessionIndex) {
     var keyTerms = extractKeyTerms(q);
-
-    // Search tool index first (fast, covers tool names + snippets)
-    if (sessionIndex && keyTerms.length > 0) {
+    if (keyTerms.length > 0) {
       var indexResults = [];
       for (var ki = 0; ki < keyTerms.length && indexResults.length < 20; ki++) {
         var hits = searchToolIndex(sessionIndex, keyTerms[ki]);
@@ -301,13 +297,16 @@ export function buildModelContext(question, data, sessionIndex) {
         ctx.relevantEvents = indexResults.slice(0, 20);
       }
     }
+  }
 
-    // Fall back to scanning event text if index didn't find anything
-    if (!ctx.relevantEvents && keyTerms.length > 0 && data.events) {
+  // Fall back to scanning event text if no index or no results
+  if (!ctx.relevantEvents) {
+    var fallbackTerms = extractKeyTerms(q);
+    if (fallbackTerms.length > 0 && data.events) {
       var matchingEvents = [];
       for (var ei = 0; ei < data.events.length && matchingEvents.length < 20; ei++) {
         var evText = ((data.events[ei].text || "") + " " + (data.events[ei].toolName || "") + " " + (typeof data.events[ei].toolInput === "string" ? data.events[ei].toolInput : "")).toLowerCase();
-        var matched = keyTerms.some(function (term) { return evText.indexOf(term) !== -1; });
+        var matched = fallbackTerms.some(function (term) { return evText.indexOf(term) !== -1; });
         if (matched) {
           matchingEvents.push({
             turn: data.events[ei].turnIndex,
