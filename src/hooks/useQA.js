@@ -134,10 +134,8 @@ export default function useQA(sessionData, sessionKey) {
       }
     }
 
-    // Add empty assistant message that we'll stream into
-    setMessages(function (prev) {
-      return prev.concat({ role: "assistant", content: "", instant: false, streaming: true, startedAt: startedAt });
-    });
+    // Don't add an empty assistant bubble yet -- the ThinkingIndicator
+    // renders outside the bubble. The bubble appears on first token.
 
     fetchSSE(q, context, controller.signal, {
       onPhase: function (phase) { setStreamPhase(phase); },
@@ -148,6 +146,8 @@ export default function useQA(sessionData, sessionKey) {
             var updated = Object.assign({}, last, { content: last.content + token });
             return prev.slice(0, -1).concat(updated);
           }
+          // First token -- create the bubble now
+          return prev.concat({ role: "assistant", content: token, instant: false, streaming: true, startedAt: startedAt });
           return prev;
         });
       },
@@ -215,8 +215,11 @@ function fetchSSE(question, context, signal, handlers) {
   var timer = setTimeout(function () {
     timedOut = true;
     if (!gotFirstToken) {
-      handlers.onError("Request timed out after 60s. Try a more specific question, or check that the Copilot SDK is running.");
+      handlers.onError("Request timed out after 60s. Try a more specific question.");
     } else {
+      // Model was streaming but didn't finish -- complete gracefully
+      // and append a truncation note via a final token
+      handlers.onToken("\n\n*[Response truncated -- the model needed more time. Try a more specific question for a faster answer.]*");
       handlers.onDone();
     }
   }, QA_TIMEOUT_MS);

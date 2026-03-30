@@ -187,12 +187,24 @@ function SuggestedChips({ sessionData, onAsk }) {
   );
 }
 
-function MessageBubble({ message, onSeekTurn, phase }) {
+function MessageBubble({ message, onSeekTurn, phase, showThinking }) {
   var isUser = message.role === "user";
   var bg = isUser ? alpha(theme.agent.user, 0.08) : alpha(theme.agent.assistant, 0.06);
   var borderColor = isUser ? alpha(theme.agent.user, 0.15) : alpha(theme.agent.assistant, 0.12);
 
-  var parts = isUser ? [{ type: "text", value: message.content }] : parseMessageContent(message.content);
+  // Separate thinking from answer content
+  var content = message.content || "";
+  var thinkingText = "";
+  var answerText = content;
+
+  // Match <think>...</think> blocks (may be unclosed if still streaming)
+  var thinkMatch = content.match(/^<think>([\s\S]*?)(<\/think>|$)/i);
+  if (thinkMatch) {
+    thinkingText = thinkMatch[1].trim();
+    answerText = content.slice(thinkMatch[0].length).trim();
+  }
+
+  var parts = isUser ? [{ type: "text", value: answerText }] : parseMessageContent(answerText);
 
   return (
     <div style={{
@@ -209,8 +221,25 @@ function MessageBubble({ message, onSeekTurn, phase }) {
       alignSelf: isUser ? "flex-end" : "flex-start",
       maxWidth: "92%",
     }}>
-      {message.streaming && !message.content && (
-        <ThinkingIndicator phase={phase} />
+      {thinkingText && showThinking && (
+        <div style={{
+          background: alpha(theme.text.muted, 0.06),
+          border: "1px solid " + alpha(theme.text.muted, 0.1),
+          borderRadius: theme.radius.md,
+          padding: "8px 10px",
+          marginBottom: 10,
+          fontSize: theme.fontSize.sm,
+          color: theme.text.secondary,
+          lineHeight: 1.5,
+        }}>
+          <span style={{ fontSize: theme.fontSize.xs, fontWeight: 600, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            {"\uD83D\uDCA1"} Thinking
+          </span>
+          <div style={{ marginTop: 4 }}>{thinkingText}</div>
+        </div>
+      )}
+      {thinkingText && !showThinking && !answerText && message.streaming && (
+        <ThinkingIndicator phase="streaming" />
       )}
       {parts.map(function (part, i) {
         if (part.type === "ref") {
@@ -287,6 +316,7 @@ function MessageBubble({ message, onSeekTurn, phase }) {
 
 export default function QADrawer({ open, onClose, onDisable, sessionKey, sessionData, onSeek, turns }) {
   var [input, setInput] = useState("");
+  var [showThinking, setShowThinking] = useState(false);
   var messagesEndRef = useRef(null);
   var inputRef = useRef(null);
   var lastQuestionRef = useRef("");
@@ -394,6 +424,24 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
             Session Q&A
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="av-btn"
+              onClick={function () { setShowThinking(function (v) { return !v; }); }}
+              aria-label={showThinking ? "Hide thinking" : "Show thinking"}
+              title={showThinking ? "Hide model thinking" : "Show model thinking"}
+              style={{
+                background: showThinking ? alpha(theme.accent.primary, 0.12) : "none",
+                border: "1px solid " + (showThinking ? alpha(theme.accent.primary, 0.3) : "transparent"),
+                borderRadius: theme.radius.sm,
+                color: showThinking ? theme.accent.primary : theme.text.ghost,
+                cursor: "pointer",
+                fontSize: theme.fontSize.xs,
+                fontFamily: theme.font.mono,
+                padding: "2px 6px",
+              }}
+            >
+              {"\uD83D\uDCA1"}
+            </button>
             {qa.messages.length > 0 && (
               <button
                 className="av-btn"
@@ -464,8 +512,22 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
 
           {qa.messages.map(function (msg, i) {
             var isLastStreaming = msg.streaming && i === qa.messages.length - 1;
-            return <MessageBubble key={i} message={msg} onSeekTurn={handleSeekTurn} phase={isLastStreaming ? qa.streamPhase : null} />;
+            return <MessageBubble key={i} message={msg} onSeekTurn={handleSeekTurn} phase={isLastStreaming ? qa.streamPhase : null} showThinking={showThinking} />;
           })}
+
+          {/* Show thinking indicator when streaming but no bubble yet */}
+          {qa.isStreaming && !qa.messages.some(function (m) { return m.streaming; }) && (
+            <div style={{
+              alignSelf: "flex-start",
+              maxWidth: "92%",
+              background: alpha(theme.agent.assistant, 0.06),
+              border: "1px solid " + alpha(theme.agent.assistant, 0.12),
+              borderRadius: theme.radius.lg,
+              padding: "12px 14px",
+            }}>
+              <ThinkingIndicator phase={qa.streamPhase} />
+            </div>
+          )}
 
           {qa.error && (
             <div style={{
