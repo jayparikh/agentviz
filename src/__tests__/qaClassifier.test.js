@@ -254,6 +254,42 @@ describe("classify: summary", function () {
   });
 });
 
+// ── Definitional bypass ──────────────────────────────────────────────────────
+
+describe("classify: definitional questions bypass instant", function () {
+  it("sends 'what is the sql tool?' to model", function () {
+    var r = classify("what is the sql tool?", SESSION);
+    expect(r.tier).toBe("model");
+  });
+
+  it("sends 'what is the error handling approach?' to model", function () {
+    var r = classify("what is the error handling approach?", SESSION);
+    expect(r.tier).toBe("model");
+  });
+
+  it("sends 'what does the view tool do?' to model", function () {
+    var r = classify("what does the view tool do?", SESSION);
+    expect(r.tier).toBe("model");
+  });
+
+  it("sends 'explain the model selection' to model", function () {
+    var r = classify("explain the model selection", SESSION);
+    expect(r.tier).toBe("model");
+  });
+
+  it("sends 'how does the cost estimation work?' to model", function () {
+    var r = classify("how does the cost estimation work?", SESSION);
+    expect(r.tier).toBe("model");
+  });
+
+  it("still answers stats questions instantly", function () {
+    expect(classify("what tools were used?", SESSION).tier).toBe("instant");
+    expect(classify("how many errors?", SESSION).tier).toBe("instant");
+    expect(classify("what model was used?", SESSION).tier).toBe("instant");
+    expect(classify("how long did it take?", SESSION).tier).toBe("instant");
+  });
+});
+
 // ── Model fallback ──────────────────────────────────────────────────────────
 
 describe("classify: model fallback", function () {

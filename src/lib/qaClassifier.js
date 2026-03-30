@@ -16,7 +16,7 @@ import { estimateCost, formatCost } from "./pricing.js";
 // ── Keyword patterns ────────────────────────────────────────────────────────
 
 var PATTERNS = [
-  { id: "tools",     re: /\b(tool|tools|which tool|what tool|most.?used)\b/i },
+  { id: "tools",     re: /\b(tools\s+used|tool\s+calls?|which\s+tools?|what\s+tools?|most.?used\s+tool|top\s+tools?|tool\s+count|how\s+many\s+tools?|list\s+(all\s+)?tools)\b/i },
   { id: "errors",    re: /\b(error|errors|fail|failure|failures|crash|bug|broke|wrong)\b/i },
   { id: "model",     re: /\b(model|models|which model|what model|llm)\b/i },
   { id: "duration",  re: /\b(how long|duration|how.+time.+take|took|elapsed|minutes?|seconds?)\b/i },
@@ -28,6 +28,10 @@ var PATTERNS = [
 ];
 
 // ── Classifier ──────────────────────────────────────────────────────────────
+
+// Definitional questions ask "what is X" / "what does X do" / "explain X".
+// These need the model even when X contains a keyword like "tool" or "error".
+var DEFINITIONAL_RE = /\b(what\s+(is|are|does|do|was|were)\s+(a|an|the)\s+\w|explain\s+(the|a|an)\s+\w|define\s+\w|describe\s+(the|a|an)\s+\w|tell\s+me\s+about\s+(the|a|an)\s+\w|how\s+does\s+(the|a|an)\s+\w.+work)/i;
 
 /**
  * Classify a question and optionally produce an instant answer.
@@ -41,6 +45,13 @@ export function classify(question, data) {
   if (!data || !data.metadata) return { tier: "model" };
 
   var q = question.trim();
+
+  // Definitional/explanatory questions always go to the model, even if they
+  // contain keywords like "tool", "error", or "model".
+  if (DEFINITIONAL_RE.test(q)) {
+    return { tier: "model", context: buildModelContext(q, data) };
+  }
+
   var matched = matchPattern(q);
 
   if (matched === "turnN") {
