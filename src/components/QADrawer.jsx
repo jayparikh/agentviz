@@ -161,7 +161,7 @@ function MessageBubble({ message, onSeekTurn }) {
   );
 }
 
-export default function QADrawer({ open, onClose, sessionData, onSeek, turns }) {
+export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek, turns }) {
   var [input, setInput] = useState("");
   var messagesEndRef = useRef(null);
   var inputRef = useRef(null);
@@ -355,58 +355,77 @@ export default function QADrawer({ open, onClose, sessionData, onSeek, turns }) 
         </div>
 
         {/* Input area */}
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "12px 16px 24px",
-            borderTop: "1px solid " + theme.border.default,
-            flexShrink: 0,
-          }}
-        >
-          <input
-            ref={inputRef}
-            className="av-search"
-            type="text"
-            value={input}
-            onChange={function (e) { setInput(e.target.value); }}
-            placeholder="Ask about this session..."
-            aria-label="Ask about this session"
-            disabled={qa.isStreaming}
-            style={{
-              flex: 1,
-              background: theme.bg.raised,
-              border: "1px solid " + theme.border.default,
-              borderRadius: theme.radius.md,
-              color: theme.text.primary,
-              fontFamily: theme.font.mono,
-              fontSize: theme.fontSize.sm,
-              padding: "6px 8px",
-              outline: "none",
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || qa.isStreaming}
-            aria-label="Send question"
-            style={{
-              background: input.trim() ? theme.accent.primary : "transparent",
-              border: "1px solid " + (input.trim() ? theme.accent.primary : theme.border.default),
-              borderRadius: theme.radius.md,
-              color: input.trim() ? "#fff" : theme.text.ghost,
-              cursor: input.trim() ? "pointer" : "default",
-              padding: "5px 7px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
+        <div style={{ flexShrink: 0, borderTop: "1px solid " + theme.border.default, padding: "12px 16px 20px" }}>
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: "flex", alignItems: "center", gap: 8 }}
           >
-            <Icon name="send" size={12} />
-          </button>
-        </form>
+            <input
+              ref={inputRef}
+              className="av-search"
+              type="text"
+              value={input}
+              onChange={function (e) { setInput(e.target.value); }}
+              placeholder="Ask about this session..."
+              aria-label="Ask about this session"
+              disabled={qa.isStreaming}
+              style={{
+                flex: 1,
+                background: theme.bg.raised,
+                border: "1px solid " + theme.border.default,
+                borderRadius: theme.radius.md,
+                color: theme.text.primary,
+                fontFamily: theme.font.mono,
+                fontSize: theme.fontSize.sm,
+                padding: "6px 8px",
+                outline: "none",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || qa.isStreaming}
+              aria-label="Send question"
+              style={{
+                background: input.trim() ? theme.accent.primary : "transparent",
+                border: "1px solid " + (input.trim() ? theme.accent.primary : theme.border.default),
+                borderRadius: theme.radius.md,
+                color: input.trim() ? "#fff" : theme.text.ghost,
+                cursor: input.trim() ? "pointer" : "default",
+                padding: "5px 7px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Icon name="send" size={12} />
+            </button>
+          </form>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+            <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
+              <kbd style={{
+                background: "rgba(35,35,51,0.5)",
+                border: "1px solid " + theme.border.default,
+                borderRadius: theme.radius.sm,
+                padding: "1px 5px",
+                fontSize: theme.fontSize.xs,
+                color: theme.text.primary,
+              }}>Esc</kbd>{" "}to close
+            </span>
+            <button
+              onClick={function () { if (onDisable) onDisable(); }}
+              style={{
+                background: "none",
+                border: "none",
+                color: theme.text.ghost,
+                fontSize: theme.fontSize.xs,
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontFamily: theme.font.mono,
+              }}
+            >Disable Q&A</button>
+          </div>
+        </div>
       </div>
     </>
   );

@@ -45,7 +45,8 @@ describe("command palette helpers", function () {
       { index: 1, startTime: 5, userMessage: "Inspect tool calls", hasError: true },
     ]);
 
-    expect(index.defaults[0].type).toBe("view");
+    expect(index.defaults[0].type).toBe("action");
+    expect(index.defaults.some(function (item) { return item.type === "view"; })).toBe(true);
     expect(index.defaults.some(function (item) { return item.type === "turn"; })).toBe(true);
   });
 

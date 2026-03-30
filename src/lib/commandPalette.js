@@ -1,6 +1,7 @@
 var DEFAULT_TURN_LIMIT = 8;
 var MAX_RESULTS = 24;
 var TYPE_CAPS = {
+  action: 4,
   view: 4,
   turn: 8,
   event: 12,
@@ -20,8 +21,15 @@ function buildViewItems() {
   ];
 }
 
+function buildActionItems() {
+  return [
+    { id: "action-qa", type: "action", label: "Session Q&A", iconName: "message-circle", actionId: "toggleQA", searchText: "session qa question answer ask chat drawer", priority: 42 },
+  ];
+}
+
 export function buildCommandPaletteIndex(events, turns) {
   var viewItems = buildViewItems();
+  var actionItems = buildActionItems();
   var turnItems = [];
   var eventItems = [];
   var seenEvents = {};
@@ -73,8 +81,8 @@ export function buildCommandPaletteIndex(events, turns) {
 
   return {
     views: viewItems,
-    defaults: viewItems.concat(turnItems.slice(0, DEFAULT_TURN_LIMIT)),
-    items: viewItems.concat(turnItems, eventItems),
+    defaults: actionItems.concat(viewItems, turnItems.slice(0, DEFAULT_TURN_LIMIT)),
+    items: actionItems.concat(viewItems, turnItems, eventItems),
   };
 }
 
@@ -99,6 +107,7 @@ function scoreItem(item, query, queryTokens) {
   else if (text.indexOf(query) === 0) score += 35;
   else if (text.indexOf(query) !== -1) score += 12;
 
+  if (item.type === "action") score += 8;
   if (item.type === "view") score += 6;
   if (item.type === "turn") score += 4;
 

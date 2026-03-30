@@ -507,6 +507,9 @@ export default function App() {
             setView(nextView);
             setShowPalette(false);
           }}
+          onAction={function (actionId) {
+            if (actionId === "toggleQA") setShowQA(true);
+          }}
           onClose={function () { setShowPalette(false); }}
         />
       )}
@@ -578,6 +581,7 @@ export default function App() {
       <QADrawer
         open={showQA}
         onClose={function () { setShowQA(false); }}
+        onDisable={function () { setShowQA(false); qaFlag.setEnabled(false); }}
         sessionData={{
           events: session.events,
           turns: session.turns,
