@@ -1,11 +1,8 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { theme } from "./lib/theme.js";
 import { exportSingleSession, exportComparison } from "./lib/exportHtml.js";
-import { buildFilteredEventEntries, buildTurnStartMap, buildTimeMap } from "./lib/session";
 import usePersistentState from "./hooks/usePersistentState.js";
 import useSessionLoader from "./hooks/useSessionLoader.js";
-import usePlayback from "./hooks/usePlayback.js";
-import useSearch from "./hooks/useSearch.js";
 import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts.js";
 import useLiveStream from "./hooks/useLiveStream.js";
 import useAsyncStatus from "./hooks/useAsyncStatus.js";
@@ -24,7 +21,7 @@ import AppLandingState from "./components/app/AppLandingState.jsx";
 import AppLoadingState from "./components/app/AppLoadingState.jsx";
 import CompareLandingState from "./components/app/CompareLandingState.jsx";
 import CompareShell from "./components/app/CompareShell.jsx";
-import { APP_VIEWS, PLAYBACK_SPEEDS } from "./components/app/constants.js";
+import { APP_VIEWS } from "./components/app/constants.js";
 import DebriefView from "./components/DebriefView.jsx";
 import QADrawer from "./components/QADrawer.jsx";
 import useFeatureFlag from "./hooks/useFeatureFlag.js";
@@ -34,6 +31,7 @@ import {
   persistSessionSnapshot,
   readSessionLibrary,
 } from "./lib/sessionLibrary.js";
+import { PlaybackProvider, usePlaybackContext } from "./contexts/PlaybackContext.jsx";
 
 function renderActiveView(activeView, props) {
   if (activeView === "replay") {
@@ -115,7 +113,6 @@ function renderActiveView(activeView, props) {
 
 export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
-  var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
   var [libraryEntries, setLibraryEntries] = useState(function () {
     return readSessionLibrary();
   });
@@ -201,57 +198,17 @@ export default function App() {
     sessionB.handleFile(compareData.b.text, compareData.b.name);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  var playback = usePlayback(session.total, session.isLive);
-
   useLiveStream({
     enabled: session.isLive,
     onLines: session.appendLines,
   });
 
-  var filteredEventEntries = useMemo(function () {
-    return buildFilteredEventEntries(session.events, trackFilters);
-  }, [session.events, trackFilters]);
-
-  var filteredEvents = useMemo(function () {
-    return filteredEventEntries.map(function (entry) { return entry.event; });
-  }, [filteredEventEntries]);
   var autonomyMetrics = useMemo(function () {
     return buildAutonomyMetrics(session.events, session.turns, session.metadata);
   }, [session.events, session.turns, session.metadata]);
   var debrief = useMemo(function () {
     return { summary: buildAutonomySummary(autonomyMetrics) };
   }, [autonomyMetrics]);
-
-  var turnStartMap = useMemo(function () {
-    return buildTurnStartMap(session.turns);
-  }, [session.turns]);
-
-  var timeMap = useMemo(function () {
-    return buildTimeMap(session.events);
-  }, [session.events]);
-
-  var search = useSearch(filteredEventEntries);
-
-  useEffect(function () {
-    if (session.total > 0) {
-      playback.seek(session.total);
-    }
-  }, [session.total, session.isLive, playback.seek]);
-
-  useEffect(function () {
-    if (!showFilters) return;
-
-    function handleClick(e) {
-      if (filtersRef.current && !filtersRef.current.contains(e.target)) {
-        setShowFilters(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClick);
-    return function () {
-      document.removeEventListener("mousedown", handleClick);
-    };
-  }, [showFilters]);
 
   var isValidView = APP_VIEWS.some(function (item) { return item.id === view; });
   var activeView = isValidView ? view : "replay";
@@ -260,18 +217,11 @@ export default function App() {
     if (!isValidView) setView("replay");
   }, [isValidView]);
 
-  var resetVisualizerState = useCallback(function () {
-    playback.resetPlayback(0);
-    search.clearSearch();
-    setTrackFilters({});
+  var handleFile = useCallback(function (text, name) {
     setShowPalette(false);
     setShowFilters(false);
-  }, [playback.resetPlayback, search.clearSearch, setTrackFilters]);
-
-  var handleFile = useCallback(function (text, name) {
-    resetVisualizerState();
     session.handleFile(text, name);
-  }, [resetVisualizerState, session.handleFile]);
+  }, [session.handleFile]);
 
   var openStoredSession = useCallback(function (entry) {
     if (!entry) return;
@@ -309,16 +259,18 @@ export default function App() {
   }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);
 
   var loadSample = useCallback(function () {
-    resetVisualizerState();
+    setShowPalette(false);
+    setShowFilters(false);
     session.loadSample();
-  }, [resetVisualizerState, session.loadSample]);
+  }, [session.loadSample]);
 
   var reset = useCallback(function () {
-    resetVisualizerState();
+    setShowPalette(false);
+    setShowFilters(false);
     session.resetSession();
     sessionB.resetSession();
     setCompareLanding(false);
-  }, [resetVisualizerState, session.resetSession, sessionB.resetSession]);
+  }, [session.resetSession, sessionB.resetSession]);
 
   useHashRouter({
     hasSession: Boolean(session.events),
@@ -333,12 +285,11 @@ export default function App() {
   var openCompareSessionInCoach = useCallback(function (loader) {
     var rawText = loader.getRawText();
     if (!rawText) return;
-    resetVisualizerState();
     session.handleFile(rawText, loader.file);
     sessionB.resetSession();
     setCompareLanding(false);
     setView("coach");
-  }, [resetVisualizerState, session.handleFile, sessionB.resetSession, setView]);
+  }, [session.handleFile, sessionB.resetSession, setView]);
 
   var handleExportSession = useCallback(function () {
     var rawText = session.getRawText();
@@ -358,88 +309,6 @@ export default function App() {
   }, [compareExport, session.getRawText, session.file, sessionB.getRawText, sessionB.file]);
 
   var compareReady = compareLanding && Boolean(session.events) && Boolean(sessionB.events);
-
-  var toggleTrackFilter = useCallback(function (track) {
-    setTrackFilters(function (prev) {
-      var next = Object.assign({}, prev);
-      if (next[track]) {
-        delete next[track];
-      } else {
-        next[track] = true;
-      }
-      return next;
-    });
-  }, [setTrackFilters]);
-
-  var activeFilterCount = Object.keys(trackFilters).length;
-  var cycleSpeed = useCallback(function () {
-    var idx = PLAYBACK_SPEEDS.indexOf(playback.speed);
-    var next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
-    playback.setSpeed(next);
-  }, [playback.speed, playback.setSpeed]);
-
-  var jumpToEntries = useCallback(function (entries, direction) {
-    if (!entries || entries.length === 0) return;
-
-    if (direction === "next") {
-      for (var i = 0; i < entries.length; i++) {
-        if (entries[i].event.t > playback.time + 0.1) {
-          playback.seek(entries[i].event.t);
-          return;
-        }
-      }
-      playback.seek(entries[0].event.t);
-      return;
-    }
-
-    for (var j = entries.length - 1; j >= 0; j--) {
-      if (entries[j].event.t < playback.time - 0.1) {
-        playback.seek(entries[j].event.t);
-        return;
-      }
-    }
-    playback.seek(entries[entries.length - 1].event.t);
-  }, [playback.seek, playback.time]);
-
-  var errorEntries = useMemo(function () {
-    return filteredEventEntries.filter(function (entry) { return entry.event.isError; });
-  }, [filteredEventEntries]);
-
-  var jumpToError = useCallback(function (direction) {
-    jumpToEntries(errorEntries, direction);
-  }, [errorEntries, jumpToEntries]);
-
-  var jumpToMatch = useCallback(function (direction) {
-    jumpToEntries(search.matchedEntries, direction);
-  }, [jumpToEntries, search.matchedEntries]);
-
-  var focusSearch = useCallback(function () {
-    var el = searchInputRef.current;
-    if (el && el.offsetParent !== null) {
-      el.focus();
-      return true;
-    }
-    return false;
-  }, []);
-
-  useKeyboardShortcuts({
-    hasSession: Boolean(session.events),
-    showHero: session.showHero,
-    showPalette: showPalette || showQA,
-    time: playback.time,
-    onTogglePalette: function () { setShowPalette(function (prev) { return !prev; }); },
-    onDismissHero: session.dismissHero,
-    onPlayPause: playback.playPause,
-    onSeek: playback.seek,
-    onSetView: setView,
-    onJumpToError: jumpToError,
-    onFocusSearch: focusSearch,
-    onToggleShortcuts: function () { setShowShortcuts(function (prev) { return !prev; }); },
-    onToggleQA: function () {
-      if (!qaFlag.enabled) qaFlag.setEnabled(true);
-      setShowQA(function (prev) { return !prev; });
-    },
-  });
 
   if (session.loading || (compareLanding && sessionB.loading)) {
     return <AppLoadingState />;
@@ -484,6 +353,91 @@ export default function App() {
     );
   }
 
+  // Active session view: wrap in PlaybackProvider so children can use usePlaybackContext()
+  return (
+    <PlaybackProvider key={session.file} session={session}>
+      <AppSessionView
+        session={session}
+        activeView={activeView}
+        setView={setView}
+        autonomyMetrics={autonomyMetrics}
+        debrief={debrief}
+        showPalette={showPalette}
+        setShowPalette={setShowPalette}
+        showShortcuts={showShortcuts}
+        setShowShortcuts={setShowShortcuts}
+        showFilters={showFilters}
+        setShowFilters={setShowFilters}
+        showQA={showQA}
+        setShowQA={setShowQA}
+        qaFlag={qaFlag}
+        searchInputRef={searchInputRef}
+        filtersRef={filtersRef}
+        reset={reset}
+        allSessions={allSessions}
+        openStoredSession={openStoredSession}
+        handleExportSession={handleExportSession}
+        sessionExport={sessionExport}
+        setCompareLanding={setCompareLanding}
+      />
+    </PlaybackProvider>
+  );
+}
+
+// ── Active session view (consumes PlaybackContext) ──────────────────────────
+
+function AppSessionView({
+  session, activeView, setView, autonomyMetrics, debrief,
+  showPalette, setShowPalette, showShortcuts, setShowShortcuts,
+  showFilters, setShowFilters, showQA, setShowQA, qaFlag,
+  searchInputRef, filtersRef, reset, allSessions, openStoredSession,
+  handleExportSession, sessionExport, setCompareLanding,
+}) {
+  var pb = usePlaybackContext();
+
+  useEffect(function () {
+    if (!showFilters) return;
+
+    function handleClick(e) {
+      if (filtersRef.current && !filtersRef.current.contains(e.target)) {
+        setShowFilters(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    return function () {
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [showFilters]);
+
+  var focusSearch = useCallback(function () {
+    var el = searchInputRef.current;
+    if (el && el.offsetParent !== null) {
+      el.focus();
+      return true;
+    }
+    return false;
+  }, []);
+
+  useKeyboardShortcuts({
+    hasSession: Boolean(session.events),
+    showHero: session.showHero,
+    showPalette: showPalette || showQA,
+    time: pb.playback.time,
+    onTogglePalette: function () { setShowPalette(function (prev) { return !prev; }); },
+    onDismissHero: session.dismissHero,
+    onPlayPause: pb.playback.playPause,
+    onSeek: pb.playback.seek,
+    onSetView: setView,
+    onJumpToError: pb.jumpToError,
+    onFocusSearch: focusSearch,
+    onToggleShortcuts: function () { setShowShortcuts(function (prev) { return !prev; }); },
+    onToggleQA: function () {
+      if (!qaFlag.enabled) qaFlag.setEnabled(true);
+      setShowQA(function (prev) { return !prev; });
+    },
+  });
+
   return (
     <div style={{
       width: "100%",
@@ -500,7 +454,7 @@ export default function App() {
           events={session.events}
           turns={session.turns}
           onSeek={function (nextTime) {
-            playback.seek(nextTime);
+            pb.playback.seek(nextTime);
             setShowPalette(false);
           }}
           onSetView={function (nextView) {
@@ -524,20 +478,20 @@ export default function App() {
         views={APP_VIEWS}
         onSetView={setView}
         onReset={reset}
-        search={search}
+        search={pb.search}
         searchInputRef={searchInputRef}
-        onJumpToMatch={jumpToMatch}
+        onJumpToMatch={pb.jumpToMatch}
         onShowPalette={function () { setShowPalette(true); }}
-        errorEntries={errorEntries}
-        onJumpToError={jumpToError}
+        errorEntries={pb.errorEntries}
+        onJumpToError={pb.jumpToError}
         filtersRef={filtersRef}
         showFilters={showFilters}
         onToggleFilters={function () { setShowFilters(function (p) { return !p; }); }}
-        activeFilterCount={activeFilterCount}
-        trackFilters={trackFilters}
-        onToggleTrackFilter={toggleTrackFilter}
-        speed={playback.speed}
-        onCycleSpeed={cycleSpeed}
+        activeFilterCount={pb.activeFilterCount}
+        trackFilters={pb.trackFilters}
+        onToggleTrackFilter={pb.toggleTrackFilter}
+        speed={pb.playback.speed}
+        onCycleSpeed={pb.cycleSpeed}
         onStartCompare={function () { setCompareLanding(true); }}
         hasRawText={Boolean(session.getRawText())}
         onExportSession={handleExportSession}
@@ -550,28 +504,28 @@ export default function App() {
 
       <div style={{ padding: "8px 20px 0", flexShrink: 0 }}>
         <Timeline
-          currentTime={playback.time}
+          currentTime={pb.playback.time}
           totalTime={session.total}
-          timeMap={timeMap}
-          onSeek={playback.seek}
-          isPlaying={playback.playing}
-          onPlayPause={playback.playPause}
+          timeMap={pb.timeMap}
+          onSeek={pb.playback.seek}
+          isPlaying={pb.playback.playing}
+          onPlayPause={pb.playback.playPause}
           isLive={session.isLive}
-          eventEntries={filteredEventEntries}
+          eventEntries={pb.filteredEventEntries}
           turns={session.turns}
-          matchSet={search.matchSet}
+          matchSet={pb.search.matchSet}
         />
       </div>
 
       <div style={{ flex: 1, padding: "8px 20px 16px", minHeight: 0, overflow: "hidden" }}>
         {renderActiveView(activeView, {
-          playback: playback,
-          filteredEventEntries: filteredEventEntries,
-          filteredEvents: filteredEvents,
+          playback: pb.playback,
+          filteredEventEntries: pb.filteredEventEntries,
+          filteredEvents: pb.filteredEvents,
           session: session,
-          search: search,
-          timeMap: timeMap,
-          turnStartMap: turnStartMap,
+          search: pb.search,
+          timeMap: pb.timeMap,
+          turnStartMap: pb.turnStartMap,
           autonomyMetrics: autonomyMetrics,
           debrief: debrief,
           onOpenCoach: function () { setView("coach"); },
@@ -588,7 +542,7 @@ export default function App() {
           metadata: session.metadata,
           autonomyMetrics: autonomyMetrics,
         }}
-        onSeek={playback.seek}
+        onSeek={pb.playback.seek}
         turns={session.turns}
       />
     </div>
