@@ -7,6 +7,7 @@
 Drop a Claude Code or Copilot CLI session file and explore the agent's reasoning, tool calls, turn flow, and output through replay, tracks, waterfall, graph, and stats views. Or run it from the CLI for a live view that updates as your session unfolds.
 
 [![CI](https://github.com/jayparikh/agentviz/actions/workflows/ci.yml/badge.svg)](https://github.com/jayparikh/agentviz/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/agentviz?color=blue&logo=npm)](https://www.npmjs.com/package/agentviz)
 ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -36,25 +37,19 @@ AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, b
 
 ## Quick Start
 
-### Web app (drag and drop)
-
 ```bash
-git clone https://github.com/jayparikh/agentviz.git
-cd agentviz
-npm install
-npm run dev
+npx agentviz
 ```
 
-Opens at [localhost:3000](http://localhost:3000). Drop a `.jsonl` session file or click **load a demo session** to try it instantly.
+Opens AGENTVIZ in your browser. Drop a `.jsonl` session file or click **load a demo session** to try it instantly. Copilot CLI sessions are auto-discovered from `~/.copilot/session-state/`.
 
 ### CLI (live streaming)
 
 ```bash
-# Point at a specific session file
-node bin/agentviz.js ~/.claude/projects/my-project/session.jsonl
+npx agentviz ~/.claude/projects/my-project/session.jsonl
 
 # Or pass a directory -- opens the most recently modified .jsonl inside it
-node bin/agentviz.js ~/.claude/projects/my-project/
+npx agentviz ~/.claude/projects/my-project/
 ```
 
 The browser opens with a pulsing **LIVE** badge. As Claude Code writes new events to the session file, they stream into the view in real time via SSE, including records that are written incrementally before the trailing newline lands.
@@ -404,9 +399,9 @@ server.js                # HTTP server: serves dist/ SPA + SSE /api/stream file 
 ## Usage
 
 ```bash
-npm start                # Build and launch AGENTVIZ in browser
-node bin/agentviz.js     # Launch (skip build if dist/ exists)
-node bin/agentviz.js session.jsonl  # Open a specific session file
+npx agentviz                         # Run without installing
+npx agentviz session.jsonl           # Open a specific session file
+npm start                            # Build and launch (from cloned repo)
 ```
 
 AGENTVIZ can also be launched from Claude Code or Copilot CLI via the MCP `launch_agentviz` tool.
@@ -481,7 +476,7 @@ Please open an issue to discuss larger changes before submitting a PR.
 - [ ] Multi-agent hierarchy (parent/child agents, nested tracks)
 - [ ] Shareable session URLs
 - [ ] Vim-style keyboard navigation
-- [ ] `npx agentviz` (publish to npm)
+- [x] `npx agentviz` (published to npm)
 
 ## License
 
