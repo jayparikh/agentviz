@@ -25,6 +25,7 @@
     "bin",
     "mcp",
     "dist",
+    "routes",
     "server.js",
     "config.js",
     "src/lib",
