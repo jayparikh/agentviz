@@ -31,6 +31,8 @@ import {
   ArrowRight,
   Send,
   Sparkles,
+  List,
+  LayoutGrid,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -66,6 +68,8 @@ var ICON_MAP = {
   "arrow-right": ArrowRight,
   send: Send,
   sparkles: Sparkles,
+  list: List,
+  grid: LayoutGrid,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

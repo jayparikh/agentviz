@@ -613,6 +613,100 @@ dim the partial cards:
 - Full data: normal rendering
 - Partial data: `opacity: 0.7` on the metrics row, show "Not yet analyzed" in `theme.text.dim`
 
+### Health Bar Colors (Session Cards)
+
+Left-edge 3px health bars on session grid cards use semantic colors based on `reviewScore`:
+
+| Threshold | Color token | Meaning |
+|-----------|-------------|---------|
+| `reviewScore < 3` | `theme.semantic.success` (`#10d97a`) | Healthy |
+| `reviewScore 3-8` | `theme.accent.primary` (`#6475e8`) | Needs review |
+| `reviewScore > 8` | `theme.semantic.error` (`#ef4444`) | Problems |
+| No metrics | `theme.border.strong` (`#2e2e42`) | Not yet analyzed |
+
+Use `borderLeft: "3px solid " + healthColor` on the card element -- no absolute-positioned pseudo-element needed.
+
+### View Toggle (List / Grid)
+
+Inbox-style panels that support both list and grid views use a paired icon toggle in the toolbar:
+
+```jsx
+<div style={{
+  display: "flex",
+  background: theme.bg.base,
+  border: "1px solid " + theme.border.default,
+  borderRadius: theme.radius.md,
+  padding: 1,
+  flexShrink: 0,
+}}>
+  <button
+    type="button"
+    className="av-btn"
+    aria-label="List view"
+    onClick={() => setViewMode("list")}
+    style={{
+      background: viewMode === "list" ? theme.bg.raised : "transparent",
+      border: "none",
+      borderRadius: theme.radius.sm,
+      padding: "4px 6px",
+      cursor: "pointer",
+      color: viewMode === "list" ? theme.text.primary : theme.text.ghost,
+      display: "flex",
+      alignItems: "center",
+    }}
+  >
+    <Icon name="list" size={11} />
+  </button>
+  <button
+    type="button"
+    className="av-btn"
+    aria-label="Grid view"
+    onClick={() => setViewMode("grid")}
+    style={{
+      background: viewMode === "grid" ? theme.bg.raised : "transparent",
+      border: "none",
+      borderRadius: theme.radius.sm,
+      padding: "4px 6px",
+      cursor: "pointer",
+      color: viewMode === "grid" ? theme.text.primary : theme.text.ghost,
+      display: "flex",
+      alignItems: "center",
+    }}
+  >
+    <Icon name="grid" size={11} />
+  </button>
+</div>
+```
+
+Active mode uses `theme.bg.raised` background and `theme.text.primary` icon color. Inactive uses transparent + `theme.text.ghost`.
+
+### Stats Bar
+
+Aggregate metric strip shown above grid views. Displays 4 stats across a full-width strip with thin internal dividers:
+
+```jsx
+<div style={{ display: "flex", borderBottom: "1px solid " + theme.border.default, flexShrink: 0 }}>
+  {stats.map(function (stat, i) {
+    return (
+      <div key={stat.label} style={{
+        flex: 1,
+        padding: "8px 12px",
+        borderRight: i < stats.length - 1 ? "1px solid " + theme.border.subtle : "none",
+      }}>
+        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: 1 }}>
+          {stat.label}
+        </div>
+        <div style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.mono, marginTop: 2 }}>
+          {stat.value}
+        </div>
+      </div>
+    );
+  })}
+</div>
+```
+
+Stats bar is only shown in grid mode (hidden in list mode). It appears between the toolbar and the scrollable content area.
+
 ### Overflow Handling
 
 - Text truncation: `overflow: hidden; textOverflow: ellipsis; whiteSpace: nowrap`.

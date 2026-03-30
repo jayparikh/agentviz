@@ -80,6 +80,129 @@ function filterByQuery(entries, q) {
   });
 }
 
+function getHealthColor(reviewScore) {
+  if (reviewScore == null) return theme.border.strong;
+  if (reviewScore < 3) return theme.semantic.success;
+  if (reviewScore <= 8) return theme.accent.primary;
+  return theme.semantic.error;
+}
+
+function getRelativeTime(isoStr) {
+  if (!isoStr) return "";
+  var diff = Date.now() - new Date(isoStr).getTime();
+  if (diff < 60000) return "just now";
+  if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+  if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+  if (diff < 604800000) return Math.floor(diff / 86400000) + "d ago";
+  return Math.floor(diff / 604800000) + "w ago";
+}
+
+function StatsBar({ entries }) {
+  if (!entries || !entries.length) return null;
+  var totalCost = entries.reduce(function (s, e) { return s + (e.totalCost || 0); }, 0);
+  var avgCost = totalCost / entries.length;
+  var autonomySum = entries.reduce(function (s, e) {
+    return s + ((e.autonomyMetrics || {}).autonomyEfficiency || 0);
+  }, 0);
+  var avgAutonomy = autonomySum / entries.length;
+  var totalErrors = entries.reduce(function (s, e) { return s + (e.errorCount || 0); }, 0);
+  var stats = [
+    { label: "Sessions", value: String(entries.length) },
+    { label: "Avg cost", value: formatCost(avgCost) },
+    { label: "Avg autonomy", value: formatAutonomyEfficiency(avgAutonomy) },
+    { label: "Total errors", value: String(totalErrors) },
+  ];
+  return (
+    <div style={{ display: "flex", borderBottom: "1px solid " + theme.border.default, flexShrink: 0 }}>
+      {stats.map(function (stat, i) {
+        return (
+          <div key={stat.label} style={{
+            flex: 1,
+            padding: "8px 12px",
+            borderRight: i < stats.length - 1 ? "1px solid " + theme.border.subtle : "none",
+          }}>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: 1 }}>
+              {stat.label}
+            </div>
+            <div style={{ fontSize: theme.fontSize.md, color: theme.text.primary, fontFamily: theme.font.mono, marginTop: 2 }}>
+              {stat.value}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GridCard({ entry, onOpenSession }) {
+  var autonomy = entry.autonomyMetrics || {};
+  var canOpen = entry.hasContent || entry.discoveredPath;
+  var healthColor = getHealthColor(entry.reviewScore);
+  var metrics = [
+    { label: "Auto", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) },
+    { label: "Cost", value: formatCost(entry.totalCost || 0) },
+    { label: "Errors", value: String(entry.errorCount || 0) },
+    { label: "Events", value: String(entry.totalEvents || 0) },
+  ];
+  return (
+    <button
+      className="av-btn"
+      disabled={!canOpen}
+      onClick={canOpen ? function () { onOpenSession(entry); } : undefined}
+      title={!canOpen ? "Session content not cached. Import the file again to reload." : ""}
+      style={{
+        display: "block",
+        textAlign: "left",
+        width: "100%",
+        background: theme.bg.base,
+        border: "1px solid " + theme.border.default,
+        borderLeft: "3px solid " + healthColor,
+        borderRadius: theme.radius.xl,
+        padding: "12px 14px",
+        cursor: canOpen ? "pointer" : "default",
+        transition: "border-color 150ms ease-out",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ fontFamily: theme.font.mono, fontSize: theme.fontSize.base, color: theme.text.primary, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {entry.project || entry.file}
+        </div>
+        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, flexShrink: 0 }}>
+          {getRelativeTime(entry.updatedAt)}
+        </span>
+      </div>
+      <div style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, marginTop: 3 }}>
+        {entry.format === "copilot-cli" ? "Copilot CLI" : "Claude Code"}
+        {entry.branch ? " \u00B7 #" + entry.branch : ""}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        {metrics.map(function (m) {
+          return (
+            <span key={m.label} style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary }}>
+              <span style={{ color: theme.text.ghost }}>{m.label}: </span>
+              {m.value}
+            </span>
+          );
+        })}
+      </div>
+      {entry.primaryPrompt && (
+        <div style={{
+          fontSize: theme.fontSize.sm,
+          color: theme.text.muted,
+          marginTop: 6,
+          lineHeight: 1.5,
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+        }}>
+          {entry.primaryPrompt}
+        </div>
+      )}
+    </button>
+  );
+}
+
 function CustomSelect({ ariaLabel, value, onChange, options }) {
   var [open, setOpen] = useState(false);
   var ref = useRef(null);
@@ -171,6 +294,7 @@ function CustomSelect({ ariaLabel, value, onChange, options }) {
 export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [query, setQuery] = useState("");
+  var [viewMode, setViewMode] = useState("list");
   var searchRef = useRef(null);
 
   useEffect(function () {
@@ -273,6 +397,26 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           onChange={function (val) { setSortMode(val); }}
           options={SORT_OPTIONS}
         />
+        <div style={{ display: "flex", background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: 1, flexShrink: 0 }}>
+          <button
+            type="button"
+            className="av-btn"
+            aria-label="List view"
+            onClick={function () { setViewMode("list"); }}
+            style={{ background: viewMode === "list" ? theme.bg.raised : "transparent", border: "none", borderRadius: theme.radius.sm, padding: "4px 6px", cursor: "pointer", color: viewMode === "list" ? theme.text.primary : theme.text.ghost, display: "flex", alignItems: "center" }}
+          >
+            <Icon name="list" size={11} />
+          </button>
+          <button
+            type="button"
+            className="av-btn"
+            aria-label="Grid view"
+            onClick={function () { setViewMode("grid"); }}
+            style={{ background: viewMode === "grid" ? theme.bg.raised : "transparent", border: "none", borderRadius: theme.radius.sm, padding: "4px 6px", cursor: "pointer", color: viewMode === "grid" ? theme.text.primary : theme.text.ghost, display: "flex", alignItems: "center" }}
+          >
+            <Icon name="grid" size={11} />
+          </button>
+        </div>
         {onImport && (
           <label title="Import a session file" style={{
             display: "flex", alignItems: "center", gap: 4, padding: "5px 8px",
@@ -292,6 +436,8 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           </label>
         )}
       </div>
+
+      {viewMode === "grid" && <StatsBar entries={parsedEntries} />}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
         {totalVisible === 0 && (
@@ -356,7 +502,15 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           </div>
         )}
 
-        {sortedParsed.map(function (entry) {
+        {viewMode === "grid" && sortedParsed.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            {sortedParsed.map(function (entry) {
+              return <GridCard key={entry.id} entry={entry} onOpenSession={onOpenSession} />;
+            })}
+          </div>
+        )}
+
+        {viewMode === "list" && sortedParsed.map(function (entry) {
           var autonomy = entry.autonomyMetrics || {};
 
           return (

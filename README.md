@@ -137,7 +137,12 @@ To stop it, ask: "Close agentviz"
 
 ## Inbox and AI Coach
 
-When running via the CLI, AGENTVIZ automatically discovers recent sessions from `~/.copilot/session-state/` and lists them in an inbox sorted by review priority. Click any session to open it in the visualizer.
+When running via the CLI, AGENTVIZ automatically discovers recent sessions from `~/.copilot/session-state/` and lists them in an inbox sorted by review priority. The inbox supports two view modes:
+
+- **List view** (default) -- detailed rows with full metadata, metrics chips, and per-session Open button
+- **Grid view** -- compact 3-column card grid with color-coded health bars and a summary stats strip (Sessions, Avg cost, Avg autonomy, Total errors)
+
+Toggle between views using the list/grid icon buttons in the inbox toolbar.
 
 Each session also gets an AI Coach analysis powered by the `@github/copilot-sdk` (gpt-4o). The coach reads your actual project config (`.github/copilot-instructions.md`, skills, MCP servers) and produces actionable recommendations for prompts, skills, and tooling setup. Recommendations can be applied directly with one click.
 
@@ -258,7 +263,7 @@ AI-powered session coaching available directly from any session. The coach reads
 | **Auto-detect Format** | Supports Claude Code and Copilot CLI JSONL. Format detected from first line. |
 | **Session Comparison** | Load two traces side by side. Scorecard and tool-usage chart with delta badges. |
 | **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
-| **Inbox Auto-discovery** | Automatically finds recent Copilot CLI sessions and ranks them by review priority. |
+| **Inbox Auto-discovery** | Automatically finds recent Copilot CLI sessions and ranks them by review priority. Toggle between list and grid view modes. |
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
 | **Session Q&A** | Slide-over drawer (`Cmd+Shift+K`) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
