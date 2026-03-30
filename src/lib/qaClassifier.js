@@ -88,26 +88,52 @@ export function classify(question, data) {
 }
 
 /**
- * Build a lean context payload for the model fallback tier.
+ * Build a lean, question-tailored context payload for the model fallback tier.
+ * Sends only the data relevant to the question topic to minimize tokens.
  */
 export function buildModelContext(question, data) {
   var ctx = {
     metadata: summarizeMetadata(data.metadata),
-    topTools: getTopTools(data.events, 20),
-    userMessages: getUserMessages(data.turns, 5),
   };
 
-  // Include error samples if question seems error-related
-  if (/error|fail|crash|bug|wrong/i.test(question)) {
-    ctx.errorSamples = getErrorSamples(data.events, 5);
-  }
+  var q = question.toLowerCase();
+  var wantsErrors = /error|fail|crash|bug|wrong|broke|exception/i.test(q);
+  var wantsFiles = /file|path|edit|read|write|modif|creat|chang|touch/i.test(q);
+  var wantsCommands = /command|bash|shell|terminal|run|ran|exec|npm|git|pip/i.test(q);
+  var wantsTools = /tool|call|usage|invoke/i.test(q);
 
-  // Include specific turn events if question references a turn
-  var turnRef = question.match(/\bturn\s*#?\s*(\d+)\b/i);
-  if (turnRef) {
+  // Turn references: include full events for referenced turns
+  var turnRef = q.match(/\bturn\s*#?\s*(\d+)\b/i);
+  var turnRangeRef = q.match(/\bturns?\s*#?\s*(\d+)\s*[-\u2013]\s*(\d+)\b/i);
+  if (turnRangeRef) {
+    var lo = parseInt(turnRangeRef[1], 10);
+    var hi = parseInt(turnRangeRef[2], 10);
+    ctx.relevantTurns = [];
+    for (var t = lo; t <= Math.min(hi, (data.turns || []).length - 1); t++) {
+      ctx.relevantTurns = ctx.relevantTurns.concat(getTurnEvents(t, data));
+    }
+    ctx.turnMessages = getTurnMessages(data.turns, lo, hi);
+  } else if (turnRef) {
     var turnIdx = parseInt(turnRef[1], 10);
     ctx.relevantTurns = getTurnEvents(turnIdx, data);
+    ctx.turnMessages = getTurnMessages(data.turns, turnIdx, turnIdx);
   }
+
+  if (wantsErrors) {
+    ctx.errorSamples = getErrorSamples(data.events, 10);
+  }
+  if (wantsFiles) {
+    ctx.fileOperations = getFileOperations(data.events, 15);
+  }
+  if (wantsCommands) {
+    ctx.commandHistory = getCommandHistory(data.events, 15);
+  }
+  if (wantsTools || (!wantsErrors && !wantsFiles && !wantsCommands && !turnRef)) {
+    ctx.topTools = getTopTools(data.events, 10);
+  }
+
+  // Always include a sample of user messages for conversation context
+  ctx.userMessages = getUserMessages(data.turns, 8);
 
   return ctx;
 }
@@ -417,6 +443,50 @@ function answerToolDetail(question, data) {
 
 function instant(answer) {
   return { tier: "instant", answer: answer };
+}
+
+function getTurnMessages(turns, lo, hi) {
+  if (!turns) return [];
+  var msgs = [];
+  for (var i = lo; i <= Math.min(hi, turns.length - 1); i++) {
+    if (turns[i] && turns[i].userMessage) {
+      msgs.push("Turn " + i + ": " + turns[i].userMessage);
+    }
+  }
+  return msgs;
+}
+
+function getFileOperations(events, limit) {
+  if (!events) return [];
+  var ops = [];
+  for (var i = 0; i < events.length && ops.length < limit; i++) {
+    var e = events[i];
+    if (e.track !== "tool_call" || !e.toolName) continue;
+    var input = e.toolInput || "";
+    var inputStr = typeof input === "string" ? input : JSON.stringify(input);
+    var pathMatch = inputStr.match(/(?:file_path|path|file|filename)["\s:=]+["']?([^\s"',}\]]+)/i);
+    if (pathMatch) {
+      ops.push({ file: pathMatch[1], tool: e.toolName, turn: e.turnIndex });
+    }
+  }
+  return ops;
+}
+
+function getCommandHistory(events, limit) {
+  if (!events) return [];
+  var cmds = [];
+  for (var i = 0; i < events.length && cmds.length < limit; i++) {
+    var e = events[i];
+    if (e.track !== "tool_call") continue;
+    var name = (e.toolName || "").toLowerCase();
+    if (name !== "bash" && name !== "shell" && name !== "powershell" && name !== "terminal" && name !== "execute_command" && name !== "run_command") continue;
+    var input = e.toolInput || "";
+    var inputStr = typeof input === "string" ? input : JSON.stringify(input);
+    var cmdMatch = inputStr.match(/(?:command|cmd|script)["\s:=]+["']?([^\n"']{1,200})/i);
+    if (cmdMatch) cmds.push({ cmd: cmdMatch[1].trim(), turn: e.turnIndex });
+    else if (typeof input === "string" && input.length < 200) cmds.push({ cmd: input.trim(), turn: e.turnIndex });
+  }
+  return cmds;
 }
 
 function truncate(text, maxLen) {

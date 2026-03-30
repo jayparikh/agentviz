@@ -10,11 +10,13 @@ import { CopilotClient, approveAll } from "@github/copilot-sdk";
 var SYSTEM_PROMPT = [
   "You are a session analysis assistant for AGENTVIZ, a developer tool that visualizes AI agent workflows.",
   "The user will ask questions about an AI coding session (Claude Code or Copilot CLI).",
-  "Answer concisely and precisely based on the provided session context.",
-  "When referencing specific turns, use the format [Turn N] so the UI can create clickable links.",
-  "If the context does not contain enough information to answer, say so honestly.",
-  "Do not speculate beyond what the session data shows.",
-].join(" ");
+  "Rules:",
+  "1. Answer concisely using markdown: bullet lists, **bold** key terms, `code` for paths/commands.",
+  "2. When referencing turns, use [Turn N] format so the UI can create clickable links.",
+  "3. Only state facts that appear in the provided context. If the context is insufficient, say so.",
+  "4. Do not speculate or infer beyond what the session data shows.",
+  "5. Keep answers under 300 words. For long lists, show the top 5-10 and note how many more exist.",
+].join("\n");
 
 var SDK_TIMEOUT_MS = 15000; // 15s for client.start() and createSession()
 var SESSION_TIMEOUT_MS = 60000; // 60s for the full model response
@@ -149,27 +151,42 @@ function formatContext(ctx) {
 
   if (ctx.metadata) {
     parts.push("## Session metadata");
-    parts.push(ctx.metadata);
+    parts.push(typeof ctx.metadata === "string" ? ctx.metadata : JSON.stringify(ctx.metadata, null, 2));
   }
 
-  if (ctx.topTools) {
+  if (ctx.topTools && ctx.topTools.length) {
     parts.push("\n## Top tools used");
-    parts.push(ctx.topTools);
+    parts.push(typeof ctx.topTools === "string" ? ctx.topTools : JSON.stringify(ctx.topTools));
   }
 
-  if (ctx.errorSamples) {
+  if (ctx.errorSamples && ctx.errorSamples.length) {
     parts.push("\n## Error samples");
-    parts.push(ctx.errorSamples);
+    parts.push(typeof ctx.errorSamples === "string" ? ctx.errorSamples : JSON.stringify(ctx.errorSamples));
   }
 
-  if (ctx.relevantTurns) {
-    parts.push("\n## Relevant turns");
-    parts.push(ctx.relevantTurns);
+  if (ctx.fileOperations && ctx.fileOperations.length) {
+    parts.push("\n## File operations");
+    parts.push(JSON.stringify(ctx.fileOperations));
   }
 
-  if (ctx.userMessages) {
-    parts.push("\n## Recent user messages");
-    parts.push(ctx.userMessages);
+  if (ctx.commandHistory && ctx.commandHistory.length) {
+    parts.push("\n## Command history");
+    parts.push(JSON.stringify(ctx.commandHistory));
+  }
+
+  if (ctx.relevantTurns && ctx.relevantTurns.length) {
+    parts.push("\n## Relevant turn events");
+    parts.push(typeof ctx.relevantTurns === "string" ? ctx.relevantTurns : JSON.stringify(ctx.relevantTurns));
+  }
+
+  if (ctx.turnMessages && ctx.turnMessages.length) {
+    parts.push("\n## Turn user messages");
+    parts.push(ctx.turnMessages.join("\n"));
+  }
+
+  if (ctx.userMessages && ctx.userMessages.length) {
+    parts.push("\n## User messages (conversation history)");
+    parts.push(typeof ctx.userMessages === "string" ? ctx.userMessages : ctx.userMessages.join("\n"));
   }
 
   return parts.join("\n");
