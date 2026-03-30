@@ -148,25 +148,27 @@ function ThinkingIndicator({ phase }) {
   );
 }
 
-function ThinkingOverlay({ messages }) {
-  // Extract thinking text from the last assistant message that has a think block
+function ThinkingBubble({ messages }) {
+  // Show thinking from the last streaming assistant message only
   var thinkingText = "";
+  var isStreaming = false;
   for (var i = messages.length - 1; i >= 0; i--) {
     var msg = messages[i];
     if (msg.role !== "assistant") continue;
     var match = (msg.content || "").match(/^<think>([\s\S]*?)(<\/think>|$)/i);
     if (match && match[1].trim()) {
       thinkingText = match[1].trim();
-      break;
+      isStreaming = msg.streaming;
     }
+    break;
   }
-  if (!thinkingText) return null;
+  // Only show while the message is still streaming
+  if (!thinkingText || !isStreaming) return null;
 
   return (
     <div style={{
-      margin: "0 14px 4px",
-      background: alpha(theme.accent.primary, 0.05),
-      border: "1px dashed " + alpha(theme.accent.primary, 0.25),
+      background: "rgba(34, 197, 94, 0.08)",
+      border: "1px solid rgba(34, 197, 94, 0.2)",
       borderRadius: theme.radius.lg,
       padding: "10px 12px",
       fontSize: theme.fontSize.sm,
@@ -175,18 +177,20 @@ function ThinkingOverlay({ messages }) {
       lineHeight: 1.5,
       whiteSpace: "pre-wrap",
       wordBreak: "break-word",
+      alignSelf: "flex-start",
+      maxWidth: "92%",
       maxHeight: 200,
       overflow: "auto",
     }}>
       <div style={{
         fontSize: theme.fontSize.xs,
         fontWeight: 600,
-        color: theme.accent.primary,
+        color: "rgb(34, 197, 94)",
         textTransform: "uppercase",
         letterSpacing: "0.5px",
         marginBottom: 6,
       }}>
-        {"\uD83D\uDCA1"} Model thinking
+        {"\uD83D\uDCA1"} Thinking
       </div>
       {thinkingText}
     </div>
@@ -406,6 +410,26 @@ function MarkdownContent({ text, onSeekTurn }) {
       continue;
     }
 
+    // Section headers (## and ###)
+    var h3Match = trimmed.match(/^###\s+(.*)/);
+    if (h3Match) {
+      flushList(); flushTable();
+      elements.push(<div key={"h3-" + i} style={{ fontWeight: 600, fontSize: theme.fontSize.sm, color: theme.text.primary, marginTop: 8, marginBottom: 2 }}>{renderParts(parseMessageContent(h3Match[1]), onSeekTurn)}</div>);
+      continue;
+    }
+    var h2Match = trimmed.match(/^##\s+(.*)/);
+    if (h2Match) {
+      flushList(); flushTable();
+      elements.push(<div key={"h2-" + i} style={{ fontWeight: 700, fontSize: theme.fontSize.base, color: theme.text.primary, marginTop: 10, marginBottom: 2 }}>{renderParts(parseMessageContent(h2Match[1]), onSeekTurn)}</div>);
+      continue;
+    }
+    var h1Match = trimmed.match(/^#\s+(.*)/);
+    if (h1Match) {
+      flushList(); flushTable();
+      elements.push(<div key={"h1-" + i} style={{ fontWeight: 700, fontSize: theme.fontSize.md, color: theme.text.primary, marginTop: 12, marginBottom: 4 }}>{renderParts(parseMessageContent(h1Match[1]), onSeekTurn)}</div>);
+      continue;
+    }
+
     // Regular text line
     var parts = parseMessageContent(trimmed);
     elements.push(<div key={"p-" + i}>{renderParts(parts, onSeekTurn)}</div>);
@@ -422,7 +446,7 @@ function MessageBubble({ message, onSeekTurn }) {
   var bg = isUser ? alpha(theme.agent.user, 0.08) : alpha(theme.agent.assistant, 0.06);
   var borderColor = isUser ? alpha(theme.agent.user, 0.15) : alpha(theme.agent.assistant, 0.12);
 
-  // Strip thinking blocks from display -- they render in ThinkingOverlay
+  // Strip thinking blocks from display -- they render in ThinkingBubble
   var content = message.content || "";
   var answerText = content.replace(/^<think>[\s\S]*?(<\/think>|$)/i, "").trim();
 
@@ -640,9 +664,6 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
           </div>
         </div>
 
-        {/* Thinking overlay -- floats above messages when toggle is on */}
-        {showThinking && <ThinkingOverlay messages={qa.messages} />}
-
         {/* Messages area */}
         <div style={{
           flex: 1,
@@ -678,6 +699,9 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
           {qa.messages.map(function (msg, i) {
             return <MessageBubble key={i} message={msg} onSeekTurn={handleSeekTurn} />;
           })}
+
+          {/* Thinking bubble -- green tinted, visible when toggle on and streaming */}
+          {showThinking && <ThinkingBubble messages={qa.messages} />}
 
           {/* Show thinking indicator when streaming but no bubble yet */}
           {qa.isStreaming && !qa.messages.some(function (m) { return m.streaming; }) && (
