@@ -69,6 +69,10 @@ export function handleKeyboardShortcut(e, options) {
     options.onSetView("stats");
     return true;
   }
+  if (e.key === "6") {
+    options.onSetView("coach");
+    return true;
+  }
 
   if (e.key === "e") {
     e.preventDefault();

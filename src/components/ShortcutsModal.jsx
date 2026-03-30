@@ -12,6 +12,7 @@ var SHORTCUTS = [
   { key: "3", label: "Waterfall view" },
   { key: "4", label: "Graph view" },
   { key: "5", label: "Stats view" },
+  { key: "6", label: "Coach view" },
   { key: "e / E", label: "Jump to next / prev error" },
   { section: "Search" },
   { key: "/", label: "Focus search" },

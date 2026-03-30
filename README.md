@@ -274,12 +274,13 @@ AI-powered session coaching available directly from any session. The coach reads
 |-----|--------|
 | `Space` | Play / Pause |
 | `Left` / `Right` | Seek 2 seconds |
-| `1` / `2` / `3` / `4` / `5` | Switch view (Replay / Tracks / Waterfall / Graph / Stats) |
+| `1` / `2` / `3` / `4` / `5` / `6` | Switch view (Replay / Tracks / Waterfall / Graph / Stats / Coach) |
 | `/` | Focus search |
 | `E` / `Shift+E` | Next / Previous error |
 | `Cmd+K` | Command palette |
 | `Cmd+Shift+K` | Toggle Session Q&A drawer |
 | `Enter` / `Shift+Enter` | Next / Previous search match |
+| `?` | Toggle keyboard shortcuts dialog |
 
 ## Supported Formats
 
@@ -386,6 +387,7 @@ node bin/agentviz.js    # API backend on port 4242
 npm run build           # Production build to dist/
 npm test                # Run all tests via Vitest
 npm run test:watch      # Watch mode
+npm run typecheck       # Type-check with tsc --noEmit
 ```
 
 > **Full dev setup requires both servers.** `npm run dev` starts the Vite frontend; `node bin/agentviz.js` starts the API backend (Coach, session discovery, config, apply, live streaming). Vite proxies `/api/*` to the backend automatically.
@@ -393,6 +395,30 @@ npm run test:watch      # Watch mode
 ### Design System
 
 True black base (`#000000`) with blue, purple, and green accents. Vivid semantic colors: green for success, muted red for warning, bright red for error. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
+
+### Configuration
+
+**AI Model** -- The Coach and Session Q&A features use the Copilot SDK. You can override the model:
+
+| Method | Example |
+|--------|---------|
+| Environment variable | `AGENTVIZ_MODEL=gpt-4o node bin/agentviz.js` |
+| Config file | `~/.agentviz/config.json` with `{ "model": "gpt-4o" }` |
+| Custom config path | `AGENTVIZ_CONFIG=/path/to/config.json` |
+
+The current model can be queried via `GET /api/models`.
+
+**Feature Flags** -- Experimental features are gated behind localStorage flags:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `qa` | `false` | Session Q&A slide-over drawer |
+
+Enable a flag in the browser console:
+
+```js
+localStorage.setItem('agentviz:flag:qa', 'true')
+```
 
 ## Contributing
 
