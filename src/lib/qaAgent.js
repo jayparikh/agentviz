@@ -125,7 +125,7 @@ export async function runQAQuery(payload, opts) {
           if (onToken) {
             var words = event.data.content.split(/(\s+)/);
             for (var w = 0; w < words.length; w++) {
-              onToken(words[w]);
+              if (words[w]) onToken(words[w]);
             }
           }
         } else if (event.type === "session.idle") {

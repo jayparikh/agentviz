@@ -146,7 +146,9 @@ export default function useQA(sessionData, sessionKey) {
             var updated = Object.assign({}, last, { content: last.content + token });
             return prev.slice(0, -1).concat(updated);
           }
-          // First token -- create the bubble now
+          // First token -- only create bubble if there's visible content
+          // Accumulate whitespace-only tokens silently
+          if (!token || !token.trim()) return prev;
           return prev.concat({ role: "assistant", content: token, instant: false, streaming: true, startedAt: startedAt });
         });
       },
