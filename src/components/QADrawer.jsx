@@ -249,6 +249,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
   var [input, setInput] = useState("");
   var messagesEndRef = useRef(null);
   var inputRef = useRef(null);
+  var lastQuestionRef = useRef("");
   var qa = useQA(sessionData, sessionKey);
 
   // Auto-scroll to bottom on new messages
@@ -280,8 +281,16 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
   function handleSubmit(e) {
     e.preventDefault();
     if (!input.trim() || qa.isStreaming) return;
+    lastQuestionRef.current = input.trim();
     qa.ask(input);
     setInput("");
+  }
+
+  function handleInputKeyDown(e) {
+    if (e.key === "ArrowUp" && !input && lastQuestionRef.current) {
+      e.preventDefault();
+      setInput(lastQuestionRef.current);
+    }
   }
 
   function handleSeekTurn(turnIndex) {
@@ -460,6 +469,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
               type="text"
               value={input}
               onChange={function (e) { setInput(e.target.value); }}
+              onKeyDown={handleInputKeyDown}
               placeholder="Ask about this session..."
               aria-label="Ask about this session"
               disabled={qa.isStreaming}
