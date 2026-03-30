@@ -81,7 +81,7 @@ export default function ShortcutsModal({ onClose }) {
               padding: "0 2px",
             }}
           >
-            \u00d7
+            {"\u00d7"}
           </button>
         </div>
 
