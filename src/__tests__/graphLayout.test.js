@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildGraphData, runLayout, mergeLayout, getGraphBounds, buildTurnSnippet } from "../lib/graphLayout.js";
+import { buildGraphData, runLayout, mergeLayout, getGraphBounds, buildTurnSnippet, buildConcurrencyGroups } from "../lib/graphLayout.js";
 
 // Helpers to create test data matching the EventEntry/SessionTurn shapes
 
@@ -245,5 +245,143 @@ describe("buildTurnSnippet", function () {
   it("returns empty string when no data at all", function () {
     var turn = makeTurn(0, [], { userMessage: "" });
     expect(buildTurnSnippet(turn, [])).toBe("");
+  });
+});
+
+describe("buildConcurrencyGroups", function () {
+  it("returns empty array for no tools", function () {
+    expect(buildConcurrencyGroups([])).toEqual([]);
+  });
+
+  it("puts a single tool in one group", function () {
+    var tools = [{ event: { t: 0, duration: 5 }, index: 0 }];
+    var groups = buildConcurrencyGroups(tools);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveLength(1);
+  });
+
+  it("groups sequential tools into separate groups", function () {
+    var tools = [
+      { event: { t: 0, duration: 2 }, index: 0 },
+      { event: { t: 5, duration: 2 }, index: 1 },
+      { event: { t: 10, duration: 2 }, index: 2 },
+    ];
+    var groups = buildConcurrencyGroups(tools);
+    expect(groups).toHaveLength(3);
+    expect(groups[0]).toHaveLength(1);
+    expect(groups[1]).toHaveLength(1);
+    expect(groups[2]).toHaveLength(1);
+  });
+
+  it("groups overlapping tools into one group", function () {
+    var tools = [
+      { event: { t: 0, duration: 10 }, index: 0 },
+      { event: { t: 2, duration: 8 }, index: 1 },
+      { event: { t: 4, duration: 6 }, index: 2 },
+    ];
+    var groups = buildConcurrencyGroups(tools);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveLength(3);
+  });
+
+  it("separates concurrent group from sequential follower", function () {
+    var tools = [
+      { event: { t: 0, duration: 5 }, index: 0 },
+      { event: { t: 1, duration: 5 }, index: 1 },
+      { event: { t: 20, duration: 3 }, index: 2 },
+    ];
+    var groups = buildConcurrencyGroups(tools);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveLength(2);
+    expect(groups[1]).toHaveLength(1);
+  });
+
+  it("handles multiple concurrent groups", function () {
+    // Group 1: tools at t=0-5 and t=2-7 (overlap)
+    // Group 2: tools at t=10-15 and t=12-17 (overlap)
+    var tools = [
+      { event: { t: 0, duration: 5 }, index: 0 },
+      { event: { t: 2, duration: 5 }, index: 1 },
+      { event: { t: 10, duration: 5 }, index: 2 },
+      { event: { t: 12, duration: 5 }, index: 3 },
+    ];
+    var groups = buildConcurrencyGroups(tools);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveLength(2);
+    expect(groups[1]).toHaveLength(2);
+  });
+
+  it("treats zero-duration tools at same time as concurrent", function () {
+    var tools = [
+      { event: { t: 5, duration: 0 }, index: 0 },
+      { event: { t: 5, duration: 0 }, index: 1 },
+    ];
+    var groups = buildConcurrencyGroups(tools);
+    // Both start at t=5, end at t=5 — not overlapping (start < end fails)
+    expect(groups).toHaveLength(2);
+  });
+
+  it("detects overlap when next tool starts before previous ends", function () {
+    var tools = [
+      { event: { t: 0, duration: 10 }, index: 0 },
+      { event: { t: 9.9, duration: 5 }, index: 1 },
+    ];
+    var groups = buildConcurrencyGroups(tools);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveLength(2);
+  });
+});
+
+describe("buildGraphData temporal overlap", function () {
+  it("does not create edges between concurrent root tools", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "grep", t: 0, duration: 5 }),
+      makeEvent(1, { track: "tool_call", toolName: "grep", t: 1, duration: 5 }),
+      makeEvent(2, { track: "tool_call", toolName: "grep", t: 2, duration: 5 }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2])];
+    var result = buildGraphData(events, turns, { 0: true });
+
+    // All 3 tools overlap, so there should be NO sequential edges between them
+    var node = result.nodes[0];
+    expect(node.isExpanded).toBe(true);
+    expect(node.children).toHaveLength(3);
+    expect(node.edges).toHaveLength(0);
+  });
+
+  it("creates edges between sequential groups but not within", function () {
+    var events = [
+      // Concurrent group 1: two overlapping greps
+      makeEvent(0, { track: "tool_call", toolName: "grep", t: 0, duration: 5 }),
+      makeEvent(1, { track: "tool_call", toolName: "grep", t: 1, duration: 5 }),
+      // Sequential: one edit after both greps finish
+      makeEvent(2, { track: "tool_call", toolName: "edit", t: 10, duration: 3 }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2])];
+    var result = buildGraphData(events, turns, { 0: true });
+
+    var node = result.nodes[0];
+    // One edge: last of group 1 -> first of group 2
+    expect(node.edges).toHaveLength(1);
+    expect(node.edges[0].sources[0]).toBe("tool-0-1"); // last of concurrent group
+    expect(node.edges[0].targets[0]).toBe("tool-0-2"); // the sequential edit
+  });
+
+  it("still creates parentToolCallId edges for subagent children", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", t: 0, duration: 10, toolCallId: "tc-1" }),
+      makeEvent(1, { track: "tool_call", toolName: "view", t: 2, duration: 3, parentToolCallId: "tc-1" }),
+      makeEvent(2, { track: "tool_call", toolName: "grep", t: 4, duration: 3, parentToolCallId: "tc-1" }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2])];
+    var result = buildGraphData(events, turns, { 0: true });
+
+    var node = result.nodes[0];
+    // 2 parentToolCallId edges (task->view, task->grep), no sequential edges (root has 1 tool)
+    expect(node.edges).toHaveLength(2);
+    expect(node.edges[0].sources[0]).toBe("tool-0-0");
+    expect(node.edges[0].targets[0]).toBe("tool-0-1");
+    expect(node.edges[1].sources[0]).toBe("tool-0-0");
+    expect(node.edges[1].targets[0]).toBe("tool-0-2");
   });
 });

@@ -8,6 +8,43 @@ import ELK from "elkjs/lib/elk.bundled.js";
 
 var elk = new ELK();
 
+/**
+ * Group tool call entries into concurrency groups based on temporal overlap.
+ * Tools whose time ranges overlap are placed in the same group (parallel).
+ * Sequential tools (no overlap) start a new group.
+ * Returns an array of groups, where each group is an array of tool entries.
+ */
+export function buildConcurrencyGroups(toolEntries) {
+  if (toolEntries.length === 0) return [];
+
+  var groups = [[toolEntries[0]]];
+
+  for (var i = 1; i < toolEntries.length; i++) {
+    var curr = toolEntries[i];
+    var currStart = curr.event.t;
+    var currentGroup = groups[groups.length - 1];
+
+    // Check if this tool overlaps with ANY tool in the current group
+    var overlaps = false;
+    for (var j = 0; j < currentGroup.length; j++) {
+      var prev = currentGroup[j];
+      var prevEnd = prev.event.t + (prev.event.duration || 0);
+      if (currStart < prevEnd) {
+        overlaps = true;
+        break;
+      }
+    }
+
+    if (overlaps) {
+      currentGroup.push(curr);
+    } else {
+      groups.push([curr]);
+    }
+  }
+
+  return groups;
+}
+
 // Build an ELK graph from turns and events
 var MAX_GRAPH_TURNS = 80; // ELK gets very slow beyond ~100 nodes
 
@@ -78,15 +115,18 @@ export function buildGraphData(eventEntries, turns, expandedTurns) {
         }
       }
 
-      // Sequential edges for tool calls without explicit parent
-      // Skip sequential edges between concurrent task tools (they should branch)
+      // Group root tools into sequential vs concurrent using temporal overlap
       var rootTools = toolCalls.filter(function (tc) { return !tc.event.parentToolCallId; });
-      for (var m = 1; m < rootTools.length; m++) {
-        // If both are task tools (subagent spawns), skip the sequential edge
-        // to allow parallel branching in the layout
-        if (rootTools[m - 1].event.toolName === "task" && rootTools[m].event.toolName === "task") continue;
-        var prevIdx = toolCalls.indexOf(rootTools[m - 1]);
-        var currIdx = toolCalls.indexOf(rootTools[m]);
+      var concurrencyGroups = buildConcurrencyGroups(rootTools);
+
+      for (var g = 1; g < concurrencyGroups.length; g++) {
+        // Edge from the last tool of the previous group to the first of this group
+        var prevGroup = concurrencyGroups[g - 1];
+        var currGroup = concurrencyGroups[g];
+        var lastOfPrev = prevGroup[prevGroup.length - 1];
+        var firstOfCurr = currGroup[0];
+        var prevIdx = toolCalls.indexOf(lastOfPrev);
+        var currIdx = toolCalls.indexOf(firstOfCurr);
         var prevId = "tool-" + turn.index + "-" + prevIdx;
         var currId = "tool-" + turn.index + "-" + currIdx;
         childEdges.push({
@@ -115,6 +155,8 @@ export function buildGraphData(eventEntries, turns, expandedTurns) {
           "elk.direction": "DOWN",
           "elk.spacing.nodeNode": "16",
           "elk.padding": "[top=40,left=20,bottom=16,right=20]",
+          "elk.separateConnectedComponents": "true",
+          "elk.layered.compaction.connectedComponents": "true",
         },
       });
     } else {
@@ -225,13 +267,106 @@ export function mergeLayout(graphData, elkResult) {
         var childPos = positionMap[child.id] || { x: 0, y: 0, width: child.width || 160, height: child.height || 36 };
         return Object.assign({}, child, childPos);
       });
-      // Center children only if no task tools (agent subtrees use ELK's natural x positions)
-      var hasTaskTools = node.children.some(function (c) { return c.event && c.event.toolName === "task"; });
-      if (result.children.length > 0 && !hasTaskTools) {
+
+      // Build concurrency groups from root-level children
+      var rootChildTools = node.children.filter(function (c) { return c.event && !c.event.parentToolCallId; });
+      var hasConcurrency = false;
+      var concGroups = [];
+      if (rootChildTools.length > 1) {
+        concGroups = buildConcurrencyGroups(rootChildTools.map(function (c) { return { event: c.event, index: c.eventIndex, id: c.id }; }));
+        hasConcurrency = concGroups.some(function (g) { return g.length > 1; });
+      }
+
+      if (hasConcurrency) {
+        // Manually lay out concurrent groups as side-by-side columns
+        // Each column contains a root tool + its parentToolCallId children
+        var childById = {};
+        for (var ri = 0; ri < result.children.length; ri++) {
+          childById[result.children[ri].id] = result.children[ri];
+        }
+
+        // Find the concurrent group (the one with >1 items)
+        var concGroup = concGroups.find(function (g) { return g.length > 1; });
+        if (concGroup) {
+          var COL_GAP = 32;
+          var ROW_GAP = 12;
+          var HEADER_Y = 40;
+          var colX = 20;
+
+          for (var ci = 0; ci < concGroup.length; ci++) {
+            var rootEntry = concGroup[ci];
+            var rootNode = childById[rootEntry.id];
+            if (!rootNode) continue;
+
+            // Find children of this root via parentToolCallId
+            var childNodes = result.children.filter(function (c) {
+              return c.event && c.event.parentToolCallId &&
+                c.event.parentToolCallId === rootNode.event.toolCallId;
+            });
+
+            // Calculate column width
+            var colW = rootNode.width;
+            for (var ki = 0; ki < childNodes.length; ki++) {
+              if (childNodes[ki].width > colW) colW = childNodes[ki].width;
+            }
+
+            // Position root at top of column
+            rootNode.x = colX;
+            rootNode.y = HEADER_Y;
+
+            // Stack children vertically below root
+            var childY = HEADER_Y + rootNode.height + ROW_GAP;
+            for (var cni = 0; cni < childNodes.length; cni++) {
+              childNodes[cni].x = colX;
+              childNodes[cni].y = childY;
+              childY += childNodes[cni].height + ROW_GAP;
+            }
+
+            colX += colW + COL_GAP;
+          }
+
+          // Position non-concurrent/non-child nodes as a final column
+          var handledIds = {};
+          for (var qi = 0; qi < concGroup.length; qi++) {
+            var rn = childById[concGroup[qi].id];
+            handledIds[concGroup[qi].id] = true;
+            if (rn && rn.event && rn.event.toolCallId) {
+              result.children.forEach(function (c) {
+                if (c.event && c.event.parentToolCallId === rn.event.toolCallId) {
+                  handledIds[c.id] = true;
+                }
+              });
+            }
+          }
+          var remaining = result.children.filter(function (c) { return !handledIds[c.id]; });
+          if (remaining.length > 0) {
+            var seqY = HEADER_Y;
+            for (var si = 0; si < remaining.length; si++) {
+              remaining[si].x = colX;
+              remaining[si].y = seqY;
+              seqY += remaining[si].height + ROW_GAP;
+            }
+          }
+
+          // Resize compound node to fit
+          var maxRight = 0;
+          var maxBottom = 0;
+          for (var fi = 0; fi < result.children.length; fi++) {
+            var cr = result.children[fi];
+            var right = cr.x + cr.width;
+            var bottom = cr.y + cr.height;
+            if (right > maxRight) maxRight = right;
+            if (bottom > maxBottom) maxBottom = bottom;
+          }
+          result.width = Math.max(result.width, maxRight + 20);
+          result.height = Math.max(result.height, maxBottom + 16);
+        }
+      } else if (result.children.length > 0) {
+        // No concurrency: center all children at the same x
         var childW = result.children[0].width;
         var centeredX = (pos.width - childW) / 2;
-        for (var ci = 0; ci < result.children.length; ci++) {
-          result.children[ci] = Object.assign({}, result.children[ci], { x: centeredX });
+        for (var ci2 = 0; ci2 < result.children.length; ci2++) {
+          result.children[ci2] = Object.assign({}, result.children[ci2], { x: centeredX });
         }
       }
     }
@@ -250,10 +385,39 @@ export function mergeLayout(graphData, elkResult) {
     if (pNode.isExpanded && pNode.edges) {
       var parentElk = elkResult.children && elkResult.children.find(function (c) { return c.id === pNode.id; });
       var parentPos = positionMap[pNode.id] || { x: pNode.x || 0, y: pNode.y || 0 };
+
+      // Build a lookup from child id to positioned child
+      var childPosMap = {};
+      if (pNode.children) {
+        for (var cp = 0; cp < pNode.children.length; cp++) {
+          childPosMap[pNode.children[cp].id] = pNode.children[cp];
+        }
+      }
+
       pNode.edges = pNode.edges.map(function (edge) {
-        var elkEdge = parentElk && findElkEdge(parentElk.edges || [], edge.id);
+        // Recompute edge sections from actual child positions
+        var sourceNode = childPosMap[edge.sources[0]];
+        var targetNode = childPosMap[edge.targets[0]];
+        var sections = null;
+
+        if (sourceNode && targetNode) {
+          // Simple straight-line edge from bottom-center of source to top-center of target
+          var startX = sourceNode.x + sourceNode.width / 2;
+          var startY = sourceNode.y + sourceNode.height;
+          var endX = targetNode.x + targetNode.width / 2;
+          var endY = targetNode.y;
+          sections = [{
+            startPoint: { x: startX, y: startY },
+            endPoint: { x: endX, y: endY },
+          }];
+        } else {
+          // Fall back to ELK sections
+          var elkEdge = parentElk && findElkEdge(parentElk.edges || [], edge.id);
+          sections = elkEdge ? elkEdge.sections : null;
+        }
+
         return Object.assign({}, edge, {
-          sections: elkEdge ? elkEdge.sections : null,
+          sections: sections,
           parentOffset: { x: parentPos.x, y: parentPos.y },
         });
       });
