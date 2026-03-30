@@ -24,6 +24,7 @@ The interface should feel fast, focused, and information-dense without ever feel
 ## 1. Color System
 
 All colors live in `src/lib/theme.js`. Components should reference `theme.*` tokens.
+The token names stay the same across modes, but the resolved values now follow the active `light`, `dark`, or `system` preference.
 
 **Known exceptions:** `LiveIndicator.jsx` hardcodes `#34d399` (teal green) and
 `CompareView.jsx` hardcodes `#a78bfa` (purple) for the Session B accent.
@@ -32,69 +33,71 @@ These are legacy exceptions -- new code should use theme tokens.
 
 ### Backgrounds
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `theme.bg.base` | `#000000` | Page background, true black |
-| `theme.bg.surface` | `#0f0f16` | Cards, panels, raised surfaces |
-| `theme.bg.raised` | `#1a1a24` | Selected items, active states |
-| `theme.bg.overlay` | `rgba(0,0,0,0.7)` | Overlay backdrop |
-| `theme.bg.hover` | `#20202e` | Hover feedback |
-| `theme.bg.active` | `#26263a` | Active/pressed feedback |
+These values describe the active palette. The token names stay the same across modes, but the resolved values follow the current `light`, `dark`, or `system` preference.
+
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `theme.bg.base` | `#000000` | `#f6f7fb` | Page background |
+| `theme.bg.surface` | `#0f0f16` | `#ffffff` | Cards, panels, raised surfaces |
+| `theme.bg.raised` | `#1a1a24` | `#eef1f7` | Selected items, active states |
+| `theme.bg.overlay` | `rgba(0,0,0,0.7)` | `rgba(17, 24, 39, 0.48)` | Overlay backdrop |
+| `theme.bg.hover` | `#20202e` | `#e5e9f2` | Hover feedback |
+| `theme.bg.active` | `#26263a` | `#d8deea` | Active/pressed feedback |
 
 ### Text
 
 Five-level hierarchy. Use the minimum contrast level that communicates the information.
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `theme.text.primary` | `#f0f0f2` | Body text, values, important content |
-| `theme.text.secondary` | `#a1a1a8` | Labels, metadata, descriptions |
-| `theme.text.muted` | `#717178` | Disabled text, tertiary info |
-| `theme.text.dim` | `#585860` | Section headers (uppercase), subtle labels |
-| `theme.text.ghost` | `#454548` | Placeholders, gutter numbers, near-invisible |
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `theme.text.primary` | `#f0f0f2` | `#141824` | Body text, values, important content |
+| `theme.text.secondary` | `#a1a1a8` | `#4f5669` | Labels, metadata, descriptions |
+| `theme.text.muted` | `#717178` | `#70788d` | Disabled text, tertiary info |
+| `theme.text.dim` | `#585860` | `#8a90a2` | Section headers (uppercase), subtle labels |
+| `theme.text.ghost` | `#454548` | `#b0b6c8` | Placeholders, gutter numbers, near-invisible |
 
 ### Accent
 
 One color. Used for: selection, focus rings, primary actions, active tab indicators.
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `theme.accent.primary` | `#6475e8` | Links, focus, selected, CTA |
-| `theme.accent.hover` | `#7585f0` | Hover state of accent elements |
-| `theme.accent.muted` | `#6475e820` | Subtle accent background (13% opacity) |
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `theme.accent.primary` | `#6475e8` | `#6475e8` | Links, focus, selected, CTA |
+| `theme.accent.hover` | `#7585f0` | `#5467e6` | Hover state of accent elements |
+| `theme.accent.muted` | `#6475e820` | `#6475e818` | Subtle accent background |
 
 ### Semantic
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `theme.semantic.success` | `#10d97a` | Positive outcomes, output track, "done" |
-| `theme.semantic.warning` | `#d14d4d` | Caution, modified files |
-| `theme.semantic.error` | `#ef4444` | Errors, failures |
-| `theme.semantic.errorBg` | `#ef444415` | Error row/card background |
-| `theme.semantic.errorBorder` | `#ef444430` | Error container border |
-| `theme.semantic.errorText` | `#f87171` | Error text (lighter for readability) |
-| `theme.semantic.info` | `#6475e8` | Informational (same as accent) |
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `theme.semantic.success` | `#10d97a` | `#0ea86b` | Positive outcomes, output track, "done" |
+| `theme.semantic.warning` | `#d14d4d` | `#b45309` | Caution, modified files |
+| `theme.semantic.error` | `#ef4444` | `#d32f2f` | Errors, failures |
+| `theme.semantic.errorBg` | `#ef444415` | `#d32f2f14` | Error row/card background |
+| `theme.semantic.errorBorder` | `#ef444430` | `#d32f2f2a` | Error container border |
+| `theme.semantic.errorText` | `#f87171` | `#c53030` | Error text (lighter for readability) |
+| `theme.semantic.info` | `#6475e8` | `#6475e8` | Informational (same as accent) |
 
 ### Agent Colors
 
 Subtle. The content matters, not who said it.
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `theme.agent.user` | `#8b8b99` | User messages |
-| `theme.agent.assistant` | `#6475e8` | Assistant messages |
-| `theme.agent.system` | `#a78bfa` | System messages |
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `theme.agent.user` | `#8b8b99` | `#70788d` | User messages |
+| `theme.agent.assistant` | `#6475e8` | `#6475e8` | Assistant messages |
+| `theme.agent.system` | `#a78bfa` | `#8b5cf6` | System messages |
 
 ### Track Colors
 
 Balanced luminance so no track visually dominates another.
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `theme.track.reasoning` | `#94a3b8` | Thinking/reasoning events |
-| `theme.track.tool_call` | `#3b9eff` | Tool invocations |
-| `theme.track.context` | `#a78bfa` | Context loading |
-| `theme.track.output` | `#10d97a` | Output/results |
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `theme.track.reasoning` | `#94a3b8` | `#64748b` | Thinking/reasoning events |
+| `theme.track.tool_call` | `#3b9eff` | `#2563eb` | Tool invocations |
+| `theme.track.context` | `#a78bfa` | `#8b5cf6` | Context loading |
+| `theme.track.output` | `#10d97a` | `#0ea86b` | Output/results |
 
 ### Data Visualization Scales
 
@@ -187,6 +190,7 @@ and the view-switcher tab buttons in `AppHeader`. Using it elsewhere is a violat
 ### Typography Patterns
 
 **Section headers** -- uppercase, letter-spaced, dim. Two variants exist:
+
 ```jsx
 // Standard (view headers, page-level labels)
 {
@@ -208,6 +212,7 @@ and the view-switcher tab buttons in `AppHeader`. Using it elsewhere is a violat
 ```
 
 **Brand wordmark** -- UI font, tight tracking, accent dot:
+
 ```jsx
 {
   fontSize: theme.fontSize.lg,
@@ -220,6 +225,7 @@ and the view-switcher tab buttons in `AppHeader`. Using it elsewhere is a violat
 ```
 
 **Metric values** -- large, bold, colored:
+
 ```jsx
 {
   fontSize: 22,
@@ -229,6 +235,7 @@ and the view-switcher tab buttons in `AppHeader`. Using it elsewhere is a violat
 ```
 
 **Code/data content** -- mono, pre-wrap:
+
 ```jsx
 {
   fontFamily: theme.font.mono,
@@ -301,31 +308,35 @@ Depth is created through **thin borders**, not shadows. Shadows are used sparing
 
 ### Border Colors
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `theme.border.subtle` | `#1a1a24` | Nearly invisible dividers, diff gutters |
-| `theme.border.default` | `#232333` | Standard separators, card borders |
-| `theme.border.strong` | `#2e2e42` | Emphasized dividers, drag handles |
-| `theme.border.focus` | `#6475e8` | Focus rings (same as accent) |
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `theme.border.subtle` | `#1a1a24` | `#e4e8f0` | Nearly invisible dividers, diff gutters |
+| `theme.border.default` | `#232333` | `#d8deea` | Standard separators, card borders |
+| `theme.border.strong` | `#2e2e42` | `#c2cad8` | Emphasized dividers, drag handles |
+| `theme.border.focus` | `#6475e8` | `#6475e8` | Focus rings (same as accent) |
 
 ### Border Patterns
 
 **Standard card/panel:**
+
 ```jsx
 border: "1px solid " + theme.border.default
 ```
 
 **Dashed drop zone:**
+
 ```jsx
 border: "2px dashed " + (isDragOver ? theme.accent.primary : theme.border.strong)
 ```
 
 **Colored left-accent (selection/error):**
+
 ```jsx
 borderLeft: isSelected ? "2px solid " + barColor : "2px solid transparent"
 ```
 
 **Section divider line:**
+
 ```jsx
 <div style={{ flex: 1, height: 1, background: theme.border.default }} />
 ```
@@ -345,12 +356,12 @@ borderLeft: isSelected ? "2px solid " + barColor : "2px solid transparent"
 
 Minimal. Used only for floating/elevated elements.
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `theme.shadow.sm` | `0 1px 2px rgba(0,0,0,0.3)` | Subtle lift |
-| `theme.shadow.md` | `0 4px 12px rgba(0,0,0,0.25)` | Modals, command palette |
-| `theme.shadow.lg` | `0 12px 32px rgba(0,0,0,0.35)` | Large floating panels |
-| `theme.shadow.inset` | `inset 0 1px 2px rgba(0,0,0,0.2)` | Pressed/inset effect |
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `theme.shadow.sm` | `0 1px 2px rgba(0,0,0,0.3)` | `0 1px 2px rgba(17,24,39,0.08)` | Subtle lift |
+| `theme.shadow.md` | `0 4px 12px rgba(0,0,0,0.25)` | `0 4px 12px rgba(17,24,39,0.08)` | Modals, command palette |
+| `theme.shadow.lg` | `0 12px 32px rgba(0,0,0,0.35)` | `0 12px 32px rgba(17,24,39,0.10)` | Large floating panels |
+| `theme.shadow.inset` | `inset 0 1px 2px rgba(0,0,0,0.2)` | `inset 0 1px 2px rgba(17,24,39,0.06)` | Pressed/inset effect |
 
 **Rule:** Shadows appear only on floating elements (modals, tooltips, dropdowns).
 Cards and panels rely on borders, not shadows, for depth.
@@ -364,6 +375,7 @@ All icons come from **Lucide React** via the `Icon` component (`src/components/I
 ### Registry Rule
 
 Every icon used in the app must be:
+
 1. Imported from `lucide-react` at the top of `Icon.jsx`, AND
 2. Added to the `ICON_MAP` object in `Icon.jsx`.
 
@@ -423,6 +435,7 @@ Three CSS utility classes handle hover/active (defined in `index.html`):
 | `.av-search-wrap` | Focus-within: `border-color: var(--av-focus)` | -- | Boxed search wrappers (inbox, Q&A) |
 
 **Inline hover pattern** (when CSS class is insufficient):
+
 ```jsx
 background: isSelected ? theme.bg.raised : "transparent",
 transition: "background " + theme.transition.fast,
@@ -475,6 +488,7 @@ cursor: disabled ? "default" : "pointer",
 | `theme.transition.slow` | `300ms ease-out` | Layout transitions |
 
 **Rules:**
+
 - `ease-out` only. Never `ease-in` or `linear` for UI transitions (exception: playhead uses `linear`).
 - No decorative motion. Every animation must confirm a user action or communicate state.
 - Prefer transitions on `background`, `border-color`, `color`, `opacity`, `transform`.
@@ -518,6 +532,7 @@ in a conditional.
 
 The app shell uses `ShellFrame` at the top level. Individual views (ReplayView, TracksView, etc.)
 are rendered as children -- they are not each independently wrapped in `ShellFrame`.
+
 ```jsx
 {
   width: "100%",
@@ -534,6 +549,7 @@ are rendered as children -- they are not each independently wrapped in `ShellFra
 ### Resizable Split Panels
 
 `ResizablePanel` provides drag-to-resize splits:
+
 - Default split: `72% / 28%` (main content / sidebar inspector).
 - Minimum panel size: `120px` (configurable via `minPx`).
 - Drag handle: `6px` wide, `2px` visible indicator line, `24px` long.
@@ -543,6 +559,7 @@ are rendered as children -- they are not each independently wrapped in `ShellFra
 ### Sidebar Inspector
 
 Found in ReplayView, WaterfallView, GraphView, and StatsView. All panels follow a normalized standard:
+
 - Container: `padding: theme.space.lg` (12px), `gap: theme.space.lg` (12px), `display: "flex"`, `flexDirection: "column"`, `overflowY: "auto"`, `height: "100%"`.
 - Section headers: `fontSize: theme.fontSize.xs` (10px), `color: theme.text.dim`, `textTransform: "uppercase"`, `letterSpacing: 1`, `marginBottom: theme.space.md` (8px).
 - Body/stat rows: `fontSize: theme.fontSize.sm` (11px), label `color: theme.text.muted`, value `color: theme.text.primary`.
@@ -554,6 +571,7 @@ Found in ReplayView, WaterfallView, GraphView, and StatsView. All panels follow 
 ### Grid Layout
 
 Used for metric cards:
+
 ```jsx
 display: "grid",
 gridTemplateColumns: "1fr 1fr 1fr",
@@ -583,12 +601,14 @@ For card grids where each card represents a navigable item (sessions, experiment
 ```
 
 **States:**
+
 - Default: `border: 1px solid theme.border.default`, `background: theme.bg.surface`
 - Hover: `border-color: theme.border.strong`, `background: theme.bg.hover`
 - Use the `.av-interactive` class or inline `transition: theme.transition.fast`
 
 **Left-edge accent bar (optional):**
 Use a `::before`-style absolute-positioned div for color-coded status:
+
 ```jsx
 <div style={{
   position: "absolute",
@@ -602,6 +622,7 @@ Use a `::before`-style absolute-positioned div for color-coded status:
 ```
 
 **Card content layout:**
+
 - Header row: flex with `justifyContent: space-between` for title + timestamp
 - Metrics row: flex with `gap: 12` for inline stat chips
 - Summary: single line, truncated with `textOverflow: ellipsis`
@@ -613,6 +634,7 @@ override the button default. This ensures keyboard accessibility.
 **Two-tier rendering:**
 When a card may have full data or partial data (e.g., parsed vs discovered-only sessions),
 dim the partial cards:
+
 - Full data: normal rendering
 - Partial data: `opacity: 0.7` on the metrics row, show "Not yet analyzed" in `theme.text.dim`
 
@@ -626,6 +648,7 @@ dim the partial cards:
 **Toolbar containers with dropdowns must NOT use `overflow: hidden`.**
 Applying `overflow: hidden` to a toolbar or header row clips any absolutely-positioned
 dropdowns, menus, or tooltips that extend outside its bounds. Instead:
+
 - Set `position: relative` on the container to establish a stacking context.
 - Set `zIndex: theme.z.active` (2) on the container so it layers above scroll content.
 - Set `zIndex: theme.z.tooltip` (10) on the dropdown itself.
@@ -639,6 +662,7 @@ dropdowns, menus, or tooltips that extend outside its bounds. Instead:
 Three overlay patterns exist:
 
 **Command Palette** -- centered near top, blurred backdrop:
+
 ```jsx
 {
   position: "fixed",
@@ -650,6 +674,7 @@ Three overlay patterns exist:
 ```
 
 **Dialog Modal** (ShortcutsModal) -- centered, heavier backdrop, no blur:
+
 ```jsx
 {
   position: "fixed",
@@ -660,6 +685,7 @@ Three overlay patterns exist:
 ```
 
 **Landing Overlay** (drag-drop) -- near-opaque:
+
 ```jsx
 {
   background: alpha(theme.bg.base, 0.92),
@@ -667,6 +693,7 @@ Three overlay patterns exist:
 ```
 
 **Slide-over Drawer** (QADrawer) -- anchored to right edge, full height:
+
 ```jsx
 {
   position: "fixed",
@@ -682,6 +709,7 @@ Three overlay patterns exist:
   overflow: "hidden",
 }
 ```
+
 Drawers use flex column layout with a scrollable middle area (`flex: 1; minHeight: 0; overflowY: auto`) and a fixed input area at bottom. Dismiss via close button, Escape key, or a footer "Disable" link.
 
 All overlays dismiss on backdrop click via `e.stopPropagation()` on the inner container.
@@ -740,6 +768,7 @@ to theme tokens over time but are not blocking issues.
 ```
 
 **Rules:**
+
 - `pointerEvents: "none"` -- tooltips must never block clicks.
 - Show on `onMouseEnter`, hide on `onMouseLeave`.
 - Position above the element by default (`bottom: calc(100% + 8px)`).
@@ -808,6 +837,7 @@ New code should target the pattern above.
 Two variants exist:
 
 **ErrorBoundary** (catch-all):
+
 ```jsx
 {
   background: theme.bg.surface,
@@ -819,6 +849,7 @@ Two variants exist:
 ```
 
 **Error cards/rows** (inline in lists):
+
 ```jsx
 {
   background: theme.semantic.errorBg,
@@ -840,6 +871,7 @@ Two variants exist:
 Two loading patterns exist:
 
 **Primary loading screen** (AppLoadingState) -- border spinner:
+
 ```jsx
 <div style={{
   width: 20,
@@ -852,6 +884,7 @@ Two loading patterns exist:
 ```
 
 **Inline loading** (DebriefView) -- rotating Unicode star:
+
 ```jsx
 <span style={{
   animation: "spin 1.2s linear infinite",

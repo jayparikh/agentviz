@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { theme } from "./lib/theme.js";
+import { theme, getResolvedThemeMode, getThemeTokensForMode, setSystemThemePreference, setThemePreference } from "./lib/theme.js";
 import { exportSingleSession, exportComparison } from "./lib/exportHtml.js";
 import usePersistentState from "./hooks/usePersistentState.js";
 import useSessionLoader from "./hooks/useSessionLoader.js";
@@ -115,8 +115,13 @@ function renderActiveView(activeView, props) {
 
 export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
+  var [themeModePreference, setThemeModePreference] = usePersistentState("agentviz:theme-mode", "dark");
   var [libraryEntries, setLibraryEntries] = useState(function () {
     return readSessionLibrary();
+  });
+  var [systemThemeMode, setSystemThemeMode] = useState(function () {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "dark";
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   });
   var [showPalette, setShowPalette] = useState(false);
   var [showShortcuts, setShowShortcuts] = useState(false);
@@ -206,6 +211,56 @@ export default function App() {
     onLines: session.appendLines,
   });
 
+  useEffect(function () {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+
+    var mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
+
+    function handleChange(event) {
+      setSystemThemeMode(event.matches ? "light" : "dark");
+    }
+
+    setSystemThemeMode(mediaQuery.matches ? "light" : "dark");
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return function () {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }
+
+    mediaQuery.addListener(handleChange);
+    return function () {
+      mediaQuery.removeListener(handleChange);
+    };
+  }, []);
+
+  setThemePreference(themeModePreference);
+  setSystemThemePreference(systemThemeMode);
+
+  var resolvedThemeMode = getResolvedThemeMode(themeModePreference, systemThemeMode);
+
+  useEffect(function () {
+    if (typeof document === "undefined") return;
+
+    var tokens = getThemeTokensForMode(themeModePreference, systemThemeMode);
+
+    document.documentElement.dataset.theme = resolvedThemeMode;
+    document.documentElement.dataset.themePreference = themeModePreference;
+    document.documentElement.style.colorScheme = resolvedThemeMode;
+    document.documentElement.style.setProperty("--av-bg-base", tokens.bg.base);
+    document.documentElement.style.setProperty("--av-bg-surface", tokens.bg.surface);
+    document.documentElement.style.setProperty("--av-bg-hover", tokens.bg.hover);
+    document.documentElement.style.setProperty("--av-bg-active", tokens.bg.active);
+    document.documentElement.style.setProperty("--av-focus", tokens.border.focus);
+    document.documentElement.style.setProperty("--av-border", tokens.border.default);
+    document.documentElement.style.setProperty("--av-border-strong", tokens.border.strong);
+    document.documentElement.style.setProperty("--av-text-primary", tokens.text.primary);
+    document.documentElement.style.setProperty("--av-text-secondary", tokens.text.secondary);
+    document.body.style.background = tokens.bg.base;
+    document.body.style.color = tokens.text.primary;
+  }, [themeModePreference, systemThemeMode, resolvedThemeMode]);
+
   var autonomyMetrics = useMemo(function () {
     return buildAutonomyMetrics(session.events, session.turns, session.metadata);
   }, [session.events, session.turns, session.metadata]);
@@ -246,14 +301,14 @@ export default function App() {
     }
 
     if (entry.isDiscovered && entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () {});
+      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () { });
       return;
     }
 
     var rawText = loadStoredSessionContent(entry.id);
     if (rawText) { afterLoad(rawText); return; }
     if (entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () {});
+      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () { });
       return;
     }
   }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);
@@ -363,6 +418,8 @@ export default function App() {
         session={session}
         activeView={activeView}
         setView={setView}
+        currentThemeMode={themeModePreference}
+        onSetThemeMode={setThemeModePreference}
         autonomyMetrics={autonomyMetrics}
         debrief={debrief}
         showPalette={showPalette}
@@ -395,6 +452,7 @@ function AppSessionView({
   showFilters, setShowFilters, showQA, setShowQA, qaFlag,
   searchInputRef, filtersRef, reset, allSessions, openStoredSession,
   handleExportSession, sessionExport, setCompareLanding,
+  currentThemeMode, onSetThemeMode,
 }) {
   var pb = usePlaybackContext();
 
@@ -481,6 +539,8 @@ function AppSessionView({
         activeView={activeView}
         views={APP_VIEWS}
         onSetView={setView}
+        currentThemeMode={currentThemeMode}
+        onSetThemeMode={onSetThemeMode}
         onReset={reset}
         search={pb.search}
         searchInputRef={searchInputRef}

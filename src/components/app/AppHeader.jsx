@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TRACK_TYPES, alpha, theme } from "../../lib/theme.js";
+import { TRACK_TYPES, THEME_MODES, alpha, theme } from "../../lib/theme.js";
 import LiveIndicator from "../LiveIndicator.jsx";
 import Icon from "../Icon.jsx";
 import BrandWordmark from "../ui/BrandWordmark.jsx";
@@ -27,6 +27,8 @@ export default function AppHeader({
   onToggleTrackFilter,
   speed,
   onCycleSpeed,
+  currentThemeMode,
+  onSetThemeMode,
   onStartCompare,
   hasRawText,
   onExportSession,
@@ -37,11 +39,13 @@ export default function AppHeader({
   currentFile,
 }) {
   var [showRecent, setShowRecent] = useState(false);
+  var [showThemeMenu, setShowThemeMenu] = useState(false);
 
   var showSearch = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
   var showFiltersBtn = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
   var showSpeed = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
   var showErrorNav = activeView === "replay";
+  var currentTheme = THEME_MODES.find(function (item) { return item.id === currentThemeMode; }) || THEME_MODES[0];
 
   return (
     <div style={{
@@ -293,6 +297,76 @@ export default function AppHeader({
             {speed}x
           </ToolbarButton>
         )}
+
+        <div style={{ position: "relative" }}>
+          <ToolbarButton
+            onClick={function () { setShowThemeMenu(function (value) { return !value; }); }}
+            title={"Theme: " + currentTheme.label + " (click to change)"}
+            aria-label="Theme selector"
+            style={{
+              background: showThemeMenu ? alpha(theme.accent.primary, 0.08) : "transparent",
+              border: "1px solid " + (showThemeMenu ? theme.accent.primary : theme.border.default),
+              color: showThemeMenu ? theme.accent.primary : theme.text.muted,
+              padding: "2px 6px",
+              minWidth: 28,
+              justifyContent: "center",
+            }}
+          >
+            <Icon name={currentTheme.icon} size={12} />
+          </ToolbarButton>
+          {showThemeMenu && (
+            <div style={{
+              position: "absolute",
+              top: "calc(100% + 6px)",
+              right: 0,
+              background: theme.bg.surface,
+              border: "1px solid " + theme.border.strong,
+              borderRadius: theme.radius.lg,
+              padding: 6,
+              zIndex: theme.z.tooltip,
+              boxShadow: theme.shadow.md,
+              minWidth: 152,
+            }}>
+              {THEME_MODES.map(function (item) {
+                var isSelected = item.id === currentThemeMode;
+                return (
+                  <button
+                    key={item.id}
+                    className="av-interactive"
+                    onClick={function () {
+                      onSetThemeMode(item.id);
+                      setShowThemeMenu(false);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 10px",
+                      borderRadius: theme.radius.md,
+                      width: "100%",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16 }}>
+                      <Icon name={item.icon} size={12} style={{ color: isSelected ? theme.accent.primary : theme.text.secondary }} />
+                    </span>
+                    <span style={{
+                      flex: 1,
+                      fontSize: theme.fontSize.xs,
+                      fontFamily: theme.font.mono,
+                      color: theme.text.primary,
+                    }}>
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <ToolbarButton onClick={onStartCompare} title="Compare with another session" aria-label="Compare with another session" style={{ padding: "2px 6px" }}>
           <Icon name="arrow-up-down" size={12} />
