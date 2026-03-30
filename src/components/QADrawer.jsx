@@ -158,7 +158,18 @@ function MessageBubble({ message, onSeekTurn }) {
           {message.elapsedMs != null && " \u00B7 " + message.elapsedMs + "ms"}
         </span>
       )}
-      {!message.instant && !message.streaming && message.elapsedMs != null && (
+      {message.cached && (
+        <span style={{
+          display: "block",
+          marginTop: 6,
+          fontSize: theme.fontSize.xs,
+          color: theme.text.ghost,
+        }}>
+          {"\u21BB"} cached answer
+          {message.elapsedMs != null && " \u00B7 " + message.elapsedMs + "ms"}
+        </span>
+      )}
+      {!message.instant && !message.cached && !message.streaming && message.elapsedMs != null && (
         <span style={{
           display: "block",
           marginTop: 6,

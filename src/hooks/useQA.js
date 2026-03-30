@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { classify, buildModelContext } from "../lib/qaClassifier.js";
+import { classify, buildModelContext, fingerprintQuestion } from "../lib/qaClassifier.js";
 
 var STORAGE_PREFIX = "agentviz:qa:";
 var MAX_PERSISTED_MESSAGES = 50;
@@ -45,11 +45,13 @@ export default function useQA(sessionData, sessionKey) {
   var [error, setError] = useState(null);
   var abortRef = useRef(null);
   var keyRef = useRef(sessionKey);
+  var answerCacheRef = useRef({});
 
-  // Restore messages when sessionKey changes
+  // Restore messages when sessionKey changes; clear cache for new session
   useEffect(function () {
     if (sessionKey !== keyRef.current) {
       keyRef.current = sessionKey;
+      answerCacheRef.current = {};
       setMessages(loadMessages(sessionKey));
       setError(null);
     }
@@ -81,6 +83,21 @@ export default function useQA(sessionData, sessionKey) {
       return;
     }
 
+    // Check paraphrase cache for model answers
+    var fp = fingerprintQuestion(q);
+    if (!fp) {
+      // No fingerprint match -- build a simple content-based key from lowercased sorted tokens
+      var tokens = q.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).sort().join("|");
+      fp = "raw:" + tokens;
+    }
+    var cached = answerCacheRef.current[fp];
+    if (cached) {
+      setMessages(function (prev) {
+        return prev.concat({ role: "assistant", content: cached.answer, instant: false, cached: true, elapsedMs: Date.now() - startedAt });
+      });
+      return;
+    }
+
     // Model fallback via SSE
     setIsStreaming(true);
     var controller = new AbortController();
@@ -108,7 +125,12 @@ export default function useQA(sessionData, sessionKey) {
         setMessages(function (prev) {
           var last = prev[prev.length - 1];
           if (last && last.streaming) {
-            return prev.slice(0, -1).concat(Object.assign({}, last, { streaming: false, elapsedMs: Date.now() - startedAt }));
+            var finished = Object.assign({}, last, { streaming: false, elapsedMs: Date.now() - startedAt });
+            // Cache the model answer for paraphrase reuse
+            if (fp && finished.content) {
+              answerCacheRef.current[fp] = { answer: finished.content, cachedAt: Date.now() };
+            }
+            return prev.slice(0, -1).concat(finished);
           }
           return prev;
         });
@@ -142,6 +164,7 @@ export default function useQA(sessionData, sessionKey) {
     abort();
     setMessages([]);
     setError(null);
+    answerCacheRef.current = {};
     removeMessages(keyRef.current);
   }, [abort]);
 

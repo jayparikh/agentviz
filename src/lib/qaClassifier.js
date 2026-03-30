@@ -138,6 +138,35 @@ export function buildModelContext(question, data) {
   return ctx;
 }
 
+/**
+ * Build a fingerprint for answer caching. Questions with the same fingerprint
+ * produce the same answer (e.g., "what tools were used?" and "which tools did
+ * it call?" both fingerprint to "tools").
+ */
+export function fingerprintQuestion(question) {
+  if (!question) return null;
+  var q = question.trim().toLowerCase();
+  var matched = matchPattern(q);
+  if (matched) {
+    // For turn-specific patterns, include the turn number(s) in the fingerprint
+    if (matched === "turnN") {
+      var turnMatch = q.match(/\bturn\s*#?\s*(\d+)\b/i);
+      return turnMatch ? "turnN:" + turnMatch[1] : "turnN";
+    }
+    if (matched === "turnRange") {
+      var rangeMatch = q.match(/\bturns?\s*#?\s*(\d+)\s*[-\u2013]\s*(\d+)\b/i);
+      return rangeMatch ? "turnRange:" + rangeMatch[1] + "-" + rangeMatch[2] : "turnRange";
+    }
+    if (matched === "toolDetail") {
+      var toolMatch = q.match(/\b(?:how\s+many\s+times?\s+(?:was|did|were)\s+)(\w+)/i);
+      if (!toolMatch) toolMatch = q.match(/\b(\w+)\s+tool\s+(?:count|usage|calls?)/i);
+      return toolMatch ? "toolDetail:" + toolMatch[1] : "toolDetail";
+    }
+    return matched;
+  }
+  return null;
+}
+
 // ── Pattern matching ────────────────────────────────────────────────────────
 
 function matchPattern(q) {
