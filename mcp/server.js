@@ -25,7 +25,7 @@ import fs from "fs";
 import path from "path";
 import net from "net";
 import os from "os";
-import { exec } from "child_process";
+import { execFile, spawn } from "child_process";
 import { fileURLToPath } from "url";
 
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -99,10 +99,11 @@ function findFreePort(preferred, cb) {
 
 function openBrowser(url) {
   var platform = process.platform;
-  var cmd = platform === "darwin" ? "open"
-    : platform === "win32" ? "start"
-    : "xdg-open";
-  exec(cmd + " " + url, function () {});
+  if (platform === "win32") {
+    spawn("cmd", ["/c", "start", url], { stdio: "ignore" });
+  } else {
+    execFile(platform === "darwin" ? "open" : "xdg-open", [url], function () {});
+  }
 }
 
 // Track running servers so we don't stack them up

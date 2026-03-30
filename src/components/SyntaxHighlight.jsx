@@ -1,4 +1,5 @@
 import { theme } from "../lib/theme.js";
+import { createElement } from "react";
 
 /**
  * Lightweight syntax highlighter for code snippets.
@@ -9,6 +10,16 @@ var TOKEN_RE = /(\/\/.*$|#.*$|\/\*[\s\S]*?\*\/)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\
 
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function tokenColor(match) {
+  if (match[1]) return theme.text.dim;
+  if (match[2]) return theme.semantic.success;
+  if (match[3]) return theme.accent.primary;
+  if (match[4]) return theme.track.context;
+  if (match[5]) return theme.semantic.warning;
+  if (match[6]) return theme.accent.primary;
+  return theme.accent.primary;
 }
 
 export function highlightSyntaxToHtml(text) {
@@ -22,16 +33,7 @@ export function highlightSyntaxToHtml(text) {
     if (match.index > lastIndex) {
       html += escapeHtml(text.slice(lastIndex, match.index));
     }
-
-    var color = theme.accent.primary;
-    if (match[1]) color = theme.text.dim;
-    if (match[2]) color = theme.semantic.success;
-    if (match[3]) color = theme.accent.primary;
-    if (match[4]) color = theme.track.context;
-    if (match[5]) color = theme.semantic.warning;
-    if (match[6]) color = theme.accent.primary;
-
-    html += '<span style="color:' + color + '">' + escapeHtml(match[0]) + "</span>";
+    html += '<span style="color:' + tokenColor(match) + '">' + escapeHtml(match[0]) + "</span>";
     lastIndex = TOKEN_RE.lastIndex;
   }
 
@@ -42,6 +44,29 @@ export function highlightSyntaxToHtml(text) {
   return html;
 }
 
+function highlightSyntaxToElements(text) {
+  var parts = [];
+  var lastIndex = 0;
+  var match;
+  var key = 0;
+
+  TOKEN_RE.lastIndex = 0;
+
+  while ((match = TOKEN_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    parts.push(createElement("span", { key: key++, style: { color: tokenColor(match) } }, match[0]));
+    lastIndex = TOKEN_RE.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
+
 export default function SyntaxHighlight({ text, maxLines }) {
   if (!text) return null;
   if (maxLines == null) maxLines = Infinity;
@@ -49,9 +74,10 @@ export default function SyntaxHighlight({ text, maxLines }) {
   var lines = text.split("\n");
   var truncated = Number.isFinite(maxLines) && lines.length > maxLines;
   var display = truncated ? lines.slice(0, maxLines).join("\n") : text;
-  var html = highlightSyntaxToHtml(display);
+  var elements = highlightSyntaxToElements(display);
   if (truncated) {
-    html += '\n<span style="color:' + theme.text.ghost + '">... ' + (lines.length - maxLines) + ' more lines</span>';
+    elements.push("\n");
+    elements.push(createElement("span", { key: "trunc", style: { color: theme.text.ghost } }, "... " + (lines.length - maxLines) + " more lines"));
   }
 
   return (
@@ -64,7 +90,6 @@ export default function SyntaxHighlight({ text, maxLines }) {
         whiteSpace: "pre-wrap", wordBreak: "break-all",
         lineHeight: 1.6, fontFamily: theme.font.mono, margin: 0,
       }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    >{elements}</pre>
   );
 }

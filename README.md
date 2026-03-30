@@ -306,7 +306,7 @@ Open the drawer with `Cmd+Shift+K` (or via the command palette). Questions are r
 | Claude Code | `.jsonl` from `~/.claude/projects/` | Default fallback |
 | Copilot CLI | `.jsonl` event traces | `session.start` with `producer: "copilot-agent"` |
 
-More formats planned: LangSmith traces, OpenTelemetry spans.
+More formats planned -- see [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -464,25 +464,12 @@ Please open an issue to discuss larger changes before submitting a PR.
 
 ## Roadmap
 
-- [x] Token count tracking and cost estimation per turn
-- [x] Tool execution waterfall / Gantt chart view
-- [x] Inline diff viewer for file-editing tool calls
-- [x] Live streaming mode (tail a session file in real time)
-- [x] CLI launcher: `node bin/agentviz.js session.jsonl`
-- [x] MCP server for Claude Code integration (`launch_agentviz` tool)
-- [x] Session comparison (dual-trace scorecard + tool usage chart)
-- [x] HTML export (self-contained shareable file, single session or comparison)
-- [x] Conversation flow graph (directed graph of turns and decisions)
-- [x] Inbox auto-discovery (Copilot CLI sessions found and ranked automatically)
-- [x] AI Coach agent (session analysis with one-click config recommendations)
-- [x] Session Q&A drawer (instant answers + Copilot SDK model fallback)
-- [x] Autonomy metrics (human response time, idle gaps, intervention frequency)
 - [ ] Bookmarks and annotations (persisted to localStorage)
 - [ ] Graph minimap and large-session clustering
 - [ ] Multi-agent hierarchy (parent/child agents, nested tracks)
 - [ ] Shareable session URLs
 - [ ] Vim-style keyboard navigation
-- [x] `npx agentviz` (published to npm)
+- [ ] Parsers for LangSmith traces and OpenTelemetry spans
 
 ## License
 

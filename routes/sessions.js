@@ -102,8 +102,22 @@ export function handle(pathname, req, res, ctx) {
     if (!sessionPath) { res.writeHead(400); res.end("Missing path"); return true; }
 
     var home = process.env.HOME || process.env.USERPROFILE || "";
-    var resolvedSessionPath = path.resolve(sessionPath);
-    if (!home || !resolvedSessionPath.startsWith(home + path.sep)) {
+    var resolvedSessionPath;
+    try {
+      resolvedSessionPath = fs.realpathSync(path.resolve(sessionPath));
+    } catch (e) {
+      res.writeHead(404); res.end("Not found"); return true;
+    }
+
+    // Restrict reads to known session directories
+    var allowedRoots = [
+      path.join(home, ".claude", "projects"),
+      path.join(home, ".copilot", "session-state"),
+    ];
+    var isAllowed = allowedRoots.some(function (root) {
+      return resolvedSessionPath.startsWith(root + path.sep);
+    });
+    if (!home || !isAllowed) {
       res.writeHead(403); res.end("Forbidden"); return true;
     }
     if (!resolvedSessionPath.endsWith(".jsonl")) {

@@ -155,7 +155,43 @@ export function createServer({ sessionFile, distDir }) {
     var parsed = url.parse(req.url, true);
     var pathname = parsed.pathname;
 
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    // Restrict CORS to localhost origins only
+    var origin = req.headers.origin || "";
+    var isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    if (isLocalOrigin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    }
+    res.setHeader("Vary", "Origin");
+
+    // Handle CORS preflight
+    if (req.method === "OPTIONS") {
+      res.writeHead(isLocalOrigin ? 204 : 403);
+      res.end();
+      return;
+    }
+
+    // Enforce body size limit (2 MB) on POST requests
+    if (req.method === "POST") {
+      var MAX_BODY = 2 * 1024 * 1024;
+      var contentLength = parseInt(req.headers["content-length"], 10);
+      if (contentLength > MAX_BODY) {
+        res.writeHead(413);
+        res.end("Payload too large");
+        req.destroy();
+        return;
+      }
+      var received = 0;
+      req.on("data", function (chunk) {
+        received += chunk.length;
+        if (received > MAX_BODY) {
+          res.writeHead(413);
+          res.end("Payload too large");
+          req.destroy();
+        }
+      });
+    }
 
     // Shared context for route modules
     var ctx = { sessionFile: sessionFile, clients: clients, parsed: parsed, getConfiguredModel: getConfiguredModel };
