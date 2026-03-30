@@ -23,7 +23,12 @@ export function handleKeyboardShortcut(e, options) {
     return true;
   }
 
-  if (options.showHero && (e.code === "Space" || e.code === "Enter")) {
+  if (
+    options.showHero &&
+    !options.showPalette &&
+    !isEditableTarget(e.target) &&
+    (e.code === "Space" || e.code === "Enter")
+  ) {
     e.preventDefault();
     options.onDismissHero();
     return true;
