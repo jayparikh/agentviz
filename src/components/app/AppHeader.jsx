@@ -39,8 +39,8 @@ export default function AppHeader({
   var [showRecent, setShowRecent] = useState(false);
 
   var showSearch = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
-  var showFiltersBtn = activeView === "replay" || activeView === "tracks";
-  var showSpeed = activeView === "replay" || activeView === "tracks";
+  var showFiltersBtn = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
+  var showSpeed = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
   var showErrorNav = activeView === "replay";
 
   return (
@@ -55,7 +55,7 @@ export default function AppHeader({
       position: "relative",
       zIndex: theme.z.active,
     }}>
-      <BrandWordmark onClick={onReset} title="Back to start" style={{ flexShrink: 0 }} />
+      <BrandWordmark onClick={onReset} title="Back to start" style={{ flexShrink: 0, fontSize: theme.fontSize.xl }} />
       <div style={{ height: 16, width: 1, background: theme.border.default, flexShrink: 0 }} />
       <span style={{
         fontSize: theme.fontSize.base,

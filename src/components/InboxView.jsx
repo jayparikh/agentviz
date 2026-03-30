@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import { formatDurationLong } from "../lib/formatTime.js";
 import { formatCost } from "../lib/pricing.js";
@@ -83,6 +83,18 @@ function filterByQuery(entries, q) {
 export default function InboxView({ entries, onOpenSession, maxEntries, onImport, onLoadSample, onStartCompare }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [query, setQuery] = useState("");
+  var searchRef = useRef(null);
+
+  useEffect(function () {
+    function onKey(e) {
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+        e.preventDefault();
+        if (searchRef.current) searchRef.current.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return function () { document.removeEventListener("keydown", onKey); };
+  }, []);
 
   var parsedEntries = useMemo(function () {
     return (entries || []).filter(function (e) { return !e.isDiscovered; });
@@ -145,6 +157,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "4px 8px" }}>
           <Icon name="search" size={12} style={{ color: theme.text.ghost, flexShrink: 0 }} />
           <input
+            ref={searchRef}
             type="text"
             value={query}
             onChange={function (e) { setQuery(e.target.value); }}
@@ -312,7 +325,7 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
                     flexShrink: 0,
                   }}
                 >
-                  Open in Observe
+                  Open
                 </button>
               </div>
 

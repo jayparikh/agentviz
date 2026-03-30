@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AGENTVIZ Inbox Empty State Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: #000000;
+    color: #f0f0f2;
+    font-size: 12px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 28px 24px;
+  }
+  button, input, select { font-family: inherit; appearance: none; }
+  button { cursor: pointer; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #3a3a3f; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Brand -->
+<div style="text-align: center;">
+  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 32px; font-weight: 600; color: #f0f0f2; letter-spacing: -0.5px;">AGENTVIZ<span style="color: #6475e8;">.</span></div>
+  <div style="font-size: 13px; color: #585860; margin-top: 6px; line-height: 1.6;">Visualize and improve your AI coding sessions.</div>
+</div>
+
+<!-- Inbox panel -->
+<div style="
+  width: 100%;
+  max-width: 860px;
+  flex: 1;
+  min-height: 0;
+  background: #0f0f16;
+  border: 1px solid #2c2c30;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+">
+  <!-- Toolbar -->
+  <div style="
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #2c2c30;
+    flex-shrink: 0;
+  ">
+    <div style="font-size: 10px; color: #585860; text-transform: uppercase; letter-spacing: 2px; margin-right: 4px; flex-shrink: 0;">
+      Inbox
+    </div>
+
+    <!-- Search -->
+    <div style="flex: 1; display: flex; align-items: center; gap: 6px; background: #0a0a10; border: 1px solid #2c2c30; border-radius: 8px; padding: 4px 8px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#454548" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input
+        type="text"
+        placeholder="Search sessions (/)"
+        style="
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #f0f0f2;
+          font-size: 12px;
+          font-family: 'JetBrains Mono', monospace;
+          width: 100%;
+        "
+      />
+    </div>
+
+    <!-- Sort -->
+    <select style="
+      background: #0a0a10;
+      color: #717178;
+      border: 1px solid #2c2c30;
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      flex-shrink: 0;
+    ">
+      <option>Most recent</option>
+    </select>
+
+    <!-- Import -->
+    <label style="
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 8px;
+      background: rgba(100, 117, 232, 0.08);
+      border: 1px solid rgba(100, 117, 232, 0.4);
+      border-radius: 8px;
+      color: #6475e8;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      flex-shrink: 0;
+    ">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import
+    </label>
+  </div>
+
+  <!-- Empty state content -->
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="
+      border: 1px dashed #3a3a3f;
+      border-radius: 12px;
+      padding: 18px 16px;
+      color: #717178;
+      line-height: 1.8;
+      background: rgba(10, 10, 16, 0.4);
+    ">
+      Sessions from <span style="color: #a1a1a8;">~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.
+
+      <div style="display: flex; gap: 16px; align-items: center; margin-top: 12px;">
+        <button style="
+          color: #6475e8;
+          cursor: pointer;
+          font-size: 11px;
+          font-family: 'JetBrains Mono', monospace;
+          background: none;
+          border: none;
+          padding: 0;
+        ">load a demo session</button>
+        <span style="color: #454548; font-size: 11px;">or</span>
+        <button style="
+          color: #6475e8;
+          cursor: pointer;
+          font-size: 11px;
+          font-family: 'JetBrains Mono', monospace;
+          background: none;
+          border: none;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        ">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>
+          compare two sessions
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
