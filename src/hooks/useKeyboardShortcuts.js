@@ -13,7 +13,7 @@ export function handleKeyboardShortcut(e, options) {
 
   if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key && e.key.toLowerCase() === "k") {
     e.preventDefault();
-    options.onToggleQA();
+    if (options.onToggleQA) options.onToggleQA();
     return true;
   }
 

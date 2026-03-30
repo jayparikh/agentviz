@@ -105,6 +105,8 @@ export default function useQA(sessionData) {
 // ── SSE fetch helper ─────────────────────────────────────────────
 
 function fetchSSE(question, context, signal, handlers) {
+  var reader = null;
+
   fetch("/api/qa/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -113,7 +115,8 @@ function fetchSSE(question, context, signal, handlers) {
   })
     .then(function (res) {
       if (!res.ok) throw new Error("Server returned " + res.status);
-      var reader = res.body.getReader();
+      if (!res.body) throw new Error("Response body is empty");
+      reader = res.body.getReader();
       var decoder = new TextDecoder();
       var buffer = "";
 

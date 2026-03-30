@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { theme, TRACK_TYPES } from "../lib/theme.js";
+import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
 import { buildCommandPaletteIndex, searchCommandPalette } from "../lib/commandPalette.js";
 import Icon from "./Icon.jsx";
 
@@ -53,7 +53,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onAct
 
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+      position: "fixed", inset: 0, background: alpha(theme.bg.base, 0.6),
       display: "flex", alignItems: "flex-start", justifyContent: "center",
       paddingTop: 120, zIndex: theme.z.modal, backdropFilter: "blur(4px)",
     }}>

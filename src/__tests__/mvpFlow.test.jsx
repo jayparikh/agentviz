@@ -117,7 +117,7 @@ describe("AGENTVIZ MVP flow", function () {
       return findByText(app.container, "Inbox");
     }, "expected landing inbox to render");
 
-    await click(findExactButton(app.container, "Open in Observe"));
+    await click(findExactButton(app.container, "Open"));
     await waitFor(function () {
       return findByText(app.container, "fixture.jsonl");
     }, "expected stored session to open");
@@ -155,7 +155,7 @@ describe("AGENTVIZ MVP flow", function () {
       return findByText(app.container, "Inbox");
     }, "expected landing inbox to render");
 
-    await click(findExactButton(app.container, "Open in Observe"));
+    await click(findExactButton(app.container, "Open"));
     await waitFor(function () {
       return findByText(app.container, "fixture.jsonl");
     }, "expected stored session to open");

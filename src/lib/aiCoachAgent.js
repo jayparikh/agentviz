@@ -430,6 +430,7 @@ export async function runCoachAgent(payload, opts, _attempt) {
   var signal = opts && opts.signal;
   var onStep = opts && opts.onStep;
   var readConfigFile = opts && opts.readConfigFile;
+  var model = opts && opts.model;
   var attempt = _attempt || 1;
 
   var format = payload.format || "claude-code";
@@ -466,14 +467,17 @@ export async function runCoachAgent(payload, opts, _attempt) {
     await client.start();
     emit({ type: "start", label: attempt > 1 ? "Copilot agent started (retry " + attempt + ")" : "Copilot agent started" });
 
-    session = await client.createSession({
+    var sessionOpts = {
       tools: tools,
       onPermissionRequest: approveAll,
       systemMessage: {
         mode: "replace",
         content: buildSystemPrompt(format),
       },
-    });
+    };
+    if (model) sessionOpts.model = model;
+
+    session = await client.createSession(sessionOpts);
 
     // Wire cancellation: abort the session message when signal fires
     if (signal) {

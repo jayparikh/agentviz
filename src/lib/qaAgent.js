@@ -45,6 +45,7 @@ export async function runQAQuery(payload, opts) {
 
     session = await client.createSession(sessionOpts);
 
+    if (signal && signal.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     if (signal) {
       signal.addEventListener("abort", function () {
         // Session may already be disconnected; safe to ignore

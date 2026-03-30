@@ -64,7 +64,7 @@ function DragOverlay({ onLoad }) {
           zIndex: theme.z.overlay,
         }}>
           <Icon name="upload" size={32} style={{ color: theme.accent.primary }} />
-          <div style={{ fontSize: theme.fontSize.xl, color: theme.accent.primary, fontFamily: theme.font.ui }}>
+          <div style={{ fontSize: theme.fontSize.xl, color: theme.accent.primary, fontFamily: theme.font.mono }}>
             Drop session file to import
           </div>
         <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>

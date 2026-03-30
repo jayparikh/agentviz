@@ -21,7 +21,7 @@ function getConfigPath() {
   return path.join(os.homedir(), ".agentviz", "config.json");
 }
 
-function getConfiguredModel() {
+export function getConfiguredModel() {
   var envModel = process.env.AGENTVIZ_MODEL;
   if (envModel) return envModel;
   try {
@@ -398,6 +398,7 @@ export function createServer({ sessionFile, distDir }) {
 
           var result = await runCoachAgent(payload, {
             signal: abort.signal,
+            model: getConfiguredModel(),
             readConfigFile: readConfigFile,
             onStep: function (step) { sseEvent({ step: step }); },
           });

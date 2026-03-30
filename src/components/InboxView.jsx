@@ -80,7 +80,7 @@ function filterByQuery(entries, q) {
   });
 }
 
-export default function InboxView({ entries, onOpenSession, maxEntries, onImport, onLoadSample, onStartCompare }) {
+export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [query, setQuery] = useState("");
   var searchRef = useRef(null);
@@ -111,8 +111,8 @@ export default function InboxView({ entries, onOpenSession, maxEntries, onImport
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(parsedEntries, q);
     var sorted = sortEntries(filtered, sortMode);
-    return maxEntries ? sorted.slice(0, maxEntries) : sorted;
-  }, [parsedEntries, sortMode, query, maxEntries]);
+    return sorted;
+  }, [parsedEntries, sortMode, query]);
 
   var [showAllDiscovered, setShowAllDiscovered] = useState(false);
 

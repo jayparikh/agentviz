@@ -25,7 +25,7 @@ var INLINE_STYLES = `
   .av-btn:active { background: var(--av-bg-active); }
   .av-interactive { transition: background 80ms ease-out; }
   .av-interactive:hover { background: var(--av-bg-hover); }
-  .av-search:focus { border-color: var(--av-focus) !important; }
+  .av-search:focus { border-color: var(--av-focus) !important; outline: none !important; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }

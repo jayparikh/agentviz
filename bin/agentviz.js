@@ -5,6 +5,7 @@
  */
 
 import { createServer } from "../server.js";
+import { getConfiguredModel } from "../server.js";
 import { DEFAULT_API_PORT } from "../config.js";
 import { createRequire } from "module";
 import fs from "fs";
@@ -119,6 +120,8 @@ findFreePort(DEFAULT_API_PORT, function (err, port) {
       process.stdout.write("  Session: " + path.basename(sessionFile) + "\n");
     }
     process.stdout.write("  Logs: " + LOG_FILE + "\n");
+    var configuredModel = getConfiguredModel();
+    process.stdout.write("  Model: " + (configuredModel || "default (set via ~/.agentviz/config.json or AGENTVIZ_MODEL)") + "\n");
     process.stdout.write("  Press Ctrl+C to stop.\n\n");
     if (!noOpen) { openBrowser(url); }
   });

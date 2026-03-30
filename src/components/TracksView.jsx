@@ -61,7 +61,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
             transition: "opacity " + theme.transition.smooth,
           }}>
             <div style={{
-              width: 180,
+              width: 220,
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -93,7 +93,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                    alignItems: "center",
                    justifyContent: "center",
                  }}
-                >S</button>
+                >Solo</button>
                 <button
                   type="button"
                   onClick={function () { toggleMute(key); }}
@@ -115,8 +115,8 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                    alignItems: "center",
                    justifyContent: "center",
                  }}
-                >M</button>
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginLeft: 4 }}>
+                >Mute</button>
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginLeft: 4, minWidth: 18, textAlign: "right" }}>
                   {trackEntries.length || ""}
                 </span>
               </div>
