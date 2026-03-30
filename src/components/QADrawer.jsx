@@ -11,20 +11,42 @@ import Icon from "./Icon.jsx";
 import useQA from "../hooks/useQA.js";
 
 var TURN_REF_RE = /\[Turns?\s*#?\s*(\d+(?:\s*[-,]\s*\d+)*)\]/gi;
+var BOLD_RE = /\*\*(.+?)\*\*/g;
 
-function parseTurnRefs(text) {
-  var parts = [];
+/**
+ * Parse text into parts: turn refs, bold spans, and plain text.
+ */
+function parseMessageContent(text) {
+  // First pass: split on turn refs
+  var turnParts = [];
   var last = 0;
   var match;
   TURN_REF_RE.lastIndex = 0;
   while ((match = TURN_REF_RE.exec(text)) !== null) {
-    if (match.index > last) parts.push({ type: "text", value: text.slice(last, match.index) });
+    if (match.index > last) turnParts.push({ type: "text", value: text.slice(last, match.index) });
     var nums = match[1].split(/\s*[,\-]\s*/).map(Number).filter(function (n) { return !isNaN(n); });
-    parts.push({ type: "ref", label: match[0], turns: nums });
+    turnParts.push({ type: "ref", label: match[0], turns: nums });
     last = match.index + match[0].length;
   }
-  if (last < text.length) parts.push({ type: "text", value: text.slice(last) });
-  return parts;
+  if (last < text.length) turnParts.push({ type: "text", value: text.slice(last) });
+
+  // Second pass: split text nodes on **bold**
+  var result = [];
+  for (var i = 0; i < turnParts.length; i++) {
+    var part = turnParts[i];
+    if (part.type !== "text") { result.push(part); continue; }
+    var str = part.value;
+    var bLast = 0;
+    BOLD_RE.lastIndex = 0;
+    var bMatch;
+    while ((bMatch = BOLD_RE.exec(str)) !== null) {
+      if (bMatch.index > bLast) result.push({ type: "text", value: str.slice(bLast, bMatch.index) });
+      result.push({ type: "bold", value: bMatch[1] });
+      bLast = bMatch.index + bMatch[0].length;
+    }
+    if (bLast < str.length) result.push({ type: "text", value: str.slice(bLast) });
+  }
+  return result;
 }
 
 function SuggestedChips({ sessionData, onAsk }) {
@@ -71,7 +93,7 @@ function MessageBubble({ message, onSeekTurn }) {
   var bg = isUser ? alpha(theme.agent.user, 0.08) : alpha(theme.agent.assistant, 0.06);
   var borderColor = isUser ? alpha(theme.agent.user, 0.15) : alpha(theme.agent.assistant, 0.12);
 
-  var parts = isUser ? [{ type: "text", value: message.content }] : parseTurnRefs(message.content);
+  var parts = isUser ? [{ type: "text", value: message.content }] : parseMessageContent(message.content);
 
   return (
     <div style={{
@@ -119,6 +141,9 @@ function MessageBubble({ message, onSeekTurn }) {
               {part.label.replace(/[\[\]]/g, "")}
             </button>
           );
+        }
+        if (part.type === "bold") {
+          return <strong key={i} style={{ color: theme.text.primary, fontWeight: 600 }}>{part.value}</strong>;
         }
         return <span key={i}>{part.value}</span>;
       })}
@@ -354,8 +379,8 @@ export default function QADrawer({ open, onClose, sessionData, onSeek, turns }) 
               borderRadius: theme.radius.md,
               color: theme.text.primary,
               fontFamily: theme.font.mono,
-              fontSize: theme.fontSize.md,
-              padding: "8px 10px",
+              fontSize: theme.fontSize.sm,
+              padding: "6px 8px",
               outline: "none",
             }}
           />
@@ -369,14 +394,14 @@ export default function QADrawer({ open, onClose, sessionData, onSeek, turns }) 
               borderRadius: theme.radius.md,
               color: input.trim() ? "#fff" : theme.text.ghost,
               cursor: input.trim() ? "pointer" : "default",
-              padding: "6px 8px",
+              padding: "5px 7px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
             }}
           >
-            <Icon name="send" size={14} />
+            <Icon name="send" size={12} />
           </button>
         </form>
       </div>
