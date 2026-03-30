@@ -164,14 +164,9 @@ function ThinkingOverlay({ messages }) {
 
   return (
     <div style={{
-      position: "absolute",
-      top: 52,
-      left: 8,
-      right: 8,
-      maxHeight: "40%",
-      overflow: "auto",
-      background: alpha(theme.bg.surface, 0.97),
-      border: "1px solid " + alpha(theme.accent.primary, 0.15),
+      margin: "0 14px 4px",
+      background: alpha(theme.accent.primary, 0.05),
+      border: "1px dashed " + alpha(theme.accent.primary, 0.25),
       borderRadius: theme.radius.lg,
       padding: "10px 12px",
       fontSize: theme.fontSize.sm,
@@ -180,8 +175,8 @@ function ThinkingOverlay({ messages }) {
       lineHeight: 1.5,
       whiteSpace: "pre-wrap",
       wordBreak: "break-word",
-      zIndex: 10,
-      boxShadow: theme.shadow.md,
+      maxHeight: 200,
+      overflow: "auto",
     }}>
       <div style={{
         fontSize: theme.fontSize.xs,
@@ -190,9 +185,6 @@ function ThinkingOverlay({ messages }) {
         textTransform: "uppercase",
         letterSpacing: "0.5px",
         marginBottom: 6,
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
       }}>
         {"\uD83D\uDCA1"} Model thinking
       </div>
@@ -203,35 +195,35 @@ function ThinkingOverlay({ messages }) {
 
 function ToggleSwitch({ checked, onChange, label }) {
   return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      title={label}
-      onClick={function () { onChange(!checked); }}
+    <div
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 5,
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        padding: 0,
         fontFamily: theme.font.mono,
         fontSize: theme.fontSize.xs,
         color: theme.text.ghost,
       }}
     >
-      <span style={{ fontSize: 11 }}>{"\uD83D\uDCA1"}</span>
-      <span style={{
-        position: "relative",
-        width: 28,
-        height: 16,
-        borderRadius: 8,
-        background: checked ? theme.accent.primary : alpha(theme.text.muted, 0.25),
-        transition: "background 150ms ease",
-        flexShrink: 0,
-      }}>
+      <span style={{ fontSize: 11 }} title={label}>{"\uD83D\uDCA1"}</span>
+      <button
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={function () { onChange(!checked); }}
+        style={{
+          position: "relative",
+          width: 28,
+          height: 16,
+          borderRadius: 8,
+          background: checked ? theme.accent.primary : alpha(theme.text.muted, 0.25),
+          transition: "background 150ms ease",
+          flexShrink: 0,
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+        }}
+      >
         <span style={{
           position: "absolute",
           top: 2,
@@ -242,8 +234,8 @@ function ToggleSwitch({ checked, onChange, label }) {
           background: "#fff",
           transition: "left 150ms ease",
         }} />
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 

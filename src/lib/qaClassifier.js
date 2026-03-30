@@ -139,6 +139,30 @@ export function buildModelContext(question, data) {
     ctx.topTools = getTopTools(data.events, 10);
   }
 
+  // For domain-specific questions, search event text for key terms from the question
+  // to provide focused context instead of generic top-tools
+  if (!wantsErrors && !wantsFiles && !wantsCommands && !turnRef && !turnRangeRef) {
+    var keyTerms = extractKeyTerms(q);
+    if (keyTerms.length > 0 && data.events) {
+      var matchingEvents = [];
+      for (var ei = 0; ei < data.events.length && matchingEvents.length < 20; ei++) {
+        var evText = ((data.events[ei].text || "") + " " + (data.events[ei].toolName || "")).toLowerCase();
+        var matched = keyTerms.some(function (term) { return evText.indexOf(term) !== -1; });
+        if (matched) {
+          matchingEvents.push({
+            turn: data.events[ei].turnIndex,
+            tool: data.events[ei].toolName,
+            text: truncate(data.events[ei].text, 200),
+            isError: data.events[ei].isError,
+          });
+        }
+      }
+      if (matchingEvents.length > 0) {
+        ctx.relevantEvents = matchingEvents;
+      }
+    }
+  }
+
   // Always include a sample of user messages for conversation context
   ctx.userMessages = getUserMessages(data.turns, 8);
 
@@ -578,6 +602,13 @@ function truncate(text, maxLen) {
   if (!text) return "";
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen) + "...";
+}
+
+var STOP_WORDS = new Set(["the","a","an","is","was","were","are","in","on","to","for","of","and","or","how","many","what","which","did","does","do","this","that","it","its","with","from","by","at","be","been","has","have","had","not","but","they","them","their","there","will","would","could","should","can","may","about","than","then","more","most","also","just","any","all","some","much","each","both"]);
+
+function extractKeyTerms(question) {
+  var words = question.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/);
+  return words.filter(function (w) { return w.length > 2 && !STOP_WORDS.has(w); });
 }
 
 function getTopTools(events, limit) {

@@ -190,6 +190,11 @@ function formatContext(ctx) {
     parts.push(typeof ctx.relevantTurns === "string" ? ctx.relevantTurns : JSON.stringify(ctx.relevantTurns));
   }
 
+  if (ctx.relevantEvents && ctx.relevantEvents.length) {
+    parts.push("\n## Events matching question keywords");
+    parts.push(JSON.stringify(ctx.relevantEvents));
+  }
+
   if (ctx.turnMessages && ctx.turnMessages.length) {
     parts.push("\n## Turn user messages");
     parts.push(ctx.turnMessages.join("\n"));
