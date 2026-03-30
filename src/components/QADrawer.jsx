@@ -166,52 +166,6 @@ function ThinkingBubble({ isStreaming, hasAnswerBubble, streamPhase }) {
   );
 }
 
-function ToggleSwitch({ checked, onChange, label }) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        fontFamily: theme.font.mono,
-        fontSize: theme.fontSize.xs,
-        color: theme.text.ghost,
-      }}
-    >
-      <span style={{ fontSize: 11 }} title={label}>{"\uD83D\uDCA1"}</span>
-      <button
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={function () { onChange(!checked); }}
-        style={{
-          position: "relative",
-          width: 28,
-          height: 16,
-          borderRadius: 8,
-          background: checked ? theme.accent.primary : alpha(theme.text.muted, 0.25),
-          transition: "background 150ms ease",
-          flexShrink: 0,
-          border: "none",
-          cursor: "pointer",
-          padding: 0,
-        }}
-      >
-        <span style={{
-          position: "absolute",
-          top: 2,
-          left: checked ? 14 : 2,
-          width: 12,
-          height: 12,
-          borderRadius: "50%",
-          background: "#fff",
-          transition: "left 150ms ease",
-        }} />
-      </button>
-    </div>
-  );
-}
-
 function SuggestedChips({ sessionData, onAsk }) {
   var chips = useMemo(function () {
     var c = ["What tools were used most?", "Summarize this session"];
@@ -476,7 +430,6 @@ function MessageBubble({ message, onSeekTurn }) {
 
 export default function QADrawer({ open, onClose, onDisable, sessionKey, sessionData, onSeek, turns }) {
   var [input, setInput] = useState("");
-  var [showThinking, setShowThinking] = useState(false);
   var messagesEndRef = useRef(null);
   var inputRef = useRef(null);
   var lastQuestionRef = useRef("");
@@ -584,11 +537,6 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
             Session Q&A
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <ToggleSwitch
-              checked={showThinking}
-              onChange={setShowThinking}
-              label={showThinking ? "Hide thinking" : "Show thinking"}
-            />
             {qa.messages.length > 0 && (
               <button
                 className="av-btn"
@@ -662,27 +610,11 @@ export default function QADrawer({ open, onClose, onDisable, sessionKey, session
           })}
 
           {/* Green thinking bubble -- shows while waiting for first token */}
-          {showThinking && (
-            <ThinkingBubble
-              isStreaming={qa.isStreaming}
-              hasAnswerBubble={qa.messages.some(function (m) { return m.role === "assistant" && m.streaming; })}
-              streamPhase={qa.streamPhase}
-            />
-          )}
-
-          {/* Fallback indicator when thinking toggle is off */}
-          {!showThinking && qa.isStreaming && !qa.messages.some(function (m) { return m.streaming; }) && (
-            <div style={{
-              alignSelf: "flex-start",
-              maxWidth: "92%",
-              background: alpha(theme.agent.assistant, 0.06),
-              border: "1px solid " + alpha(theme.agent.assistant, 0.12),
-              borderRadius: theme.radius.lg,
-              padding: "12px 14px",
-            }}>
-              <ThinkingIndicator phase={qa.streamPhase} />
-            </div>
-          )}
+          <ThinkingBubble
+            isStreaming={qa.isStreaming}
+            hasAnswerBubble={qa.messages.some(function (m) { return m.role === "assistant" && m.streaming; })}
+            streamPhase={qa.streamPhase}
+          />
 
           {qa.error && (
             <div style={{
