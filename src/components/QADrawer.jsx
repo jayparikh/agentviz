@@ -106,6 +106,48 @@ function splitFormattedText(str, out) {
   if (last < str.length) out.push({ type: "text", value: str.slice(last) });
 }
 
+var THINKING_LABELS = ["Thinking", "Analyzing session", "Building answer"];
+
+function ThinkingIndicator({ phase }) {
+  var [dotCount, setDotCount] = useState(0);
+  var [labelIdx, setLabelIdx] = useState(0);
+
+  useEffect(function () {
+    var dotTimer = setInterval(function () {
+      setDotCount(function (prev) { return (prev + 1) % 4; });
+    }, 400);
+    var labelTimer = setInterval(function () {
+      setLabelIdx(function (prev) { return (prev + 1) % THINKING_LABELS.length; });
+    }, 3000);
+    return function () { clearInterval(dotTimer); clearInterval(labelTimer); };
+  }, []);
+
+  var label = phase === "connecting" ? "Connecting to AI"
+    : phase === "streaming" ? "Receiving answer"
+    : THINKING_LABELS[labelIdx];
+  var dots = ".".repeat(dotCount);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, color: theme.accent.primary, fontSize: theme.fontSize.sm }}>
+      <span style={{
+        display: "inline-flex", gap: 3,
+      }}>
+        {[0, 1, 2].map(function (i) {
+          return (
+            <span key={i} style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: theme.accent.primary,
+              opacity: dotCount === i || dotCount === 3 ? 1 : 0.25,
+              transition: "opacity 200ms ease",
+            }} />
+          );
+        })}
+      </span>
+      <span>{label}{dots}</span>
+    </div>
+  );
+}
+
 function SuggestedChips({ sessionData, onAsk }) {
   var chips = useMemo(function () {
     var c = ["What tools were used most?", "Summarize this session"];
@@ -168,12 +210,7 @@ function MessageBubble({ message, onSeekTurn, phase }) {
       maxWidth: "92%",
     }}>
       {message.streaming && !message.content && (
-        <span style={{ color: theme.accent.primary, fontSize: theme.fontSize.sm }}>
-          <span style={{ display: "inline-block", animation: "spin 1.2s linear infinite" }}>{"\u2726"}</span>
-          {phase === "connecting" && " Connecting to AI..."}
-          {phase === "streaming" && " Receiving answer..."}
-          {!phase && " Thinking..."}
-        </span>
+        <ThinkingIndicator phase={phase} />
       )}
       {parts.map(function (part, i) {
         if (part.type === "ref") {

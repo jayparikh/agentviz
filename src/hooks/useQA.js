@@ -232,9 +232,6 @@ function fetchSSE(question, context, signal, handlers) {
   })
     .then(function (res) {
       if (!res.ok) {
-        if (res.status === 502 || res.status === 503) {
-          throw new Error("AI answers unavailable. Instant answers still work. Check that the Copilot SDK is running.");
-        }
         throw new Error("Server returned " + res.status);
       }
       if (!res.body) throw new Error("Response body is empty");
@@ -278,8 +275,6 @@ function fetchSSE(question, context, signal, handlers) {
       if (reader) reader.cancel().catch(function () {});
       if (err.name === "AbortError") {
         handlers.onDone();
-      } else if (/fetch|network|ECONNREFUSED/i.test(err.message)) {
-        handlers.onError("AI answers unavailable. Instant answers still work. Check that the Copilot SDK is running.");
       } else {
         handlers.onError(err.message || "Network error");
       }

@@ -120,8 +120,14 @@ export async function runQAQuery(payload, opts) {
         if (event.type === "content.delta" && event.data && event.data.text) {
           if (onToken) onToken(event.data.text);
         } else if (event.type === "assistant.message" && event.data && event.data.content) {
-          // SDK may send full response as a single message instead of streaming deltas
-          if (onToken) onToken(event.data.content);
+          // SDK sent full response at once -- break into word-sized chunks
+          // so the client sees progressive streaming
+          if (onToken) {
+            var words = event.data.content.split(/(\s+)/);
+            for (var w = 0; w < words.length; w++) {
+              onToken(words[w]);
+            }
+          }
         } else if (event.type === "session.idle") {
           done = true; unsubscribe(); resolve();
         } else if (event.type === "session.error") {
