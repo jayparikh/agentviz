@@ -229,8 +229,8 @@ export default function QADrawer({ open, onClose, sessionData, onSeek, turns }) 
           position: "fixed",
           top: 0,
           right: 0,
-          bottom: 0,
           width: 400,
+          height: "100dvh",
           background: theme.bg.surface,
           borderLeft: "1px solid " + theme.border.default,
           boxShadow: theme.shadow.lg,
@@ -238,6 +238,8 @@ export default function QADrawer({ open, onClose, sessionData, onSeek, turns }) 
           display: "flex",
           flexDirection: "column",
           fontFamily: theme.font.mono,
+          boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
         {/* Header */}
@@ -298,6 +300,7 @@ export default function QADrawer({ open, onClose, sessionData, onSeek, turns }) 
         {/* Messages area */}
         <div style={{
           flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           padding: 14,
           display: "flex",
@@ -358,7 +361,7 @@ export default function QADrawer({ open, onClose, sessionData, onSeek, turns }) 
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "10px 14px",
+            padding: "12px 16px 24px",
             borderTop: "1px solid " + theme.border.default,
             flexShrink: 0,
           }}
