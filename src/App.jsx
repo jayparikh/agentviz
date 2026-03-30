@@ -26,6 +26,8 @@ import CompareLandingState from "./components/app/CompareLandingState.jsx";
 import CompareShell from "./components/app/CompareShell.jsx";
 import { APP_VIEWS, PLAYBACK_SPEEDS } from "./components/app/constants.js";
 import DebriefView from "./components/DebriefView.jsx";
+import QADrawer from "./components/QADrawer.jsx";
+import useFeatureFlag from "./hooks/useFeatureFlag.js";
 import { buildAutonomyMetrics, buildAutonomySummary } from "./lib/autonomyMetrics.js";
 import {
   loadStoredSessionContent,
@@ -121,6 +123,8 @@ export default function App() {
   var [showShortcuts, setShowShortcuts] = useState(false);
   var [showFilters, setShowFilters] = useState(false);
   var [compareLanding, setCompareLanding] = useState(false);
+  var [showQA, setShowQA] = useState(false);
+  var qaFlag = useFeatureFlag("qa", false);
   var searchInputRef = useRef(null);
   var filtersRef = useRef(null);
 
@@ -431,6 +435,10 @@ export default function App() {
     onJumpToError: jumpToError,
     onFocusSearch: focusSearch,
     onToggleShortcuts: function () { setShowShortcuts(function (prev) { return !prev; }); },
+    onToggleQA: function () {
+      if (!qaFlag.enabled) qaFlag.setEnabled(true);
+      setShowQA(function (prev) { return !prev; });
+    },
   });
 
   if (session.loading || (compareLanding && sessionB.loading)) {
@@ -566,6 +574,19 @@ export default function App() {
           onOpenCoach: function () { setView("coach"); },
         })}
       </div>
+
+      <QADrawer
+        open={showQA}
+        onClose={function () { setShowQA(false); }}
+        sessionData={{
+          events: session.events,
+          turns: session.turns,
+          metadata: session.metadata,
+          autonomyMetrics: autonomyMetrics,
+        }}
+        onSeek={playback.seek}
+        turns={session.turns}
+      />
     </div>
   );
 }

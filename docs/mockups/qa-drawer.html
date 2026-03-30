@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AGENTVIZ Q&A Drawer Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Reset */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: #000000;
+    color: #f0f0f2;
+    overflow: hidden;
+    height: 100vh;
+  }
+  button { font-family: inherit; cursor: pointer; appearance: none; }
+  input { font-family: inherit; appearance: none; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #3a3a3f; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #585860; }
+
+  /* Animations */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Fake session background (simulates Replay view) -->
+<div style="
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+">
+  <!-- Fake header -->
+  <div style="
+    height: 44px;
+    background: #0f0f16;
+    border-bottom: 1px solid #232333;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    gap: 16px;
+  ">
+    <span style="font-size: 15px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; letter-spacing: -0.5px;">
+      AGENTVIZ<span style="color: #6475e8;">.</span>
+    </span>
+    <div style="display: flex; gap: 2px; margin: 0 auto; background: #0f0f16; border-radius: 8px; padding: 2px;">
+      <button style="background: #1a1a24; border: none; border-radius: 6px; color: #6475e8; padding: 4px 8px; font-size: 11px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Replay</button>
+      <button style="background: transparent; border: none; border-radius: 6px; color: #717178; padding: 4px 8px; font-size: 11px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Tracks</button>
+      <button style="background: transparent; border: none; border-radius: 6px; color: #717178; padding: 4px 8px; font-size: 11px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Waterfall</button>
+      <button style="background: transparent; border: none; border-radius: 6px; color: #717178; padding: 4px 8px; font-size: 11px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Graph</button>
+      <button style="background: transparent; border: none; border-radius: 6px; color: #717178; padding: 4px 8px; font-size: 11px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Stats</button>
+      <button style="background: transparent; border: none; border-radius: 6px; color: #717178; padding: 4px 8px; font-size: 11px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Coach</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+      <span style="font-size: 10px; color: #585860;">&#8984;&#8679;K for Q&A</span>
+    </div>
+  </div>
+
+  <!-- Fake timeline -->
+  <div style="padding: 8px 20px 0; flex-shrink: 0;">
+    <div style="height: 32px; background: #0f0f16; border-radius: 6px; border: 1px solid #232333; position: relative; overflow: hidden;">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 72%; background: linear-gradient(90deg, rgba(100,117,232,0.06) 0%, rgba(100,117,232,0.03) 100%);"></div>
+      <div style="position: absolute; left: 72%; top: 0; bottom: 0; width: 2px; background: #6475e8;"></div>
+    </div>
+  </div>
+
+  <!-- Main area -->
+  <div style="flex: 1; padding: 8px 20px 16px; min-height: 0; overflow: hidden; position: relative;">
+    <!-- Fake replay content -->
+    <div style="
+      width: 100%;
+      height: 100%;
+      background: #0f0f16;
+      border-radius: 8px;
+      border: 1px solid #232333;
+      padding: 16px;
+      overflow-y: auto;
+    ">
+      <!-- Simulated event rows -->
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px; background: rgba(100,117,232,0.03);">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:00</span>
+          <span style="font-size: 10px; color: #6475e8; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #8b8b99;">User</span>
+          <span style="font-size: 12px; color: #a1a1a8; flex: 1;">Help me fix the authentication bug in src/auth.ts</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px;">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:02</span>
+          <span style="font-size: 10px; color: #3b9eff; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #6475e8;">bash</span>
+          <span style="font-size: 12px; color: #a1a1a8; flex: 1;">cat src/auth.ts</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px;">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:05</span>
+          <span style="font-size: 10px; color: #3b9eff; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #6475e8;">grep</span>
+          <span style="font-size: 12px; color: #a1a1a8; flex: 1;">grep -rn "validateToken" src/</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.19);">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:12</span>
+          <span style="font-size: 10px; color: #ef4444; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #6475e8;">bash</span>
+          <span style="font-size: 12px; color: #f87171; flex: 1;">npm test -- --filter auth (exit code 1)</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px;">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:18</span>
+          <span style="font-size: 10px; color: #3b9eff; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #6475e8;">edit</span>
+          <span style="font-size: 12px; color: #a1a1a8; flex: 1;">src/auth.ts (fixed token validation logic)</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px;">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:24</span>
+          <span style="font-size: 10px; color: #3b9eff; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #6475e8;">bash</span>
+          <span style="font-size: 12px; color: #10d97a; flex: 1;">npm test -- --filter auth (all 12 tests passed)</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px; background: rgba(100,117,232,0.03);">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:30</span>
+          <span style="font-size: 10px; color: #6475e8; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #8b8b99;">User</span>
+          <span style="font-size: 12px; color: #a1a1a8; flex: 1;">Now add rate limiting to the login endpoint</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px;">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:32</span>
+          <span style="font-size: 10px; color: #3b9eff; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #6475e8;">view</span>
+          <span style="font-size: 12px; color: #a1a1a8; flex: 1;">src/middleware/rateLimit.ts</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px;">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:35</span>
+          <span style="font-size: 10px; color: #3b9eff; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #6475e8;">edit</span>
+          <span style="font-size: 12px; color: #a1a1a8; flex: 1;">src/routes/login.ts (added rate limiter middleware)</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px;">
+          <span style="font-size: 10px; color: #585860; min-width: 48px;">0:42</span>
+          <span style="font-size: 10px; color: #3b9eff; min-width: 14px;">&#9670;</span>
+          <span style="font-size: 12px; color: #6475e8;">bash</span>
+          <span style="font-size: 12px; color: #10d97a; flex: 1;">npm test (all 47 tests passed)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- Q&A DRAWER - the actual mockup subject    -->
+    <!-- ========================================= -->
+
+    <!-- Backdrop -->
+    <div id="qa-backdrop" style="
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 50;
+      animation: fadeIn 200ms ease-out;
+    "></div>
+
+    <!-- Drawer panel -->
+    <div id="qa-drawer" style="
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 400px;
+      background: #0f0f16;
+      border-left: 1px solid #232333;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      font-family: 'JetBrains Mono', monospace;
+      animation: slideIn 300ms ease-out;
+    ">
+
+      <!-- Header -->
+      <div style="
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px;
+        border-bottom: 1px solid #232333;
+        flex-shrink: 0;
+      ">
+        <span style="
+          font-size: 11px;
+          color: #585860;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          font-weight: 600;
+        ">Session Q&A</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 10px; color: #454548;">experimental</span>
+          <button style="
+            background: none;
+            border: none;
+            color: #717178;
+            font-size: 18px;
+            line-height: 1;
+            padding: 0 2px;
+          " title="Close (Esc)">&times;</button>
+        </div>
+      </div>
+
+      <!-- Messages area -->
+      <div style="
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+      ">
+
+        <!-- Suggested chips (shown above conversation as context) -->
+        <div style="
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 4px;
+        ">
+          <button style="
+            background: rgba(100,117,232,0.06);
+            border: 1px solid rgba(100,117,232,0.15);
+            border-radius: 9999px;
+            color: #a1a1a8;
+            font-size: 11px;
+            padding: 4px 10px;
+            transition: background 80ms ease-out;
+          ">What tools were used most?</button>
+          <button style="
+            background: rgba(100,117,232,0.06);
+            border: 1px solid rgba(100,117,232,0.15);
+            border-radius: 9999px;
+            color: #a1a1a8;
+            font-size: 11px;
+            padding: 4px 10px;
+            transition: background 80ms ease-out;
+          ">What errors occurred?</button>
+          <button style="
+            background: rgba(100,117,232,0.06);
+            border: 1px solid rgba(100,117,232,0.15);
+            border-radius: 9999px;
+            color: #a1a1a8;
+            font-size: 11px;
+            padding: 4px 10px;
+            transition: background 80ms ease-out;
+          ">Summarize this session</button>
+          <button style="
+            background: rgba(100,117,232,0.06);
+            border: 1px solid rgba(100,117,232,0.15);
+            border-radius: 9999px;
+            color: #a1a1a8;
+            font-size: 11px;
+            padding: 4px 10px;
+            transition: background 80ms ease-out;
+          ">Most expensive turn?</button>
+        </div>
+
+        <!-- User message 1 -->
+        <div style="
+          align-self: flex-end;
+          max-width: 85%;
+        ">
+          <div style="
+            background: rgba(139,139,153,0.08);
+            border: 1px solid rgba(139,139,153,0.15);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #f0f0f2;
+          ">What tools were used most?</div>
+          <div style="font-size: 10px; color: #454548; text-align: right; margin-top: 4px;">just now</div>
+        </div>
+
+        <!-- AI answer 1 (instant -- no loading delay) -->
+        <div style="
+          align-self: flex-start;
+          max-width: 85%;
+        ">
+          <div style="
+            background: rgba(100,117,232,0.06);
+            border: 1px solid rgba(100,117,232,0.12);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #f0f0f2;
+          ">
+            <div style="margin-bottom: 8px;">This session used <strong>6 tool calls</strong> across 3 tools:</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #3b9eff; font-size: 11px; min-width: 48px;">bash</span>
+                <div style="flex: 1; height: 4px; background: #1a1a24; border-radius: 9999px; overflow: hidden;">
+                  <div style="width: 60%; height: 100%; background: #3b9eff; border-radius: 9999px;"></div>
+                </div>
+                <span style="color: #a1a1a8; font-size: 11px;">3</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #3b9eff; font-size: 11px; min-width: 48px;">edit</span>
+                <div style="flex: 1; height: 4px; background: #1a1a24; border-radius: 9999px; overflow: hidden;">
+                  <div style="width: 40%; height: 100%; background: #3b9eff; border-radius: 9999px;"></div>
+                </div>
+                <span style="color: #a1a1a8; font-size: 11px;">2</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #3b9eff; font-size: 11px; min-width: 48px;">view</span>
+                <div style="flex: 1; height: 4px; background: #1a1a24; border-radius: 9999px; overflow: hidden;">
+                  <div style="width: 20%; height: 100%; background: #3b9eff; border-radius: 9999px;"></div>
+                </div>
+                <span style="color: #a1a1a8; font-size: 11px;">1</span>
+              </div>
+            </div>
+            <div style="font-size: 10px; color: #585860;">
+              <span style="
+                background: rgba(100,117,232,0.13);
+                color: #6475e8;
+                border-radius: 9999px;
+                padding: 1px 6px;
+                font-size: 10px;
+              ">instant</span>
+            </div>
+          </div>
+          <div style="font-size: 10px; color: #454548; margin-top: 4px;">answered in &lt;1ms</div>
+        </div>
+
+        <!-- User message 2 -->
+        <div style="
+          align-self: flex-end;
+          max-width: 85%;
+        ">
+          <div style="
+            background: rgba(139,139,153,0.08);
+            border: 1px solid rgba(139,139,153,0.15);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #f0f0f2;
+          ">Why did the auth test fail the first time?</div>
+          <div style="font-size: 10px; color: #454548; text-align: right; margin-top: 4px;">just now</div>
+        </div>
+
+        <!-- AI answer 2 (model-backed -- has turn references) -->
+        <div style="
+          align-self: flex-start;
+          max-width: 85%;
+        ">
+          <div style="
+            background: rgba(100,117,232,0.06);
+            border: 1px solid rgba(100,117,232,0.12);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #f0f0f2;
+          ">
+            The auth test failed in
+            <button style="
+              background: rgba(100,117,232,0.13);
+              color: #6475e8;
+              border: none;
+              border-radius: 9999px;
+              padding: 1px 6px;
+              font-size: 11px;
+              cursor: pointer;
+              font-family: inherit;
+            ">Turn 1</button>
+            because the <code style="background: #1a1a24; padding: 1px 4px; border-radius: 4px; font-size: 11px;">validateToken()</code> function was comparing the JWT expiry as a string instead of a number. The agent found this by running <code style="background: #1a1a24; padding: 1px 4px; border-radius: 4px; font-size: 11px;">grep -rn "validateToken"</code> and then reading the source.
+
+            <div style="margin-top: 8px;">
+              The fix in
+              <button style="
+                background: rgba(100,117,232,0.13);
+                color: #6475e8;
+                border: none;
+                border-radius: 9999px;
+                padding: 1px 6px;
+                font-size: 11px;
+                cursor: pointer;
+                font-family: inherit;
+              ">Turn 1</button>
+              changed the comparison to use <code style="background: #1a1a24; padding: 1px 4px; border-radius: 4px; font-size: 11px;">Number(exp)</code>, after which all 12 tests passed.
+            </div>
+          </div>
+          <div style="font-size: 10px; color: #454548; margin-top: 4px;">answered in 3.2s (model)</div>
+        </div>
+
+        <!-- Thinking indicator (visible to show the pattern) -->
+        <div style="
+          align-self: flex-start;
+          max-width: 85%;
+          display: none;
+        " id="thinking-demo">
+          <div style="
+            background: rgba(100,117,232,0.06);
+            border: 1px solid rgba(100,117,232,0.12);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: #717178;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          ">
+            <span style="animation: spin 1.2s linear infinite; display: inline-block;">&#10022;</span>
+            Thinking...
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Input area -->
+      <div style="
+        padding: 12px 16px;
+        border-top: 1px solid #232333;
+        flex-shrink: 0;
+      ">
+        <div style="
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        ">
+          <input
+            type="text"
+            placeholder="Ask about this session..."
+            aria-label="Ask about this session"
+            style="
+              flex: 1;
+              background: #1a1a24;
+              border: 1px solid #232333;
+              border-radius: 6px;
+              color: #f0f0f2;
+              font-size: 13px;
+              padding: 10px 14px;
+              outline: none;
+              transition: border-color 80ms ease-out;
+            "
+            onfocus="this.style.borderColor='#6475e8'"
+            onblur="this.style.borderColor='#232333'"
+          />
+          <button style="
+            background: #6475e8;
+            border: none;
+            border-radius: 6px;
+            color: #f0f0f2;
+            padding: 10px 12px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 80ms ease-out;
+          " title="Send">&#8593;</button>
+        </div>
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 8px;
+        ">
+          <span style="font-size: 10px; color: #454548;">
+            <kbd style="background: rgba(35,35,51,0.5); border: 1px solid #232333; border-radius: 4px; padding: 1px 5px; font-size: 10px; color: #f0f0f2;">Esc</kbd> to close
+          </span>
+          <button style="
+            background: none;
+            border: none;
+            color: #454548;
+            font-size: 10px;
+            text-decoration: underline;
+            cursor: pointer;
+          ">Disable Q&A</button>
+        </div>
+      </div>
+
+    </div>
+
+</div>
+
+<!-- Toggle thinking indicator demo -->
+<script>
+  // Toggle thinking indicator on/off every 4 seconds for demo
+  var thinkingEl = document.getElementById('thinking-demo');
+  setInterval(function() {
+    thinkingEl.style.display = thinkingEl.style.display === 'none' ? 'block' : 'none';
+  }, 4000);
+</script>
+
+</body>
+</html>

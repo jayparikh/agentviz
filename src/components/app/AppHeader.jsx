@@ -112,9 +112,6 @@ export default function AppHeader({
               }}
             >
               <Icon name={item.icon} size={13} style={{ opacity: isActive ? 1 : 0.6 }} /> {item.label}
-              {item.experimental && (
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, marginLeft: 2 }}>exp</span>
-              )}
             </button>
           );
         })}

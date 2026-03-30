@@ -16,6 +16,7 @@ var SHORTCUTS = [
   { section: "Search" },
   { key: "/", label: "Focus search" },
   { key: "\u2318K", label: "Open command palette" },
+  { key: "\u2318\u21e7K", label: "Session Q&A (experimental)" },
   { section: "Help" },
   { key: "?", label: "Toggle this dialog" },
 ];

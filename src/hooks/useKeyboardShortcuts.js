@@ -11,6 +11,12 @@ export function isEditableTarget(target) {
 export function handleKeyboardShortcut(e, options) {
   if (!options) return false;
 
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    options.onToggleQA();
+    return true;
+  }
+
   if ((e.metaKey || e.ctrlKey) && e.key && e.key.toLowerCase() === "k") {
     e.preventDefault();
     options.onTogglePalette();
