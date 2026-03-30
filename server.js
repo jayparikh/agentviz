@@ -464,7 +464,7 @@ export function createServer({ sessionFile, distDir }) {
       if (req.method !== "GET") { res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
       var current = getConfiguredModel();
       res.writeHead(200);
-      res.end(JSON.stringify({ current: current, configPath: getConfigPath() }));
+      res.end(JSON.stringify({ current: current }));
       return;
     }
 

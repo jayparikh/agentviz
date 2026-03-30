@@ -389,7 +389,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                 background: input.trim() ? theme.accent.primary : "transparent",
                 border: "1px solid " + (input.trim() ? theme.accent.primary : theme.border.default),
                 borderRadius: theme.radius.md,
-                color: input.trim() ? "#fff" : theme.text.ghost,
+                color: input.trim() ? theme.text.primary : theme.text.ghost,
                 cursor: input.trim() ? "pointer" : "default",
                 padding: "5px 7px",
                 display: "flex",
@@ -404,7 +404,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
             <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
               <kbd style={{
-                background: "rgba(35,35,51,0.5)",
+                background: theme.bg.raised,
                 border: "1px solid " + theme.border.default,
                 borderRadius: theme.radius.sm,
                 padding: "1px 5px",

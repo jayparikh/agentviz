@@ -145,6 +145,7 @@ function fetchSSE(question, context, signal, handlers) {
       return pump();
     })
     .catch(function (err) {
+      if (reader) reader.cancel().catch(function () {});
       if (err.name === "AbortError") {
         handlers.onDone();
       } else {

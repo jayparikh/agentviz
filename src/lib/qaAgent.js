@@ -47,6 +47,7 @@ export async function runQAQuery(payload, opts) {
 
     if (signal) {
       signal.addEventListener("abort", function () {
+        // Session may already be disconnected; safe to ignore
         session && session.abort().catch(function () {});
       }, { once: true });
     }
