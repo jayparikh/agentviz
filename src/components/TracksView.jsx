@@ -50,6 +50,8 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
         var key = entry[0];
         var info = entry[1];
         var trackEntries = eventsByTrack[key] || [];
+        // Hide tracks with no events (e.g., "agent" in sessions without subagents)
+        if (trackEntries.length === 0) return null;
         var visible = isVisible(key);
 
         return (
@@ -145,7 +147,9 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                 var agentColor = AGENT_COLORS[ev.agent] || theme.text.muted;
                 var active = currentTime >= ev.t && currentTime <= ev.t + ev.duration;
                 var hovered = hoveredEntry && hoveredEntry.index === trackEntry.index;
-                var blockColor = ev.isError ? theme.semantic.error : info.color;
+                var blockColor = ev.isError ? theme.semantic.error
+                  : (ev.track === "agent" && ev.agentName) ? (theme.agentType[ev.agentName] || theme.agentType.default)
+                  : info.color;
 
                 return (
                   <div
@@ -181,7 +185,7 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
                       textOverflow: "ellipsis",
                       opacity: active ? 1 : 0.7,
                     }}>
-                      {ev.toolName || ev.text.substring(0, 50)}
+                      {ev.agentDisplayName || ev.agentName || ev.toolName || ev.text.substring(0, 50)}
                     </span>
                   </div>
                 );

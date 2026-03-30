@@ -328,6 +328,26 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                     load a demo session
                   </button>
                 )}
+                {onLoadSample && (
+                  <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>|</span>
+                )}
+                {onLoadSample && (
+                  <button
+                    type="button"
+                    onClick={function () { onLoadSample("multiagent"); }}
+                    style={{
+                      color: theme.accent.primary,
+                      cursor: "pointer",
+                      fontSize: theme.fontSize.sm,
+                      fontFamily: theme.font.mono,
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                    }}
+                  >
+                    load multi-agent demo
+                  </button>
+                )}
                 {onLoadSample && onStartCompare && (
                   <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>or</span>
                 )}

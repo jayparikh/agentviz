@@ -79,8 +79,12 @@ export function buildGraphData(eventEntries, turns, expandedTurns) {
       }
 
       // Sequential edges for tool calls without explicit parent
+      // Skip sequential edges between concurrent task tools (they should branch)
       var rootTools = toolCalls.filter(function (tc) { return !tc.event.parentToolCallId; });
       for (var m = 1; m < rootTools.length; m++) {
+        // If both are task tools (subagent spawns), skip the sequential edge
+        // to allow parallel branching in the layout
+        if (rootTools[m - 1].event.toolName === "task" && rootTools[m].event.toolName === "task") continue;
         var prevIdx = toolCalls.indexOf(rootTools[m - 1]);
         var currIdx = toolCalls.indexOf(rootTools[m]);
         var prevId = "tool-" + turn.index + "-" + prevIdx;
@@ -221,8 +225,9 @@ export function mergeLayout(graphData, elkResult) {
         var childPos = positionMap[child.id] || { x: 0, y: 0, width: child.width || 160, height: child.height || 36 };
         return Object.assign({}, child, childPos);
       });
-      // Force all children to the same centered x position
-      if (result.children.length > 0) {
+      // Center children only if no task tools (agent subtrees use ELK's natural x positions)
+      var hasTaskTools = node.children.some(function (c) { return c.event && c.event.toolName === "task"; });
+      if (result.children.length > 0 && !hasTaskTools) {
         var childW = result.children[0].width;
         var centeredX = (pos.width - childW) / 2;
         for (var ci = 0; ci < result.children.length; ci++) {

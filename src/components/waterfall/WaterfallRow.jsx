@@ -23,6 +23,10 @@ export default function WaterfallRow({
   var isHovered = hoveredIdx === idx;
   var isActive = currentTime >= ev.t && currentTime <= ev.t + ev.duration;
   var barColor = ev.isError ? theme.semantic.error : getToolColor(ev.toolName);
+  // Tint bar with agent color for subagent child tool calls
+  if (ev.agentName && ev.toolName !== "task") {
+    barColor = theme.agentType[ev.agentName] || theme.agentType.default;
+  }
   var indent = item.depth * WATERFALL_INDENT_PX;
   var barLeft = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
   var barWidth = timeMap
@@ -83,6 +87,19 @@ export default function WaterfallRow({
         }}>
           {ev.toolName || "tool"}
         </span>
+        {ev.agentName && (
+          <span style={{
+            fontSize: 9,
+            color: theme.agentType[ev.agentName] || theme.agentType.default,
+            background: alpha(theme.agentType[ev.agentName] || theme.agentType.default, 0.1),
+            padding: "1px 5px",
+            borderRadius: theme.radius.full,
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}>
+            {ev.agentDisplayName || ev.agentName}
+          </span>
+        )}
       </div>
 
       <div style={{

@@ -1,4 +1,4 @@
-import { theme, TRACK_TYPES } from "../lib/theme.js";
+import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
 import { estimateCost, formatCost } from "../lib/pricing.js";
 import { formatDurationLong } from "../lib/formatTime.js";
@@ -58,6 +58,21 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
     if (e.toolName) toolStats[e.toolName] = (toolStats[e.toolName] || 0) + 1;
   });
   var sortedTools = Object.entries(toolStats).sort(function (a, b) { return b[1] - a[1]; });
+
+  // Compute subagent stats
+  var agentStats = {};
+  events.forEach(function (e) {
+    if (e.agentName) {
+      if (!agentStats[e.agentName]) {
+        agentStats[e.agentName] = { count: 0, totalDuration: 0, displayName: e.agentDisplayName || e.agentName, errors: 0 };
+      }
+      agentStats[e.agentName].count++;
+      if (e.track === "agent" && e.duration > 0) agentStats[e.agentName].totalDuration += e.duration;
+      if (e.isError) agentStats[e.agentName].errors++;
+    }
+  });
+  var agentEntries = Object.entries(agentStats).sort(function (a, b) { return b[1].count - a[1].count; });
+  var totalAgentEvents = agentEntries.reduce(function (sum, e) { return sum + e[1].count; }, 0);
 
   var userMsgs = events.filter(function (e) { return e.agent === "user"; }).length;
   var errorCount = metadata ? metadata.errorCount : events.filter(function (e) { return e.isError; }).length;
@@ -249,6 +264,42 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
           </div>
         )}
 
+        {agentEntries.length > 0 && (
+          <div style={{ marginTop: 8, marginBottom: 16 }}>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="agent" size={13} /> Subagents ({agentEntries.length})
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+              {agentEntries.map(function (entry) {
+                var name = entry[0];
+                var stats = entry[1];
+                var agentColor = theme.agentType[name] || theme.agentType.default;
+                return (
+                  <div key={name} style={{
+                    border: "1px solid " + alpha(agentColor, 0.3),
+                    borderRadius: theme.radius.lg,
+                    padding: "10px 12px",
+                    background: alpha(agentColor, 0.04),
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: theme.radius.full, background: agentColor }} />
+                      <span style={{ fontSize: theme.fontSize.base, color: agentColor, fontWeight: 600, fontFamily: theme.font.mono }}>{stats.displayName}</span>
+                    </div>
+                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, display: "flex", gap: 12 }}>
+                      <span>{stats.count} events</span>
+                      {stats.totalDuration > 0 && <span>{formatDurationLong(stats.totalDuration)}</span>}
+                      {stats.errors > 0 && <span style={{ color: theme.semantic.error }}>{stats.errors} errors</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginTop: 8 }}>
+              {totalAgentEvents} events across {agentEntries.length} agent type{agentEntries.length !== 1 ? "s" : ""}
+            </div>
+          </div>
+        )}
+
         <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
             Event Distribution
@@ -257,6 +308,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             var key = entry[0];
             var info = entry[1];
             var count = (trackStats[key] || {}).count || 0;
+            if (count === 0) return null;
             var pct = events.length > 0 ? (count / events.length) * 100 : 0;
             return (
               <div key={key} style={{ marginBottom: 10 }}>

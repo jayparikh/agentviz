@@ -4,7 +4,7 @@
  * renaming theme.js (which 40+ JS files import by extension).
  */
 
-export type TrackType = "reasoning" | "tool_call" | "context" | "output";
+export type TrackType = "reasoning" | "tool_call" | "context" | "output" | "agent";
 
 export interface TrackTypeInfo {
   label: string;
@@ -53,6 +53,14 @@ export interface Theme {
     user: string;
     assistant: string;
     system: string;
+  };
+  agentType: {
+    explore: string;
+    task: string;
+    "general-purpose": string;
+    "code-review": string;
+    "configure-copilot": string;
+    default: string;
   };
   font: {
     mono: string;

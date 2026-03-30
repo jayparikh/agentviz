@@ -113,6 +113,53 @@ function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, to
   const events: NormalizedEvent[] = [];
   const seenToolStarts: Record<string, boolean> = {};
 
+  // Build a map of task tool calls to their agent metadata
+  const taskToolMap: Record<string, { agentType: string; description: string }> = {};
+  const subagentStartTimes: Record<string, number> = {};
+  // Lifecycle metadata from subagent.started events (preferred for display names)
+  const subagentLifecycle: Record<string, { agentName?: string; agentDisplayName?: string }> = {};
+
+  // First pass: build taskToolMap from task tool execution_start events,
+  // collect subagent.started timestamps and lifecycle metadata
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    const data = record.data || {};
+
+    if (record.type === "tool.execution_start" && data.toolName === "task") {
+      const args = data.arguments || {};
+      taskToolMap[data.toolCallId] = {
+        agentType: args.agent_type || "task",
+        description: args.description || args.name || "",
+      };
+    }
+
+    if (record.type === "subagent.started") {
+      if (data.toolCallId) {
+        const timestamp = parseTimestamp(record.timestamp);
+        if (timestamp !== null) subagentStartTimes[data.toolCallId] = timestamp;
+      }
+      // Lifecycle events carry the authoritative display name
+      subagentLifecycle[data.toolCallId || ""] = {
+        agentName: data.agentName || data.agentType,
+        agentDisplayName: data.agentDisplayName || data.agentName,
+      };
+    }
+  }
+
+  // Resolve agent identity for a given toolCallId.
+  // Priority: lifecycle metadata (subagent.started) > task tool args > fallback
+  function resolveAgent(toolCallId: string | undefined, eventData: Record<string, any>): {
+    agentName: string | null;
+    agentDisplayName: string | null;
+  } {
+    const lifecycle = toolCallId ? subagentLifecycle[toolCallId] : null;
+    const task = toolCallId ? taskToolMap[toolCallId] : null;
+    return {
+      agentName: (lifecycle && lifecycle.agentName) || (task && task.agentType) || eventData.agentName || null,
+      agentDisplayName: (lifecycle && lifecycle.agentDisplayName) || (eventData.agentDisplayName || eventData.agentName) || (task && task.description) || null,
+    };
+  }
+
   for (let index = 0; index < records.length; index += 1) {
     const record = records[index];
     const timestamp = parseTimestamp(record.timestamp);
@@ -130,13 +177,18 @@ function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, to
     }
 
     if (type === "assistant.message") {
-      emitAssistantMessage(events, t, data, record, toolPairs);
+      emitAssistantMessage(events, t, data, record, toolPairs, data.parentToolCallId || null, resolveAgent(data.parentToolCallId, data));
       continue;
     }
 
     if (type === "assistant.reasoning") {
       if (data.content && data.content.trim()) {
-        events.push(makeEvent(t, "assistant", "reasoning", data.content, 0.3, 0.5, record));
+        const agent = data.parentToolCallId ? resolveAgent(data.parentToolCallId, data) : { agentName: null, agentDisplayName: null };
+        events.push(makeEvent(t, "assistant", "reasoning", data.content, 0.3, 0.5, record, {
+          parentToolCallId: data.parentToolCallId || null,
+          agentName: agent.agentName,
+          agentDisplayName: agent.agentDisplayName,
+        }));
       }
       continue;
     }
@@ -144,27 +196,47 @@ function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, to
     if (type === "tool.execution_start") {
       if (seenToolStarts[data.toolCallId]) continue;
       seenToolStarts[data.toolCallId] = true;
-      emitToolCall(events, t, timestamp, data, record, toolPairs);
+      emitToolCall(events, t, timestamp, data, record, toolPairs, taskToolMap, subagentLifecycle);
       continue;
     }
 
     if (type === "subagent.started") {
-      const label = data.agentDisplayName || data.agentName || "Sub-agent";
-      events.push(makeEvent(t, "system", "context", label + " spawned", 0.3, 0.5, record));
+      const agent = resolveAgent(data.toolCallId, data);
+      const label = agent.agentDisplayName || "Sub-agent";
+      events.push(makeEvent(t, "system", "agent", label + " started", 0.3, 0.5, record, {
+        toolCallId: data.toolCallId || null,
+        agentName: agent.agentName || "task",
+        agentDisplayName: label,
+      }));
       continue;
     }
 
     if (type === "subagent.completed") {
-      const label = data.agentDisplayName || data.agentName || "Sub-agent";
-      events.push(makeEvent(t, "system", "context", label + " completed", 0.2, 0.4, record));
+      const agent = resolveAgent(data.toolCallId, data);
+      const label = agent.agentDisplayName || "Sub-agent";
+      const startTime = data.toolCallId ? subagentStartTimes[data.toolCallId] : undefined;
+      const duration = startTime ? Math.max(timestamp - startTime, 0.1) : 0.5;
+      events.push(makeEvent(t, "system", "agent", label + " completed", duration, 0.4, record, {
+        toolCallId: data.toolCallId || null,
+        agentName: agent.agentName || "task",
+        agentDisplayName: label,
+      }));
       continue;
     }
 
     if (type === "subagent.failed") {
-      const label = data.agentDisplayName || data.agentName || "Sub-agent";
+      const agent = resolveAgent(data.toolCallId, data);
+      const label = agent.agentDisplayName || "Sub-agent";
+      const startTime = data.toolCallId ? subagentStartTimes[data.toolCallId] : undefined;
+      const duration = startTime ? Math.max(timestamp - startTime, 0.1) : 0.5;
       let message = label + " failed";
       if (data.error) message += ": " + truncate(data.error, 200);
-      events.push(makeEvent(t, "system", "context", message, 0.3, 0.8, record, { isError: true }));
+      events.push(makeEvent(t, "system", "agent", message, duration, 0.8, record, {
+        isError: true,
+        toolCallId: data.toolCallId || null,
+        agentName: agent.agentName || "task",
+        agentDisplayName: label,
+      }));
       continue;
     }
 
@@ -243,24 +315,31 @@ function emitAssistantMessage(
   data: Record<string, any>,
   record: RawRecord,
   toolPairs: ToolPairs,
+  parentToolCallId: string | null,
+  agent: { agentName: string | null; agentDisplayName: string | null },
 ): void {
   const model = getModelFromMessage(data, toolPairs);
+  // Always preserve parentToolCallId for linkage, even when agent identity is unresolved
+  const agentExtra: Partial<NormalizedEvent> = {};
+  if (parentToolCallId) agentExtra.parentToolCallId = parentToolCallId;
+  if (agent.agentName) agentExtra.agentName = agent.agentName;
+  if (agent.agentDisplayName) agentExtra.agentDisplayName = agent.agentDisplayName;
 
   if (data.reasoningText && data.reasoningText.trim()) {
-    events.push(makeEvent(t, "assistant", "reasoning", data.reasoningText, 0.3, 0.5, record, {
+    events.push(makeEvent(t, "assistant", "reasoning", data.reasoningText, 0.3, 0.5, record, Object.assign({
       model,
       tokenUsage: data.outputTokens ? { outputTokens: data.outputTokens } : null,
-    }));
+    }, agentExtra)));
   }
 
   const content = typeof data.content === "string" ? data.content.trim() : "";
   if (content) {
-    events.push(makeEvent(t + 0.01, "assistant", "output", content, 0.5, 0.7, record, { model }));
+    events.push(makeEvent(t + 0.01, "assistant", "output", content, 0.5, 0.7, record, Object.assign({ model }, agentExtra)));
   }
 
   if (!content && (!data.reasoningText || !data.reasoningText.trim()) && Array.isArray(data.toolRequests) && data.toolRequests.length > 0) {
     const toolNames = data.toolRequests.map(function (request: Record<string, any>) { return request.name; }).join(", ");
-    events.push(makeEvent(t, "assistant", "reasoning", "Invoking: " + toolNames, 0.2, 0.3, record, { model }));
+    events.push(makeEvent(t, "assistant", "reasoning", "Invoking: " + toolNames, 0.2, 0.3, record, Object.assign({ model }, agentExtra)));
   }
 }
 
@@ -271,6 +350,8 @@ function emitToolCall(
   data: Record<string, any>,
   record: RawRecord,
   toolPairs: ToolPairs,
+  taskToolMap?: Record<string, { agentType: string; description: string }>,
+  lifecycleMap?: Record<string, { agentName?: string; agentDisplayName?: string }>,
 ): void {
   const complete = toolPairs.completes[data.toolCallId];
   const endTimestamp = complete ? parseTimestamp(complete.timestamp) : null;
@@ -293,12 +374,36 @@ function emitToolCall(
     if (errorContent) displayText += "\n" + truncate(errorContent, 200);
   }
 
+  // Resolve agent metadata:
+  // - Self agent: this tool IS a task tool (toolCallId in taskToolMap)
+  // - Parent agent: this tool is a child of a subagent (parentToolCallId in taskToolMap)
+  const selfTask = taskToolMap ? taskToolMap[data.toolCallId] : null;
+  const parentTask = data.parentToolCallId && taskToolMap ? taskToolMap[data.parentToolCallId] : null;
+  const selfLifecycle = lifecycleMap ? lifecycleMap[data.toolCallId] : null;
+  const parentLifecycle = data.parentToolCallId && lifecycleMap ? lifecycleMap[data.parentToolCallId] : null;
+
+  let agentName: string | null = null;
+  let agentDisplayName: string | null = null;
+
+  if (selfTask) {
+    // This is a task tool call -- use lifecycle name if available, else task agentType
+    agentName = (selfLifecycle && selfLifecycle.agentName) || selfTask.agentType;
+    agentDisplayName = (selfLifecycle && selfLifecycle.agentDisplayName) || selfTask.description || null;
+  } else if (parentTask || parentLifecycle) {
+    // This tool is a child of a subagent (resolve from either source)
+    agentName = (parentLifecycle && parentLifecycle.agentName) || (parentTask && parentTask.agentType) || null;
+    agentDisplayName = (parentLifecycle && parentLifecycle.agentDisplayName) || (parentTask && parentTask.description) || null;
+  }
+
   events.push(makeEvent(t, "assistant", "tool_call", displayText, duration, isError ? 0.9 : 0.6, record, {
     toolName: data.toolName,
     toolInput: data.arguments,
+    toolCallId: data.toolCallId || null,
     isError,
     model: complete && complete.data ? complete.data.model || null : null,
     parentToolCallId: data.parentToolCallId || null,
+    agentName,
+    agentDisplayName,
   }));
 }
 

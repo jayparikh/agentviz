@@ -491,6 +491,20 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                           {ev.toolName}
                         </span>
                       )}
+                      {ev.agentName && (
+                        <span style={{
+                          fontSize: theme.fontSize.xs,
+                          color: theme.agentType[ev.agentName] || theme.agentType.default,
+                          background: alpha(theme.agentType[ev.agentName] || theme.agentType.default, 0.08),
+                          padding: "2px 6px",
+                          borderRadius: theme.radius.full,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}>
+                          <Icon name="agent" size={10} /> {ev.agentDisplayName || ev.agentName}
+                        </span>
+                      )}
                       {isError && (
                         <span style={{ fontSize: theme.fontSize.xs, color: theme.semantic.error, fontWeight: 600 }}>ERROR</span>
                       )}

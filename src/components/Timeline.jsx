@@ -163,7 +163,9 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
           var width = Math.max(0.3, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 1));
           var info = TRACK_TYPES[ev.track];
-          var color = ev.isError ? theme.semantic.error : (info ? info.color : theme.text.muted);
+          var color = ev.isError ? theme.semantic.error
+            : (ev.track === "agent" && ev.agentName) ? (theme.agentType[ev.agentName] || theme.agentType.default)
+            : (info ? info.color : theme.text.muted);
           var isMatch = matchSet && matchSet.has(entry.index);
           return (
             <div key={entry.index} style={{

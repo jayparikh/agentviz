@@ -445,8 +445,13 @@ describe("additional event types", function () {
 
     var sysEvents = result.events.filter(function (e) { return e.agent === "system"; });
     expect(sysEvents.length).toBe(2);
-    expect(sysEvents[0].text).toContain("spawned");
+    expect(sysEvents[0].text).toContain("started");
+    expect(sysEvents[0].track).toBe("agent");
+    expect(sysEvents[0].agentName).toBe("explore");
+    expect(sysEvents[0].agentDisplayName).toBe("Explore Agent");
     expect(sysEvents[1].text).toContain("completed");
+    expect(sysEvents[1].track).toBe("agent");
+    expect(sysEvents[1].agentName).toBe("explore");
   });
 
   it("handles subagent.failed as error", function () {
@@ -465,6 +470,8 @@ describe("additional event types", function () {
     expect(errorEvents.length).toBe(1);
     expect(errorEvents[0].text).toContain("failed");
     expect(errorEvents[0].text).toContain("Timeout");
+    expect(errorEvents[0].track).toBe("agent");
+    expect(errorEvents[0].agentName).toBe("explore");
   });
 
   it("handles session.error", function () {

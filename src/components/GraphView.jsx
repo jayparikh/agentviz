@@ -16,10 +16,15 @@ var NODE_COLORS = {
   tool_call: theme.track.tool_call,
   context: theme.track.context,
   output: theme.track.output,
+  agent: theme.track.agent,
 };
 
 function getTrackColor(track) {
   return NODE_COLORS[track] || theme.track.reasoning;
+}
+
+function getAgentTypeColor(agentName) {
+  return theme.agentType[agentName] || theme.agentType.default;
 }
 
 function usePrefersReducedMotion() {
@@ -201,8 +206,13 @@ function TurnNode({ node, isActive, isFuture, isSelected, onSelect, onExpand, pr
 // ── Tool call node (inside expanded turn) ──
 
 function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect, prefersReducedMotion }) {
-  var color = getTrackColor("tool_call");
+  var isAgent = node.event && node.event.agentName && node.event.toolName === "task";
+  var color = isAgent ? getAgentTypeColor(node.event.agentName) : getTrackColor("tool_call");
   var opacity = isFuture ? 0.25 : 1;
+  var displayLabel = isAgent
+    ? (node.event.agentDisplayName || node.event.agentName || node.label)
+    : node.label;
+  var nodeRx = isAgent ? theme.radius.xl : theme.radius.md;
 
   return (
     <g
@@ -216,32 +226,41 @@ function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect, prefersR
       <rect
         width={node.width}
         height={node.height}
-        rx={theme.radius.md}
-        ry={theme.radius.md}
-        fill={isSelected ? alpha(color, 0.15) : theme.bg.surface}
-        stroke={isActive ? color : isSelected ? color : theme.border.default}
+        rx={nodeRx}
+        ry={nodeRx}
+        fill={isSelected ? alpha(color, 0.15) : (isAgent ? alpha(color, 0.06) : theme.bg.surface)}
+        stroke={isActive ? color : isSelected ? color : (isAgent ? alpha(color, 0.4) : theme.border.default)}
         strokeWidth={isActive ? 1.5 : 1}
+        strokeDasharray={isAgent ? "4 2" : "none"}
       />
       {node.isError && (
         <rect
           width={node.width}
           height={node.height}
-          rx={theme.radius.md}
-          ry={theme.radius.md}
+          rx={nodeRx}
+          ry={nodeRx}
           fill={alpha(theme.semantic.error, 0.08)}
           stroke={theme.semantic.errorBorder}
           strokeWidth={1}
         />
       )}
+      {isAgent && (
+        <circle
+          cx={10}
+          cy={node.height / 2}
+          r={4}
+          fill={color}
+        />
+      )}
       <text
-        x={12}
+        x={isAgent ? 20 : 12}
         y={22}
-        fill={isActive ? color : theme.text.secondary}
+        fill={isActive ? color : (isAgent ? color : theme.text.secondary)}
         fontSize={theme.fontSize.xs}
         fontFamily={theme.font.mono}
-        fontWeight={500}
+        fontWeight={isAgent ? 600 : 500}
       >
-        {node.label}
+        {displayLabel}
       </text>
       {isActive && (
         <rect
