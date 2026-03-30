@@ -104,8 +104,15 @@ export default function useQA(sessionData) {
 
 // ── SSE fetch helper ─────────────────────────────────────────────
 
+var QA_TIMEOUT_MS = 30000; // 30s frontend safety net
+
 function fetchSSE(question, context, signal, handlers) {
   var reader = null;
+  var timedOut = false;
+  var timer = setTimeout(function () {
+    timedOut = true;
+    handlers.onError("Request timed out. The Copilot SDK may not be running.");
+  }, QA_TIMEOUT_MS);
 
   fetch("/api/qa/ask", {
     method: "POST",
@@ -121,8 +128,10 @@ function fetchSSE(question, context, signal, handlers) {
       var buffer = "";
 
       function pump() {
+        if (timedOut) return;
         return reader.read().then(function (result) {
-          if (result.done) { handlers.onDone(); return; }
+          if (timedOut) return;
+          if (result.done) { clearTimeout(timer); handlers.onDone(); return; }
           buffer += decoder.decode(result.value, { stream: true });
 
           // Parse SSE lines
@@ -134,9 +143,9 @@ function fetchSSE(question, context, signal, handlers) {
             if (line.startsWith("data: ")) {
               try {
                 var data = JSON.parse(line.slice(6));
-                if (data.token) handlers.onToken(data.token);
-                else if (data.done) { handlers.onDone(); return; }
-                else if (data.error) { handlers.onError(data.error); return; }
+                if (data.token) { clearTimeout(timer); handlers.onToken(data.token); }
+                else if (data.done) { clearTimeout(timer); handlers.onDone(); return; }
+                else if (data.error) { clearTimeout(timer); handlers.onError(data.error); return; }
               } catch (_) { /* skip malformed SSE line */ }
             }
           }
@@ -148,6 +157,8 @@ function fetchSSE(question, context, signal, handlers) {
       return pump();
     })
     .catch(function (err) {
+      clearTimeout(timer);
+      if (timedOut) return;
       if (reader) reader.cancel().catch(function () {});
       if (err.name === "AbortError") {
         handlers.onDone();

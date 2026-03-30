@@ -16,6 +16,21 @@ var SYSTEM_PROMPT = [
   "Do not speculate beyond what the session data shows.",
 ].join(" ");
 
+var SDK_TIMEOUT_MS = 15000; // 15s for client.start() and createSession()
+var SESSION_TIMEOUT_MS = 60000; // 60s for the full model response
+
+function withTimeout(promise, ms, label) {
+  return new Promise(function (resolve, reject) {
+    var timer = setTimeout(function () {
+      reject(new Error(label + " timed out after " + (ms / 1000) + "s"));
+    }, ms);
+    promise.then(
+      function (val) { clearTimeout(timer); resolve(val); },
+      function (err) { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 /**
  * Run a Q&A query against the Copilot SDK.
  *
@@ -35,7 +50,7 @@ export async function runQAQuery(payload, opts) {
   var session;
 
   try {
-    await client.start();
+    await withTimeout(client.start(), SDK_TIMEOUT_MS, "Copilot SDK start");
 
     var sessionOpts = {
       onPermissionRequest: approveAll,
@@ -43,28 +58,29 @@ export async function runQAQuery(payload, opts) {
     };
     if (model) sessionOpts.model = model;
 
-    session = await client.createSession(sessionOpts);
+    session = await withTimeout(client.createSession(sessionOpts), SDK_TIMEOUT_MS, "Copilot SDK session");
 
     if (signal && signal.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     if (signal) {
       signal.addEventListener("abort", function () {
-        // Session may already be disconnected; safe to ignore
         session && session.abort().catch(function () {});
       }, { once: true });
     }
 
-    // Build the user prompt with embedded context
     var contextBlock = formatContext(payload.context);
     var prompt = contextBlock + "\n\nUser question: " + payload.question;
 
-    // Stream tokens via session events
-    await new Promise(function (resolve, reject) {
+    // Stream tokens via session events, with overall timeout
+    await withTimeout(new Promise(function (resolve, reject) {
       var done = false;
 
       var unsubscribe = session.on(function (event) {
         if (done) return;
         if (event.type === "content.delta" && event.data && event.data.text) {
           if (onToken) onToken(event.data.text);
+        } else if (event.type === "assistant.message" && event.data && event.data.content) {
+          // SDK may send full response as a single message instead of streaming deltas
+          if (onToken) onToken(event.data.content);
         } else if (event.type === "session.idle") {
           done = true; unsubscribe(); resolve();
         } else if (event.type === "session.error") {
@@ -76,7 +92,7 @@ export async function runQAQuery(payload, opts) {
       session.send({ prompt: prompt }).catch(function (err) {
         if (!done) { done = true; unsubscribe(); reject(err); }
       });
-    });
+    }), SESSION_TIMEOUT_MS, "Q&A model response");
 
     if (signal && signal.aborted) {
       throw Object.assign(new Error("Aborted"), { name: "AbortError" });
