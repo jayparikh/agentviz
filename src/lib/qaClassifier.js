@@ -33,7 +33,8 @@ var PATTERNS = [
   { id: "format",    re: /\b(what\s+format|which\s+format|session\s+format|what\s+type\s+of\s+session|is\s+this\s+(claude|copilot))\b/i },
   { id: "userMsgs",  re: /\b(what\s+did\s+the\s+user\s+(ask|say|type|write|request)|user\s+(messages?|prompts?|questions?)|list\s+(all\s+)?(user\s+)?(messages?|prompts?))\b/i },
   { id: "events",    re: /\b(how\s+many\s+events?|event\s+count|total\s+events?|number\s+of\s+events?)\b/i },
-  { id: "toolDetail",re: /\b(how\s+many\s+times?\s+(was|did|were)\s+(\w+)\s+(used|called|invoked)|(\w+)\s+tool\s+(count|usage|calls?))\b/i },
+  { id: "toolDetail",re: /\b(how\s+many\s+times?\s+(was|did|were)\s+(\w+)\s+(used|called|invoked)|(\w+)\s+tool\s+(count|usage|calls?)|how\s+was\s+(\w+)\s+used)\b/i },
+  { id: "fileDetail",re: /\b(what\s+changes?\s+(were\s+)?made\s+to|how\s+many\s+times?\s+was\s+.+\s+accessed|what\s+happened\s+to\s+.+\.\w{1,5})\b/i },
 ];
 
 // ── Classifier ──────────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ export function classify(question, data) {
   if (matched === "userMsgs")  return answerUserMessages(data);
   if (matched === "events")    return answerEventCount(data);
   if (matched === "toolDetail") return answerToolDetail(q, data);
+  if (matched === "fileDetail") return answerFileDetail(q, data);
 
   return { tier: "model", context: buildModelContext(q, data) };
 }
@@ -160,7 +162,12 @@ export function fingerprintQuestion(question) {
     if (matched === "toolDetail") {
       var toolMatch = q.match(/\b(?:how\s+many\s+times?\s+(?:was|did|were)\s+)(\w+)/i);
       if (!toolMatch) toolMatch = q.match(/\b(\w+)\s+tool\s+(?:count|usage|calls?)/i);
+      if (!toolMatch) toolMatch = q.match(/\bhow\s+was\s+(\w+)\s+used/i);
       return toolMatch ? "toolDetail:" + toolMatch[1] : "toolDetail";
+    }
+    if (matched === "fileDetail") {
+      var fileMatch = q.match(/(?:to|of|for|was)\s+([^\s?]+\.\w{1,5})/i);
+      return fileMatch ? "fileDetail:" + fileMatch[1].split(/[/\\]/).pop().toLowerCase() : "fileDetail";
     }
     return matched;
   }
@@ -449,6 +456,7 @@ function answerEventCount(data) {
 function answerToolDetail(question, data) {
   var match = question.match(/\b(?:how\s+many\s+times?\s+(?:was|did|were)\s+)(\w+)/i);
   if (!match) match = question.match(/\b(\w+)\s+tool\s+(?:count|usage|calls?)/i);
+  if (!match) match = question.match(/\bhow\s+was\s+(\w+)\s+used/i);
   if (!match) return { tier: "model", context: buildModelContext(question, data) };
 
   var toolName = match[1].toLowerCase();
@@ -456,16 +464,59 @@ function answerToolDetail(question, data) {
 
   var count = 0;
   var matchedName = null;
+  var turnSet = {};
   for (var i = 0; i < data.events.length; i++) {
     if (data.events[i].track === "tool_call" && data.events[i].toolName) {
       if (data.events[i].toolName.toLowerCase() === toolName) {
         count++;
         if (!matchedName) matchedName = data.events[i].toolName;
+        if (data.events[i].turnIndex != null) turnSet[data.events[i].turnIndex] = true;
       }
     }
   }
   if (count === 0) return instant("Tool **" + toolName + "** was not used in this session.");
-  return instant("**" + matchedName + "** was called **" + count + "** time" + (count !== 1 ? "s" : "") + ".");
+  var turnList = Object.keys(turnSet).map(Number).sort(function (a, b) { return a - b; });
+  var lines = ["**" + matchedName + "** was called **" + count + "** time" + (count !== 1 ? "s" : "") + "."];
+  if (turnList.length > 0 && turnList.length <= 15) {
+    lines.push("\nUsed in: " + turnList.map(function (t) { return "[Turn " + t + "]"; }).join(", "));
+  } else if (turnList.length > 15) {
+    lines.push("\nUsed across " + turnList.length + " turns (first: [Turn " + turnList[0] + "], last: [Turn " + turnList[turnList.length - 1] + "])");
+  }
+  return instant(lines.join("\n"));
+}
+
+function answerFileDetail(question, data) {
+  if (!data.events) return instant("No events available.");
+  // Extract the file path from the question
+  var pathMatch = question.match(/(?:to|of|for|was)\s+([A-Za-z]:\\[^\s?]+|\/[^\s?]+|[A-Za-z0-9_./-]+\.\w{1,5})/i);
+  if (!pathMatch) return { tier: "model", context: buildModelContext(question, data) };
+
+  var targetPath = pathMatch[1].replace(/[?'"]+$/, "");
+  var targetLower = targetPath.toLowerCase();
+  var basename = targetPath.split(/[/\\]/).pop().toLowerCase();
+
+  var ops = [];
+  for (var i = 0; i < data.events.length; i++) {
+    var e = data.events[i];
+    if (e.track !== "tool_call" || !e.toolName) continue;
+    var input = e.toolInput || "";
+    var inputStr = typeof input === "string" ? input : JSON.stringify(input);
+    if (inputStr.toLowerCase().indexOf(basename) !== -1) {
+      ops.push({ tool: e.toolName, turn: e.turnIndex, text: truncate(e.text, 80) });
+    }
+  }
+
+  if (ops.length === 0) {
+    return instant("No operations found involving `" + targetPath.split(/[/\\]/).pop() + "` in this session.");
+  }
+
+  var lines = ["**" + ops.length + " operation" + (ops.length !== 1 ? "s" : "") + "** on `" + targetPath.split(/[/\\]/).pop() + "`:\n"];
+  ops.slice(0, 15).forEach(function (op) {
+    var turnLabel = op.turn != null ? " [Turn " + op.turn + "]" : "";
+    lines.push("- **" + op.tool + "**" + turnLabel + ": " + op.text);
+  });
+  if (ops.length > 15) lines.push("\n(" + (ops.length - 15) + " more not shown)");
+  return instant(lines.join("\n"));
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
