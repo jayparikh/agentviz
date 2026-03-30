@@ -122,6 +122,7 @@ Reload VS Code after adding the config. In Copilot Chat, use **Agent mode** and 
 ### What happens when you invoke it
 
 `launch_agentviz` will:
+
 1. Auto-detect the most recently active session file (checks `~/.claude/projects/` and `~/.copilot/session-state/`)
 2. Start a local HTTP server on a free port
 3. Open the browser with live streaming enabled
@@ -176,6 +177,7 @@ Horizontal bar chart showing tool call counts for both sessions on the same axis
 Click **Export** in any header to download a single self-contained `.html` file. Share it with anyone -- no server required. Opening it reproduces the full session or comparison view exactly as you see it.
 
 Export is available in two places:
+
 - **Single session header** -- exports the current session
 - **Comparison header** -- exports both sessions and the full comparison view
 
@@ -340,7 +342,7 @@ src/
     aiCoachAgent.js      # AI Coach powered by @github/copilot-sdk (gpt-4o)
     qaClassifier.js      # Session Q&A instant answer engine (9 patterns + model context)
     qaAgent.js           # Q&A agent powered by @github/copilot-sdk for model fallback
-    theme.js             # Design tokens (true black base, blue/purple/green accents)
+    theme.js             # Design tokens (dark/light/system mode-aware palette)
     constants.js         # Sample events for demo mode
     replayLayout.js      # Virtualized windowing for large sessions
     commandPalette.js    # Precomputed fuzzy search index
@@ -426,7 +428,7 @@ npm run typecheck       # Type-check with tsc --noEmit
 
 ### Design System
 
-True black base (`#000000`) with blue, purple, and green accents. Vivid semantic colors: green for success, muted red for warning, bright red for error. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
+True black base (`#000000`) with blue, purple, and green accents in dark mode, plus a matching light palette and a `Light / Dark / System` toggle in the top bar. Vivid semantic colors: green for success, muted red for warning, bright red for error. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
 
 ### Configuration
 

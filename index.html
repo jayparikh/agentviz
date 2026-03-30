@@ -1,76 +1,217 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AGENTVIZ</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <style>
-      :root {
-        --av-bg-hover: #20202e;
-        --av-bg-active: #26263a;
-        --av-focus: #6475e8;
-        --av-border: #2c2c30;
-        --av-border-strong: #3a3a3f;
-      }
 
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body {
-        background: #000000;
-        overflow: hidden;
-        font-family: 'JetBrains Mono', monospace;
-      }
-      ::-webkit-scrollbar { width: 6px; height: 6px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #3a3a3f; border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: #45454b; }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AGENTVIZ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <script>
+    (function () {
+      var storageKey = "agentviz:theme-mode";
+      var clearedKey = "agentviz:theme-mode-cleared";
+      var preference = "dark";
 
-      *:focus-visible { outline: 2px solid var(--av-focus); outline-offset: 2px; }
-      *:focus:not(:focus-visible) { outline: none; }
-
-      /* Interactive button base class */
-      .av-btn {
-        cursor: pointer;
-        transition: background 80ms ease-out, border-color 80ms ease-out, color 80ms ease-out;
-      }
-      .av-btn:hover { background: var(--av-bg-hover); }
-      .av-btn:active { background: var(--av-bg-active); }
-
-      /* Interactive row/card hover class */
-      .av-interactive {
-        transition: background 80ms ease-out;
-      }
-      .av-interactive:hover { background: var(--av-bg-hover); }
-
-      /* Search input focus styling */
-      .av-search:focus { border-color: var(--av-focus) !important; outline: none !important; }
-      .av-search-wrap:focus-within { border-color: var(--av-focus) !important; }
-
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.3; }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after {
-          animation-duration: 0.01ms !important;
-          transition-duration: 0.01ms !important;
+      try {
+        if (localStorage.getItem(clearedKey) !== "1") {
+          localStorage.removeItem(storageKey);
+          localStorage.setItem(clearedKey, "1");
         }
+      } catch (error) {
+        preference = "dark";
       }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+      var isLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+      var resolved = preference === "light" || preference === "dark" ? preference : (isLight ? "light" : "dark");
+      var tokens = resolved === "light" ? {
+        bgBase: "#f6f7fb",
+        bgSurface: "#ffffff",
+        bgHover: "#e5e9f2",
+        bgActive: "#d8deea",
+        focus: "#6475e8",
+        border: "#d8deea",
+        borderStrong: "#c2cad8",
+        textPrimary: "#141824",
+        textSecondary: "#4f5669",
+      } : {
+        bgBase: "#000000",
+        bgSurface: "#0f0f16",
+        bgHover: "#20202e",
+        bgActive: "#26263a",
+        focus: "#6475e8",
+        border: "#232333",
+        borderStrong: "#2e2e42",
+        textPrimary: "#f0f0f2",
+        textSecondary: "#a1a1a8",
+      };
+
+      var root = document.documentElement;
+      root.dataset.theme = resolved;
+      root.dataset.themePreference = preference;
+      root.style.colorScheme = resolved;
+      root.style.setProperty("--av-bg-base", tokens.bgBase);
+      root.style.setProperty("--av-bg-surface", tokens.bgSurface);
+      root.style.setProperty("--av-bg-hover", tokens.bgHover);
+      root.style.setProperty("--av-bg-active", tokens.bgActive);
+      root.style.setProperty("--av-focus", tokens.focus);
+      root.style.setProperty("--av-border", tokens.border);
+      root.style.setProperty("--av-border-strong", tokens.borderStrong);
+      root.style.setProperty("--av-text-primary", tokens.textPrimary);
+      root.style.setProperty("--av-text-secondary", tokens.textSecondary);
+    }());
+  </script>
+  <style>
+    :root {
+      --av-bg-base: #000000;
+      --av-bg-surface: #0f0f16;
+      --av-bg-hover: #20202e;
+      --av-bg-active: #26263a;
+      --av-focus: #6475e8;
+      --av-border: #232333;
+      --av-border-strong: #2e2e42;
+      --av-text-primary: #f0f0f2;
+      --av-text-secondary: #a1a1a8;
+    }
+
+    :root[data-theme="light"] {
+      --av-bg-base: #f6f7fb;
+      --av-bg-surface: #ffffff;
+      --av-bg-hover: #e5e9f2;
+      --av-bg-active: #d8deea;
+      --av-focus: #6475e8;
+      --av-border: #d8deea;
+      --av-border-strong: #c2cad8;
+      --av-text-primary: #141824;
+      --av-text-secondary: #4f5669;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--av-bg-base);
+      color: var(--av-text-primary);
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    html {
+      background: var(--av-bg-base);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--av-border-strong);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--av-text-secondary);
+    }
+
+    *:focus-visible {
+      outline: 2px solid var(--av-focus);
+      outline-offset: 2px;
+    }
+
+    *:focus:not(:focus-visible) {
+      outline: none;
+    }
+
+    /* Interactive button base class */
+    .av-btn {
+      cursor: pointer;
+      transition: background 80ms ease-out, border-color 80ms ease-out, color 80ms ease-out;
+    }
+
+    .av-btn:hover {
+      background: var(--av-bg-hover);
+    }
+
+    .av-btn:active {
+      background: var(--av-bg-active);
+    }
+
+    /* Interactive row/card hover class */
+    .av-interactive {
+      transition: background 80ms ease-out;
+    }
+
+    .av-interactive:hover {
+      background: var(--av-bg-hover);
+    }
+
+    /* Search input focus styling */
+    .av-search:focus {
+      border-color: var(--av-focus) !important;
+      outline: none !important;
+    }
+
+    .av-search-wrap:focus-within {
+      border-color: var(--av-focus) !important;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
