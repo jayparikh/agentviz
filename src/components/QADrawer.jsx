@@ -358,7 +358,15 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
         <div style={{ flexShrink: 0, borderTop: "1px solid " + theme.border.default, padding: "12px 16px 20px" }}>
           <form
             onSubmit={handleSubmit}
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: theme.bg.base,
+              border: "1px solid " + theme.border.default,
+              borderRadius: theme.radius.md,
+              padding: "4px 8px",
+            }}
           >
             <input
               ref={inputRef}
@@ -371,13 +379,12 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               disabled={qa.isStreaming}
               style={{
                 flex: 1,
-                background: theme.bg.raised,
-                border: "1px solid " + theme.border.default,
-                borderRadius: theme.radius.md,
+                background: "transparent",
+                border: "none",
                 color: theme.text.primary,
                 fontFamily: theme.font.mono,
                 fontSize: theme.fontSize.sm,
-                padding: "6px 8px",
+                padding: "2px 0",
                 outline: "none",
               }}
             />
@@ -387,11 +394,11 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               aria-label="Send question"
               style={{
                 background: input.trim() ? theme.accent.primary : "transparent",
-                border: "1px solid " + (input.trim() ? theme.accent.primary : theme.border.default),
-                borderRadius: theme.radius.md,
+                border: "none",
+                borderRadius: theme.radius.sm,
                 color: input.trim() ? theme.text.primary : theme.text.ghost,
                 cursor: input.trim() ? "pointer" : "default",
-                padding: "5px 7px",
+                padding: "4px 6px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
