@@ -33,6 +33,7 @@ import {
   Sparkles,
   List,
   LayoutGrid,
+  TrendingUp,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -70,6 +71,7 @@ var ICON_MAP = {
   sparkles: Sparkles,
   list: List,
   grid: LayoutGrid,
+  "trending-up": TrendingUp,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

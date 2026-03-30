@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../../lib/theme.js";
 import InboxView from "../InboxView.jsx";
+import CoachOverview from "../CoachOverview.jsx";
 import Icon from "../Icon.jsx";
 import BrandWordmark from "../ui/BrandWordmark.jsx";
 import ShellFrame from "../ui/ShellFrame.jsx";
+import usePersistentState from "../../hooks/usePersistentState.js";
 
 // Full-page drag overlay. Attaches listeners to document so it detects drags
 // even when the overlay div itself has pointerEvents:none.
@@ -77,6 +79,8 @@ function DragOverlay({ onLoad }) {
 }
 
 export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare, inboxEntries, onOpenInboxSession }) {
+  var [landingView, setLandingView] = usePersistentState("agentviz:landing-view", "inbox");
+
   return (
     <ShellFrame
       style={{
@@ -96,14 +100,61 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
         </div>
       </div>
 
-      <div style={{ width: "100%", maxWidth: 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <InboxView
-          entries={inboxEntries}
-          onOpenSession={onOpenInboxSession}
-          onImport={onLoad}
-          onLoadSample={onLoadSample}
-          onStartCompare={onStartCompare}
-        />
+      <div style={{ width: "100%", maxWidth: 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", gap: 0, background: theme.bg.surface, border: "1px solid " + theme.border.default, borderRadius: theme.radius.lg, padding: 2, alignSelf: "center" }}>
+          <button
+            type="button"
+            className="av-btn"
+            onClick={function () { setLandingView("inbox"); }}
+            style={{
+              background: landingView === "inbox" ? theme.bg.raised : "transparent",
+              border: "none",
+              borderRadius: theme.radius.md,
+              padding: "5px 14px",
+              cursor: "pointer",
+              color: landingView === "inbox" ? theme.text.primary : theme.text.ghost,
+              fontSize: theme.fontSize.xs,
+              fontFamily: theme.font.mono,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <Icon name="list" size={11} /> Inbox
+          </button>
+          <button
+            type="button"
+            className="av-btn"
+            onClick={function () { setLandingView("coach"); }}
+            style={{
+              background: landingView === "coach" ? theme.bg.raised : "transparent",
+              border: "none",
+              borderRadius: theme.radius.md,
+              padding: "5px 14px",
+              cursor: "pointer",
+              color: landingView === "coach" ? theme.text.primary : theme.text.ghost,
+              fontSize: theme.fontSize.xs,
+              fontFamily: theme.font.mono,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <Icon name="trending-up" size={11} /> Coach
+          </button>
+        </div>
+
+        {landingView === "inbox" ? (
+          <InboxView
+            entries={inboxEntries}
+            onOpenSession={onOpenInboxSession}
+            onImport={onLoad}
+            onLoadSample={onLoadSample}
+            onStartCompare={onStartCompare}
+          />
+        ) : (
+          <CoachOverview />
+        )}
       </div>
 
       {error && (

@@ -165,6 +165,131 @@ export function createServer({ sessionFile, distDir }) {
     }
   });
 
+  // ── Session insights helpers ──────────────────────────────────────────────
+
+  function analyzeSessionJSONL(filePath, format) {
+    try {
+      var content = fs.readFileSync(filePath, "utf8");
+      var lines = content.split("\n").filter(function (l) { return l.trim(); }).slice(0, 200);
+      var turns = 0, errors = 0;
+      var toolCounts = {};
+      lines.forEach(function (line) {
+        try {
+          var ev = JSON.parse(line);
+          if (format === "claude-code") {
+            if (ev.type === "user") turns++;
+            if (ev.type === "result" && ev.is_error) errors++;
+            if (ev.type === "assistant" && ev.message && Array.isArray(ev.message.content)) {
+              ev.message.content.forEach(function (block) {
+                if (block.type === "tool_use") toolCounts[block.name] = (toolCounts[block.name] || 0) + 1;
+              });
+            }
+          } else {
+            if (ev.agent === "user" && ev.track === "output") turns++;
+            if (ev.isError) errors++;
+            if (ev.toolName) toolCounts[ev.toolName] = (toolCounts[ev.toolName] || 0) + 1;
+          }
+        } catch (_) {}
+      });
+      return { turns, errors, toolCounts };
+    } catch (_) { return null; }
+  }
+
+  function classifyInsights(sessions, homeDir) {
+    var insights = [];
+    var total = sessions.length;
+    if (total === 0) return insights;
+    var analyzed = sessions.filter(function (s) { return s.stats; });
+
+    // 1. Missing global instructions
+    var hasInstructions = [
+      path.join(homeDir, ".github", "copilot-instructions.md"),
+      path.join(homeDir, "CLAUDE.md"),
+      path.join(homeDir, "AGENTS.md"),
+    ].some(function (p) { try { return fs.existsSync(p); } catch (_) { return false; } });
+
+    if (!hasInstructions && total >= 5) {
+      insights.push({
+        id: "no-global-instructions",
+        severity: total > 20 ? "high" : "medium",
+        title: "No global instructions file",
+        description: total + " sessions ran without global instructions. The AI starts context from scratch every time.",
+        why: "Without instructions, the agent re-discovers your style, tools, and project patterns on every session. This adds context-setting turns that could be eliminated.",
+        fix: "Create ~/.github/copilot-instructions.md with your preferences, tools, and conventions. It injects automatically into every session.",
+        targetPath: "~/.github/copilot-instructions.md",
+        draftContent: "# Copilot Instructions\n\n## Code style\n- Write clean, well-commented code\n- Follow existing conventions in the project\n- Prefer small, focused changes\n\n## Testing\n- Write tests for new functionality\n- Run existing tests before finishing\n\n## General\n- Ask for clarification on ambiguous requirements\n- Prefer incremental changes over large rewrites\n",
+        affectedCount: total,
+      });
+    }
+
+    // 2. High turn count
+    var highTurn = analyzed.filter(function (s) { return s.stats.turns > 15; });
+    if (highTurn.length >= 3) {
+      var avgTurns = Math.round(highTurn.reduce(function (a, s) { return a + s.stats.turns; }, 0) / highTurn.length);
+      insights.push({
+        id: "high-turn-count",
+        severity: avgTurns > 30 ? "high" : "medium",
+        title: "Sessions averaging " + avgTurns + " turns",
+        description: highTurn.length + " sessions averaged " + avgTurns + " turns — high back-and-forth usually signals missing context or unclear task framing.",
+        why: "Long sessions cost more and take longer. Task-specific skills encode your preferred approach so the agent starts right instead of discovering it through conversation.",
+        fix: "Create a skill for your most common task types to pre-load context and cut turns.",
+        targetPath: "~/.copilot/skills/general/SKILL.md",
+        draftContent: "# General Development Skill\n\n## Use when\nGeneral coding and development tasks.\n\n## Approach\n1. Review existing code style and conventions\n2. Make targeted changes with clear intent\n3. Write or update tests alongside changes\n4. Verify changes work before finishing\n\n## Output format\nDescribe what was changed and why. Show file paths and key additions.\n",
+        affectedCount: highTurn.length,
+      });
+    }
+
+    // 3. High error rate
+    var errorSessions = analyzed.filter(function (s) { return s.stats.errors > 0; });
+    if (analyzed.length >= 5 && errorSessions.length / analyzed.length > 0.3) {
+      var rate = Math.round(errorSessions.length / analyzed.length * 100);
+      insights.push({
+        id: "high-error-rate",
+        severity: rate > 60 ? "high" : "medium",
+        title: "Tool errors in " + rate + "% of sessions",
+        description: errorSessions.length + " of " + analyzed.length + " sessions had tool errors. Repeated failures slow sessions and require human recovery.",
+        why: "Most tool errors come from missing prerequisites, wrong paths, or ambiguous task scope. Explicit environment notes prevent the agent from trying approaches that fail.",
+        fix: "Add environment setup and common failure modes to your instructions so the agent avoids known problems.",
+        targetPath: "~/.github/copilot-instructions.md",
+        draftContent: "## Environment\n- Verify required tools are installed before running commands\n- Always check if a command is safe before executing it\n\n## Error handling\n- If a command fails, diagnose before retrying\n- Prefer read-only checks before mutations\n",
+        affectedCount: errorSessions.length,
+      });
+    }
+
+    // 4. Repeating workflow patterns
+    var summaries = sessions.filter(function (s) { return s.summary; }).map(function (s) { return s.summary.toLowerCase(); });
+    var PATTERNS = [
+      { keywords: ["test", "spec", "coverage", "unit test"], label: "testing", agentName: "test-runner" },
+      { keywords: ["deploy", "release", "publish", "ship"], label: "deployment", agentName: "deploy" },
+      { keywords: ["review", "pull request", " pr ", "code review"], label: "code review", agentName: "code-reviewer" },
+      { keywords: ["doc", "readme", "documentation", "comment"], label: "documentation", agentName: "docs-writer" },
+      { keywords: ["refactor", "cleanup", "clean up", "lint", "optimize"], label: "refactoring", agentName: "refactor" },
+    ];
+    PATTERNS.forEach(function (p) {
+      var matched = summaries.filter(function (s) { return p.keywords.some(function (k) { return s.includes(k); }); });
+      if (matched.length >= 4) {
+        insights.push({
+          id: "repeating-" + p.agentName,
+          severity: matched.length > 10 ? "medium" : "low",
+          title: matched.length + " repeating " + p.label + " sessions",
+          description: "You've run " + matched.length + " " + p.label + " sessions. This pattern is consistent enough to encode in a dedicated agent.",
+          why: "Repeated task types benefit from pre-encoded instructions. Agents run the task in one turn with no context-setting — faster, cheaper, and more consistent.",
+          fix: "Create a " + p.label + " agent so you can run `@" + p.agentName + " <target>` instead of starting a full session.",
+          targetPath: "~/.copilot/agents/" + p.agentName + "/.agent.md",
+          draftContent: "---\ndescription: " + p.label.charAt(0).toUpperCase() + p.label.slice(1) + " automation agent\n---\n\n# " + p.label.charAt(0).toUpperCase() + p.label.slice(1) + " Agent\n\nPerform " + p.label + " tasks efficiently.\n\n## Instructions\n1. Understand the scope from the input\n2. Apply consistent standards\n3. Report what was done\n",
+          affectedCount: matched.length,
+        });
+      }
+    });
+
+    var sOrder = { high: 0, medium: 1, low: 2 };
+    insights.sort(function (a, b) {
+      var d = (sOrder[a.severity] || 2) - (sOrder[b.severity] || 2);
+      return d !== 0 ? d : (b.affectedCount || 0) - (a.affectedCount || 0);
+    });
+    return insights;
+  }
+
   function handleRequest(req, res) {
     var parsed = url.parse(req.url, true);
     var pathname = parsed.pathname;
@@ -575,6 +700,148 @@ export function createServer({ sessionFile, distDir }) {
       } catch (e) {
         res.writeHead(404); res.end("Not found");
       }
+      return;
+    }
+
+    if (pathname === "/api/sessions/insights") {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method !== "GET") { res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+
+      (async function () {
+        var insightsHomeDir = process.env.HOME || process.env.USERPROFILE || os.homedir();
+        var sessions = [];
+
+        // Collect Copilot CLI sessions
+        var copilotRoot = path.join(insightsHomeDir, ".copilot", "session-state");
+        try {
+          fs.readdirSync(copilotRoot).forEach(function (dirName) {
+            var eventsFile = path.join(copilotRoot, dirName, "events.jsonl");
+            try {
+              var stat = fs.statSync(eventsFile);
+              var summary = null;
+              try {
+                var yamlText = fs.readFileSync(path.join(copilotRoot, dirName, "workspace.yaml"), "utf8");
+                var inlineM = yamlText.match(/^summary:\s+(?!\|-\s*$)(.+)$/m);
+                var blockM = yamlText.match(/^summary:\s*\|-\s*\n[ \t]+(.+)$/m);
+                if (inlineM && inlineM[1].trim()) summary = inlineM[1].trim();
+                else if (blockM && blockM[1].trim()) summary = blockM[1].trim();
+              } catch (_) {}
+              if (summary && (summary.startsWith("Analyze this") || (summary.includes("Session stats") && summary.includes("read_config")))) return;
+              sessions.push({ path: eventsFile, format: "copilot-cli", summary: summary, mtime: stat.mtime.toISOString() });
+            } catch (_) {}
+          });
+        } catch (_) {}
+
+        // Collect Claude Code sessions
+        var claudeRoot = path.join(insightsHomeDir, ".claude", "projects");
+        try {
+          fs.readdirSync(claudeRoot).forEach(function (projectDir) {
+            var projectPath = path.join(claudeRoot, projectDir);
+            try {
+              if (!fs.statSync(projectPath).isDirectory()) return;
+              fs.readdirSync(projectPath).forEach(function (fname) {
+                if (!fname.endsWith(".jsonl")) return;
+                var fp = path.join(projectPath, fname);
+                try {
+                  var stat = fs.statSync(fp);
+                  sessions.push({ path: fp, format: "claude-code", summary: null, mtime: stat.mtime.toISOString() });
+                } catch (_) {}
+              });
+            } catch (_) {}
+          });
+        } catch (_) {}
+
+        // Try to supplement with session-store.db if available
+        try {
+          var { DatabaseSync } = await import("node:sqlite");
+          var dbPath = path.join(insightsHomeDir, ".copilot", "session-store.db");
+          if (fs.existsSync(dbPath)) {
+            var db = new DatabaseSync(dbPath, { readOnly: true });
+            try {
+              var tableRows = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+              var sessionTable = (tableRows || []).map(function (r) { return r.name; }).find(function (t) { return /session/i.test(t); });
+              if (sessionTable) {
+                var dbRows = db.prepare("SELECT * FROM " + sessionTable + " LIMIT 200").all();
+                // Merge DB session summaries into session list by matching session_id
+                (dbRows || []).forEach(function (row) {
+                  var sid = row.session_id || row.sessionId || row.id;
+                  if (!sid) return;
+                  var match = sessions.find(function (s) { return s.path.includes(String(sid)); });
+                  if (match && !match.summary && (row.summary || row.description)) {
+                    match.summary = String(row.summary || row.description);
+                  }
+                });
+              }
+            } catch (_) {}
+            db.close();
+          }
+        } catch (_) {}
+
+        sessions.sort(function (a, b) { return new Date(b.mtime) - new Date(a.mtime); });
+        var toAnalyze = sessions.slice(0, 50);
+        toAnalyze.forEach(function (s) { s.stats = analyzeSessionJSONL(s.path, s.format); });
+
+        var insights = classifyInsights(toAnalyze, insightsHomeDir);
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          available: sessions.length > 0,
+          sessionCount: sessions.length,
+          analyzedCount: toAnalyze.length,
+          insights: insights,
+        }));
+      })().catch(function (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: err.message || "Internal server error" }));
+      });
+      return;
+    }
+
+    if (pathname === "/api/insights/apply") {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method !== "POST") { res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+      var insightsApplyBody = "";
+      req.on("data", function (chunk) { insightsApplyBody += chunk; });
+      req.on("end", function () {
+        try {
+          var payload = JSON.parse(insightsApplyBody);
+          var targetPath = payload.targetPath;
+          var content = payload.content;
+          if (typeof targetPath !== "string" || !targetPath) {
+            res.writeHead(400); res.end(JSON.stringify({ error: "targetPath is required" })); return;
+          }
+          if (typeof content !== "string") {
+            res.writeHead(400); res.end(JSON.stringify({ error: "content is required" })); return;
+          }
+          var applyHomeDir = process.env.HOME || process.env.USERPROFILE || os.homedir();
+          // Expand ~ to home dir
+          var resolvedTarget = targetPath.startsWith("~/")
+            ? path.join(applyHomeDir, targetPath.slice(2))
+            : path.resolve(targetPath);
+          // Security: only allow writes under ~/.copilot/ or ~/.github/
+          var allowedRoots = [
+            path.join(applyHomeDir, ".copilot") + path.sep,
+            path.join(applyHomeDir, ".github") + path.sep,
+          ];
+          var isAllowed = allowedRoots.some(function (root) { return resolvedTarget.startsWith(root); });
+          if (!isAllowed) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: "Target path must be under ~/.copilot/ or ~/.github/" }));
+            return;
+          }
+          fs.mkdirSync(path.dirname(resolvedTarget), { recursive: true });
+          var existed = fs.existsSync(resolvedTarget);
+          if (!existed) {
+            fs.writeFileSync(resolvedTarget, content, "utf8");
+          } else {
+            fs.appendFileSync(resolvedTarget, "\n\n" + content, "utf8");
+          }
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, path: resolvedTarget, created: !existed }));
+        } catch (err) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: err.message || "Internal server error" }));
+        }
+      });
       return;
     }
 
