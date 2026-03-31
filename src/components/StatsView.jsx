@@ -5,7 +5,8 @@ import { formatDurationLong } from "../lib/formatTime.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
 import { buildAutonomySummary } from "../lib/autonomyMetrics.js";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { extractSkills } from "../lib/skillExtractor.ts";
 
 function MetricCard({ value, label, tooltip, color }) {
   var [hovered, setHovered] = useState(false);
@@ -39,6 +40,258 @@ function MetricCard({ value, label, tooltip, color }) {
           {tooltip}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Capabilities panel (skills, instructions, MCP, agents) ──────────────────
+
+var SOURCE_COLORS = {
+  project: "#3b9eff",
+  personal: "#a78bfa",
+  extension: "#f59e0b",
+  "built-in": "#94a3b8",
+  mcp: "#10d97a",
+  unknown: "#585860",
+};
+
+var CATEGORY_COLORS = {
+  skill: "#a78bfa",
+  instruction: "#6475e8",
+  agent: "#f59e0b",
+  tool: "#3b9eff",
+  "mcp-server": "#10d97a",
+  prompt: "#10d97a",
+  plugin: "#ec4899",
+};
+
+var STAGE_COLORS = {
+  discovered: "#585860",
+  loaded: "#6475e8",
+  invoked: "#3b9eff",
+  "resource-accessed": "#a78bfa",
+  completed: "#10d97a",
+  errored: "#ef4444",
+};
+
+var STAGE_LABELS = {
+  discovered: "Discovered",
+  loaded: "Loaded",
+  invoked: "Invoked",
+  "resource-accessed": "Resources",
+  completed: "Completed",
+  errored: "Errored",
+};
+
+var STAGE_SEQUENCE = ["discovered", "loaded", "invoked", "resource-accessed", "completed"];
+
+function SkillStageBar({ maxStage, hasError }) {
+  var activeIdx = STAGE_SEQUENCE.indexOf(maxStage);
+  if (activeIdx < 0) activeIdx = maxStage === "errored" ? 4 : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+      {STAGE_SEQUENCE.map(function (stage, idx) {
+        var reached = idx <= activeIdx;
+        var isErr = hasError && idx === activeIdx;
+        return (
+          <div
+            key={stage}
+            title={STAGE_LABELS[stage]}
+            style={{
+              width: 14,
+              height: 3,
+              borderRadius: 1.5,
+              background: isErr ? "#ef4444" : reached ? STAGE_COLORS[stage] : theme.text.ghost,
+              opacity: reached ? 1 : 0.25,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function CapabilitiesPanel({ events, turns, metadata }) {
+  var [expandedId, setExpandedId] = useState(null);
+  var [capFilter, setCapFilter] = useState("all");
+  var [sourceFilter, setSourceFilter] = useState(null);
+
+  var summary = useMemo(function () {
+    return extractSkills(events || [], turns || [], metadata || {});
+  }, [events, turns, metadata]);
+
+  if (summary.totalSkills === 0) return null;
+
+  // Filter by category and source
+  var nonToolSkills = summary.skills.filter(function (s) {
+    if (capFilter !== "all" && s.category !== capFilter) return false;
+    if (sourceFilter && s.source !== sourceFilter) return false;
+    return true;
+  });
+
+  // Count non-tool capabilities
+  var interestingCount = summary.skills.filter(function (s) { return s.category !== "tool"; }).length;
+
+  // Category filter tabs
+  var catTabs = [
+    { id: "all", label: "All", count: summary.totalSkills },
+    { id: "skill", label: "Skills", count: (summary.byCategory.skill || []).length },
+    { id: "instruction", label: "Instructions", count: (summary.byCategory.instruction || []).length },
+    { id: "agent", label: "Agents", count: (summary.byCategory.agent || []).length },
+    { id: "tool", label: "Tools", count: (summary.byCategory.tool || []).length },
+    { id: "mcp-server", label: "MCP", count: (summary.byCategory["mcp-server"] || []).length },
+  ].filter(function (t) { return t.count > 0 || t.id === "all"; });
+
+  return (
+    <div>
+      <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.md }}>
+        Tools & Skills ({summary.totalSkills})
+      </div>
+
+      {/* Category + source filter */}
+      <div style={{ display: "flex", gap: 3, marginBottom: theme.space.md, flexWrap: "wrap" }}>
+        {catTabs.map(function (tab) {
+          var active = capFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={function () { setCapFilter(tab.id); setSourceFilter(null); }}
+              style={{
+                padding: "2px 7px",
+                borderRadius: theme.radius.full,
+                fontSize: 9,
+                fontFamily: theme.font.mono,
+                border: "1px solid " + (active ? theme.accent.primary : theme.border.default),
+                background: active ? alpha(theme.accent.primary, 0.15) : "transparent",
+                color: active ? theme.accent.primary : theme.text.dim,
+                cursor: "pointer",
+                lineHeight: "14px",
+              }}
+            >
+              {tab.label} {tab.count}
+            </button>
+          );
+        })}
+        {sourceFilter && (
+          <button
+            onClick={function () { setSourceFilter(null); }}
+            style={{
+              padding: "2px 7px",
+              borderRadius: theme.radius.full,
+              fontSize: 9,
+              fontFamily: theme.font.mono,
+              border: "1px solid " + (SOURCE_COLORS[sourceFilter] || theme.border.default),
+              background: alpha(SOURCE_COLORS[sourceFilter] || "#585860", 0.15),
+              color: SOURCE_COLORS[sourceFilter] || theme.text.dim,
+              cursor: "pointer",
+              lineHeight: "14px",
+            }}
+            title="Click to clear source filter"
+          >
+            {"\u2715 "}{sourceFilter}
+          </button>
+        )}
+      </div>
+
+      {/* Skill list */}
+      {nonToolSkills.map(function (skill) {
+        var catColor = CATEGORY_COLORS[skill.category] || "#3b9eff";
+        var isExpanded = expandedId === skill.id;
+
+        return (
+          <div key={skill.id} style={{ marginBottom: 2 }}>
+            <div
+              onClick={function () { setExpandedId(isExpanded ? null : skill.id); }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 6px",
+                borderRadius: theme.radius.md,
+                cursor: "pointer",
+                transition: "background " + theme.transition.fast,
+              }}
+              onMouseEnter={function (e) { e.currentTarget.style.background = theme.bg.hover; }}
+              onMouseLeave={function (e) { e.currentTarget.style.background = "transparent"; }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: catColor, flexShrink: 0 }} />
+              <span style={{
+                fontSize: theme.fontSize.sm,
+                color: theme.text.primary,
+                fontFamily: theme.font.mono,
+                flex: 1,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}>
+                {skill.name}
+                {skill.autoLoaded && (
+                  <span style={{ fontSize: 9, color: theme.text.dim, marginLeft: 4, fontFamily: theme.font.ui }}>auto</span>
+                )}
+              </span>
+              <SkillStageBar maxStage={skill.maxStage} hasError={skill.errorCount > 0} />
+              {skill.invocationCount > 0 && (
+                <span style={{ fontSize: 9, color: theme.text.dim, fontFamily: theme.font.mono, flexShrink: 0 }}>
+                  {skill.invocationCount}x
+                </span>
+              )}
+              <span
+                onClick={function (e) { e.stopPropagation(); setSourceFilter(sourceFilter === skill.source ? null : skill.source); }}
+                style={{
+                  fontSize: 9,
+                  padding: "0 4px",
+                  borderRadius: 3,
+                  color: SOURCE_COLORS[skill.source],
+                  background: alpha(SOURCE_COLORS[skill.source] || "#585860", 0.1),
+                  flexShrink: 0,
+                  cursor: "pointer",
+                  border: sourceFilter === skill.source ? "1px solid " + SOURCE_COLORS[skill.source] : "1px solid transparent",
+                }}
+                title={"Filter by source: " + skill.source}
+              >
+                {skill.source}
+              </span>
+            </div>
+
+            {isExpanded && (
+              <div style={{
+                marginLeft: 18,
+                padding: "6px 8px",
+                borderLeft: "2px solid " + alpha(catColor, 0.3),
+                background: theme.bg.surface,
+                borderRadius: "0 " + theme.radius.sm + "px " + theme.radius.sm + "px 0",
+                marginBottom: 4,
+              }}>
+                {skill.description && (
+                  <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, marginBottom: 4 }}>{skill.description}</div>
+                )}
+                <div style={{ fontSize: 9, color: theme.text.muted, marginBottom: 4 }}>
+                  {STAGE_LABELS[skill.maxStage]} {"\u2022"} {skill.events.length} events {"\u2022"} {skill.invocationCount} uses
+                  {skill.errorCount > 0 && (<span style={{ color: theme.semantic.error }}> {"\u2022"} {skill.errorCount} errors</span>)}
+                </div>
+                <div style={{ maxHeight: 120, overflowY: "auto" }}>
+                  {skill.events.map(function (ev, idx) {
+                    var stageColor = STAGE_COLORS[ev.stage] || "#585860";
+                    return (
+                      <div key={idx} style={{
+                        display: "flex", alignItems: "center", gap: 5, padding: "2px 0",
+                        fontSize: 9, color: theme.text.secondary,
+                      }}>
+                        <span style={{ width: 4, height: 4, borderRadius: "50%", background: ev.isError ? "#ef4444" : stageColor, flexShrink: 0 }} />
+                        <span style={{ color: theme.text.dim, fontFamily: theme.font.mono }}>T{ev.turnIndex}</span>
+                        <span style={{ color: stageColor, fontFamily: theme.font.mono }}>{STAGE_LABELS[ev.stage]}</span>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{ev.text}</span>
+                        {ev.duration > 0 && <span style={{ color: theme.text.dim }}>{ev.duration.toFixed(1)}s</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -394,36 +647,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
       </div>
 
       <div style={{ height: "100%", overflowY: "auto", padding: theme.space.lg }}>
-        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.md }}>
-          Tools Used
-        </div>
-        {sortedTools.length === 0 && (
-          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, fontStyle: "italic" }}>No tool calls detected</div>
-        )}
-        {sortedTools.map(function (pair, i) {
-          var name = pair[0];
-          var count = pair[1];
-          var maxCount = sortedTools[0][1];
-          var pct = (count / maxCount) * 100;
-          return (
-            <div key={name} style={{ marginBottom: theme.space.md }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: theme.space.sm }}>
-                <span style={{ fontSize: theme.fontSize.sm, color: theme.track.tool_call, fontFamily: theme.font.mono }}>
-                  {i + 1}. {name}
-                </span>
-                <span style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>{count}x</span>
-              </div>
-              <div style={{ height: 4, background: theme.bg.base, borderRadius: theme.radius.sm }}>
-                <div style={{
-                  height: "100%",
-                  width: pct + "%",
-                  background: theme.track.tool_call,
-                  borderRadius: theme.radius.sm,
-                }} />
-              </div>
-            </div>
-          );
-        })}
+        <CapabilitiesPanel events={events} turns={turns} metadata={metadata} />
       </div>
     </ResizablePanel>
   );
