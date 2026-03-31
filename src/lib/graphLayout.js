@@ -51,9 +51,15 @@ var MAX_GRAPH_TURNS = 80; // ELK gets very slow beyond ~100 nodes
 export function buildGraphData(eventEntries, turns, expandedTurns) {
   var nodes = [];
   var edges = [];
-  var nodeMap = {};
+  var previousTailId = null;
 
   if (!turns || turns.length === 0) return { nodes: [], edges: [], truncated: false };
+
+  // Build index for O(1) event lookup by index
+  var eventByIndex = {};
+  for (var ei = 0; ei < eventEntries.length; ei++) {
+    eventByIndex[eventEntries[ei].index] = eventEntries[ei];
+  }
 
   // Cap turns to avoid ELK timeout on large sessions
   var truncated = turns.length > MAX_GRAPH_TURNS;
@@ -62,134 +68,54 @@ export function buildGraphData(eventEntries, turns, expandedTurns) {
   for (var i = 0; i < visibleTurns.length; i++) {
     var turn = visibleTurns[i];
     var turnId = "turn-" + turn.index;
-    var turnEvents = getTurnEvents(eventEntries, turn);
+    var turnEvents = getTurnEvents(eventByIndex, turn);
     var toolCalls = turnEvents.filter(function (e) { return e.event.track === "tool_call"; });
     var hasError = turn.hasError || turnEvents.some(function (e) { return e.event.isError; });
-    var isExpanded = expandedTurns && expandedTurns[turn.index];
-
     var dominantTrack = getDominantTrack(turnEvents);
     var snippet = buildTurnSnippet(turn, turnEvents);
+    var parallelTaskGroup = findParallelTaskGroup(toolCalls);
+    var shouldAutoExpand = !!parallelTaskGroup;
+    var canRenderDag = shouldAutoExpand && parallelTaskGroup.every(function (entry) {
+      return !!entry.event.toolCallId;
+    });
+    var explicitExpanded = expandedTurns && expandedTurns[turn.index];
 
-    if (isExpanded && toolCalls.length > 0) {
-      // Expanded turn: compound node containing tool call children
-      var children = [];
-      var childEdges = [];
-      var toolCallMap = {};
-
-      for (var j = 0; j < toolCalls.length; j++) {
-        var tc = toolCalls[j];
-        var childId = "tool-" + turn.index + "-" + j;
-        toolCallMap[tc.index] = childId;
-        children.push({
-          id: childId,
-          type: "tool_call",
-          label: tc.event.toolName || "tool",
-          isError: tc.event.isError,
-          track: "tool_call",
-          eventIndex: tc.index,
-          event: tc.event,
-          turnIndex: turn.index,
-          width: 160,
-          height: 36,
-        });
-      }
-
-      // Edges between tool calls based on parentToolCallId
-      for (var k = 0; k < toolCalls.length; k++) {
-        var tcEvent = toolCalls[k].event;
-        if (tcEvent.parentToolCallId) {
-          // Find the parent in this turn's tool calls
-          var parentIdx = toolCalls.findIndex(function (t) {
-            return t.event.toolCallId === tcEvent.parentToolCallId ||
-              t.event.id === tcEvent.parentToolCallId;
-          });
-          if (parentIdx >= 0) {
-            var parentId = "tool-" + turn.index + "-" + parentIdx;
-            var childNodeId = "tool-" + turn.index + "-" + k;
-            childEdges.push({
-              id: parentId + "->" + childNodeId,
-              sources: [parentId],
-              targets: [childNodeId],
-            });
-          }
-        }
-      }
-
-      // Group root tools into sequential vs concurrent using temporal overlap
-      var rootTools = toolCalls.filter(function (tc) { return !tc.event.parentToolCallId; });
-      var concurrencyGroups = buildConcurrencyGroups(rootTools);
-
-      for (var g = 1; g < concurrencyGroups.length; g++) {
-        // Edge from the last tool of the previous group to the first of this group
-        var prevGroup = concurrencyGroups[g - 1];
-        var currGroup = concurrencyGroups[g];
-        var lastOfPrev = prevGroup[prevGroup.length - 1];
-        var firstOfCurr = currGroup[0];
-        var prevIdx = toolCalls.indexOf(lastOfPrev);
-        var currIdx = toolCalls.indexOf(firstOfCurr);
-        var prevId = "tool-" + turn.index + "-" + prevIdx;
-        var currId = "tool-" + turn.index + "-" + currIdx;
-        childEdges.push({
-          id: prevId + "->" + currId,
-          sources: [prevId],
-          targets: [currId],
-        });
-      }
-
-      nodes.push({
-        id: turnId,
-        type: "turn",
-        label: "Turn " + turn.index,
-        snippet: snippet,
-        toolCount: toolCalls.length,
+    if (canRenderDag) {
+      var dag = buildParallelAgentTurnGraph(turn, turnEvents, toolCalls, {
+        dominantTrack: dominantTrack,
         hasError: hasError,
-        track: dominantTrack,
-        turnIndex: turn.index,
-        startTime: turn.startTime,
-        endTime: turn.endTime,
-        isExpanded: true,
-        children: children,
-        edges: childEdges,
-        layoutOptions: {
-          "elk.algorithm": "layered",
-          "elk.direction": "DOWN",
-          "elk.spacing.nodeNode": "16",
-          "elk.padding": "[top=40,left=20,bottom=16,right=20]",
-          "elk.separateConnectedComponents": "true",
-          "elk.layered.compaction.connectedComponents": "true",
-        },
-      });
-    } else {
-      // Collapsed turn node
-      nodes.push({
-        id: turnId,
-        type: "turn",
-        label: "Turn " + turn.index,
         snippet: snippet,
-        toolCount: toolCalls.length,
-        hasError: hasError,
-        track: dominantTrack,
-        turnIndex: turn.index,
-        startTime: turn.startTime,
-        endTime: turn.endTime,
-        isExpanded: false,
-        width: 180,
-        height: 64,
       });
+      if (previousTailId) {
+        edges.push(makeGraphEdge(previousTailId + "->" + dag.entryId, previousTailId, dag.entryId, dag.entryStartTime));
+      }
+      nodes = nodes.concat(dag.nodes);
+      edges = edges.concat(dag.edges);
+      previousTailId = dag.exitId;
+      continue;
     }
 
-    nodeMap[turnId] = turn;
-  }
+    var isExpanded = !!(explicitExpanded || (shouldAutoExpand && toolCalls.length > 0));
+    var node = isExpanded
+      ? buildExpandedTurnNode(turn, toolCalls, {
+        dominantTrack: dominantTrack,
+        hasError: hasError,
+        snippet: snippet,
+        parallelTaskGroup: parallelTaskGroup,
+        autoExpanded: shouldAutoExpand && !explicitExpanded,
+      })
+      : buildCollapsedTurnNode(turn, toolCalls, {
+        dominantTrack: dominantTrack,
+        hasError: hasError,
+        snippet: snippet,
+        parallelTaskGroup: parallelTaskGroup,
+      });
 
-  // Edges between consecutive turns
-  for (var n = 1; n < visibleTurns.length; n++) {
-    var fromId = "turn-" + visibleTurns[n - 1].index;
-    var toId = "turn-" + visibleTurns[n].index;
-    edges.push({
-      id: fromId + "->" + toId,
-      sources: [fromId],
-      targets: [toId],
-    });
+    if (previousTailId) {
+      edges.push(makeGraphEdge(previousTailId + "->" + node.id, previousTailId, node.id, node.startTime));
+    }
+    nodes.push(node);
+    previousTailId = node.id;
   }
 
   return { nodes: nodes, edges: edges, truncated: truncated, totalTurns: turns.length };
@@ -202,6 +128,8 @@ export function runLayout(graphData) {
     layoutOptions: {
       "elk.algorithm": "layered",
       "elk.direction": "RIGHT",
+      "elk.layered.considerModelOrder": "NODES_AND_EDGES",
+      "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
       "elk.spacing.nodeNode": "32",
       "elk.layered.spacing.nodeNodeBetweenLayers": "48",
       "elk.spacing.edgeNode": "16",
@@ -290,8 +218,14 @@ export function mergeLayout(graphData, elkResult) {
         if (concGroup) {
           var COL_GAP = 32;
           var ROW_GAP = 12;
-          var HEADER_Y = 40;
+          var FORK_JOIN_GAP = 24;
+          var showInlineForkJoin = node.type === "turn" && node.parallelAgentCount > 1;
+          var forkMarkerHeight = showInlineForkJoin ? 36 : 0;
+          var joinMarkerHeight = showInlineForkJoin ? 36 : 0;
+          var HEADER_Y = showInlineForkJoin ? 40 + forkMarkerHeight + FORK_JOIN_GAP : 40;
           var colX = 20;
+          var minColumnX = null;
+          var maxColumnRight = 0;
 
           for (var ci = 0; ci < concGroup.length; ci++) {
             var rootEntry = concGroup[ci];
@@ -322,6 +256,8 @@ export function mergeLayout(graphData, elkResult) {
               childY += childNodes[cni].height + ROW_GAP;
             }
 
+            if (minColumnX == null || colX < minColumnX) minColumnX = colX;
+            if (colX + colW > maxColumnRight) maxColumnRight = colX + colW;
             colX += colW + COL_GAP;
           }
 
@@ -346,6 +282,11 @@ export function mergeLayout(graphData, elkResult) {
               remaining[si].y = seqY;
               seqY += remaining[si].height + ROW_GAP;
             }
+            if (minColumnX == null) minColumnX = colX;
+            if (seqY > 0) {
+              var remRight = colX + remaining[0].width;
+              if (remRight > maxColumnRight) maxColumnRight = remRight;
+            }
           }
 
           // Resize compound node to fit
@@ -358,8 +299,48 @@ export function mergeLayout(graphData, elkResult) {
             if (right > maxRight) maxRight = right;
             if (bottom > maxBottom) maxBottom = bottom;
           }
+          if (showInlineForkJoin && minColumnX != null) {
+            var markerWidth = 60;
+            var centerX = minColumnX + ((maxColumnRight - minColumnX) / 2) - (markerWidth / 2);
+            var forkMarkerY = 40;
+            var joinMarkerY = maxBottom + FORK_JOIN_GAP;
+            result.inlineMarkers = [
+              {
+                id: "inline-fork-" + node.turnIndex,
+                type: "fork",
+                label: "Fork",
+                x: centerX,
+                y: forkMarkerY,
+                width: markerWidth,
+                height: forkMarkerHeight,
+                turnIndex: node.turnIndex,
+                startTime: node.startTime,
+                endTime: node.startTime,
+                branchCount: node.parallelAgentCount,
+                agents: node.parallelAgentNames || [],
+              },
+              {
+                id: "inline-join-" + node.turnIndex,
+                type: "join",
+                label: "Join",
+                x: centerX,
+                y: joinMarkerY,
+                width: markerWidth,
+                height: joinMarkerHeight,
+                turnIndex: node.turnIndex,
+                startTime: node.endTime,
+                endTime: node.endTime,
+                branchCount: node.parallelAgentCount,
+                agents: node.parallelAgentNames || [],
+                hasError: node.hasError,
+              },
+            ];
+          }
           result.width = Math.max(result.width, maxRight + 20);
-          result.height = Math.max(result.height, maxBottom + 16);
+          result.height = Math.max(
+            result.height,
+            maxBottom + 16 + (showInlineForkJoin ? joinMarkerHeight + FORK_JOIN_GAP : 0)
+          );
         }
       } else if (result.children.length > 0) {
         // No concurrency: center all children at the same x
@@ -434,13 +415,390 @@ function findElkEdge(edges, id) {
   return null;
 }
 
-function getTurnEvents(eventEntries, turn) {
+function makeGraphEdge(id, sourceId, targetId, activationTime, extra) {
+  return Object.assign({
+    id: id,
+    sources: [sourceId],
+    targets: [targetId],
+    activationTime: activationTime == null ? 0 : activationTime,
+  }, extra || {});
+}
+
+function getEventEndTime(event) {
+  if (!event) return 0;
+  return (event.t || 0) + (event.duration || 0);
+}
+
+function normalizeIdPart(value, index) {
+  var base = String(value || "unknown").replace(/[^a-zA-Z0-9_-]+/g, "-");
+  // Append index when provided to guarantee uniqueness even if normalization collides
+  return index != null ? base + "--" + index : base;
+}
+
+function findParallelTaskGroup(toolCalls) {
+  var rootTools = toolCalls.filter(function (tc) { return !tc.event.parentToolCallId; });
+  if (rootTools.length < 2) return null;
+  var groups = buildConcurrencyGroups(rootTools);
+  for (var i = 0; i < groups.length; i++) {
+    // Extract only task tools from each concurrent group (handles mixed groups)
+    var tasks = groups[i].filter(function (entry) { return entry.event.toolName === "task"; });
+    if (tasks.length > 1) return tasks;
+  }
+  return null;
+}
+
+function getCompoundLayoutOptions(type) {
+  return {
+    "elk.algorithm": "layered",
+    "elk.direction": "DOWN",
+    "elk.spacing.nodeNode": "16",
+    "elk.padding": type === "agent_branch"
+      ? "[top=36,left=16,bottom=16,right=16]"
+      : "[top=40,left=20,bottom=16,right=20]",
+    "elk.separateConnectedComponents": "true",
+    "elk.layered.compaction.connectedComponents": "true",
+  };
+}
+
+function buildCompoundChildren(turnIndex, toolEntries, idPrefix) {
+  var children = [];
+  var childIdByEntryIndex = {};
+  var childIdByToolCallId = {};
+
+  for (var j = 0; j < toolEntries.length; j++) {
+    var tc = toolEntries[j];
+    var childId = idPrefix + j;
+    childIdByEntryIndex[tc.index] = childId;
+    if (tc.event.toolCallId) childIdByToolCallId[tc.event.toolCallId] = childId;
+    children.push({
+      id: childId,
+      type: "tool_call",
+      label: tc.event.toolName || "tool",
+      isError: tc.event.isError,
+      track: "tool_call",
+      eventIndex: tc.index,
+      event: tc.event,
+      turnIndex: turnIndex,
+      width: 160,
+      height: 36,
+    });
+  }
+
+  var childEdges = [];
+  for (var k = 0; k < toolEntries.length; k++) {
+    var tcEvent = toolEntries[k].event;
+    var childNodeId = childIdByEntryIndex[toolEntries[k].index];
+    if (tcEvent.parentToolCallId && childIdByToolCallId[tcEvent.parentToolCallId]) {
+      var parentId = childIdByToolCallId[tcEvent.parentToolCallId];
+      childEdges.push(makeGraphEdge(parentId + "->" + childNodeId, parentId, childNodeId, tcEvent.t));
+    }
+  }
+
+  var rootEntries = toolEntries.filter(function (entry) {
+    return !entry.event.parentToolCallId || !childIdByToolCallId[entry.event.parentToolCallId];
+  }).map(function (entry) {
+    return {
+      event: entry.event,
+      index: entry.index,
+      id: childIdByEntryIndex[entry.index],
+    };
+  });
+  var concurrencyGroups = buildConcurrencyGroups(rootEntries);
+
+  for (var g = 1; g < concurrencyGroups.length; g++) {
+    var prevGroup = concurrencyGroups[g - 1];
+    var currGroup = concurrencyGroups[g];
+    var lastOfPrev = prevGroup[prevGroup.length - 1];
+    var firstOfCurr = currGroup[0];
+    childEdges.push(makeGraphEdge(
+      lastOfPrev.id + "->" + firstOfCurr.id,
+      lastOfPrev.id,
+      firstOfCurr.id,
+      firstOfCurr.event.t
+    ));
+  }
+
+  return { children: children, childEdges: childEdges };
+}
+
+function buildExpandedTurnNode(turn, toolCalls, options) {
+  var compound = buildCompoundChildren(turn.index, toolCalls, "tool-" + turn.index + "-");
+  return {
+    id: "turn-" + turn.index,
+    type: "turn",
+    label: "Turn " + turn.index,
+    snippet: options.snippet,
+    toolCount: toolCalls.length,
+    hasError: options.hasError,
+    track: options.dominantTrack,
+    turnIndex: turn.index,
+    startTime: turn.startTime,
+    endTime: turn.endTime,
+    isExpanded: true,
+    canExpand: true,
+    autoExpanded: !!options.autoExpanded,
+    parallelAgentCount: options.parallelTaskGroup ? options.parallelTaskGroup.length : 0,
+    parallelAgentNames: options.parallelTaskGroup
+      ? options.parallelTaskGroup.map(function (entry) { return entry.event.agentDisplayName || entry.event.agentName || "Agent"; })
+      : [],
+    children: compound.children,
+    edges: compound.childEdges,
+    layoutOptions: getCompoundLayoutOptions("turn"),
+  };
+}
+
+function buildCollapsedTurnNode(turn, toolCalls, options) {
+  return {
+    id: "turn-" + turn.index,
+    type: "turn",
+    label: "Turn " + turn.index,
+    snippet: options.snippet,
+    toolCount: toolCalls.length,
+    hasError: options.hasError,
+    track: options.dominantTrack,
+    turnIndex: turn.index,
+    startTime: turn.startTime,
+    endTime: turn.endTime,
+    isExpanded: false,
+    canExpand: toolCalls.length > 0,
+    parallelAgentCount: options.parallelTaskGroup ? options.parallelTaskGroup.length : 0,
+    parallelAgentNames: options.parallelTaskGroup
+      ? options.parallelTaskGroup.map(function (entry) { return entry.event.agentDisplayName || entry.event.agentName || "Agent"; })
+      : [],
+    width: 180,
+    height: 64,
+  };
+}
+
+/**
+ * Collect all transitive descendants of a root toolCallId.
+ * Walks the full parentToolCallId chain so nested agents are included.
+ */
+function collectDescendants(toolCalls, rootToolCallId) {
+  var descendants = [];
+  var knownIds = {};
+  knownIds[rootToolCallId] = true;
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (var i = 0; i < toolCalls.length; i++) {
+      var entry = toolCalls[i];
+      if (entry.event.parentToolCallId && knownIds[entry.event.parentToolCallId] && !knownIds[entry.event.toolCallId || ("idx-" + entry.index)]) {
+        descendants.push(entry);
+        if (entry.event.toolCallId) knownIds[entry.event.toolCallId] = true;
+        knownIds["idx-" + entry.index] = true;
+        changed = true;
+      }
+    }
+  }
+  return descendants;
+}
+
+function buildParallelAgentTurnGraph(turn, turnEvents, toolCalls, options) {
+  var turnId = "turn-" + turn.index;
+  var taskGroup = (findParallelTaskGroup(toolCalls) || []).slice().sort(function (a, b) {
+    if (a.event.t !== b.event.t) return a.event.t - b.event.t;
+    var aLabel = a.event.agentDisplayName || a.event.agentName || a.event.toolCallId || "";
+    var bLabel = b.event.agentDisplayName || b.event.agentName || b.event.toolCallId || "";
+    return aLabel.localeCompare(bLabel);
+  });
+  var forkTime = taskGroup.length > 0 ? taskGroup[0].event.t : turn.startTime;
+  var branchNodes = [];
+  var branchNames = [];
+  var branchEndTimes = [];
+  var edges = [];
+  var claimedIndices = {};
+
+  // Mark all task group root entries as claimed
+  for (var tg = 0; tg < taskGroup.length; tg++) {
+    claimedIndices[taskGroup[tg].index] = true;
+  }
+
+  for (var i = 0; i < taskGroup.length; i++) {
+    var rootTask = taskGroup[i];
+    var branchId = "agent-" + turn.index + "-" + normalizeIdPart(rootTask.event.toolCallId, i);
+    // Collect ALL transitive descendants, not just direct children
+    var descendantTools = collectDescendants(toolCalls, rootTask.event.toolCallId);
+    var idSuffix = normalizeIdPart(rootTask.event.toolCallId, i);
+    var compound = buildCompoundChildren(
+      turn.index,
+      descendantTools,
+      "agent-tool-" + turn.index + "-" + idSuffix + "-"
+    );
+
+    // Mark descendants as claimed
+    for (var di = 0; di < descendantTools.length; di++) {
+      claimedIndices[descendantTools[di].index] = true;
+    }
+
+    var branchError = !!rootTask.event.isError;
+    var branchEnd = getEventEndTime(rootTask.event);
+    for (var te = 0; te < turnEvents.length; te++) {
+      var evt = turnEvents[te].event;
+      // Check if event belongs to this branch (root or any descendant)
+      var belongsToBranch = evt.toolCallId === rootTask.event.toolCallId;
+      if (!belongsToBranch && evt.parentToolCallId) {
+        for (var dd = 0; dd < descendantTools.length; dd++) {
+          if (evt.toolCallId === descendantTools[dd].event.toolCallId || evt.parentToolCallId === descendantTools[dd].event.toolCallId) {
+            belongsToBranch = true;
+            break;
+          }
+        }
+        if (!belongsToBranch) belongsToBranch = evt.parentToolCallId === rootTask.event.toolCallId;
+      }
+      if (!belongsToBranch) continue;
+      if (evt.isError) branchError = true;
+      if (evt.toolCallId === rootTask.event.toolCallId && evt.track === "agent") {
+        branchEnd = Math.max(branchEnd, evt.t);
+      } else {
+        branchEnd = Math.max(branchEnd, getEventEndTime(evt));
+      }
+    }
+    branchEndTimes.push(branchEnd);
+    branchNames.push(rootTask.event.agentDisplayName || rootTask.event.agentName || "Agent");
+    branchNodes.push({
+      id: branchId,
+      type: "agent_branch",
+      label: rootTask.event.agentDisplayName || rootTask.event.agentName || rootTask.event.toolName || "Agent",
+      snippet: rootTask.event.text,
+      toolCount: descendantTools.length,
+      hasError: branchError,
+      track: "agent",
+      turnIndex: turn.index,
+      startTime: rootTask.event.t,
+      endTime: branchEnd,
+      isExpanded: true,
+      canExpand: false,
+      width: 220,
+      height: 100,
+      agentName: rootTask.event.agentName,
+      agentDisplayName: rootTask.event.agentDisplayName,
+      branchToolCallId: rootTask.event.toolCallId,
+      rootEvent: rootTask.event,
+      children: compound.children,
+      edges: compound.childEdges,
+      layoutOptions: getCompoundLayoutOptions("agent_branch"),
+    });
+  }
+
+  var joinTime = branchEndTimes.length > 0 ? Math.max.apply(Math, branchEndTimes) : turn.endTime;
+  var forkId = "fork-" + turn.index;
+  var joinId = "join-" + turn.index;
+
+  // Collect unclaimed root tools (pre-fork or post-join non-task tools)
+  var preForkTools = [];
+  var postJoinTools = [];
+  for (var ui = 0; ui < toolCalls.length; ui++) {
+    if (claimedIndices[toolCalls[ui].index]) continue;
+    if (toolCalls[ui].event.parentToolCallId) continue; // child of something; skip
+    if (toolCalls[ui].event.t < forkTime) {
+      preForkTools.push(toolCalls[ui]);
+    } else {
+      postJoinTools.push(toolCalls[ui]);
+    }
+  }
+
+  var turnNode = {
+    id: turnId,
+    type: "turn",
+    label: "Turn " + turn.index,
+    snippet: options.snippet,
+    toolCount: toolCalls.length,
+    hasError: options.hasError,
+    track: options.dominantTrack,
+    turnIndex: turn.index,
+    startTime: turn.startTime,
+    endTime: forkTime,
+    isExpanded: preForkTools.length > 0,
+    canExpand: preForkTools.length > 0,
+    isBranchHost: true,
+    parallelAgentCount: taskGroup.length,
+    parallelAgentNames: branchNames,
+    width: 180,
+    height: 64,
+  };
+
+  // Add pre-fork tools as children of the turn node
+  if (preForkTools.length > 0) {
+    var preForkCompound = buildCompoundChildren(turn.index, preForkTools, "prefork-" + turn.index + "-");
+    turnNode.children = preForkCompound.children;
+    turnNode.edges = preForkCompound.childEdges;
+    turnNode.layoutOptions = getCompoundLayoutOptions("turn");
+  }
+
+  var forkNode = {
+    id: forkId,
+    type: "fork",
+    label: "Fork",
+    branchCount: taskGroup.length,
+    track: "agent",
+    turnIndex: turn.index,
+    startTime: forkTime,
+    endTime: joinTime,
+    width: 64,
+    height: 60,
+    agents: branchNames,
+  };
+  var joinNode = {
+    id: joinId,
+    type: "join",
+    label: "Join",
+    branchCount: taskGroup.length,
+    track: "agent",
+    turnIndex: turn.index,
+    startTime: joinTime,
+    endTime: turn.endTime,
+    width: 64,
+    height: 60,
+    agents: branchNames,
+    hasError: options.hasError,
+  };
+
+  var allNodes = [turnNode, forkNode].concat(branchNodes, [joinNode]);
+  edges.push(makeGraphEdge(turnId + "->" + forkId, turnId, forkId, forkTime));
+  for (var bi = 0; bi < branchNodes.length; bi++) {
+    edges.push(makeGraphEdge(forkId + "->" + branchNodes[bi].id, forkId, branchNodes[bi].id, branchNodes[bi].startTime));
+    edges.push(makeGraphEdge(branchNodes[bi].id + "->" + joinId, branchNodes[bi].id, joinId, joinTime));
+  }
+
+  // Add post-join tool nodes as top-level nodes after the join
+  var lastId = joinId;
+  for (var pi = 0; pi < postJoinTools.length; pi++) {
+    var ptool = postJoinTools[pi];
+    var postId = "postjoin-" + turn.index + "-" + pi;
+    allNodes.push({
+      id: postId,
+      type: "tool_call",
+      label: ptool.event.toolName || "tool",
+      isError: ptool.event.isError,
+      track: "tool_call",
+      eventIndex: ptool.index,
+      event: ptool.event,
+      turnIndex: turn.index,
+      width: 160,
+      height: 36,
+    });
+    edges.push(makeGraphEdge(lastId + "->" + postId, lastId, postId, ptool.event.t));
+    lastId = postId;
+  }
+
+  return {
+    nodes: allNodes,
+    edges: edges,
+    entryId: turnId,
+    entryStartTime: turn.startTime,
+    exitId: lastId,
+  };
+}
+
+function getTurnEvents(eventByIndex, turn) {
   if (!turn.eventIndices) return [];
-  return turn.eventIndices
-    .map(function (idx) {
-      return eventEntries.find(function (e) { return e.index === idx; });
-    })
-    .filter(Boolean);
+  var results = [];
+  for (var i = 0; i < turn.eventIndices.length; i++) {
+    var entry = eventByIndex[turn.eventIndices[i]];
+    if (entry) results.push(entry);
+  }
+  return results;
 }
 
 function getDominantTrack(events) {

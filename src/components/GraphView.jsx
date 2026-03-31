@@ -17,6 +17,8 @@ var NODE_COLORS = {
   context: theme.track.context,
   output: theme.track.output,
   agent: theme.track.agent,
+  fork: theme.track.agent,
+  join: theme.track.agent,
 };
 
 function getTrackColor(track) {
@@ -25,6 +27,22 @@ function getTrackColor(track) {
 
 function getAgentTypeColor(agentName) {
   return theme.agentType[agentName] || theme.agentType.default;
+}
+
+function getNodeColor(node) {
+  if (!node) return theme.track.reasoning;
+  if (node.type === "agent_branch") return getAgentTypeColor(node.agentName);
+  if (node.type === "fork" || node.type === "join") return theme.track.agent;
+  return getTrackColor(node.track);
+}
+
+function getNodeTitle(node) {
+  if (!node) return "";
+  if (node.type === "agent_branch") return node.agentDisplayName || node.agentName || node.label;
+  if (node.type === "fork") return "Fork";
+  if (node.type === "join") return "Join";
+  if (node.type === "turn") return "Turn " + node.turnIndex;
+  return node.label || node.type;
 }
 
 function usePrefersReducedMotion() {
@@ -93,6 +111,19 @@ function GraphEdge({ sections, parentOffset, isActive, prefersReducedMotion }) {
   });
 
   return <g>{paths}</g>;
+}
+
+function getEdgeActive(edge, nodeById, currentTime) {
+  if (!edge) return false;
+  if (edge.activationTime != null) return currentTime >= edge.activationTime;
+  var sourceNode = nodeById[edge.sources[0]];
+  var targetNode = nodeById[edge.targets[0]];
+  var threshold = Math.min(
+    sourceNode && sourceNode.endTime != null ? sourceNode.endTime : Infinity,
+    targetNode && targetNode.startTime != null ? targetNode.startTime : Infinity
+  );
+  if (!isFinite(threshold)) return false;
+  return currentTime >= threshold;
 }
 
 // ── Turn node (collapsed) ──
@@ -289,6 +320,73 @@ function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect, prefersR
   );
 }
 
+function BranchMarkerNode({ node, isActive, isFuture, isSelected, onSelect, prefersReducedMotion, parentOffset }) {
+  var color = getNodeColor(node);
+  var opacity = isFuture ? 0.25 : 1;
+  var ox = parentOffset ? parentOffset.x : 0;
+  var oy = parentOffset ? parentOffset.y : 0;
+  var x = node.x + ox;
+  var y = node.y + oy;
+  var diamondPath = [
+    "M", x + (node.width / 2), y,
+    "L", x + node.width, y + (node.height / 2),
+    "L", x + (node.width / 2), y + node.height,
+    "L", x, y + (node.height / 2),
+    "Z",
+  ].join(" ");
+
+  return (
+    <g
+      style={{ cursor: "pointer", opacity: opacity }}
+      onClick={function (e) {
+        e.stopPropagation();
+        onSelect(node);
+      }}
+    >
+      <path
+        d={diamondPath}
+        fill={isSelected ? alpha(color, 0.18) : alpha(theme.bg.raised, 0.92)}
+        stroke={isActive ? color : isSelected ? color : alpha(color, 0.6)}
+        strokeWidth={isActive ? 2 : 1.25}
+      />
+      <text
+        x={x + (node.width / 2)}
+        y={y + (node.height / 2) + 3}
+        fill={isActive ? color : theme.text.secondary}
+        fontSize={theme.fontSize.xs}
+        fontFamily={theme.font.mono}
+        textAnchor="middle"
+        fontWeight={600}
+      >
+        {node.type === "fork" ? "\u2442" : "\u22C8"}
+      </text>
+      {node.branchCount > 1 && (
+        <text
+          x={x + (node.width / 2)}
+          y={y + node.height + 11}
+          fill={theme.text.dim}
+          fontSize={9}
+          fontFamily={theme.font.mono}
+          textAnchor="middle"
+        >
+          {node.branchCount + " branches"}
+        </text>
+      )}
+      {isActive && !prefersReducedMotion && (
+        <path
+          d={diamondPath}
+          fill="none"
+          stroke={color}
+          strokeWidth={1}
+          opacity={0.35}
+        >
+          <animate attributeName="opacity" values="0.35;0.1;0.35" dur="2s" repeatCount="indefinite" />
+        </path>
+      )}
+    </g>
+  );
+}
+
 // ── Expanded turn container ──
 
 function ExpandedTurnNode({ node, isActive, isFuture, isSelected, onSelect, onCollapse, currentTime, children }) {
@@ -327,6 +425,80 @@ function ExpandedTurnNode({ node, isActive, isFuture, isSelected, onSelect, onCo
         {"Turn " + node.turnIndex + " \u25B4"}
         {node.hasError && <tspan fill={theme.semantic.error}>{" \u26A0"}</tspan>}
       </text>
+      {node.parallelAgentCount > 1 && (
+        <g transform={"translate(" + (node.width - 128) + ", 10)"}>
+          <rect
+            width={112}
+            height={18}
+            rx={theme.radius.full}
+            fill={alpha(theme.track.agent, 0.12)}
+            stroke={alpha(theme.track.agent, 0.35)}
+            strokeWidth={1}
+          />
+          <text
+            x={56}
+            y={12}
+            fill={theme.track.agent}
+            fontSize={9}
+            fontFamily={theme.font.mono}
+            textAnchor="middle"
+            fontWeight={600}
+          >
+            {node.parallelAgentCount + " parallel agents"}
+          </text>
+        </g>
+      )}
+      {children}
+    </g>
+  );
+}
+
+function AgentBranchNode({ node, isActive, isFuture, isSelected, onSelect, children }) {
+  var color = getAgentTypeColor(node.agentName);
+  var opacity = isFuture ? 0.25 : 1;
+  return (
+    <g
+      transform={"translate(" + node.x + "," + node.y + ")"}
+      style={{ cursor: "pointer", opacity: opacity }}
+      onClick={function (e) {
+        e.stopPropagation();
+        onSelect(node);
+      }}
+    >
+      <rect
+        width={node.width}
+        height={node.height}
+        rx={theme.radius.xl}
+        ry={theme.radius.xl}
+        fill={isSelected ? alpha(color, 0.14) : alpha(color, 0.06)}
+        stroke={isActive ? color : isSelected ? color : alpha(color, 0.4)}
+        strokeWidth={isActive ? 2 : 1}
+        strokeDasharray="4 2"
+      />
+      <circle cx={12} cy={20} r={4} fill={color} />
+      <text
+        x={22}
+        y={24}
+        fill={color}
+        fontSize={theme.fontSize.sm}
+        fontFamily={theme.font.mono}
+        fontWeight={600}
+      >
+        {node.agentDisplayName || node.agentName || node.label}
+        {node.hasError && <tspan fill={theme.semantic.error}>{" \u26A0"}</tspan>}
+      </text>
+      {node.toolCount > 0 && (
+        <text
+          x={node.width - 14}
+          y={24}
+          fill={theme.text.dim}
+          fontSize={9}
+          fontFamily={theme.font.mono}
+          textAnchor="end"
+        >
+          {node.toolCount + " tools"}
+        </text>
+      )}
       {children}
     </g>
   );
@@ -352,8 +524,10 @@ function GraphInspector({ selectedNode }) {
   }
 
   var isTurn = selectedNode.type === "turn";
+  var isBranch = selectedNode.type === "agent_branch";
+  var isMarker = selectedNode.type === "fork" || selectedNode.type === "join";
   var event = selectedNode.event;
-  var color = getTrackColor(selectedNode.track);
+  var color = getNodeColor(selectedNode);
 
   return (
     <div style={{
@@ -373,8 +547,12 @@ function GraphInspector({ selectedNode }) {
         alignItems: "center",
         gap: theme.space.sm,
       }}>
-        <Icon name={isTurn ? "message-circle" : "tool_call"} size={14} style={{ color: color }} />
-        {isTurn ? "Turn " + selectedNode.turnIndex : selectedNode.label}
+        <Icon
+          name={isTurn ? "message-circle" : isBranch ? "agent" : isMarker ? "graph" : "tool_call"}
+          size={14}
+          style={{ color: color }}
+        />
+        {getNodeTitle(selectedNode)}
       </div>
 
       {isTurn && selectedNode.snippet && (
@@ -416,7 +594,64 @@ function GraphInspector({ selectedNode }) {
         </div>
       )}
 
-      {!isTurn && event && (
+      {isBranch && (
+        <div style={{ marginBottom: theme.space.lg }}>
+          <div style={{ display: "flex", gap: theme.space.xl, marginBottom: theme.space.lg }}>
+            <div>
+              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Turn</div>
+              <div style={{ color: theme.text.primary, fontSize: theme.fontSize.md }}>{selectedNode.turnIndex}</div>
+            </div>
+            <div>
+              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Agent</div>
+              <div style={{ color: theme.text.primary, fontSize: theme.fontSize.md }}>{selectedNode.agentDisplayName || selectedNode.agentName || "Agent"}</div>
+            </div>
+            <div>
+              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Tools</div>
+              <div style={{ color: theme.text.primary, fontSize: theme.fontSize.md }}>{selectedNode.toolCount || 0}</div>
+            </div>
+          </div>
+          {selectedNode.snippet && (
+            <div>
+              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.sm }}>Launch</div>
+              <div style={{
+                background: theme.bg.surface,
+                borderRadius: theme.radius.md,
+                padding: "8px 10px",
+                color: theme.text.primary,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}>
+                {selectedNode.snippet}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isMarker && (
+        <div style={{ marginBottom: theme.space.lg }}>
+          <div style={{ display: "flex", gap: theme.space.xl, marginBottom: theme.space.lg }}>
+            <div>
+              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Turn</div>
+              <div style={{ color: theme.text.primary, fontSize: theme.fontSize.md }}>{selectedNode.turnIndex}</div>
+            </div>
+            <div>
+              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Branches</div>
+              <div style={{ color: theme.text.primary, fontSize: theme.fontSize.md }}>{selectedNode.branchCount || 0}</div>
+            </div>
+          </div>
+          {selectedNode.agents && selectedNode.agents.length > 0 && (
+            <div>
+              <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.sm }}>Agents</div>
+              <div style={{ color: theme.text.primary, lineHeight: 1.5 }}>
+                {selectedNode.agents.join(", ")}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isTurn && !isBranch && !isMarker && event && (
         <div>
           <div style={{ marginBottom: theme.space.lg }}>
             <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.sm }}>Tool</div>
@@ -500,6 +735,26 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
   var graphData = useMemo(function () {
     return buildGraphData(eventEntries, turns, expandedTurns);
   }, [eventEntries, turns, expandedTurns]);
+
+  var nodeById = useMemo(function () {
+    var map = {};
+    if (!layoutResult || !layoutResult.nodes) return map;
+    for (var i = 0; i < layoutResult.nodes.length; i++) {
+      var node = layoutResult.nodes[i];
+      map[node.id] = node;
+      if (node.children) {
+        for (var j = 0; j < node.children.length; j++) {
+          map[node.children[j].id] = node.children[j];
+        }
+      }
+      if (node.inlineMarkers) {
+        for (var k = 0; k < node.inlineMarkers.length; k++) {
+          map[node.inlineMarkers[k].id] = node.inlineMarkers[k];
+        }
+      }
+    }
+    return map;
+  }, [layoutResult]);
 
   // Run ELK layout (async)
   useEffect(function () {
@@ -661,9 +916,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
 
           {/* Edges */}
           {layoutResult.edges.map(function (edge) {
-            var fromTurnIdx = parseInt((edge.sources[0] || "").replace("turn-", ""), 10);
-            var toTurnIdx = parseInt((edge.targets[0] || "").replace("turn-", ""), 10);
-            var isActive = activeTurnIndex >= fromTurnIdx && activeTurnIndex >= toTurnIdx;
+            var isActive = getEdgeActive(edge, nodeById, currentTime);
             return (
               <GraphEdge
                 key={edge.id}
@@ -683,7 +936,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
                   key={edge.id}
                   sections={edge.sections}
                   parentOffset={edge.parentOffset}
-                  isActive={activeTurnIndex === node.turnIndex}
+                  isActive={getEdgeActive(edge, nodeById, currentTime)}
                   prefersReducedMotion={prefersReducedMotion}
                 />
               );
@@ -692,9 +945,55 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
 
           {/* Nodes */}
           {layoutResult.nodes.map(function (node) {
-            var isActive = activeTurnIndex === node.turnIndex;
+            var isActive = currentTime >= (node.startTime || 0) && currentTime <= (node.endTime || node.startTime || 0);
             var isFuture = node.startTime > currentTime;
             var isSelected = selectedNode && selectedNode.id === node.id;
+
+            if (node.type === "agent_branch") {
+              return (
+                <AgentBranchNode
+                  key={node.id}
+                  node={node}
+                  isActive={isActive}
+                  isFuture={isFuture}
+                  isSelected={isSelected}
+                  onSelect={handleSelectNode}
+                >
+                  {node.children && node.children.map(function (child) {
+                    var childActive = child.event &&
+                      currentTime >= child.event.t &&
+                      currentTime <= child.event.t + (child.event.duration || 0);
+                    var childFuture = child.event && child.event.t > currentTime;
+                    var childSelected = selectedNode && selectedNode.id === child.id;
+                    return (
+                      <ToolCallNode
+                        key={child.id}
+                        node={child}
+                        isActive={childActive}
+                        isFuture={childFuture}
+                        isSelected={childSelected}
+                        onSelect={handleSelectNode}
+                        prefersReducedMotion={prefersReducedMotion}
+                      />
+                    );
+                  })}
+                </AgentBranchNode>
+              );
+            }
+
+            if (node.type === "fork" || node.type === "join") {
+              return (
+                <BranchMarkerNode
+                  key={node.id}
+                  node={node}
+                  isActive={isActive}
+                  isFuture={isFuture}
+                  isSelected={isSelected}
+                  onSelect={handleSelectNode}
+                  prefersReducedMotion={prefersReducedMotion}
+                />
+              );
+            }
 
             if (node.isExpanded) {
               return (
@@ -708,6 +1007,24 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
                   onCollapse={handleCollapse}
                   currentTime={currentTime}
                 >
+                  {node.inlineMarkers && node.inlineMarkers.map(function (marker) {
+                    var markerActive = currentTime >= (marker.startTime || 0) &&
+                      currentTime <= (marker.endTime || marker.startTime || 0);
+                    var markerFuture = marker.startTime > currentTime;
+                    var markerSelected = selectedNode && selectedNode.id === marker.id;
+                    return (
+                      <BranchMarkerNode
+                        key={marker.id}
+                        node={marker}
+                        isActive={markerActive}
+                        isFuture={markerFuture}
+                        isSelected={markerSelected}
+                        onSelect={handleSelectNode}
+                        prefersReducedMotion={prefersReducedMotion}
+                        parentOffset={{ x: node.x, y: node.y }}
+                      />
+                    );
+                  })}
                   {node.children && node.children.map(function (child) {
                     var childActive = isActive && child.event &&
                       currentTime >= child.event.t &&

@@ -104,6 +104,137 @@ describe("buildGraphData", function () {
     expect(result.nodes[0].children[1].label).toBe("edit");
   });
 
+  it("auto-expands turns with parallel task agents", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-a", t: 0, duration: 8, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-b", t: 1, duration: 8, agentName: "code-review", agentDisplayName: "Code Review Agent" }),
+      makeEvent(2, { track: "tool_call", toolName: "view", parentToolCallId: "task-a", t: 2, duration: 1 }),
+      makeEvent(3, { track: "tool_call", toolName: "grep", parentToolCallId: "task-b", t: 2.5, duration: 1 }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2, 3])];
+    var result = buildGraphData(events, turns, {});
+    expect(result.nodes.map(function (node) { return node.type; })).toEqual(["turn", "fork", "agent_branch", "agent_branch", "join"]);
+  });
+
+  it("does not fork for a single task agent", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-a", t: 0, duration: 8, agentName: "general-purpose", agentDisplayName: "General Purpose Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "edit", parentToolCallId: "task-a", t: 1, duration: 1 }),
+    ];
+    var turns = [makeTurn(0, [0, 1])];
+    var result = buildGraphData(events, turns, {});
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0].type).toBe("turn");
+    expect(result.nodes[0].isExpanded).toBe(false);
+  });
+
+  it("uses toolCallId-based IDs for duplicate agent types", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-a", t: 0, duration: 8, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-b", t: 1, duration: 8, agentName: "explore", agentDisplayName: "Explore Agent" }),
+    ];
+    var turns = [makeTurn(0, [0, 1])];
+    var result = buildGraphData(events, turns, {});
+    var agentIds = result.nodes.filter(function (node) { return node.type === "agent_branch"; }).map(function (node) { return node.id; });
+    expect(agentIds).toEqual(["agent-0-task-a--0", "agent-0-task-b--1"]);
+  });
+
+  it("connects fork and join edges around agent branches", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-a", t: 0, duration: 8, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-b", t: 1, duration: 8, agentName: "code-review", agentDisplayName: "Code Review Agent" }),
+    ];
+    var turns = [
+      makeTurn(0, [0, 1]),
+      makeTurn(1, [], { userMessage: "Next turn" }),
+    ];
+    var result = buildGraphData(events, turns, {});
+    var edgeIds = result.edges.map(function (edge) { return edge.id; });
+    expect(edgeIds).toContain("turn-0->fork-0");
+    expect(edgeIds).toContain("fork-0->agent-0-task-a--0");
+    expect(edgeIds).toContain("fork-0->agent-0-task-b--1");
+    expect(edgeIds).toContain("agent-0-task-a--0->join-0");
+    expect(edgeIds).toContain("agent-0-task-b--1->join-0");
+    expect(edgeIds).toContain("join-0->turn-1");
+  });
+
+  it("preserves non-task tools in mixed turns (pre-fork and post-join)", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "grep", t: 0, duration: 1 }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-a", t: 2, duration: 8, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(2, { track: "tool_call", toolName: "task", toolCallId: "task-b", t: 3, duration: 8, agentName: "code-review", agentDisplayName: "Code Review Agent" }),
+      makeEvent(3, { track: "tool_call", toolName: "bash", t: 20, duration: 1 }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2, 3])];
+    var result = buildGraphData(events, turns, {});
+    var nodeTypes = result.nodes.map(function (n) { return n.type; });
+    // Turn should contain pre-fork grep, then fork/branches/join, then post-join bash
+    expect(nodeTypes).toContain("turn");
+    expect(nodeTypes).toContain("fork");
+    expect(nodeTypes).toContain("agent_branch");
+    expect(nodeTypes).toContain("join");
+    expect(nodeTypes).toContain("tool_call"); // post-join bash
+    // Pre-fork grep should be a child of the turn node
+    var turnNode = result.nodes.find(function (n) { return n.type === "turn"; });
+    expect(turnNode.children).toBeDefined();
+    expect(turnNode.children.length).toBe(1);
+    expect(turnNode.children[0].label).toBe("grep");
+  });
+
+  it("collects transitive descendants in agent branches", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-a", t: 0, duration: 10, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-b", t: 1, duration: 10, agentName: "code-review", agentDisplayName: "Code Review Agent" }),
+      makeEvent(2, { track: "tool_call", toolName: "view", toolCallId: "view-1", parentToolCallId: "task-a", t: 2, duration: 1 }),
+      makeEvent(3, { track: "tool_call", toolName: "grep", parentToolCallId: "view-1", t: 3, duration: 1 }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2, 3])];
+    var result = buildGraphData(events, turns, {});
+    var exploreBranch = result.nodes.find(function (n) { return n.type === "agent_branch" && n.agentName === "explore"; });
+    // Should include both view (direct child) and grep (grandchild)
+    expect(exploreBranch.children.length).toBe(2);
+    expect(exploreBranch.toolCount).toBe(2);
+  });
+
+  it("handles 3+ parallel agent branches", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "t-a", t: 0, duration: 8, agentName: "explore", agentDisplayName: "Explore" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "t-b", t: 0.5, duration: 8, agentName: "code-review", agentDisplayName: "Review" }),
+      makeEvent(2, { track: "tool_call", toolName: "task", toolCallId: "t-c", t: 1, duration: 8, agentName: "general-purpose", agentDisplayName: "GP" }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2])];
+    var result = buildGraphData(events, turns, {});
+    var branches = result.nodes.filter(function (n) { return n.type === "agent_branch"; });
+    expect(branches.length).toBe(3);
+    var forkNode = result.nodes.find(function (n) { return n.type === "fork"; });
+    expect(forkNode.branchCount).toBe(3);
+  });
+
+  it("propagates error from failed agent branch to join node", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-ok", t: 0, duration: 5, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-fail", t: 1, duration: 5, agentName: "code-review", agentDisplayName: "Review Agent", isError: true }),
+    ];
+    var turns = [makeTurn(0, [0, 1], { hasError: true })];
+    var result = buildGraphData(events, turns, {});
+    var failBranch = result.nodes.find(function (n) { return n.type === "agent_branch" && n.agentName === "code-review"; });
+    expect(failBranch.hasError).toBe(true);
+    var joinNode = result.nodes.find(function (n) { return n.type === "join"; });
+    expect(joinNode.hasError).toBe(true);
+  });
+
+  it("avoids ID collisions when toolCallIds normalize identically", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "a/b", t: 0, duration: 8, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "a:b", t: 1, duration: 8, agentName: "code-review", agentDisplayName: "Code Review Agent" }),
+    ];
+    var turns = [makeTurn(0, [0, 1])];
+    var result = buildGraphData(events, turns, {});
+    var branchIds = result.nodes.filter(function (n) { return n.type === "agent_branch"; }).map(function (n) { return n.id; });
+    // Normalized forms are the same ("a-b") but --index suffix makes them unique
+    expect(new Set(branchIds).size).toBe(2);
+  });
+
   it("collapsed turns have no children", function () {
     var events = [makeEvent(0, { track: "tool_call", toolName: "bash" })];
     var turns = [makeTurn(0, [0])];
@@ -151,6 +282,44 @@ describe("runLayout + mergeLayout", function () {
     expect(positioned.nodes[0].children).toHaveLength(2);
     expect(typeof positioned.nodes[0].children[0].x).toBe("number");
     expect(typeof positioned.nodes[0].children[1].x).toBe("number");
+  });
+
+  it("lays out fork/join DAG nodes", async function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-a", t: 0, duration: 8, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-b", t: 1, duration: 8, agentName: "code-review", agentDisplayName: "Code Review Agent" }),
+      makeEvent(2, { track: "tool_call", toolName: "view", parentToolCallId: "task-a", t: 2, duration: 1 }),
+      makeEvent(3, { track: "tool_call", toolName: "grep", parentToolCallId: "task-b", t: 2.5, duration: 1 }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2, 3])];
+    var graphData = buildGraphData(events, turns, {});
+    var elkResult = await runLayout(graphData);
+    var positioned = mergeLayout(graphData, elkResult);
+    var forkNode = positioned.nodes.find(function (node) { return node.type === "fork"; });
+    var joinNode = positioned.nodes.find(function (node) { return node.type === "join"; });
+    var branchNodes = positioned.nodes.filter(function (node) { return node.type === "agent_branch"; });
+
+    expect(typeof forkNode.x).toBe("number");
+    expect(typeof joinNode.x).toBe("number");
+    expect(branchNodes).toHaveLength(2);
+    expect(branchNodes[0].children.length).toBeGreaterThan(0);
+  });
+
+  it("keeps branch nodes ordered by start time", async function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-later", t: 2, duration: 8, agentName: "code-review", agentDisplayName: "Code Review Agent" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-earlier", t: 1, duration: 8, agentName: "explore", agentDisplayName: "Explore Agent" }),
+      makeEvent(2, { track: "tool_call", toolName: "view", parentToolCallId: "task-earlier", t: 2.5, duration: 1 }),
+      makeEvent(3, { track: "tool_call", toolName: "grep", parentToolCallId: "task-later", t: 3, duration: 1 }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2, 3])];
+    var graphData = buildGraphData(events, turns, {});
+    var branchNodes = graphData.nodes.filter(function (node) { return node.type === "agent_branch"; });
+
+    expect(branchNodes.map(function (node) { return node.agentDisplayName; })).toEqual([
+      "Explore Agent",
+      "Code Review Agent",
+    ]);
   });
 });
 
