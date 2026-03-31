@@ -258,11 +258,11 @@ export default function App() {
     }
   }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);
 
-  var loadSample = useCallback(function () {
+  var loadSample = useCallback(function (mode) {
     sessionLoadCount.current += 1;
     setShowPalette(false);
     setShowFilters(false);
-    session.loadSample();
+    session.loadSample(mode);
   }, [session.loadSample]);
 
   var reset = useCallback(function () {
@@ -272,6 +272,14 @@ export default function App() {
     sessionB.resetSession();
     setCompareLanding(false);
   }, [session.resetSession, sessionB.resetSession]);
+
+  // Auto-load multi-agent demo when ?demo=multiagent is in the URL
+  useEffect(function () {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get("demo") === "multiagent") {
+      loadSample("multiagent");
+    }
+  }, [loadSample]);
 
   useHashRouter({
     hasSession: Boolean(session.events),
@@ -442,6 +450,16 @@ function AppSessionView({
     },
   });
 
+  // Tracks that actually have events (used to hide empty filter/stat rows)
+  var activeTracks = useMemo(function () {
+    var set = {};
+    var entries = pb.filteredEventEntries;
+    for (var i = 0; i < entries.length; i++) {
+      set[entries[i].event.track] = true;
+    }
+    return set;
+  }, [pb.filteredEventEntries]);
+
   return (
     <div style={{
       width: "100%",
@@ -493,6 +511,7 @@ function AppSessionView({
         onToggleFilters={function () { setShowFilters(function (p) { return !p; }); }}
         activeFilterCount={pb.activeFilterCount}
         trackFilters={pb.trackFilters}
+        activeTracks={activeTracks}
         onToggleTrackFilter={pb.toggleTrackFilter}
         speed={pb.playback.speed}
         onCycleSpeed={pb.cycleSpeed}

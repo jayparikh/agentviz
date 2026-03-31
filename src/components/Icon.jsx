@@ -31,6 +31,7 @@ import {
   ArrowRight,
   Send,
   Sparkles,
+  Users,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -56,6 +57,7 @@ var ICON_MAP = {
   tool_call: Terminal,
   context: FileText,
   output: MessageSquare,
+  agent: Users,
   enter: CornerDownLeft,
   "arrow-up-down": ArrowUpDown,
   filter: SlidersHorizontal,

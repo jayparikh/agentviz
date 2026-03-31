@@ -28,7 +28,10 @@ export interface NormalizedEvent {
   isError: boolean;
   model?: string | null;
   tokenUsage?: TokenUsage | null;
+  toolCallId?: string | null;
   parentToolCallId?: string | null;
+  agentName?: string | null;
+  agentDisplayName?: string | null;
   [key: string]: unknown;
 }
 

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { parseSession } from "../lib/parseSession";
-import { SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA } from "../lib/constants.js";
+import { SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA, MULTIAGENT_SAMPLE_EVENTS, MULTIAGENT_SAMPLE_TOTAL, MULTIAGENT_SAMPLE_TURNS, MULTIAGENT_SAMPLE_METADATA } from "../lib/constants.js";
 import { getSessionTotal } from "../lib/session";
 import { buildAppliedSession, parseSessionText } from "../lib/sessionParsing";
 
@@ -99,19 +99,20 @@ export default function useSessionLoader(options) {
     notifySessionParsed(parsed.result, file || "live-session.jsonl", rawTextRef.current);
   }, [file, notifySessionParsed]);
 
-  var loadSample = useCallback(function () {
+  var loadSample = useCallback(function (mode) {
     requestIdRef.current += 1;
     if (parseTimeoutRef.current) {
       clearTimeout(parseTimeoutRef.current);
       parseTimeoutRef.current = null;
     }
 
+    var isMultiAgent = mode === "multiagent";
     rawTextRef.current = "";
-    setEvents(SAMPLE_EVENTS);
-    setTurns(SAMPLE_TURNS);
-    setMetadata(SAMPLE_METADATA);
-    setTotal(SAMPLE_TOTAL);
-    setFile("demo-session.jsonl");
+    setEvents(isMultiAgent ? MULTIAGENT_SAMPLE_EVENTS : SAMPLE_EVENTS);
+    setTurns(isMultiAgent ? MULTIAGENT_SAMPLE_TURNS : SAMPLE_TURNS);
+    setMetadata(isMultiAgent ? MULTIAGENT_SAMPLE_METADATA : SAMPLE_METADATA);
+    setTotal(isMultiAgent ? MULTIAGENT_SAMPLE_TOTAL : SAMPLE_TOTAL);
+    setFile(isMultiAgent ? "multiagent-demo.jsonl" : "demo-session.jsonl");
     setError(null);
     setLoading(false);
     setIsLive(false);

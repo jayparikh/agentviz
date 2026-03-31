@@ -24,6 +24,7 @@ export default function AppHeader({
   onToggleFilters,
   activeFilterCount,
   trackFilters,
+  activeTracks,
   onToggleTrackFilter,
   speed,
   onCycleSpeed,
@@ -240,6 +241,7 @@ export default function AppHeader({
                 {Object.entries(TRACK_TYPES).map(function (entry) {
                   var key = entry[0];
                   var info = entry[1];
+                  if (activeTracks && !activeTracks[key]) return null;
                   var isHidden = trackFilters[key];
                   return (
                     <button

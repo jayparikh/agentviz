@@ -63,6 +63,17 @@ export const theme = {
     system: "#a78bfa",
   },
 
+  // ── Agent type colors ──
+  // Distinct hues for different subagent types
+  agentType: {
+    explore: "#3b9eff",
+    task: "#10d97a",
+    "general-purpose": "#a78bfa",
+    "code-review": "#f59e0b",
+    "configure-copilot": "#ec4899",
+    default: "#f59e0b",
+  },
+
   // ── Track colors ──
   // Balanced luminance so no track dominates
   track: {
@@ -70,6 +81,7 @@ export const theme = {
     tool_call: "#3b9eff",
     context: "#a78bfa",
     output: "#10d97a",
+    agent: "#f59e0b",
   },
 
   // ── Typography ──
@@ -152,6 +164,7 @@ export const TRACK_TYPES = {
   tool_call: { label: "Tool Calls", color: theme.track.tool_call, icon: "tool_call" },
   context: { label: "Context", color: theme.track.context, icon: "context" },
   output: { label: "Output", color: theme.track.output, icon: "output" },
+  agent: { label: "Agents", color: theme.track.agent, icon: "agent" },
 };
 
 export const AGENT_COLORS = theme.agent;
