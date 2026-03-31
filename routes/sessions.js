@@ -111,16 +111,27 @@ export function handle(pathname, req, res, ctx) {
       });
     } catch (e) {}
 
-    // VS Code Chat: {vscodeUserData}/workspaceStorage/*/chatSessions/*.json
+    // VS Code Chat: {vscodeUserData}/workspaceStorage/*/chatSessions/*.json|*.jsonl
     var vscodeRoots = getVSCodeStorageRoots(homeDir);
     vscodeRoots.forEach(function (vscodeRoot) {
+      var isInsiders = vscodeRoot.includes("Code - Insiders");
       try {
         fs.readdirSync(vscodeRoot).forEach(function (wsId) {
           var chatDir = path.join(vscodeRoot, wsId, "chatSessions");
           try {
             if (!fs.statSync(chatDir).isDirectory()) return;
-            fs.readdirSync(chatDir).forEach(function (fname) {
-              if (!fname.endsWith(".json")) return;
+            var dirFiles = fs.readdirSync(chatDir);
+            // Build set of .json basenames so we skip .jsonl duplicates
+            var jsonBaseNames = {};
+            dirFiles.forEach(function (f) {
+              if (f.endsWith(".json")) jsonBaseNames[f.replace(/\.json$/, "")] = true;
+            });
+            dirFiles.forEach(function (fname) {
+              var isJson = fname.endsWith(".json");
+              var isJsonl = fname.endsWith(".jsonl");
+              if (!isJson && !isJsonl) return;
+              // Skip .jsonl if a .json sibling exists (they share the same session)
+              if (isJsonl && jsonBaseNames[fname.replace(/\.jsonl$/, "")]) return;
               var filePath = path.join(chatDir, fname);
               try {
                 var stat = fs.statSync(filePath);
@@ -145,6 +156,7 @@ export function handle(pathname, req, res, ctx) {
                   summary: title || null,
                   project: wsId.substring(0, 8),
                   format: "vscode-chat",
+                  isInsiders: isInsiders,
                   size: stat.size,
                   mtime: stat.mtime.toISOString(),
                 });

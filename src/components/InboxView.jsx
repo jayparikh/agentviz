@@ -14,6 +14,13 @@ var SORT_OPTIONS = [
   { id: "most-recent", label: "Most recent" },
 ];
 
+var FORMAT_OPTIONS = [
+  { id: "all", label: "All clients" },
+  { id: "claude-code", label: "Claude Code" },
+  { id: "copilot-cli", label: "Copilot CLI" },
+  { id: "vscode-chat", label: "VS Code" },
+];
+
 function sortEntries(entries, sortMode) {
   var sorted = (entries || []).slice();
 
@@ -51,19 +58,22 @@ function sortByDate(entries) {
   });
 }
 
-function formatLabel(format) {
+function formatLabel(entry) {
+  var format = typeof entry === "string" ? entry : (entry && entry.format);
+  var isInsiders = typeof entry === "object" && entry && entry.isInsiders;
   if (format === "copilot-cli") return "Copilot CLI";
-  if (format === "vscode-chat") return "VS Code";
+  if (format === "vscode-chat") return isInsiders ? "VS Code Insiders" : "VS Code";
   return "Claude Code";
 }
 
 function renderMeta(entry) {
   var parts = [
-    formatLabel(entry.format),
+    formatLabel(entry),
     entry.project || null,
     entry.primaryModel,
     entry.repository,
     entry.branch ? "#" + entry.branch : null,
+    formatMtime(entry.updatedAt || entry.importedAt) || null,
   ].filter(Boolean);
 
   return parts.join(" \u00B7 ");
@@ -187,6 +197,7 @@ function CustomSelect({ ariaLabel, value, onChange, options }) {
 
 export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare }) {
   var [sortMode, setSortMode] = useState("most-recent");
+  var [formatFilter, setFormatFilter] = useState("all");
   var [query, setQuery] = useState("");
   var searchRef = useRef(null);
 
@@ -215,48 +226,25 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
   var sortedParsed = useMemo(function () {
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(parsedEntries, q);
+    if (formatFilter !== "all") {
+      filtered = filtered.filter(function (e) { return e.format === formatFilter; });
+    }
     var sorted = sortEntries(filtered, sortMode);
     return sorted;
-  }, [parsedEntries, sortMode, query]);
+  }, [parsedEntries, sortMode, query, formatFilter]);
 
   var [showAllDiscovered, setShowAllDiscovered] = useState(false);
 
   var sortedDiscovered = useMemo(function () {
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(discoveredEntries, q);
+    if (formatFilter !== "all") {
+      filtered = filtered.filter(function (e) { return e.format === formatFilter; });
+    }
     var sorted = sortByDate(filtered);
     if (showAllDiscovered) return sorted;
-
-    // Ensure each format gets representation in the initial view.
-    // Without this, the 15-item cap can hide entire formats when one
-    // format dominates by recency (e.g. many Copilot CLI sessions
-    // pushing all VS Code sessions below the fold).
-    var CAP = 15;
-    var byFormat = {};
-    sorted.forEach(function (e) {
-      var f = e.format || "unknown";
-      if (!byFormat[f]) byFormat[f] = [];
-      byFormat[f].push(e);
-    });
-    var formatKeys = Object.keys(byFormat);
-    if (formatKeys.length <= 1) return sorted.slice(0, CAP);
-
-    // Give each format a fair minimum, fill rest by recency
-    var minPerFormat = Math.max(3, Math.floor(CAP / formatKeys.length));
-    var picked = [];
-    var pickedSet = {};
-    formatKeys.forEach(function (f) {
-      byFormat[f].slice(0, minPerFormat).forEach(function (e) {
-        if (!pickedSet[e.id]) { picked.push(e); pickedSet[e.id] = true; }
-      });
-    });
-    // Fill remaining slots from overall sorted order
-    for (var i = 0; i < sorted.length && picked.length < CAP; i++) {
-      if (!pickedSet[sorted[i].id]) { picked.push(sorted[i]); pickedSet[sorted[i].id] = true; }
-    }
-    // Re-sort the final set by date
-    return sortByDate(picked);
-  }, [discoveredEntries, query, showAllDiscovered]);
+    return sorted.slice(0, 15);
+  }, [discoveredEntries, query, showAllDiscovered, formatFilter]);
 
   var totalVisible = sortedParsed.length + sortedDiscovered.length;
 
@@ -314,6 +302,12 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             </button>
           )}
         </div>
+        <CustomSelect
+          ariaLabel="Filter by format"
+          value={formatFilter}
+          onChange={function (val) { setFormatFilter(val); }}
+          options={FORMAT_OPTIONS}
+        />
         <CustomSelect
           ariaLabel="Sort inbox sessions"
           value={sortMode}
@@ -536,7 +530,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                       </div>
                       <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>
                         {[
-                          formatLabel(entry.format),
+                          formatLabel(entry),
                           entry.project || null,
                           formatFileSize(entry.size),
                           formatMtime(entry.updatedAt || entry.importedAt),
@@ -566,7 +560,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               );
             })}
 
-            {!showAllDiscovered && discoveredEntries.length > 15 && (
+            {!showAllDiscovered && sortedDiscovered.length >= 15 && (
               <button
                 className="av-btn"
                 onClick={function () { setShowAllDiscovered(true); }}
@@ -583,7 +577,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                   marginTop: 4,
                 }}
               >
-                Show {discoveredEntries.length - 15} more discovered sessions
+                Show all discovered sessions
               </button>
             )}
           </>

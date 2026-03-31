@@ -28,18 +28,63 @@ function truncate(value: string | null | undefined, max: number): string {
 
 // ── Format detection ─────────────────────────────────────────────────────────
 
+/**
+ * Parse a VS Code JSONL session file with incremental patches.
+ *
+ * Line format:
+ *   kind 0: {"kind":0,"v":{...session...}}           -- base session
+ *   kind 1: {"kind":1,"k":["path","to","key"],"v":val}  -- set value at key path
+ *   kind 2: {"kind":2,"k":["path","to","arr"],"v":[...]} -- append items to array
+ */
 function unwrapJsonl(text: string): VSCodeSession | null {
-  // Handle {"kind":0,"v":{...session...}} wrapper format
-  const trimmed = text.trim();
+  const lines = text.split("\n").filter(function (l) { return l.trim().length > 0; });
+  if (lines.length === 0) return null;
+
+  // First line must be the base session (kind 0)
+  let session: VSCodeSession | null = null;
   try {
-    const wrapper = JSON.parse(trimmed);
-    if (wrapper && typeof wrapper === "object" && wrapper.kind === 0 && wrapper.v) {
-      return wrapper.v;
+    const first = JSON.parse(lines[0]);
+    if (first && typeof first === "object" && first.kind === 0 && first.v) {
+      session = first.v;
+    } else {
+      return null;
     }
   } catch {
-    // not the wrapper format
+    return null;
   }
-  return null;
+
+  // Apply incremental patches from remaining lines
+  for (let i = 1; i < lines.length; i++) {
+    try {
+      const patch = JSON.parse(lines[i]);
+      const keyPath: (string | number)[] = patch.k;
+      if (!Array.isArray(keyPath) || keyPath.length === 0) continue;
+
+      if (patch.kind === 1) {
+        // Set: navigate to parent, set last key
+        let target: any = session;
+        for (let j = 0; j < keyPath.length - 1; j++) {
+          if (target == null) break;
+          target = target[keyPath[j]];
+        }
+        if (target != null) target[keyPath[keyPath.length - 1]] = patch.v;
+      } else if (patch.kind === 2) {
+        // Append: navigate to the array, push items
+        let target: any = session;
+        for (let j = 0; j < keyPath.length; j++) {
+          if (target == null) break;
+          target = target[keyPath[j]];
+        }
+        if (Array.isArray(target) && Array.isArray(patch.v)) {
+          for (let j = 0; j < patch.v.length; j++) target.push(patch.v[j]);
+        }
+      }
+    } catch {
+      // skip malformed patch lines
+    }
+  }
+
+  return session;
 }
 
 function isVSCodeSession(obj: unknown): boolean {
@@ -55,18 +100,29 @@ function isVSCodeSession(obj: unknown): boolean {
 export function detectVSCodeChat(text: string): boolean {
   const trimmed = text.trim();
 
-  // Must start with '{' -- reject JSONL (multiple lines)
+  // Must start with '{'
   if (!trimmed.startsWith("{")) return false;
 
+  // Try full text as single JSON first
   try {
     const parsed = JSON.parse(trimmed);
     if (isVSCodeSession(parsed)) return true;
-
-    // Check JSONL wrapper
     if (parsed && parsed.kind === 0 && isVSCodeSession(parsed.v)) return true;
   } catch {
-    // not valid JSON
+    // May be multi-line JSONL -- try first line only
   }
+
+  // Multi-line JSONL: first line is {"kind":0,"v":{...session...}}
+  const firstLine = trimmed.split("\n", 1)[0].trim();
+  if (firstLine !== trimmed) {
+    try {
+      const wrapper = JSON.parse(firstLine);
+      if (wrapper && wrapper.kind === 0 && isVSCodeSession(wrapper.v)) return true;
+    } catch {
+      // not valid
+    }
+  }
+
   return false;
 }
 
