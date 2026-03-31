@@ -106,13 +106,23 @@ describe("extractSkills", function () {
     expect(tool.source).toBe("extension");
   });
 
-  it("classifies unrecognized tools as extension", function () {
+  it("classifies unrecognized tools as built-in (no false extension guessing)", function () {
     var events = [
       makeEvent({ toolName: "some_exotic_tool", track: "tool_call" }),
     ];
     var result = extractSkills(events, [], makeMeta());
     var tool = result.skills.find(function (s) { return s.name === "some_exotic_tool"; });
-    expect(tool.source).toBe("extension");
+    expect(tool.source).toBe("built-in");
+  });
+
+  it("classifies hyphenated tools as MCP by naming convention", function () {
+    var events = [
+      makeEvent({ toolName: "binlog-mcp-load_binlog", track: "tool_call" }),
+    ];
+    var result = extractSkills(events, [], makeMeta());
+    var tool = result.skills.find(function (s) { return s.name === "binlog-mcp-load_binlog"; });
+    expect(tool.source).toBe("mcp");
+    expect(tool.sourceLabel).toMatch(/binlog-mcp/);
   });
 
   it("tracks errored tools", function () {

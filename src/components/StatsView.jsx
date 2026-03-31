@@ -248,9 +248,9 @@ function CapabilitiesPanel({ events, turns, metadata }) {
                   cursor: "pointer",
                   border: sourceFilter === skill.source ? "1px solid " + SOURCE_COLORS[skill.source] : "1px solid transparent",
                 }}
-                title={"Filter by source: " + skill.source}
+                title={skill.sourceLabel || skill.source}
               >
-                {skill.source}
+                {skill.sourceLabel || skill.source}
               </span>
             </div>
 

@@ -191,13 +191,41 @@ function sourceLabel(source: SkillSource): string {
 // ── Built-in tool set (VS Code Copilot) ──────────────────────────────────────
 
 var BUILTIN_TOOLS = new Set([
+  // VS Code Copilot built-in tools
   "createDirectory", "createFile", "createNewWorkspace", "fetchWebPage",
   "findFiles", "findTextInFiles", "getChangedFiles", "getErrors",
   "githubRepo", "listDirectory", "multiReplaceString", "readFile",
   "replaceString", "searchCodebase", "run_in_terminal", "get_terminal_output",
   "manage_todo_list", "runSubagent", "terminal_last_command",
   "vscode_fetchWebPage_internal", "file_edit",
+  // Copilot CLI built-in tools
+  "view", "edit", "create", "glob", "grep", "rg", "show_file",
+  "bash", "powershell", "list_powershell", "read_powershell", "stop_powershell",
+  "web_search", "web_fetch", "apply_patch", "ask_user",
+  "report_intent", "task", "task_complete", "update_todo",
+  "store_memory", "read_agent", "skill", "sql",
 ]);
+
+/** Detect MCP tools by naming convention: "serverName-toolName" */
+var MCP_TOOL_PATTERN = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-(\w+)$/;
+
+function isMcpToolName(name: string): boolean {
+  // MCP tools use "serverName-toolName" convention (at least one hyphen)
+  // Exclude known built-in hyphenated names
+  if (BUILTIN_TOOLS.has(name)) return false;
+  var m = name.match(MCP_TOOL_PATTERN);
+  if (!m) return false;
+  // The prefix should look like a server name (not a single common word)
+  var prefix = m[1];
+  // Single-word prefixes are ambiguous; require at least a recognizable pattern
+  return prefix.includes("-") || prefix.length >= 4;
+}
+
+function extractMcpServerName(name: string): string | null {
+  var m = name.match(MCP_TOOL_PATTERN);
+  if (!m) return null;
+  return m[1];
+}
 
 function isBuiltinTool(name: string): boolean {
   return BUILTIN_TOOLS.has(name) || BUILTIN_TOOLS.has("copilot_" + name);
@@ -252,7 +280,7 @@ export function extractSkills(
         name: defaults.name || id,
         category: defaults.category || "tool",
         source: defaults.source || "unknown",
-        sourceLabel: sourceLabel(defaults.source || "unknown"),
+        sourceLabel: defaults.sourceLabel || sourceLabel(defaults.source || "unknown"),
         filePath: defaults.filePath,
         description: defaults.description,
         maxStage: "discovered",
@@ -382,8 +410,9 @@ export function extractSkills(
       var toolName = ev.toolName;
       var toolSource: SkillSource = "built-in";
       var toolCategory: SkillCategory = "tool";
+      var toolSourceLabel: string | null = null;
 
-      // Classify tool source
+      // Classify tool source from raw metadata (VS Code chat sessions)
       if (ev.raw && typeof ev.raw === "object") {
         var rawTool = ev.raw as Record<string, any>;
         var src = rawTool.source;
@@ -392,23 +421,31 @@ export function extractSkills(
           var srcLabel = (src as any).label;
           if (srcType === "mcp" || (srcLabel && /mcp/i.test(srcLabel))) {
             toolSource = "mcp";
+            toolSourceLabel = srcLabel || null;
           } else if (srcType === "extension" || (srcLabel && srcLabel !== "Built-In")) {
             toolSource = "extension";
+            toolSourceLabel = srcLabel || null;
           }
         }
       }
 
       if (toolSource === "built-in" && !isBuiltinTool(toolName)) {
-        // Heuristic: unrecognized tools from extensions or MCP
-        toolSource = "extension";
+        // Detect MCP tools by naming convention (serverName-toolName)
+        if (isMcpToolName(toolName)) {
+          toolSource = "mcp";
+          toolSourceLabel = extractMcpServerName(toolName);
+        }
+        // If still unrecognized, leave as built-in rather than guessing
       }
 
       var toolId = "tool:" + toolName;
+      var mcpServer = toolSource === "mcp" ? (toolSourceLabel || extractMcpServerName(toolName)) : null;
       var toolSkill = getOrCreate(toolId, {
         name: toolName,
         category: toolCategory,
         source: toolSource,
-        description: toolName,
+        sourceLabel: mcpServer ? "MCP: " + mcpServer : (toolSourceLabel ? toolSourceLabel : undefined),
+        description: mcpServer ? "MCP: " + mcpServer : toolName,
       });
 
       // Synthesize intermediate lifecycle stages on first invocation
