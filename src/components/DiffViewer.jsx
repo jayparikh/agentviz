@@ -78,29 +78,29 @@ function HunkHeader({ hunk }) {
   );
 }
 
-var lineColors = {
-  insert: {
+function getLineColors(type) {
+  if (type === "insert") return {
     bg: alpha(theme.semantic.success, 0.08),
     gutter: alpha(theme.semantic.success, 0.15),
     marker: theme.semantic.success,
     text: theme.text.primary,
-  },
-  delete: {
+  };
+  if (type === "delete") return {
     bg: alpha(theme.semantic.error, 0.08),
     gutter: alpha(theme.semantic.error, 0.15),
     marker: theme.semantic.error,
     text: theme.text.primary,
-  },
-  context: {
+  };
+  return {
     bg: "transparent",
     gutter: "transparent",
     marker: theme.text.ghost,
     text: theme.text.secondary,
-  },
-};
+  };
+}
 
 function DiffLine({ line }) {
-  var colors = lineColors[line.type];
+  var colors = getLineColors(line.type);
   var marker = line.type === "insert" ? "+" : (line.type === "delete" ? "\u2212" : " ");
 
   return (

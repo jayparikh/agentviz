@@ -34,6 +34,7 @@ AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, b
 - **Stream live** as a session unfolds -- the view updates in real time
 - **Discover sessions** automatically from the Copilot CLI session store
 - **Get AI coaching** on prompt engineering, skills, and MCP setup grounded in best practices
+- **Switch themes** between dark, light, and system-matched modes with one click
 
 ## Quick Start
 
@@ -264,6 +265,7 @@ AI-powered session coaching available directly from any session. The coach reads
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
 | **Session Q&A** | Slide-over drawer (`Cmd+Shift+K`) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
+| **Dark / Light / System Theme** | Full dark and light palettes with a one-click switcher in the header. System mode auto-follows OS preference. Preference is persisted across sessions. |
 
 ### Session Q&A
 
@@ -428,7 +430,13 @@ npm run typecheck       # Type-check with tsc --noEmit
 
 ### Design System
 
-True black base (`#000000`) with blue, purple, and green accents in dark mode, plus a matching light palette and a `Light / Dark / System` toggle in the top bar. Vivid semantic colors: green for success, muted red for warning, bright red for error. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
+AGENTVIZ ships with full dark and light themes plus a **System** mode that follows your OS preference. The theme switcher is in the top bar (sun/moon/monitor icons). Your choice persists in localStorage across sessions.
+
+- **Dark mode** (default): True black base (`#0f0f16`) with blue, purple, and green accents
+- **Light mode**: Clean white base (`#f8f9fc`) with deeper, higher-contrast accent colors
+- **System mode**: Automatically matches `prefers-color-scheme` and updates live if you change your OS setting
+
+All colors are defined as design tokens in `src/lib/theme.js` with dynamic getters that resolve to the active palette at render time. A visual reference of every token in both modes is available in `docs/color-palette.html`. JetBrains Mono throughout. No CSS framework; all styles are inline.
 
 ### Configuration
 
@@ -468,7 +476,6 @@ Please open an issue to discuss larger changes before submitting a PR.
 
 - [ ] Bookmarks and annotations (persisted to localStorage)
 - [ ] Graph minimap and large-session clustering
-- [ ] Multi-agent hierarchy (parent/child agents, nested tracks)
 - [ ] Shareable session URLs
 - [ ] Vim-style keyboard navigation
 - [ ] Parsers for LangSmith traces and OpenTelemetry spans

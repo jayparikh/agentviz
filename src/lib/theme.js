@@ -6,7 +6,6 @@
  */
 
 var THEME_STORAGE_KEY = "agentviz:theme-mode";
-var THEME_STORAGE_CLEARED_KEY = "agentviz:theme-mode-cleared";
 
 var SHARED_THEME = {
   font: {
@@ -192,17 +191,6 @@ var LIGHT_THEME = {
 var themePreference = "dark";
 var systemThemePreference = "dark";
 
-function clearStoredThemePreference() {
-  if (typeof window === "undefined") return;
-  try {
-    if (window.localStorage.getItem(THEME_STORAGE_CLEARED_KEY) === "1") return;
-    window.localStorage.removeItem(THEME_STORAGE_KEY);
-    window.localStorage.setItem(THEME_STORAGE_CLEARED_KEY, "1");
-  } catch (error) {
-    // Ignore storage access failures during bootstrap.
-  }
-}
-
 function normalizeThemePreference(mode) {
   return mode === "light" || mode === "dark" ? mode : "system";
 }
@@ -211,7 +199,7 @@ function normalizeResolvedMode(mode) {
   return mode === "light" ? "light" : "dark";
 }
 
-function readStoredThemePreference() {
+export function readStoredThemePreference() {
   if (typeof window === "undefined") return themePreference;
   try {
     var raw = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -351,6 +339,5 @@ export function alpha(hex, opacity) {
   return "rgba(" + r + "," + g + "," + b + "," + opacity + ")";
 }
 
-clearStoredThemePreference();
 setThemePreference(readStoredThemePreference());
 setSystemThemePreference(readSystemThemePreference());

@@ -13,7 +13,13 @@ export default function usePersistentState(storageKey, initialValue) {
 
     try {
       var raw = window.localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : fallback;
+      if (raw === null) return fallback;
+      try {
+        return JSON.parse(raw);
+      } catch (_) {
+        // Legacy values stored as bare strings (e.g. "light" instead of "\"light\"")
+        return raw || fallback;
+      }
     } catch (error) {
       console.warn("Could not read persisted UI state for", storageKey, error);
       return fallback;

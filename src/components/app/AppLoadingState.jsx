@@ -4,7 +4,7 @@ import ShellFrame from "../ui/ShellFrame.jsx";
 export default function AppLoadingState() {
   return (
     <ShellFrame
-      fontFamily={theme.font.ui}
+      fontFamily={theme.font.mono}
       style={{
         alignItems: "center",
         justifyContent: "center",

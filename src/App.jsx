@@ -1,5 +1,12 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { theme, getResolvedThemeMode, getThemeTokensForMode, setSystemThemePreference, setThemePreference } from "./lib/theme.js";
+import {
+  theme,
+  getResolvedThemeMode,
+  getThemeTokensForMode,
+  readStoredThemePreference,
+  setSystemThemePreference,
+  setThemePreference,
+} from "./lib/theme.js";
 import { exportSingleSession, exportComparison } from "./lib/exportHtml.js";
 import usePersistentState from "./hooks/usePersistentState.js";
 import useSessionLoader from "./hooks/useSessionLoader.js";
@@ -115,7 +122,7 @@ function renderActiveView(activeView, props) {
 
 export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
-  var [themeModePreference, setThemeModePreference] = usePersistentState("agentviz:theme-mode", "dark");
+  var [themeModePreference, setThemeModePreference] = usePersistentState("agentviz:theme-mode", readStoredThemePreference);
   var [libraryEntries, setLibraryEntries] = useState(function () {
     return readSessionLibrary();
   });

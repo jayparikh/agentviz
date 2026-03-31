@@ -181,7 +181,7 @@ export default function AppHeader({
               title="Previous error (Shift+E)"
               aria-label="Previous error"
               style={{
-                border: "1px solid " + theme.semantic.errorBorder,
+                borderColor: theme.semantic.errorBorder,
                 borderRadius: theme.radius.sm,
                 color: theme.semantic.error,
                 padding: "2px 4px",
@@ -198,7 +198,7 @@ export default function AppHeader({
               title="Next error (E)"
               aria-label="Next error"
               style={{
-                border: "1px solid " + theme.semantic.errorBorder,
+                borderColor: theme.semantic.errorBorder,
                 borderRadius: theme.radius.sm,
                 color: theme.semantic.error,
                 padding: "2px 4px",
@@ -222,7 +222,7 @@ export default function AppHeader({
               aria-label="Filter tracks"
               style={{
                 background: activeFilterCount > 0 ? alpha(theme.accent.primary, 0.08) : "transparent",
-                border: "1px solid " + (activeFilterCount > 0 ? theme.accent.primary : theme.border.default),
+                borderColor: activeFilterCount > 0 ? theme.accent.primary : theme.border.default,
                 color: activeFilterCount > 0 ? theme.accent.primary : theme.text.muted,
               }}
             >
@@ -292,7 +292,7 @@ export default function AppHeader({
             title="Playback speed (click to cycle)"
             style={{
               background: speed !== 1 ? alpha(theme.accent.primary, 0.08) : "transparent",
-              border: "1px solid " + (speed !== 1 ? theme.accent.primary : theme.border.default),
+              borderColor: speed !== 1 ? theme.accent.primary : theme.border.default,
               color: speed !== 1 ? theme.accent.primary : theme.text.muted,
             }}
           >
@@ -307,7 +307,7 @@ export default function AppHeader({
             aria-label="Theme selector"
             style={{
               background: showThemeMenu ? alpha(theme.accent.primary, 0.08) : "transparent",
-              border: "1px solid " + (showThemeMenu ? theme.accent.primary : theme.border.default),
+              borderColor: showThemeMenu ? theme.accent.primary : theme.border.default,
               color: showThemeMenu ? theme.accent.primary : theme.text.muted,
               padding: "2px 6px",
               minWidth: 28,
@@ -382,7 +382,7 @@ export default function AppHeader({
               aria-label="Recent sessions"
               style={{
                 background: showRecent ? alpha(theme.accent.primary, 0.08) : "transparent",
-                border: "1px solid " + (showRecent ? theme.accent.primary : theme.border.default),
+                borderColor: showRecent ? theme.accent.primary : theme.border.default,
                 color: showRecent ? theme.accent.primary : theme.text.muted,
                 padding: "2px 6px",
               }}

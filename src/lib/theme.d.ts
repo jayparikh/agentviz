@@ -116,6 +116,7 @@ export interface Theme {
     overlay: number;
     modal: number;
   };
+  mode: "dark" | "light";
 }
 
 export declare const theme: Theme;

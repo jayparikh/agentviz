@@ -12,13 +12,13 @@
   <script>
     (function () {
       var storageKey = "agentviz:theme-mode";
-      var clearedKey = "agentviz:theme-mode-cleared";
       var preference = "dark";
 
       try {
-        if (localStorage.getItem(clearedKey) !== "1") {
-          localStorage.removeItem(storageKey);
-          localStorage.setItem(clearedKey, "1");
+        var raw = localStorage.getItem(storageKey);
+        if (raw) {
+          try { raw = JSON.parse(raw); } catch (e) { /* use as-is */ }
+          if (raw === "light" || raw === "dark" || raw === "system") preference = raw;
         }
       } catch (error) {
         preference = "dark";

@@ -116,7 +116,7 @@ export default function ShortcutsModal({ onClose }) {
                 borderRadius: theme.radius.sm,
                 color: theme.text.primary,
                 fontSize: theme.fontSize.sm,
-                fontFamily: "inherit",
+                fontFamily: theme.font.mono,
                 padding: "2px 8px",
                 whiteSpace: "nowrap",
               }}>

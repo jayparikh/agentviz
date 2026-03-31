@@ -35,7 +35,6 @@ import {
   SunMedium,
   Moon,
   Monitor,
-  Check,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -75,7 +74,6 @@ var ICON_MAP = {
   sun: SunMedium,
   moon: Moon,
   monitor: Monitor,
-  check: Check,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

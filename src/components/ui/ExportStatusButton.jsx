@@ -18,11 +18,9 @@ export default function ExportStatusButton({
         background: state === "done" ? alpha(theme.semantic.success, 0.1)
           : state === "error" ? alpha(theme.semantic.error, 0.1)
           : "transparent",
-        border: "1px solid " + (
-          state === "done" ? theme.semantic.success
+        borderColor: state === "done" ? theme.semantic.success
           : state === "error" ? theme.semantic.error
-          : theme.border.default
-        ),
+          : theme.border.default,
         color: state === "done" ? theme.semantic.success
           : state === "error" ? theme.semantic.error
           : theme.text.muted,
