@@ -219,7 +219,7 @@ Gantt-style timeline of every tool call, sorted by start time with nesting for o
 
 ### Graph View
 
-Interactive directed graph of session turns with expandable tool-call structure. Double-click a turn to open its internal tool flow, pan and zoom around the graph, and follow playback as active nodes light up and future nodes fade back.
+Interactive directed graph of session turns with expandable tool-call structure. When a turn spawns parallel subagents, the graph automatically forks into side-by-side agent branches and rejoins at a diamond join node, visualizing concurrency without any interaction. Double-click any turn to open its internal tool flow, pan and zoom around the graph, and follow playback as active nodes light up and future nodes fade back.
 
 <div align="center">
 <img src="docs/screenshots/graph-view.svg" alt="Graph View" width="800" />
@@ -247,7 +247,7 @@ AI-powered session coaching available directly from any session. The coach reads
 |---------|-------------|
 | **Live Streaming** | CLI mode tails a session file via SSE. View updates in real time as events arrive, including newline-delayed JSONL writes from Claude Code. |
 | **Payload Inspector** | Replay and waterfall inspectors show readable JSON or text previews with key summaries, counts, copy, and expand controls. |
-| **Graph View** | Directed turn-flow graph with expandable tool-call nodes, pan/zoom, and playback-aware highlighting. |
+| **Graph View** | Directed turn-flow graph with fork/join DAG for parallel subagents, expandable tool-call nodes, pan/zoom, and playback-aware highlighting. |
 | **Token and Cost Tracking** | Per-turn token usage with estimated USD cost for Claude 3/4 models. |
 | **Search** | Full-text search across events, tools, and agents. Matches highlighted in real time. |
 | **Command Palette** | `Cmd+K` fuzzy search to jump to any turn, event, or view instantly. |
@@ -346,7 +346,7 @@ src/
     commandPalette.js    # Precomputed fuzzy search index
     diffUtils.js         # Diff detection and Myers line diff algorithm
     waterfall.ts         # Waterfall view helpers: item building, stats, layout
-    graphLayout.js       # ELKjs graph builder and layout merger for Graph view
+    graphLayout.js       # ELKjs graph builder, fork/join DAG for parallel agents, layout merger
     pricing.js           # Claude model pricing table and cost estimation
     exportHtml.js        # Self-contained HTML export for single sessions and comparisons
     formatTime.js        # Duration and date formatting utilities
@@ -457,7 +457,7 @@ localStorage.setItem('agentviz:flag:qa', 'true')
 Contributions are welcome! Here are some areas where help is appreciated:
 
 - **New parsers**: LangSmith, OpenTelemetry, custom agent frameworks
-- **Visualizations**: Graph minimap, large-session clustering, multi-agent hierarchy
+- **Visualizations**: Graph minimap, large-session clustering
 - **Features**: Bookmarks/annotations, shareable URLs
 
 Please open an issue to discuss larger changes before submitting a PR.

@@ -551,6 +551,30 @@ Found in ReplayView, WaterfallView, GraphView, and StatsView. All panels follow 
 - All panels use `ResizablePanel` for user-adjustable width.
 - Tool section heading is always "TOOLS USED" (consistent across Replay, Waterfall, Stats).
 
+### Graph View Node Types
+
+The Graph view renders five distinct node types. All node text uses `theme.font.mono`.
+
+| Type | Shape | Size | Fill | Stroke | ID scheme |
+|------|-------|------|------|--------|-----------|
+| `turn` | Rounded rect | Variable | `theme.bg.surface` (collapsed), `theme.bg.raised` (expanded) | `theme.border.default` | `turn-{index}` |
+| `tool_call` | Rounded rect | Variable | `theme.bg.raised` | Track-type color at 0.15 alpha | `tool-{turnIdx}-{arrayIdx}` |
+| `fork` | Diamond (rotated square) | 40x40 | `theme.bg.raised` | `theme.border.strong` | `fork-{turnIndex}` |
+| `join` | Diamond (rotated square) | 40x40 | `theme.bg.raised` | `theme.border.strong` | `join-{turnIndex}` |
+| `agent_branch` | Compound rect | Variable | Agent color at 0.06 alpha | Agent color at 0.25 alpha | `agent-{turnIdx}-{toolCallId}` |
+
+**Fork/join nodes** appear automatically when a turn contains 2+ concurrent `task` tool calls (parallel subagents). The graph forks into side-by-side agent branches, sorted left-to-right by start time, and rejoins at the diamond join node.
+
+**Agent branch colors** use `AGENT_COLORS` from theme.js (explore = blue, task = green, general-purpose = purple, code-review = amber). The branch header label shows agent display name and duration.
+
+**Active state rules:**
+- Turn/tool nodes: glow when `playbackTime >= node.t && playbackTime < node.t + node.duration`
+- Fork/join diamonds: active when any connected branch is active
+- Agent branches: independent activation per branch (parallel glow during concurrent execution)
+- `getEdgeActive()` returns `false` for Infinity thresholds (no false activation of unreachable edges)
+
+**Pre-fork and post-join tools:** Tools that execute before the fork or after the join are rendered as compound children of the host turn node, preserving parent-child edges via `parentToolCallId`.
+
 ### Grid Layout
 
 Used for metric cards:
