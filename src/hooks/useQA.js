@@ -38,12 +38,22 @@ function loadMessages(key) {
   } catch (_) { return []; }
 }
 
+var MAX_STORE_BYTES = 1024 * 1024; // 1MB per localStorage key
+
+function safeSetItem(key, value) {
+  try {
+    if (value.length > MAX_STORE_BYTES) return false;
+    localStorage.setItem(key, value);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function saveMessages(key, messages) {
   if (!key) return;
-  try {
-    var toSave = messages.slice(-MAX_PERSISTED_MESSAGES).filter(function (m) { return !m.streaming; });
-    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(toSave));
-  } catch (_) {}
+  var toSave = messages.slice(-MAX_PERSISTED_MESSAGES).filter(function (m) { return !m.streaming; });
+  safeSetItem(STORAGE_PREFIX + key, JSON.stringify(toSave));
 }
 
 function removeMessages(key) {
@@ -66,17 +76,14 @@ function loadCache(key) {
 
 function saveCache(key, cache) {
   if (!key) return;
-  try {
-    // Trim to max entries (keep most recent)
-    var entries = Object.keys(cache);
-    if (entries.length > MAX_CACHE_ENTRIES) {
-      var sorted = entries.sort(function (a, b) { return (cache[b].cachedAt || 0) - (cache[a].cachedAt || 0); });
-      var trimmed = {};
-      for (var i = 0; i < MAX_CACHE_ENTRIES; i++) trimmed[sorted[i]] = cache[sorted[i]];
-      cache = trimmed;
-    }
-    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(cache));
-  } catch (_) {}
+  var entries = Object.keys(cache);
+  if (entries.length > MAX_CACHE_ENTRIES) {
+    var sorted = entries.sort(function (a, b) { return (cache[b].cachedAt || 0) - (cache[a].cachedAt || 0); });
+    var trimmed = {};
+    for (var i = 0; i < MAX_CACHE_ENTRIES; i++) trimmed[sorted[i]] = cache[sorted[i]];
+    cache = trimmed;
+  }
+  safeSetItem(CACHE_PREFIX + key, JSON.stringify(cache));
 }
 
 function removeCache(key) {

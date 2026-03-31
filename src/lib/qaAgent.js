@@ -14,8 +14,8 @@ var SYSTEM_PROMPT = [
   "Rules:",
   "1. Answer concisely using markdown: bullet lists, **bold** key terms, `code` for paths/commands.",
   "2. When referencing turns, use [Turn N] format so the UI can create clickable links.",
-  "3. Base your answer only on the provided context. If the context doesn't contain the answer, say 'This information isn't available in the session data provided.'",
-  "4. Do not mention limitations of the context, stores, databases, or data access. Just answer from what you have.",
+  "3. Base your answer only on the provided context. If the answer is not in the context, say 'This information isn't in the session data' and stop.",
+  "4. Never apologize for missing data or mention technical limitations. The provided context is all there is.",
   "5. Keep answers under 300 words. For long lists, show the top 5-10 and note how many more exist.",
 ].join("\n");
 

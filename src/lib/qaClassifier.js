@@ -42,9 +42,12 @@ export function getSessionIndex(sessionKey, sessionData) {
   index.eventCount = (sessionData.events || []).length;
   index.builtAt = Date.now();
 
-  // Persist
+  // Persist (skip if serialized size exceeds 1MB to avoid quota issues)
   try {
-    localStorage.setItem(INDEX_PREFIX + sessionKey, JSON.stringify(index));
+    var serialized = JSON.stringify(index);
+    if (serialized.length <= 1024 * 1024) {
+      localStorage.setItem(INDEX_PREFIX + sessionKey, serialized);
+    }
   } catch (_) {}
 
   return index;
@@ -83,38 +86,47 @@ function buildSessionIndex(data) {
     });
   }
 
-  // Chunk summaries: split turns into groups of CHUNK_SIZE
+  // Chunk summaries: single-pass bucketing O(n) instead of O(chunks*n)
+  var eventsByTurn = {};
+  for (var bi = 0; bi < events.length; bi++) {
+    var bTurn = events[bi].turnIndex;
+    if (bTurn == null) continue;
+    if (!eventsByTurn[bTurn]) eventsByTurn[bTurn] = [];
+    eventsByTurn[bTurn].push(events[bi]);
+  }
+
   var chunks = [];
   var totalTurns = turns.length || 1;
   var chunkCount = Math.max(1, Math.ceil(totalTurns / CHUNK_SIZE));
-  // Aim for 10-15 chunks on large sessions
   var actualChunkSize = Math.ceil(totalTurns / Math.min(chunkCount, 15));
 
   for (var c = 0; c < totalTurns; c += actualChunkSize) {
     var lo = c;
     var hi = Math.min(c + actualChunkSize - 1, totalTurns - 1);
-    var chunkEvents = events.filter(function (ev) { return ev.turnIndex >= lo && ev.turnIndex <= hi; });
 
-    // User messages in this chunk
     var userMsgs = [];
     for (var t = lo; t <= hi && t < turns.length; t++) {
       if (turns[t] && turns[t].userMessage) userMsgs.push(turns[t].userMessage.slice(0, 80));
     }
 
-    // Tool counts in this chunk
     var toolCounts = {};
     var fileSet = {};
     var errorCount = 0;
-    for (var ce = 0; ce < chunkEvents.length; ce++) {
-      var ev = chunkEvents[ce];
-      if (ev.track === "tool_call" && ev.toolName) {
-        toolCounts[ev.toolName] = (toolCounts[ev.toolName] || 0) + 1;
-        // Extract file paths from tool input
-        var inp = ev.toolInput ? (typeof ev.toolInput === "string" ? ev.toolInput : JSON.stringify(ev.toolInput)) : "";
-        var fileMatch = inp.match(/(?:file_path|path|file)["\s:=]+["']?([^\s"',}\]]+)/i);
-        if (fileMatch) fileSet[fileMatch[1].split(/[/\\]/).pop()] = true;
+    var eventCount = 0;
+    for (var ti = lo; ti <= hi; ti++) {
+      var turnEvts = eventsByTurn[ti];
+      if (!turnEvts) continue;
+      eventCount += turnEvts.length;
+      for (var ce = 0; ce < turnEvts.length; ce++) {
+        var ev = turnEvts[ce];
+        if (ev.track === "tool_call" && ev.toolName) {
+          toolCounts[ev.toolName] = (toolCounts[ev.toolName] || 0) + 1;
+          var inp = ev.toolInput ? (typeof ev.toolInput === "string" ? ev.toolInput : JSON.stringify(ev.toolInput)) : "";
+          var fileMatch = inp.match(/(?:file_path|path|file)["\s:=]+["']?([^\s"',}\]]+)/i);
+          if (fileMatch) fileSet[fileMatch[1].split(/[/\\]/).pop()] = true;
+        }
+        if (ev.isError) errorCount++;
       }
-      if (ev.isError) errorCount++;
     }
 
     var topTools = Object.keys(toolCounts).sort(function (a, b) { return toolCounts[b] - toolCounts[a]; }).slice(0, 5);
@@ -126,7 +138,7 @@ function buildSessionIndex(data) {
       tools: topTools.map(function (t) { return t + " (" + toolCounts[t] + ")"; }),
       files: files,
       errors: errorCount,
-      eventCount: chunkEvents.length,
+      eventCount: eventCount,
     });
   }
 
