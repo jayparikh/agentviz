@@ -281,7 +281,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             fontFamily: theme.font.mono, cursor: "pointer", flexShrink: 0, userSelect: "none",
           }}>
             <Icon name="upload" size={11} /> Import
-            <input type="file" accept=".jsonl" style={{ display: "none" }} onChange={function (e) {
+            <input type="file" accept=".jsonl,.json,.txt" style={{ display: "none" }} onChange={function (e) {
               var file = e.target.files && e.target.files[0];
               if (!file) return;
               var reader = new FileReader();

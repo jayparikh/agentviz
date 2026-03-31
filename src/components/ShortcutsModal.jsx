@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { theme, alpha } from "../lib/theme.js";
+import KeyboardHint from "./ui/KeyboardHint.jsx";
 
 var SHORTCUTS = [
   { section: "Playback" },
@@ -110,25 +111,16 @@ export default function ShortcutsModal({ onClose }) {
               borderBottom: "1px solid " + alpha(theme.border.default, 0.4),
             }}>
               <span style={{ color: theme.text.muted, fontSize: theme.fontSize.base }}>{item.label}</span>
-              <kbd style={{
-                background: alpha(theme.border.default, 0.5),
-                border: "1px solid " + theme.border.default,
-                borderRadius: theme.radius.sm,
-                color: theme.text.primary,
-                fontSize: theme.fontSize.sm,
-                fontFamily: theme.font.mono,
-                padding: "2px 8px",
-                whiteSpace: "nowrap",
-              }}>
+              <KeyboardHint style={{ whiteSpace: "nowrap" }}>
                 {item.key}
-              </kbd>
+              </KeyboardHint>
             </div>
           );
         })}
 
         <div style={{ marginTop: 16, textAlign: "center" }}>
           <span style={{ color: alpha(theme.text.muted, 0.6), fontSize: theme.fontSize.sm }}>
-            Press <kbd style={{ background: alpha(theme.border.default, 0.5), border: "1px solid " + theme.border.default, borderRadius: theme.radius.sm, color: theme.text.primary, fontSize: theme.fontSize.xs, padding: "2px 8px" }}>Esc</kbd> or <kbd style={{ background: alpha(theme.border.default, 0.5), border: "1px solid " + theme.border.default, borderRadius: theme.radius.sm, color: theme.text.primary, fontSize: theme.fontSize.xs, padding: "2px 8px" }}>?</kbd> to close
+            <KeyboardHint>Esc</KeyboardHint> or <KeyboardHint>?</KeyboardHint> close
           </span>
         </div>
       </div>

@@ -91,7 +91,7 @@ export function handle(pathname, req, res, ctx) {
 
     results.sort(function (a, b) { return new Date(b.mtime) - new Date(a.mtime); });
     res.writeHead(200);
-    res.end(JSON.stringify(results));
+    res.end(JSON.stringify(results.slice(0, 200)));
     return true;
   }
 

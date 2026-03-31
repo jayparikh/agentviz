@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import { formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
 import Icon from "./Icon.jsx";
+import KeyboardHint from "./ui/KeyboardHint.jsx";
 
 function formatRelativeDate(isoString) {
   if (!isoString) return "";
@@ -109,8 +110,23 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
         <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2 }}>
           Recent sessions
         </span>
-        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
-          {"\u2191\u2193"} navigate &middot; Enter to open
+        <span style={{
+          fontSize: theme.fontSize.xs,
+          color: theme.text.ghost,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: 6,
+          flexWrap: "wrap",
+        }}>
+          <KeyboardHint>{"\u2191\u2193"}</KeyboardHint>
+          <span>navigate</span>
+          <span style={{ color: theme.text.dim }}>&middot;</span>
+          <KeyboardHint>↵</KeyboardHint>
+          <span>open</span>
+          <span style={{ color: theme.text.dim }}>&middot;</span>
+          <KeyboardHint>Esc</KeyboardHint>
+          <span>close</span>
         </span>
       </div>
 

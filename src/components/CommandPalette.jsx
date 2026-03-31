@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
 import { buildCommandPaletteIndex, searchCommandPalette } from "../lib/commandPalette.js";
 import Icon from "./Icon.jsx";
+import KeyboardHint from "./ui/KeyboardHint.jsx";
 
 /**
  * CommandPalette - Cmd+K fuzzy search overlay
@@ -79,12 +80,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onAct
               color: theme.text.primary, fontSize: theme.fontSize.md, fontFamily: theme.font.mono,
             }}
           />
-          <span style={{
-            fontSize: theme.fontSize.xs, color: theme.text.ghost,
-            background: theme.bg.raised, padding: "2px 6px", borderRadius: theme.radius.sm,
-          }}>
-            ESC
-          </span>
+          <KeyboardHint>Esc</KeyboardHint>
         </div>
 
         {/* Results */}
@@ -148,10 +144,20 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onAct
         <div style={{
           padding: "8px 18px", borderTop: "1px solid " + theme.border.default,
           display: "flex", gap: 16, fontSize: theme.fontSize.xs, color: theme.text.ghost,
+          alignItems: "center", flexWrap: "wrap",
         }}>
-          <span><Icon name="arrow-up-down" size={11} /> navigate</span>
-          <span><Icon name="enter" size={11} /> select</span>
-          <span>esc close</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <KeyboardHint>↑↓</KeyboardHint>
+            <span>navigate</span>
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <KeyboardHint>↵</KeyboardHint>
+            <span>select</span>
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <KeyboardHint>Esc</KeyboardHint>
+            <span>close</span>
+          </span>
         </div>
       </div>
     </div>

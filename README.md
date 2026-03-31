@@ -303,6 +303,8 @@ Open the drawer with `Cmd+Shift+K` (or via the command palette). Questions are r
 | `Enter` / `Shift+Enter` | Next / Previous search match |
 | `?` | Toggle keyboard shortcuts dialog |
 
+Modals, drawers, and overlay panels render keyboard hints with a shared `<kbd>` badge treatment so close, navigate, and select affordances read consistently across AGENTVIZ.
+
 ## Supported Formats
 
 | Format | File type | Auto-detected by |
@@ -378,6 +380,8 @@ src/
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
     app/                 # Shell: AppHeader, AppLandingState, AppLoadingState, CompareShell (lazy-loaded)
+    ui/
+      KeyboardHint.jsx   # Shared <kbd> badge for overlay and panel shortcut hints
     ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, TimeAxis
 bin/

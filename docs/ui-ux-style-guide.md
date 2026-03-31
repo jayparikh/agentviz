@@ -734,7 +734,7 @@ Three overlay patterns exist:
 }
 ```
 
-Drawers use flex column layout with a scrollable middle area (`flex: 1; minHeight: 0; overflowY: auto`) and a fixed input area at bottom. Dismiss via close button, Escape key, or a footer "Disable" link.
+Drawers use flex column layout with a scrollable middle area (`flex: 1; minHeight: 0; overflowY: auto`) and a fixed input area at bottom. Dismiss via close button, Escape key, or a footer "Disable" link. Bottom controls must reserve generous space with `paddingBottom: calc(theme.space.huge + env(safe-area-inset-bottom, 0px))` so footer rows do not clip at the viewport edge in Safari or Chrome.
 
 All overlays dismiss on backdrop click via `e.stopPropagation()` on the inner container.
 
@@ -986,6 +986,33 @@ Two loading patterns exist:
 - `Enter`: Execute selected action.
 - `Escape`: Close palette.
 - Mouse enter updates selection index (follows mouse).
+
+### Keyboard Hint Badges
+
+All modal, drawer, dropdown, and overlay shortcut hints use the shared `KeyboardHint` component (`src/components/ui/KeyboardHint.jsx`):
+
+```jsx
+import KeyboardHint from "./ui/KeyboardHint.jsx";
+
+// Single key
+<KeyboardHint>Esc</KeyboardHint> close
+
+// Multiple keys in a footer
+<KeyboardHint>↑↓</KeyboardHint> navigate  <KeyboardHint>↵</KeyboardHint> select  <KeyboardHint>Esc</KeyboardHint> close
+```
+
+**Text convention:** Always use the terse pattern `[Key] action` -- no filler words ("Press", "to"). Keep the action label lowercase. Examples:
+
+| Correct | Incorrect |
+|---------|-----------|
+| `Esc` close | Press `Esc` to close |
+| `↑↓` navigate | Use arrows to navigate |
+| `↵` select | Press Enter to select |
+| `Esc` or `?` close | Press `Esc` or `?` to close |
+
+**Key label casing:** Title case for named keys (`Esc`, `Tab`, `Shift`), symbols for arrows and enter (`↑↓`, `↵`).
+
+**Do not** inline `<kbd>` styles manually -- always use the `KeyboardHint` component so styling stays consistent and theme-reactive.
 
 ### Focus Management
 
