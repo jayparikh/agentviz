@@ -2,8 +2,8 @@
  * Session discovery, file serving, and SSE streaming routes.
  *
  * Handles:
- *   GET /api/sessions -- discover Claude Code & Copilot CLI sessions
- *   GET /api/session  -- serve a single .jsonl file from HOME
+ *   GET /api/sessions -- discover Claude Code, VS Code, & Copilot CLI sessions
+ *   GET /api/session  -- serve a single session file from HOME
  *   GET /api/file     -- serve the active watched session file
  *   GET /api/meta     -- return filename & live status
  *   GET /api/stream   -- SSE endpoint for live session updates
@@ -19,6 +19,28 @@ function decodeProjectDir(dirName) {
 function projectLabel(dirName) {
   var parts = decodeProjectDir(dirName).split("/").filter(Boolean);
   return parts[parts.length - 1] || dirName;
+}
+
+function getVSCodeStorageRoots(homeDir) {
+  var roots = [];
+  var variants = ["Code", "Code - Insiders"];
+
+  if (process.platform === "win32") {
+    var appData = process.env.APPDATA || path.join(homeDir, "AppData", "Roaming");
+    variants.forEach(function (variant) {
+      roots.push(path.join(appData, variant, "User", "workspaceStorage"));
+    });
+  } else if (process.platform === "darwin") {
+    variants.forEach(function (variant) {
+      roots.push(path.join(homeDir, "Library", "Application Support", variant, "User", "workspaceStorage"));
+    });
+  } else {
+    var configDir = process.env.XDG_CONFIG_HOME || path.join(homeDir, ".config");
+    variants.forEach(function (variant) {
+      roots.push(path.join(configDir, variant, "User", "workspaceStorage"));
+    });
+  }
+  return roots;
 }
 
 export function handle(pathname, req, res, ctx) {
@@ -89,6 +111,50 @@ export function handle(pathname, req, res, ctx) {
       });
     } catch (e) {}
 
+    // VS Code Chat: {vscodeUserData}/workspaceStorage/*/chatSessions/*.json
+    var vscodeRoots = getVSCodeStorageRoots(homeDir);
+    vscodeRoots.forEach(function (vscodeRoot) {
+      try {
+        fs.readdirSync(vscodeRoot).forEach(function (wsId) {
+          var chatDir = path.join(vscodeRoot, wsId, "chatSessions");
+          try {
+            if (!fs.statSync(chatDir).isDirectory()) return;
+            fs.readdirSync(chatDir).forEach(function (fname) {
+              if (!fname.endsWith(".json")) return;
+              var filePath = path.join(chatDir, fname);
+              try {
+                var stat = fs.statSync(filePath);
+                if (stat.size < 200) return;
+                // Quick-parse for customTitle (appears near end of file)
+                var title = null;
+                try {
+                  var fd = fs.openSync(filePath, "r");
+                  var tailSize = Math.min(stat.size, 1024);
+                  var buf = Buffer.alloc(tailSize);
+                  fs.readSync(fd, buf, 0, tailSize, Math.max(0, stat.size - tailSize));
+                  fs.closeSync(fd);
+                  var snippet = buf.toString("utf8");
+                  var titleMatch = snippet.match(/"customTitle"\s*:\s*"([^"]{1,120})"/);
+                  if (titleMatch) title = titleMatch[1];
+                } catch (e) {}
+                results.push({
+                  id: "vscode-chat:" + wsId + ":" + fname,
+                  path: filePath,
+                  filename: fname,
+                  file: title || fname,
+                  summary: title || null,
+                  project: wsId.substring(0, 8),
+                  format: "vscode-chat",
+                  size: stat.size,
+                  mtime: stat.mtime.toISOString(),
+                });
+              } catch (e) {}
+            });
+          } catch (e) {}
+        });
+      } catch (e) {}
+    });
+
     results.sort(function (a, b) { return new Date(b.mtime) - new Date(a.mtime); });
     res.writeHead(200);
     res.end(JSON.stringify(results.slice(0, 200)));
@@ -113,15 +179,15 @@ export function handle(pathname, req, res, ctx) {
     var allowedRoots = [
       path.join(home, ".claude", "projects"),
       path.join(home, ".copilot", "session-state"),
-    ];
+    ].concat(getVSCodeStorageRoots(home));
     var isAllowed = allowedRoots.some(function (root) {
       return resolvedSessionPath.startsWith(root + path.sep);
     });
     if (!home || !isAllowed) {
       res.writeHead(403); res.end("Forbidden"); return true;
     }
-    if (!resolvedSessionPath.endsWith(".jsonl")) {
-      res.writeHead(400); res.end("Only .jsonl files are served"); return true;
+    if (!resolvedSessionPath.endsWith(".jsonl") && !resolvedSessionPath.endsWith(".json")) {
+      res.writeHead(400); res.end("Only session files are served"); return true;
     }
     try {
       var sessionText = fs.readFileSync(resolvedSessionPath, "utf8");

@@ -68,7 +68,7 @@ function DragOverlay({ onLoad }) {
             Drop session file to import
           </div>
         <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
-          Claude Code and Copilot CLI .jsonl sessions
+          Claude Code, VS Code, and Copilot CLI sessions
           </div>
         </div>
       )}

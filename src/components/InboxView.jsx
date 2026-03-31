@@ -51,9 +51,15 @@ function sortByDate(entries) {
   });
 }
 
+function formatLabel(format) {
+  if (format === "copilot-cli") return "Copilot CLI";
+  if (format === "vscode-chat") return "VS Code";
+  return "Claude Code";
+}
+
 function renderMeta(entry) {
   var parts = [
-    entry.format === "copilot-cli" ? "Copilot CLI" : "Claude Code",
+    formatLabel(entry.format),
     entry.project || null,
     entry.primaryModel,
     entry.repository,
@@ -68,6 +74,17 @@ function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function formatMtime(isoString) {
+  if (!isoString) return "";
+  var d = new Date(isoString);
+  if (isNaN(d.getTime())) return "";
+  var mm = String(d.getMonth() + 1).padStart(2, "0");
+  var dd = String(d.getDate()).padStart(2, "0");
+  var hh = String(d.getHours()).padStart(2, "0");
+  var min = String(d.getMinutes()).padStart(2, "0");
+  return mm + "-" + dd + " " + hh + ":" + min;
 }
 
 function filterByQuery(entries, q) {
@@ -208,7 +225,37 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(discoveredEntries, q);
     var sorted = sortByDate(filtered);
-    return showAllDiscovered ? sorted : sorted.slice(0, 15);
+    if (showAllDiscovered) return sorted;
+
+    // Ensure each format gets representation in the initial view.
+    // Without this, the 15-item cap can hide entire formats when one
+    // format dominates by recency (e.g. many Copilot CLI sessions
+    // pushing all VS Code sessions below the fold).
+    var CAP = 15;
+    var byFormat = {};
+    sorted.forEach(function (e) {
+      var f = e.format || "unknown";
+      if (!byFormat[f]) byFormat[f] = [];
+      byFormat[f].push(e);
+    });
+    var formatKeys = Object.keys(byFormat);
+    if (formatKeys.length <= 1) return sorted.slice(0, CAP);
+
+    // Give each format a fair minimum, fill rest by recency
+    var minPerFormat = Math.max(3, Math.floor(CAP / formatKeys.length));
+    var picked = [];
+    var pickedSet = {};
+    formatKeys.forEach(function (f) {
+      byFormat[f].slice(0, minPerFormat).forEach(function (e) {
+        if (!pickedSet[e.id]) { picked.push(e); pickedSet[e.id] = true; }
+      });
+    });
+    // Fill remaining slots from overall sorted order
+    for (var i = 0; i < sorted.length && picked.length < CAP; i++) {
+      if (!pickedSet[sorted[i].id]) { picked.push(sorted[i]); pickedSet[sorted[i].id] = true; }
+    }
+    // Re-sort the final set by date
+    return sortByDate(picked);
   }, [discoveredEntries, query, showAllDiscovered]);
 
   var totalVisible = sortedParsed.length + sortedDiscovered.length;
@@ -489,9 +536,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                       </div>
                       <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>
                         {[
-                          entry.format === "copilot-cli" ? "Copilot CLI" : "Claude Code",
+                          formatLabel(entry.format),
                           entry.project || null,
                           formatFileSize(entry.size),
+                          formatMtime(entry.updatedAt || entry.importedAt),
                         ].filter(Boolean).join(" \u00B7 ")}
                       </div>
                     </div>

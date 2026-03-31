@@ -1,0 +1,259 @@
+{
+  "version": 3,
+  "sessionId": "test-vscode-session-001",
+  "creationDate": 1772000000000,
+  "lastMessageDate": 1772000120000,
+  "customTitle": "Refactor auth module",
+  "mode": { "id": "agent", "kind": "agent" },
+  "selectedModel": {
+    "identifier": "copilot/claude-opus-4.6",
+    "metadata": { "name": "Claude Opus 4.6", "family": "claude" }
+  },
+  "requests": [
+    {
+      "requestId": "request_aaa-111",
+      "timestamp": 1772000010000,
+      "modelId": "copilot/claude-opus-4.6",
+      "agent": { "id": "github.copilot.editsAgent", "name": "agent" },
+      "message": {
+        "text": "Refactor the auth module to use JWT tokens",
+        "parts": [{ "text": "Refactor the auth module to use JWT tokens", "kind": "text" }]
+      },
+      "response": [
+        {
+          "kind": "mcpServersStarting",
+          "didStartServerIds": ["mcp-server-1"]
+        },
+        { "value": "" },
+        {
+          "kind": "thinking",
+          "value": "Let me analyze the current auth module and plan the JWT refactor.",
+          "id": "think-001",
+          "metadata": { "vscodeReasoningDone": true }
+        },
+        {
+          "kind": "thinking",
+          "value": "I should read the existing auth files first.",
+          "id": "think-002"
+        },
+        { "value": "I'll start by reading the auth configuration.\n" },
+        {
+          "kind": "prepareToolInvocation",
+          "toolName": "copilot_readFile"
+        },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Reading src/auth.ts, lines 1 to 50" },
+          "pastTenseMessage": { "value": "Read src/auth.ts, lines 1 to 50" },
+          "isConfirmed": { "type": 1 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-001",
+          "toolId": "copilot_readFile",
+          "resultDetails": [{ "value": "const express = require('express');\n// auth module code..." }]
+        },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Searching for 'session' in auth files" },
+          "pastTenseMessage": { "value": "Found 3 results for 'session' in auth files" },
+          "isConfirmed": { "type": 1 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-002",
+          "toolId": "copilot_findTextInFiles",
+          "resultDetails": [{ "value": "Found 3 matches" }]
+        },
+        { "value": "Now I'll create the JWT utility module.\n" },
+        {
+          "kind": "prepareToolInvocation",
+          "toolName": "copilot_createFile"
+        },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Creating src/jwt.ts" },
+          "pastTenseMessage": { "value": "Created src/jwt.ts" },
+          "isConfirmed": { "type": 1 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-003",
+          "toolId": "copilot_createFile",
+          "resultDetails": []
+        },
+        {
+          "kind": "textEditGroup",
+          "uri": {
+            "$mid": 1,
+            "fsPath": "c:\\project\\src\\jwt.ts",
+            "path": "/c:/project/src/jwt.ts",
+            "scheme": "file"
+          },
+          "edits": [
+            [{ "text": "import jwt from 'jsonwebtoken';", "range": { "startLineNumber": 1, "startColumn": 1, "endLineNumber": 1, "endColumn": 1 } }],
+            [{ "text": "\nexport function signToken(payload: object) { return jwt.sign(payload, process.env.SECRET); }", "range": { "startLineNumber": 2, "startColumn": 1, "endLineNumber": 2, "endColumn": 1 } }]
+          ],
+          "done": true
+        },
+        { "value": "Created " },
+        {
+          "kind": "inlineReference",
+          "name": "src/jwt.ts",
+          "inlineReference": {
+            "$mid": 1,
+            "fsPath": "c:\\project\\src\\jwt.ts",
+            "path": "/c:/project/src/jwt.ts",
+            "scheme": "file"
+          }
+        },
+        { "value": " with JWT sign and verify functions.\n" },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Running npm test" },
+          "pastTenseMessage": { "value": "Ran npm test" },
+          "isConfirmed": { "type": 1 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-004",
+          "toolId": "run_in_terminal",
+          "toolSpecificData": {
+            "kind": "terminal",
+            "commandLine": { "original": "npm test" },
+            "language": "bash",
+            "terminalCommandState": {
+              "exitCode": 1,
+              "timestamp": 1772000045000,
+              "duration": 3200
+            },
+            "terminalCommandOutput": {
+              "text": "FAIL src/auth.test.ts\n  Test suite failed to run\n  Error: Cannot find module './jwt'",
+              "lineCount": 5
+            }
+          },
+          "resultDetails": [{ "value": "FAIL src/auth.test.ts\nError: Cannot find module './jwt'" }]
+        },
+        {
+          "kind": "progressTaskSerialized",
+          "content": { "value": "Fixing import paths..." }
+        },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Replacing string in src/auth.ts" },
+          "pastTenseMessage": { "value": "Replaced string in src/auth.ts" },
+          "isConfirmed": { "type": 1 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-005",
+          "toolId": "copilot_replaceString",
+          "resultDetails": []
+        },
+        { "value": "Fixed the import path. The auth module now uses JWT tokens.\n" }
+      ],
+      "result": {
+        "timings": { "firstProgress": 2500, "totalElapsed": 55000 }
+      }
+    },
+    {
+      "requestId": "request_bbb-222",
+      "timestamp": 1772000070000,
+      "modelId": "copilot/gpt-4o",
+      "agent": { "id": "github.copilot.editsAgent", "name": "agent" },
+      "message": {
+        "text": "Now add refresh token support",
+        "parts": [{ "text": "Now add refresh token support", "kind": "text" }]
+      },
+      "response": [
+        {
+          "kind": "thinking",
+          "value": "The user wants refresh token support. I need to update the JWT module."
+        },
+        { "value": "I'll add refresh token functionality.\n" },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Reading src/jwt.ts" },
+          "pastTenseMessage": { "value": "Read src/jwt.ts" },
+          "isConfirmed": { "type": 1 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-006",
+          "toolId": "copilot_readFile",
+          "resultDetails": [{ "value": "import jwt from 'jsonwebtoken';\nexport function signToken..." }]
+        },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Replacing string in src/jwt.ts" },
+          "pastTenseMessage": { "value": "Replaced string in src/jwt.ts" },
+          "isConfirmed": { "type": 2 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-007",
+          "toolId": "copilot_replaceString",
+          "resultDetails": []
+        },
+        {
+          "kind": "elicitationSerialized",
+          "title": "Apply changes?",
+          "message": "The replacement will modify src/jwt.ts"
+        },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Running npm test" },
+          "pastTenseMessage": { "value": "Ran npm test" },
+          "isConfirmed": { "type": 1 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-008",
+          "toolId": "run_in_terminal",
+          "toolSpecificData": {
+            "kind": "terminal",
+            "commandLine": { "original": "npm test" },
+            "language": "bash",
+            "terminalCommandState": {
+              "exitCode": 0,
+              "timestamp": 1772000095000,
+              "duration": 2800
+            },
+            "terminalCommandOutput": {
+              "text": "PASS src/auth.test.ts\nAll tests passed",
+              "lineCount": 3
+            }
+          },
+          "resultDetails": [{ "value": "PASS src/auth.test.ts\nAll tests passed" }]
+        },
+        { "value": "All tests pass. Refresh token support has been added.\n" }
+      ],
+      "result": {
+        "timings": { "firstProgress": 1800, "totalElapsed": 28000 }
+      }
+    },
+    {
+      "requestId": "request_ccc-333",
+      "timestamp": 1772000100000,
+      "modelId": "copilot/claude-opus-4.6",
+      "agent": { "id": "github.copilot.editsAgent", "name": "agent" },
+      "message": {
+        "text": "Clean up unused imports",
+        "parts": [{ "text": "Clean up unused imports", "kind": "text" }]
+      },
+      "response": [
+        { "value": "I'll scan for unused imports.\n" },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": { "value": "Getting errors in workspace" },
+          "pastTenseMessage": { "value": "Got errors in workspace" },
+          "isConfirmed": { "type": 1 },
+          "isComplete": true,
+          "source": { "type": "internal", "label": "Built-In" },
+          "toolCallId": "tool-call-009",
+          "toolId": "copilot_getErrors",
+          "resultDetails": [{ "value": "No errors found" }]
+        },
+        {
+          "kind": "undoStop"
+        },
+        { "value": "No unused imports found. The codebase is clean.\n" }
+      ],
+      "result": {
+        "timings": { "firstProgress": 1200, "totalElapsed": 8000 }
+      }
+    }
+  ]
+}

@@ -44,7 +44,7 @@ export default function FileUploader({ onLoad }) {
         Drop a session file here
       </div>
       <div style={{ fontSize: theme.fontSize.md, color: theme.text.muted, lineHeight: 1.8 }}>
-        Claude Code and Copilot CLI .jsonl sessions
+        Claude Code, VS Code, and Copilot CLI sessions
         <br />
         <span style={{ color: theme.text.dim, fontSize: theme.fontSize.base }}>
           Also accepts .json and .txt

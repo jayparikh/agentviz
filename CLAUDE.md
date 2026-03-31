@@ -1,6 +1,6 @@
 # AGENTVIZ
 
-Session replay visualizer for AI agent workflows. Renders Claude Code and Copilot CLI session logs as interactive timelines, with auto-detection of file format.
+Session replay visualizer for AI agent workflows. Renders Claude Code, VS Code Copilot Chat, and Copilot CLI session logs as interactive timelines, with auto-detection of file format.
 
 ## Stack
 - React 18 + Vite 6
@@ -22,7 +22,7 @@ src/
     useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
     useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js # localStorage-backed useState with debounced writes
-    useDiscoveredSessions.js # Auto-discovery of Copilot CLI sessions via /api/sessions
+    useDiscoveredSessions.js # Auto-discovery of Copilot CLI and VS Code sessions via /api/sessions
     useHashRouter.js   # Hash-based routing between inbox and session views
     useAsyncStatus.js  # Async operation state machine (idle/loading/success/error)
   lib/
@@ -30,6 +30,7 @@ src/
     constants.js       # SAMPLE_EVENTS data for demo mode
     parser.ts          # parseClaudeCodeJSONL() - Claude Code JSONL parser
     copilotCliParser.ts # parseCopilotCliJSONL() - Copilot CLI JSONL parser
+    vscodeSessionParser.ts # parseVSCodeChatJSON() - VS Code Copilot Chat JSON parser
     parseSession.ts    # Auto-detect format router: detectFormat() + parseSession()
     session.ts         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
     sessionLibrary.js  # localStorage-backed session library with content persistence

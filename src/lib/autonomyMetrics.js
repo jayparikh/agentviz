@@ -45,7 +45,7 @@ function isContinuationMessage(text) {
 
 export function getSessionCost(metadata) {
   if (!metadata) return 0;
-  if (metadata.format === "copilot-cli") return metadata.totalCost || 0;
+  if (metadata.format === "copilot-cli" || metadata.format === "vscode-chat") return metadata.totalCost || 0;
   return estimateCost(metadata.tokenUsage, metadata.primaryModel);
 }
 
