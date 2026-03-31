@@ -89,10 +89,10 @@ export default function WaterfallRow({
         </span>
         {ev.agentName && (
           <span style={{
-            fontSize: 9,
+            fontSize: theme.fontSize.xs,
             color: theme.agentType[ev.agentName] || theme.agentType.default,
             background: alpha(theme.agentType[ev.agentName] || theme.agentType.default, 0.1),
-            padding: "1px 5px",
+            padding: "1px 4px",
             borderRadius: theme.radius.full,
             whiteSpace: "nowrap",
             flexShrink: 0,

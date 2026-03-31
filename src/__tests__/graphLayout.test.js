@@ -168,17 +168,21 @@ describe("buildGraphData", function () {
     var turns = [makeTurn(0, [0, 1, 2, 3])];
     var result = buildGraphData(events, turns, {});
     var nodeTypes = result.nodes.map(function (n) { return n.type; });
-    // Turn should contain pre-fork grep, then fork/branches/join, then post-join bash
-    expect(nodeTypes).toContain("turn");
+    // Turn should contain pre-fork grep, then fork/branches/join, then post-join compound
     expect(nodeTypes).toContain("fork");
     expect(nodeTypes).toContain("agent_branch");
     expect(nodeTypes).toContain("join");
-    expect(nodeTypes).toContain("tool_call"); // post-join bash
-    // Pre-fork grep should be a child of the turn node
-    var turnNode = result.nodes.find(function (n) { return n.type === "turn"; });
-    expect(turnNode.children).toBeDefined();
-    expect(turnNode.children.length).toBe(1);
-    expect(turnNode.children[0].label).toBe("grep");
+    // Pre-fork grep should be a child of the first turn node
+    var turnNodes = result.nodes.filter(function (n) { return n.type === "turn"; });
+    var hostTurn = turnNodes.find(function (n) { return n.isBranchHost; });
+    expect(hostTurn.children).toBeDefined();
+    expect(hostTurn.children.length).toBe(1);
+    expect(hostTurn.children[0].label).toBe("grep");
+    // Post-join bash should be in a compound node after join
+    var postJoinNode = turnNodes.find(function (n) { return n.id.indexOf("postjoin") === 0; });
+    expect(postJoinNode).toBeDefined();
+    expect(postJoinNode.children.length).toBe(1);
+    expect(postJoinNode.children[0].label).toBe("bash");
   });
 
   it("collects transitive descendants in agent branches", function () {
@@ -241,6 +245,20 @@ describe("buildGraphData", function () {
     var result = buildGraphData(events, turns, {});
     expect(result.nodes[0].isExpanded).toBe(false);
     expect(result.nodes[0].children).toBeUndefined();
+  });
+
+  it("includes post-join tool descendants in compound node", function () {
+    var events = [
+      makeEvent(0, { track: "tool_call", toolName: "task", toolCallId: "task-a", t: 0, duration: 8, agentName: "explore", agentDisplayName: "Explore" }),
+      makeEvent(1, { track: "tool_call", toolName: "task", toolCallId: "task-b", t: 1, duration: 8, agentName: "review", agentDisplayName: "Review" }),
+      makeEvent(2, { track: "tool_call", toolName: "bash", toolCallId: "bash-1", t: 20, duration: 2 }),
+      makeEvent(3, { track: "tool_call", toolName: "view", parentToolCallId: "bash-1", t: 21, duration: 1 }),
+    ];
+    var turns = [makeTurn(0, [0, 1, 2, 3])];
+    var result = buildGraphData(events, turns, {});
+    var postJoinNode = result.nodes.find(function (n) { return n.id && n.id.indexOf("postjoin") === 0; });
+    expect(postJoinNode).toBeDefined();
+    expect(postJoinNode.children.length).toBe(2); // bash + view
   });
 });
 

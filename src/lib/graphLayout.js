@@ -209,8 +209,14 @@ export function mergeLayout(graphData, elkResult) {
         // Manually lay out concurrent groups as side-by-side columns
         // Each column contains a root tool + its parentToolCallId children
         var childById = {};
+        var childrenByParent = {};
         for (var ri = 0; ri < result.children.length; ri++) {
-          childById[result.children[ri].id] = result.children[ri];
+          var rc = result.children[ri];
+          childById[rc.id] = rc;
+          if (rc.event && rc.event.parentToolCallId) {
+            if (!childrenByParent[rc.event.parentToolCallId]) childrenByParent[rc.event.parentToolCallId] = [];
+            childrenByParent[rc.event.parentToolCallId].push(rc);
+          }
         }
 
         // Find the concurrent group (the one with >1 items)
@@ -232,11 +238,10 @@ export function mergeLayout(graphData, elkResult) {
             var rootNode = childById[rootEntry.id];
             if (!rootNode) continue;
 
-            // Find children of this root via parentToolCallId
-            var childNodes = result.children.filter(function (c) {
-              return c.event && c.event.parentToolCallId &&
-                c.event.parentToolCallId === rootNode.event.toolCallId;
-            });
+            // O(1) lookup for children of this root
+            var childNodes = (rootNode.event && rootNode.event.toolCallId)
+              ? (childrenByParent[rootNode.event.toolCallId] || [])
+              : [];
 
             // Calculate column width
             var colW = rootNode.width;
@@ -573,20 +578,22 @@ function buildCollapsedTurnNode(turn, toolCalls, options) {
 /**
  * Collect all transitive descendants of a root toolCallId.
  * Walks the full parentToolCallId chain so nested agents are included.
+ * Bounded to toolCalls.length iterations to prevent cycles.
  */
 function collectDescendants(toolCalls, rootToolCallId) {
   var descendants = [];
   var knownIds = {};
   knownIds[rootToolCallId] = true;
+  var maxIterations = toolCalls.length;
   var changed = true;
-  while (changed) {
+  while (changed && maxIterations-- > 0) {
     changed = false;
     for (var i = 0; i < toolCalls.length; i++) {
       var entry = toolCalls[i];
-      if (entry.event.parentToolCallId && knownIds[entry.event.parentToolCallId] && !knownIds[entry.event.toolCallId || ("idx-" + entry.index)]) {
+      var entryKey = entry.event.toolCallId || ("idx-" + entry.index);
+      if (entry.event.parentToolCallId && knownIds[entry.event.parentToolCallId] && !knownIds[entryKey]) {
         descendants.push(entry);
-        if (entry.event.toolCallId) knownIds[entry.event.toolCallId] = true;
-        knownIds["idx-" + entry.index] = true;
+        knownIds[entryKey] = true;
         changed = true;
       }
     }
@@ -685,17 +692,18 @@ function buildParallelAgentTurnGraph(turn, turnEvents, toolCalls, options) {
   var forkId = "fork-" + turn.index;
   var joinId = "join-" + turn.index;
 
-  // Collect unclaimed root tools (pre-fork or post-join non-task tools)
+  // Collect unclaimed tools (pre-fork or post-join, including descendants of non-task roots)
   var preForkTools = [];
   var postJoinTools = [];
   for (var ui = 0; ui < toolCalls.length; ui++) {
     if (claimedIndices[toolCalls[ui].index]) continue;
-    if (toolCalls[ui].event.parentToolCallId) continue; // child of something; skip
-    if (toolCalls[ui].event.t < forkTime) {
+    var toolTime = toolCalls[ui].event.t;
+    if (toolTime < forkTime) {
       preForkTools.push(toolCalls[ui]);
-    } else {
+    } else if (toolTime >= joinTime) {
       postJoinTools.push(toolCalls[ui]);
     }
+    // Tools during the fork window that aren't claimed belong nowhere — skip
   }
 
   var turnNode = {
@@ -761,25 +769,32 @@ function buildParallelAgentTurnGraph(turn, turnEvents, toolCalls, options) {
     edges.push(makeGraphEdge(branchNodes[bi].id + "->" + joinId, branchNodes[bi].id, joinId, joinTime));
   }
 
-  // Add post-join tool nodes as top-level nodes after the join
+  // Add post-join tools as a compound turn node after the join
   var lastId = joinId;
-  for (var pi = 0; pi < postJoinTools.length; pi++) {
-    var ptool = postJoinTools[pi];
-    var postId = "postjoin-" + turn.index + "-" + pi;
-    allNodes.push({
-      id: postId,
-      type: "tool_call",
-      label: ptool.event.toolName || "tool",
-      isError: ptool.event.isError,
+  if (postJoinTools.length > 0) {
+    var postJoinId = "postjoin-" + turn.index;
+    var postJoinCompound = buildCompoundChildren(turn.index, postJoinTools, "postjoin-tool-" + turn.index + "-");
+    var postJoinNode = {
+      id: postJoinId,
+      type: "turn",
+      label: "Post-join",
+      toolCount: postJoinTools.length,
+      hasError: postJoinTools.some(function (t) { return t.event.isError; }),
       track: "tool_call",
-      eventIndex: ptool.index,
-      event: ptool.event,
       turnIndex: turn.index,
-      width: 160,
-      height: 36,
-    });
-    edges.push(makeGraphEdge(lastId + "->" + postId, lastId, postId, ptool.event.t));
-    lastId = postId;
+      startTime: postJoinTools[0].event.t,
+      endTime: Math.max.apply(Math, postJoinTools.map(function (t) { return getEventEndTime(t.event); })),
+      isExpanded: true,
+      canExpand: true,
+      width: 200,
+      height: 80,
+      children: postJoinCompound.children,
+      edges: postJoinCompound.childEdges,
+      layoutOptions: getCompoundLayoutOptions("turn"),
+    };
+    allNodes.push(postJoinNode);
+    edges.push(makeGraphEdge(joinId + "->" + postJoinId, joinId, postJoinId, postJoinNode.startTime));
+    lastId = postJoinId;
   }
 
   return {

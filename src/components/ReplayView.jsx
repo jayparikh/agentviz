@@ -496,11 +496,11 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                           fontSize: theme.fontSize.xs,
                           color: theme.agentType[ev.agentName] || theme.agentType.default,
                           background: alpha(theme.agentType[ev.agentName] || theme.agentType.default, 0.08),
-                          padding: "2px 6px",
+                          padding: "2px 4px",
                           borderRadius: theme.radius.full,
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: 3,
+                          gap: theme.space.xs,
                         }}>
                           <Icon name="agent" size={10} /> {ev.agentDisplayName || ev.agentName}
                         </span>

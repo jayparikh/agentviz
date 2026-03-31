@@ -77,7 +77,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
               cursor: "pointer",
               padding: "4px 12px",
               fontSize: theme.fontSize.lg,
-              fontFamily: theme.font.ui,
+              fontFamily: theme.font.mono,
               letterSpacing: 1,
             }}
           >

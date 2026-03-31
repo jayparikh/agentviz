@@ -504,6 +504,30 @@ function AgentBranchNode({ node, isActive, isFuture, isSelected, onSelect, child
   );
 }
 
+// ── Shared child tool renderer ──
+
+function renderChildTools(children, currentTime, parentActive, selectedNode, onSelect, prefersReducedMotion) {
+  if (!children) return null;
+  return children.map(function (child) {
+    var childActive = (parentActive !== false) && child.event &&
+      currentTime >= child.event.t &&
+      currentTime <= child.event.t + (child.event.duration || 0);
+    var childFuture = child.event && child.event.t > currentTime;
+    var childSelected = selectedNode && selectedNode.id === child.id;
+    return (
+      <ToolCallNode
+        key={child.id}
+        node={child}
+        isActive={childActive}
+        isFuture={childFuture}
+        isSelected={childSelected}
+        onSelect={onSelect}
+        prefersReducedMotion={prefersReducedMotion}
+      />
+    );
+  });
+}
+
 // ── Inspector sidebar ──
 
 function GraphInspector({ selectedNode }) {
@@ -959,24 +983,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
                   isSelected={isSelected}
                   onSelect={handleSelectNode}
                 >
-                  {node.children && node.children.map(function (child) {
-                    var childActive = child.event &&
-                      currentTime >= child.event.t &&
-                      currentTime <= child.event.t + (child.event.duration || 0);
-                    var childFuture = child.event && child.event.t > currentTime;
-                    var childSelected = selectedNode && selectedNode.id === child.id;
-                    return (
-                      <ToolCallNode
-                        key={child.id}
-                        node={child}
-                        isActive={childActive}
-                        isFuture={childFuture}
-                        isSelected={childSelected}
-                        onSelect={handleSelectNode}
-                        prefersReducedMotion={prefersReducedMotion}
-                      />
-                    );
-                  })}
+                  {renderChildTools(node.children, currentTime, true, selectedNode, handleSelectNode, prefersReducedMotion)}
                 </AgentBranchNode>
               );
             }
@@ -1025,24 +1032,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
                       />
                     );
                   })}
-                  {node.children && node.children.map(function (child) {
-                    var childActive = isActive && child.event &&
-                      currentTime >= child.event.t &&
-                      currentTime <= child.event.t + (child.event.duration || 0);
-                    var childFuture = child.event && child.event.t > currentTime;
-                    var childSelected = selectedNode && selectedNode.id === child.id;
-                    return (
-                      <ToolCallNode
-                        key={child.id}
-                        node={child}
-                        isActive={childActive}
-                        isFuture={childFuture}
-                        isSelected={childSelected}
-                        onSelect={handleSelectNode}
-                        prefersReducedMotion={prefersReducedMotion}
-                      />
-                    );
-                  })}
+                  {renderChildTools(node.children, currentTime, isActive, selectedNode, handleSelectNode, prefersReducedMotion)}
                 </ExpandedTurnNode>
               );
             }
