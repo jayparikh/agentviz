@@ -113,6 +113,7 @@ export function handle(pathname, req, res, ctx) {
     var allowedRoots = [
       path.join(home, ".claude", "projects"),
       path.join(home, ".copilot", "session-state"),
+      path.join(home, ".agentviz", "imports"),
     ];
     var isAllowed = allowedRoots.some(function (root) {
       return resolvedSessionPath.startsWith(root + path.sep);

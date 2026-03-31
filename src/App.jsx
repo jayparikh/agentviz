@@ -286,6 +286,24 @@ export default function App() {
     onNavigateToLanding: reset,
   });
 
+  // Auto-open imported session when ?import=<id> is in URL
+  var autoImportHandled = useRef(false);
+  useEffect(function () {
+    if (autoImportHandled.current) return;
+    var importSession = discovered.autoImportSession;
+    if (!importSession) return;
+    autoImportHandled.current = true;
+    // Build a fake entry matching what openStoredSession expects
+    var entry = {
+      id: importSession.id,
+      file: importSession.filename || importSession.id,
+      filename: importSession.filename,
+      discoveredPath: importSession.path,
+      isDiscovered: true,
+    };
+    openStoredSession(entry);
+  }, [discovered.autoImportSession, openStoredSession]);
+
   var exitCompare = useCallback(function () {
     sessionB.resetSession();
     setCompareLanding(false);

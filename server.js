@@ -12,6 +12,7 @@ import url from "url";
 import { handle as handleSessions } from "./routes/sessions.js";
 import { handle as handleAI } from "./routes/ai.js";
 import { handle as handleConfig } from "./routes/config.js";
+import { handle as handleImport } from "./routes/import.js";
 
 // ── Model configuration ──────────────────────────────────────────
 function getConfigPath() {
@@ -167,7 +168,16 @@ export function createServer({ sessionFile, distDir }) {
 
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
-      res.writeHead(isLocalOrigin ? 204 : 403);
+      if (isLocalOrigin) {
+        res.writeHead(204, {
+          "Access-Control-Allow-Origin": origin,
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Vary": "Origin",
+        });
+      } else {
+        res.writeHead(403);
+      }
       res.end();
       return;
     }
@@ -198,6 +208,7 @@ export function createServer({ sessionFile, distDir }) {
 
     // Dispatch to route modules
     if (handleConfig(pathname, req, res, ctx)) return;
+    if (handleImport(pathname, req, res, ctx)) return;
     if (handleAI(pathname, req, res, ctx)) return;
     if (handleSessions(pathname, req, res, ctx)) return;
 
