@@ -117,9 +117,20 @@ export function handle(pathname, req, res, ctx) {
       var isInsiders = vscodeRoot.includes("Code - Insiders");
       try {
         fs.readdirSync(vscodeRoot).forEach(function (wsId) {
-          var chatDir = path.join(vscodeRoot, wsId, "chatSessions");
+          var wsDir = path.join(vscodeRoot, wsId);
+          var chatDir = path.join(wsDir, "chatSessions");
           try {
             if (!fs.statSync(chatDir).isDirectory()) return;
+            // Derive project name from workspace.json folder path (once per workspace)
+            var wsProject = null;
+            try {
+              var wsJson = JSON.parse(fs.readFileSync(path.join(wsDir, "workspace.json"), "utf8"));
+              if (wsJson.folder) {
+                var decoded = decodeURIComponent(wsJson.folder.replace(/^file:\/\/\//, ""));
+                var segments = decoded.replace(/\\/g, "/").split("/").filter(Boolean);
+                wsProject = segments[segments.length - 1] || null;
+              }
+            } catch (e) {}
             var dirFiles = fs.readdirSync(chatDir);
             // Build set of .json basenames so we skip .jsonl duplicates
             var jsonBaseNames = {};
@@ -154,7 +165,7 @@ export function handle(pathname, req, res, ctx) {
                   filename: fname,
                   file: title || fname,
                   summary: title || null,
-                  project: wsId.substring(0, 8),
+                  project: wsProject,
                   format: "vscode-chat",
                   isInsiders: isInsiders,
                   size: stat.size,

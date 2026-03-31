@@ -348,7 +348,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           }}>
             {query
               ? "No sessions matching \"" + query + "\""
-              : <>Sessions from <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.copilot/session-state/</span> and <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
+              : <>Sessions from <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>VS Code Copilot Chat</span>, <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.copilot/session-state/</span>, and <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
             }
             {!query && (onLoadSample || onStartCompare) && (
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 12 }}>
