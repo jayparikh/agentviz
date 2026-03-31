@@ -447,7 +447,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                     gap: 10,
                     padding: "8px 12px",
                     borderRadius: theme.radius.lg,
-                    background: isMatch ? alpha(theme.accent.primary, 0.03) : (isSelected ? theme.bg.raised : (isCurrent ? theme.bg.overlay : "transparent")),
+                    background: isMatch ? alpha(theme.accent.primary, 0.03) : (isSelected ? theme.bg.raised : (isCurrent ? alpha(theme.accent.primary, 0.05) : "transparent")),
                     borderLeft: "2px solid " + borderColor,
                     opacity: isCurrent || isSelected || isMatch ? 1 : 0.88,
                     cursor: "pointer",

@@ -32,6 +32,9 @@ import {
   Send,
   Sparkles,
   Users,
+  SunMedium,
+  Moon,
+  Monitor,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -68,6 +71,9 @@ var ICON_MAP = {
   "arrow-right": ArrowRight,
   send: Send,
   sparkles: Sparkles,
+  sun: SunMedium,
+  moon: Moon,
+  monitor: Monitor,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

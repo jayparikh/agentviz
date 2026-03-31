@@ -9,6 +9,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
 import useQA from "../hooks/useQA.js";
+import KeyboardHint from "./ui/KeyboardHint.jsx";
 
 var TURN_REF_RE = /\[Turns?\s*#?\s*(\d+(?:\s*[-,]\s*\d+)*)\]/gi;
 var BOLD_RE = /\*\*(.+?)\*\*/g;
@@ -355,7 +356,12 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
         </div>
 
         {/* Input area */}
-        <div style={{ flexShrink: 0, borderTop: "1px solid " + theme.border.default, padding: "12px 16px 20px" }}>
+        <div style={{
+          flexShrink: 0,
+          borderTop: "1px solid " + theme.border.default,
+          padding: "12px 16px 0",
+          paddingBottom: "calc(" + theme.space.huge + "px + env(safe-area-inset-bottom, 0px))",
+        }}>
           <form
             onSubmit={handleSubmit}
             className="av-search-wrap"
@@ -412,14 +418,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
           </form>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
             <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
-              <kbd style={{
-                background: theme.bg.raised,
-                border: "1px solid " + theme.border.default,
-                borderRadius: theme.radius.sm,
-                padding: "1px 5px",
-                fontSize: theme.fontSize.xs,
-                color: theme.text.primary,
-              }}>Esc</kbd>{" "}to close
+              <KeyboardHint>Esc</KeyboardHint>{" "}close
             </span>
             <button
               onClick={function () { if (onDisable) onDisable(); }}

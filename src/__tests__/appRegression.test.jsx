@@ -224,6 +224,31 @@ describe("App browser regressions", function () {
     await app.unmount();
   });
 
+  it("preserves a raw light theme preference through initial mount", async function () {
+    global.localStorage.setItem("agentviz:theme-mode", "light");
+
+    var warnSpy = vi.spyOn(console, "warn").mockImplementation(function () {});
+
+    var app = await renderApp();
+
+    expect(document.documentElement.dataset.themePreference).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("light");
+
+    // No console warnings during migration from bare string to JSON
+    var themeWarnings = warnSpy.mock.calls.filter(function (args) {
+      return String(args[0] || "").includes("theme-mode") || String(args[1] || "").includes("theme-mode");
+    });
+    expect(themeWarnings).toHaveLength(0);
+
+    await sleep(350);
+
+    expect(global.localStorage.getItem("agentviz:theme-mode")).toBe("\"light\"");
+    expect(document.documentElement.dataset.theme).toBe("light");
+
+    warnSpy.mockRestore();
+    await app.unmount();
+  });
+
   it("bootstraps a live session, exports it, and still leaves compare session B blank", async function () {
     var app = await renderApp(createLiveFetch("fixture.jsonl", FIXTURE_TEXT));
 

@@ -11,18 +11,8 @@ import { buildGraphData, runLayout, mergeLayout, getGraphBounds } from "../lib/g
 import ResizablePanel from "./ResizablePanel.jsx";
 import Icon from "./Icon.jsx";
 
-var NODE_COLORS = {
-  reasoning: theme.track.reasoning,
-  tool_call: theme.track.tool_call,
-  context: theme.track.context,
-  output: theme.track.output,
-  agent: theme.track.agent,
-  fork: theme.track.agent,
-  join: theme.track.agent,
-};
-
 function getTrackColor(track) {
-  return NODE_COLORS[track] || theme.track.reasoning;
+  return theme.track[track] || theme.track.reasoning;
 }
 
 function getAgentTypeColor(agentName) {

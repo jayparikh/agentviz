@@ -34,6 +34,7 @@ AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, b
 - **Stream live** as a session unfolds -- the view updates in real time
 - **Discover sessions** automatically from the Copilot CLI session store
 - **Get AI coaching** on prompt engineering, skills, and MCP setup grounded in best practices
+- **Switch themes** between dark, light, and system-matched modes with one click
 
 ## Quick Start
 
@@ -122,6 +123,7 @@ Reload VS Code after adding the config. In Copilot Chat, use **Agent mode** and 
 ### What happens when you invoke it
 
 `launch_agentviz` will:
+
 1. Auto-detect the most recently active session file (checks `~/.claude/projects/` and `~/.copilot/session-state/`)
 2. Start a local HTTP server on a free port
 3. Open the browser with live streaming enabled
@@ -176,6 +178,7 @@ Horizontal bar chart showing tool call counts for both sessions on the same axis
 Click **Export** in any header to download a single self-contained `.html` file. Share it with anyone -- no server required. Opening it reproduces the full session or comparison view exactly as you see it.
 
 Export is available in two places:
+
 - **Single session header** -- exports the current session
 - **Comparison header** -- exports both sessions and the full comparison view
 
@@ -262,6 +265,7 @@ AI-powered session coaching available directly from any session. The coach reads
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
 | **Session Q&A** | Slide-over drawer (`Cmd+Shift+K`) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
+| **Dark / Light / System Theme** | Full dark and light palettes with a one-click switcher in the header. System mode auto-follows OS preference. Preference is persisted across sessions. |
 
 ### Session Q&A
 
@@ -298,6 +302,8 @@ Open the drawer with `Cmd+Shift+K` (or via the command palette). Questions are r
 | `Cmd+Shift+K` | Toggle Session Q&A drawer |
 | `Enter` / `Shift+Enter` | Next / Previous search match |
 | `?` | Toggle keyboard shortcuts dialog |
+
+Modals, drawers, and overlay panels render keyboard hints with a shared `<kbd>` badge treatment so close, navigate, and select affordances read consistently across AGENTVIZ.
 
 ## Supported Formats
 
@@ -340,7 +346,7 @@ src/
     aiCoachAgent.js      # AI Coach powered by @github/copilot-sdk (gpt-4o)
     qaClassifier.js      # Session Q&A instant answer engine (9 patterns + model context)
     qaAgent.js           # Q&A agent powered by @github/copilot-sdk for model fallback
-    theme.js             # Design tokens (true black base, blue/purple/green accents)
+    theme.js             # Design tokens (dark/light/system mode-aware palette)
     constants.js         # Sample events for demo mode
     replayLayout.js      # Virtualized windowing for large sessions
     commandPalette.js    # Precomputed fuzzy search index
@@ -374,6 +380,8 @@ src/
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
     app/                 # Shell: AppHeader, AppLandingState, AppLoadingState, CompareShell (lazy-loaded)
+    ui/
+      KeyboardHint.jsx   # Shared <kbd> badge for overlay and panel shortcut hints
     ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, TimeAxis
 bin/
@@ -426,7 +434,13 @@ npm run typecheck       # Type-check with tsc --noEmit
 
 ### Design System
 
-True black base (`#000000`) with blue, purple, and green accents. Vivid semantic colors: green for success, muted red for warning, bright red for error. All colors are defined as design tokens in `src/lib/theme.js`. JetBrains Mono throughout. No CSS framework; all styles are inline.
+AGENTVIZ ships with full dark and light themes plus a **System** mode that follows your OS preference. The theme switcher is in the top bar (sun/moon/monitor icons). Your choice persists in localStorage across sessions.
+
+- **Dark mode** (default): True black base (`#0f0f16`) with blue, purple, and green accents
+- **Light mode**: Clean white base (`#f8f9fc`) with deeper, higher-contrast accent colors
+- **System mode**: Automatically matches `prefers-color-scheme` and updates live if you change your OS setting
+
+All colors are defined as design tokens in `src/lib/theme.js` with dynamic getters that resolve to the active palette at render time. A visual reference of every token in both modes is available in `docs/color-palette.html`. JetBrains Mono throughout. No CSS framework; all styles are inline.
 
 ### Configuration
 
@@ -466,7 +480,6 @@ Please open an issue to discuss larger changes before submitting a PR.
 
 - [ ] Bookmarks and annotations (persisted to localStorage)
 - [ ] Graph minimap and large-session clustering
-- [ ] Multi-agent hierarchy (parent/child agents, nested tracks)
 - [ ] Shareable session URLs
 - [ ] Vim-style keyboard navigation
 - [ ] Parsers for LangSmith traces and OpenTelemetry spans

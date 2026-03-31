@@ -375,7 +375,7 @@ export default function CompareView({ sessionA, sessionB, onOpenSessionA, onOpen
                 color: active ? theme.accent.primary : theme.text.muted,
                 padding: "4px 14px",
                 fontSize: theme.fontSize.base,
-                fontFamily: theme.font.ui,
+                fontFamily: theme.font.mono,
               }}
             >
               {t.label}

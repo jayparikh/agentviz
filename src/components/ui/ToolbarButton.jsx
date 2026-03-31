@@ -22,7 +22,9 @@ export default function ToolbarButton({
       aria-label={ariaLabel}
       style={Object.assign({
         background: "transparent",
-        border: "1px solid " + theme.border.default,
+        borderWidth: 1,
+        borderStyle: "solid",
+        borderColor: theme.border.default,
         borderRadius: theme.radius.md,
         color: theme.text.muted,
         padding: "2px 8px",

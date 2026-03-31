@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TRACK_TYPES, alpha, theme } from "../../lib/theme.js";
+import { TRACK_TYPES, THEME_MODES, alpha, theme } from "../../lib/theme.js";
 import LiveIndicator from "../LiveIndicator.jsx";
 import Icon from "../Icon.jsx";
 import BrandWordmark from "../ui/BrandWordmark.jsx";
@@ -28,6 +28,8 @@ export default function AppHeader({
   onToggleTrackFilter,
   speed,
   onCycleSpeed,
+  currentThemeMode,
+  onSetThemeMode,
   onStartCompare,
   hasRawText,
   onExportSession,
@@ -38,11 +40,13 @@ export default function AppHeader({
   currentFile,
 }) {
   var [showRecent, setShowRecent] = useState(false);
+  var [showThemeMenu, setShowThemeMenu] = useState(false);
 
   var showSearch = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
   var showFiltersBtn = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
   var showSpeed = activeView === "replay" || activeView === "tracks" || activeView === "waterfall";
   var showErrorNav = activeView === "replay";
+  var currentTheme = THEME_MODES.find(function (item) { return item.id === currentThemeMode; }) || THEME_MODES[0];
 
   return (
     <div style={{
@@ -177,7 +181,7 @@ export default function AppHeader({
               title="Previous error (Shift+E)"
               aria-label="Previous error"
               style={{
-                border: "1px solid " + theme.semantic.errorBorder,
+                borderColor: theme.semantic.errorBorder,
                 borderRadius: theme.radius.sm,
                 color: theme.semantic.error,
                 padding: "2px 4px",
@@ -194,7 +198,7 @@ export default function AppHeader({
               title="Next error (E)"
               aria-label="Next error"
               style={{
-                border: "1px solid " + theme.semantic.errorBorder,
+                borderColor: theme.semantic.errorBorder,
                 borderRadius: theme.radius.sm,
                 color: theme.semantic.error,
                 padding: "2px 4px",
@@ -218,7 +222,7 @@ export default function AppHeader({
               aria-label="Filter tracks"
               style={{
                 background: activeFilterCount > 0 ? alpha(theme.accent.primary, 0.08) : "transparent",
-                border: "1px solid " + (activeFilterCount > 0 ? theme.accent.primary : theme.border.default),
+                borderColor: activeFilterCount > 0 ? theme.accent.primary : theme.border.default,
                 color: activeFilterCount > 0 ? theme.accent.primary : theme.text.muted,
               }}
             >
@@ -288,13 +292,83 @@ export default function AppHeader({
             title="Playback speed (click to cycle)"
             style={{
               background: speed !== 1 ? alpha(theme.accent.primary, 0.08) : "transparent",
-              border: "1px solid " + (speed !== 1 ? theme.accent.primary : theme.border.default),
+              borderColor: speed !== 1 ? theme.accent.primary : theme.border.default,
               color: speed !== 1 ? theme.accent.primary : theme.text.muted,
             }}
           >
             {speed}x
           </ToolbarButton>
         )}
+
+        <div style={{ position: "relative" }}>
+          <ToolbarButton
+            onClick={function () { setShowThemeMenu(function (value) { return !value; }); }}
+            title={"Theme: " + currentTheme.label + " (click to change)"}
+            aria-label="Theme selector"
+            style={{
+              background: showThemeMenu ? alpha(theme.accent.primary, 0.08) : "transparent",
+              borderColor: showThemeMenu ? theme.accent.primary : theme.border.default,
+              color: showThemeMenu ? theme.accent.primary : theme.text.muted,
+              padding: "2px 6px",
+              minWidth: 28,
+              justifyContent: "center",
+            }}
+          >
+            <Icon name={currentTheme.icon} size={12} />
+          </ToolbarButton>
+          {showThemeMenu && (
+            <div style={{
+              position: "absolute",
+              top: "calc(100% + 6px)",
+              right: 0,
+              background: theme.bg.surface,
+              border: "1px solid " + theme.border.strong,
+              borderRadius: theme.radius.lg,
+              padding: 6,
+              zIndex: theme.z.tooltip,
+              boxShadow: theme.shadow.md,
+              minWidth: 152,
+            }}>
+              {THEME_MODES.map(function (item) {
+                var isSelected = item.id === currentThemeMode;
+                return (
+                  <button
+                    key={item.id}
+                    className="av-interactive"
+                    onClick={function () {
+                      onSetThemeMode(item.id);
+                      setShowThemeMenu(false);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 10px",
+                      borderRadius: theme.radius.md,
+                      width: "100%",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16 }}>
+                      <Icon name={item.icon} size={12} style={{ color: isSelected ? theme.accent.primary : theme.text.secondary }} />
+                    </span>
+                    <span style={{
+                      flex: 1,
+                      fontSize: theme.fontSize.xs,
+                      fontFamily: theme.font.mono,
+                      color: theme.text.primary,
+                    }}>
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <ToolbarButton onClick={onStartCompare} title="Compare with another session" aria-label="Compare with another session" style={{ padding: "2px 6px" }}>
           <Icon name="arrow-up-down" size={12} />
@@ -308,7 +382,7 @@ export default function AppHeader({
               aria-label="Recent sessions"
               style={{
                 background: showRecent ? alpha(theme.accent.primary, 0.08) : "transparent",
-                border: "1px solid " + (showRecent ? theme.accent.primary : theme.border.default),
+                borderColor: showRecent ? theme.accent.primary : theme.border.default,
                 color: showRecent ? theme.accent.primary : theme.text.muted,
                 padding: "2px 6px",
               }}
