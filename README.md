@@ -264,6 +264,7 @@ AI-powered session coaching available directly from any session. The coach reads
 | **Session Comparison** | Load two traces side by side. Scorecard and tool-usage chart with delta badges. |
 | **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
 | **Inbox Auto-discovery** | Automatically finds recent Claude Code, Copilot CLI, and VS Code sessions and ranks them by review priority. |
+| **Static Manifest Mode** | Deploy as a pure static site with `?manifest=URL` pointing to a JSON manifest of sessions. Tag-based filtering, no backend required. |
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
 | **Session Q&A** | Slide-over drawer (`Cmd+Shift+K`) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
@@ -316,7 +317,34 @@ Modals, drawers, and overlay panels render keyboard hints with a shared `<kbd>` 
 | Copilot CLI | `.jsonl` event traces | `session.start` with `producer: "copilot-agent"` |
 
 More formats planned -- see [Roadmap](#roadmap).
+## Static Manifest Mode
 
+Deploy AGENTVIZ as a pure static site with pre-populated sessions -- no backend required. Pass a `?manifest=` query parameter pointing to a JSON manifest:
+
+```
+https://example.com/replay/?manifest=sessions/manifest.json
+https://example.com/replay/?manifest=https://cdn.example.com/data/manifest.json
+https://example.com/replay/?manifest=sessions/manifest.json&tag=nightly&tag=dotnet
+```
+
+The manifest lists sessions with display names, relative URLs, and freeform tags:
+
+```json
+{
+  "generated": "2026-03-31T00:00:00Z",
+  "sessions": [
+    {
+      "id": "build-analysis-1",
+      "name": "MSBuild: Build + binlog (skilled)",
+      "url": "skilled-build.jsonl",
+      "tags": ["dotnet-msbuild", "build-failure-analysis", "skilled"],
+      "mtime": 1743400000000
+    }
+  ]
+}
+```
+
+Session URLs are resolved relative to the manifest location. Tags appear as filter chips in the inbox (AND logic). Pre-apply filters with `&tag=X` query params. See [docs/static-manifest-mode.md](docs/static-manifest-mode.md) for the full spec.
 ## Architecture
 
 ```

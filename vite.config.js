@@ -41,6 +41,7 @@ export default defineConfig(function ({ mode }) {
   var isDebugBuild = mode === 'debug'
 
   return {
+    base: process.env.VITE_BASE_PATH || './',
     plugins: [react(), agentvizBackend()],
     server: {
       port: 3000,

@@ -22,7 +22,7 @@ src/
     useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
     useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js # localStorage-backed useState with debounced writes
-    useDiscoveredSessions.js # Auto-discovery of Copilot CLI and VS Code sessions via /api/sessions
+    useDiscoveredSessions.js # Auto-discovery of sessions via /api/sessions or ?manifest= URL
     useHashRouter.js   # Hash-based routing between inbox and session views
     useAsyncStatus.js  # Async operation state machine (idle/loading/success/error)
   lib/
