@@ -7,7 +7,8 @@ import ResizablePanel from "./ResizablePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Icon from "./Icon.jsx";
 import { isDiffViewable } from "../lib/diffUtils.js";
-import { estimateCost, formatCost } from "../lib/pricing.js";
+import { formatCost } from "../lib/pricing.js";
+import { getSessionCost } from "../lib/autonomyMetrics.js";
 
 var REPLAY_WINDOW_OVERSCAN = 600;
 var REPLAY_BOTTOM_THRESHOLD = 80;
@@ -79,8 +80,12 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
               metadata.primaryModel ? ["Model", metadata.primaryModel.split("-").slice(0, 3).join("-"), theme.track.context] : null,
               metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0
                 ? ["Tokens", (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens).toLocaleString(), theme.accent.primary] : null,
-              metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0
-                ? ["Est. Cost", formatCost(estimateCost(metadata.tokenUsage, metadata.primaryModel)), theme.semantic.success] : null,
+              (function () {
+                var cost = getSessionCost(metadata);
+                if (cost == null) return null;
+                var label = metadata.totalCost != null ? "Cost" : "Est. Cost";
+                return [label, formatCost(cost), theme.semantic.success];
+              })(),
               metadata.warnings && metadata.warnings.length > 0 ? ["Warnings", metadata.warnings.length, theme.semantic.warning] : null,
             ].filter(Boolean).map(function (row) {
               return (

@@ -11,7 +11,8 @@
  */
 
 import { formatDuration, formatDurationLong } from "./formatTime.js";
-import { estimateCost, formatCost } from "./pricing.js";
+import { getSessionCost } from "./autonomyMetrics.js";
+import { formatCost } from "./pricing.js";
 
 // ── Keyword patterns ────────────────────────────────────────────────────────
 
@@ -167,8 +168,14 @@ function answerCost(data) {
     return instant("No token usage data available for this session.");
   }
 
-  var cost = estimateCost(usage, model);
-  var lines = ["Estimated cost: **" + formatCost(cost) + "**\n"];
+  var cost = getSessionCost(data.metadata);
+  var lines = [];
+  if (cost != null) {
+    var label = data.metadata.totalCost != null ? "Cost" : "Estimated cost";
+    lines.push(label + ": **" + formatCost(cost) + "**\n");
+  } else {
+    lines.push("Cost data not available for this session.\n");
+  }
   if (usage.inputTokens) lines.push("- Input tokens: " + usage.inputTokens.toLocaleString());
   if (usage.outputTokens) lines.push("- Output tokens: " + usage.outputTokens.toLocaleString());
   if (usage.cacheRead) lines.push("- Cache read: " + usage.cacheRead.toLocaleString());
@@ -215,10 +222,10 @@ function answerSummary(data) {
     lines.push("- Autonomy: " + (m.autonomyEfficiency * 100).toFixed(0) + "%");
   }
 
-  var usage = meta.tokenUsage;
-  if (usage && (usage.inputTokens || usage.outputTokens)) {
-    var cost = estimateCost(usage, meta.primaryModel);
-    lines.push("- Estimated cost: " + formatCost(cost));
+  var sessionCost = getSessionCost(meta);
+  if (sessionCost != null) {
+    var costLabel = meta.totalCost != null ? "Cost" : "Estimated cost";
+    lines.push("- " + costLabel + ": " + formatCost(sessionCost));
   }
 
   if (tools.length > 0) {

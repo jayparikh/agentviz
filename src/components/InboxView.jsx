@@ -477,7 +477,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                   { label: "Autonomy", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) },
                   { label: "Human response", value: formatDurationLong(autonomy.babysittingTime) },
                   { label: "Idle", value: formatDurationLong(autonomy.idleTime) },
-                  { label: "Cost", value: entry.totalCost != null ? formatCost(entry.totalCost) : "N/A" },
+                  { label: "Cost", value: entry.totalCost != null ? formatCost(entry.totalCost) : "--" },
                   { label: "Events", value: String(entry.totalEvents || 0) },
                 ].map(function (chip) {
                   return (
