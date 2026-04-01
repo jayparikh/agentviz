@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateCost, estimateMultiModelCost, formatCost } from "../lib/pricing.js";
+import { estimateCost, estimateMultiModelCost, formatCost, hasModelPricing } from "../lib/pricing.js";
 
 describe("estimateCost", function () {
   it("returns 0 for null tokenUsage", function () {
@@ -83,5 +83,27 @@ describe("formatCost", function () {
 
   it("formats dollar amounts with 2 decimals", function () {
     expect(formatCost(6.12)).toBe("$6.12");
+  });
+});
+
+describe("hasModelPricing", function () {
+  it("returns true for known Claude models", function () {
+    expect(hasModelPricing("claude-sonnet-4-20250514")).toBe(true);
+    expect(hasModelPricing("claude-3-5-haiku-20241022")).toBe(true);
+    expect(hasModelPricing("claude-opus-4")).toBe(true);
+  });
+
+  it("returns true for unknown Claude variants (fallback pricing)", function () {
+    expect(hasModelPricing("claude-next-gen-99")).toBe(true);
+  });
+
+  it("returns false for non-Claude models", function () {
+    expect(hasModelPricing("gpt-4o")).toBe(false);
+    expect(hasModelPricing("gemini-pro")).toBe(false);
+  });
+
+  it("returns false for null/undefined", function () {
+    expect(hasModelPricing(null)).toBe(false);
+    expect(hasModelPricing(undefined)).toBe(false);
   });
 });

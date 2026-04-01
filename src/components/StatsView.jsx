@@ -1,6 +1,6 @@
 import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
-import { estimateCost, estimateMultiModelCost, formatCost } from "../lib/pricing.js";
+import { estimateCost, estimateMultiModelCost, formatCost, hasModelPricing } from "../lib/pricing.js";
 import { formatDurationLong } from "../lib/formatTime.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
@@ -253,13 +253,23 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               if (!hasTokens && !hasApiCost) return null;
               // Prefer per-model breakdown from parser (accurate); fall back to event-level aggregation
               var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
-              var modelCount = perModelData ? Object.keys(perModelData).length : 0;
-              var estimated = modelCount > 1
+              var modelKeys = perModelData ? Object.keys(perModelData) : [];
+              var modelCount = modelKeys.length;
+              var pricedCount = modelKeys.filter(function (k) { return hasModelPricing(k); }).length;
+              // Use per-model pricing when available (works for single and multi-model)
+              var estimated = perModelData
                 ? estimateMultiModelCost(perModelData)
                 : estimateCost(metadata.tokenUsage, metadata.primaryModel);
-              var modelLabel = modelCount > 1
-                ? modelCount + " models"
-                : (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
+              var modelLabel;
+              if (modelCount > 1) {
+                modelLabel = pricedCount < modelCount
+                  ? pricedCount + " of " + modelCount + " models"
+                  : modelCount + " models";
+              } else if (modelCount === 1) {
+                modelLabel = modelKeys[0].split("-").slice(0, 3).join("-") + " pricing";
+              } else {
+                modelLabel = (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
+              }
               return (
               <>
               {hasApiCost && (
