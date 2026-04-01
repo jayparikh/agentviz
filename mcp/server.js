@@ -21,6 +21,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createServer } from "../server.js";
+import { getVSCodeStorageRoots, findVSCodeSessionFiles } from "../routes/sessions.js";
 import fs from "fs";
 import path from "path";
 import net from "net";
@@ -31,7 +32,7 @@ import { fileURLToPath } from "url";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var distDir = path.resolve(__dirname, "../dist");
 
-// Known session directories and how to find .jsonl files within them.
+// Known session directories and how to find supported session files within them.
 var SESSION_SOURCES = [
   {
     // Claude Code: ~/.claude/projects/<project-dir>/<uuid>.jsonl
@@ -66,7 +67,13 @@ var SESSION_SOURCES = [
       return results;
     },
   },
-];
+].concat(getVSCodeStorageRoots(os.homedir()).map(function (root) {
+  return {
+    // VS Code Copilot Chat: .../workspaceStorage/<workspace>/chatSessions/<session>.json|.jsonl
+    root: root,
+    find: findVSCodeSessionFiles,
+  };
+}));
 
 // Find the most recently modified session file across all known sources.
 function findLatestSessionFile() {
@@ -119,13 +126,13 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async function () {
     tools: [
       {
         name: "launch_agentviz",
-        description: "Open the current Claude Code session in AGENTVIZ for live visualization. Starts a local server and opens a browser window showing the session replay in real time.",
+        description: "Open the current supported session in AGENTVIZ for visualization. Starts a local server and opens a browser window showing the session replay in real time.",
         inputSchema: {
           type: "object",
           properties: {
             session_file: {
               type: "string",
-              description: "Absolute path to a specific .jsonl session file. If omitted, auto-detects the most recently active session.",
+              description: "Absolute path to a specific .jsonl or .json session file. If omitted, auto-detects the most recently active supported session.",
             },
           },
           required: [],
@@ -189,7 +196,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async function (request) {
           if (sessionFile) {
             msg += "\nStreaming: " + sessionFile;
           } else {
-            msg += "\nNo session file found -- drop a .jsonl file in the browser to load one.";
+            msg += "\nNo session file found -- drop a .jsonl or .json file in the browser to load one.";
           }
 
           resolve({ content: [{ type: "text", text: msg }] });

@@ -235,16 +235,21 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
 
   var [showAllDiscovered, setShowAllDiscovered] = useState(false);
 
-  var sortedDiscovered = useMemo(function () {
+  var filteredDiscovered = useMemo(function () {
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(discoveredEntries, q);
     if (formatFilter !== "all") {
       filtered = filtered.filter(function (e) { return e.format === formatFilter; });
     }
-    var sorted = sortByDate(filtered);
-    if (showAllDiscovered) return sorted;
-    return sorted.slice(0, 15);
-  }, [discoveredEntries, query, showAllDiscovered, formatFilter]);
+    return sortByDate(filtered);
+  }, [discoveredEntries, query, formatFilter]);
+
+  var sortedDiscovered = useMemo(function () {
+    if (showAllDiscovered) return filteredDiscovered;
+    return filteredDiscovered.slice(0, 15);
+  }, [filteredDiscovered, showAllDiscovered]);
+
+  var totalFilteredDiscovered = filteredDiscovered.length;
 
   var totalVisible = sortedParsed.length + sortedDiscovered.length;
 
@@ -348,7 +353,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           }}>
             {query
               ? "No sessions matching \"" + query + "\""
-              : <>Sessions from <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>VS Code Copilot Chat</span>, <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.copilot/session-state/</span>, and <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
+              : <>Claude Code and Copilot CLI sessions under <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> and <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.copilot/session-state/</span>, plus VS Code Copilot Chat sessions under your <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>workspaceStorage/*/chatSessions/</span> directories, are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
             }
             {!query && (onLoadSample || onStartCompare) && (
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 12 }}>
@@ -472,7 +477,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                   { label: "Autonomy", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) },
                   { label: "Human response", value: formatDurationLong(autonomy.babysittingTime) },
                   { label: "Idle", value: formatDurationLong(autonomy.idleTime) },
-                  { label: "Cost", value: formatCost(entry.totalCost || 0) },
+                  { label: "Cost", value: entry.totalCost != null ? formatCost(entry.totalCost) : "N/A" },
                   { label: "Events", value: String(entry.totalEvents || 0) },
                 ].map(function (chip) {
                   return (
@@ -507,7 +512,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             }}>
               <div style={{ flex: 1, height: 1, background: theme.border.subtle }} />
               <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>
-                Discovered ({sortedDiscovered.length}, not yet analyzed)
+                Discovered ({totalFilteredDiscovered}, not yet analyzed)
               </span>
               <div style={{ flex: 1, height: 1, background: theme.border.subtle }} />
             </div>
@@ -560,7 +565,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               );
             })}
 
-            {!showAllDiscovered && sortedDiscovered.length >= 15 && (
+            {!showAllDiscovered && totalFilteredDiscovered > 15 && (
               <button
                 className="av-btn"
                 onClick={function () { setShowAllDiscovered(true); }}

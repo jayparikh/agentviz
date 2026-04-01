@@ -10,13 +10,18 @@ function fmt(n) {
   return n.toLocaleString();
 }
 
+function fmtMetric(n) {
+  if (n == null) return "N/A";
+  return n.toLocaleString();
+}
+
 function getFilesTouched(events) {
   var paths = new Set();
   if (!events) return 0;
   for (var i = 0; i < events.length; i++) {
     var ev = events[i];
     if (ev.track === "tool_call" && ev.toolInput) {
-      var p = ev.toolInput.path || ev.toolInput.file_path || ev.toolInput.filepath;
+      var p = ev.toolInput.path || ev.toolInput.file_path || ev.toolInput.filepath || ev.toolInput.file;
       if (p && typeof p === "string") paths.add(p);
     }
   }
@@ -35,28 +40,33 @@ function getToolCounts(events) {
   return counts;
 }
 
-function buildMetrics(session) {
+export function buildMetrics(session) {
   var meta = session.metadata || {};
   var tu = meta.tokenUsage || {};
-  var isCopilot = meta.format === "copilot-cli" || meta.format === "vscode-chat";
+  var format = meta.format || "claude-code";
+  var hasTokenUsage = tu.inputTokens != null || tu.outputTokens != null || tu.cacheRead != null || tu.cacheWrite != null;
 
-  // For Copilot: use the actual billed cost from session.shutdown.modelMetrics.
-  // For Claude: estimate from token counts + pricing table.
-  // Copilot subscription users pay in PRUs, not USD -- totalCost may be 0.
-  var cost = isCopilot
-    ? (meta.totalCost || 0)
-    : estimateCost(tu, meta.primaryModel);
+  // Cost model differs by agent:
+  //   Claude Code: estimate from token counts + pricing table (USD).
+  //     Known models use exact pricing; unrecognized Claude variants use
+  //     Sonnet-class fallback (see DEFAULT_CLAUDE_PRICE in pricing.js).
+  //     Non-Claude models or missing model → null ("N/A").
+  //   Copilot CLI: actual billed cost from session.shutdown.modelMetrics (USD or PRU)
+  //   VS Code Copilot Chat: no cost data in session files; null ("N/A")
+  var cost = format === "claude-code"
+    ? (meta.primaryModel ? estimateCost(tu, meta.primaryModel) || null : null)
+    : (meta.totalCost != null ? meta.totalCost : null);
 
   return {
     model: meta.primaryModel || null,
-    format: isCopilot ? "copilot-cli" : "claude-code",
+    format: format,
     duration: session.total || 0,
     cost: cost,
-    pru: isCopilot ? (meta.premiumRequests || null) : null,
-    inputTokens: tu.inputTokens || 0,
-    outputTokens: tu.outputTokens || 0,
-    cacheRead: tu.cacheRead || 0,
-    cacheWrite: tu.cacheWrite || 0,
+    pru: format !== "claude-code" && meta.premiumRequests != null ? meta.premiumRequests : null,
+    inputTokens: hasTokenUsage ? (tu.inputTokens || 0) : null,
+    outputTokens: hasTokenUsage ? (tu.outputTokens || 0) : null,
+    cacheRead: hasTokenUsage ? (tu.cacheRead || 0) : null,
+    cacheWrite: hasTokenUsage ? (tu.cacheWrite || 0) : null,
     toolCalls: meta.totalToolCalls || 0,
     errors: meta.errorCount || 0,
     turns: meta.totalTurns || 0,
@@ -70,8 +80,9 @@ function buildMetrics(session) {
 // lowerIsBetter=true  -> negative pct is green (A wins)
 // lowerIsBetter=null  -> always grey (neutral)
 function DeltaBadge({ a, b, lowerIsBetter }) {
-  if (!a && !b) return <span style={{ color: theme.text.ghost }}>--</span>;
-  if (!b) return <span style={{ color: theme.text.ghost }}>--</span>;
+  if (a == null || b == null) return <span style={{ color: theme.text.ghost }}>--</span>;
+  if (a === 0 && b === 0) return <span style={{ color: theme.text.ghost }}>--</span>;
+  if (b === 0) return <span style={{ color: theme.text.ghost }}>--</span>;
   var pct = Math.round(((a - b) / b) * 100);
   var sign = pct > 0 ? "+" : "";
   var color = theme.text.muted;
@@ -117,7 +128,7 @@ function Row({ label, valA, valB, a, b, lowerIsBetter, indent }) {
 }
 
 function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
-  var cacheAvailable = mA.cacheRead > 0 || mB.cacheRead > 0;
+  var cacheAvailable = (mA.cacheRead || 0) > 0 || (mB.cacheRead || 0) > 0;
   var crossAgent = mA.format !== mB.format;
   var hasPRU = mA.pru !== null || mB.pru !== null;
 
@@ -125,10 +136,11 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
   // Claude uses USD estimates, Copilot uses PRUs or actual API cost.
   // Suppress the delta badge in that case.
   function costDisplay(m) {
-    if (m.pru !== null && m.cost === 0) {
+    if (m.pru !== null && (m.cost == null || m.cost === 0)) {
       // Subscription Copilot: show PRUs as the consumption metric
       return m.pru > 0 ? m.pru + " PRU" : "--";
     }
+    if (m.cost == null) return "N/A";
     return formatCost(m.cost);
   }
 
@@ -214,12 +226,12 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
         b={crossAgent ? null : mB.cost}
         lowerIsBetter={crossAgent ? null : true}
       />
-      <Row label="Input tokens"  valA={fmt(mA.inputTokens)}           valB={fmt(mB.inputTokens)}            a={mA.inputTokens} b={mB.inputTokens} lowerIsBetter={null} />
+      <Row label="Input tokens"  valA={fmtMetric(mA.inputTokens)}     valB={fmtMetric(mB.inputTokens)}      a={mA.inputTokens} b={mB.inputTokens} lowerIsBetter={null} />
       {cacheAvailable && (
-        <Row label="Cache reads"  valA={mA.cacheRead ? fmt(mA.cacheRead) : "N/A"} valB={mB.cacheRead ? fmt(mB.cacheRead) : "N/A"} a={mA.cacheRead} b={mB.cacheRead} lowerIsBetter={null} indent />
+        <Row label="Cache reads"  valA={fmtMetric(mA.cacheRead)} valB={fmtMetric(mB.cacheRead)} a={mA.cacheRead} b={mB.cacheRead} lowerIsBetter={null} indent />
       )}
       {cacheAvailable && (
-        <Row label="Cache writes" valA={mA.cacheWrite ? fmt(mA.cacheWrite) : "N/A"} valB={mB.cacheWrite ? fmt(mB.cacheWrite) : "N/A"} a={mA.cacheWrite} b={mB.cacheWrite} lowerIsBetter={null} indent />
+        <Row label="Cache writes" valA={fmtMetric(mA.cacheWrite)} valB={fmtMetric(mB.cacheWrite)} a={mA.cacheWrite} b={mB.cacheWrite} lowerIsBetter={null} indent />
       )}
       {hasPRU && (
         <Row
@@ -232,7 +244,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
           indent
         />
       )}
-      <Row label="Output tokens" valA={fmt(mA.outputTokens)}          valB={fmt(mB.outputTokens)}           a={mA.outputTokens} b={mB.outputTokens} lowerIsBetter={null} />
+      <Row label="Output tokens" valA={fmtMetric(mA.outputTokens)}    valB={fmtMetric(mB.outputTokens)}     a={mA.outputTokens} b={mB.outputTokens} lowerIsBetter={null} />
       <Row label="Tool calls"    valA={fmt(mA.toolCalls)}              valB={fmt(mB.toolCalls)}              a={mA.toolCalls}   b={mB.toolCalls}   lowerIsBetter={null} />
       <Row label="Errors"        valA={fmt(mA.errors) === "--" ? "0" : fmt(mA.errors)} valB={fmt(mB.errors) === "--" ? "0" : fmt(mB.errors)} a={mA.errors} b={mB.errors} lowerIsBetter={true} />
       <Row label="Turns"         valA={fmt(mA.turns)}                  valB={fmt(mB.turns)}                  a={mA.turns}       b={mB.turns}       lowerIsBetter={null} />

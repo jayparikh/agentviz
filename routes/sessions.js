@@ -21,7 +21,7 @@ function projectLabel(dirName) {
   return parts[parts.length - 1] || dirName;
 }
 
-function getVSCodeStorageRoots(homeDir) {
+export function getVSCodeStorageRoots(homeDir) {
   var roots = [];
   var variants = ["Code", "Code - Insiders"];
 
@@ -41,6 +41,125 @@ function getVSCodeStorageRoots(homeDir) {
     });
   }
   return roots;
+}
+
+/**
+ * Given a list of filenames, return only those that are .json or .jsonl,
+ * preferring .json when both exist for the same basename.
+ */
+export function filterSessionFiles(filenames) {
+  var jsonBaseNames = {};
+  for (var i = 0; i < filenames.length; i++) {
+    if (filenames[i].endsWith(".json")) jsonBaseNames[filenames[i].replace(/\.json$/, "")] = true;
+  }
+  var result = [];
+  for (var j = 0; j < filenames.length; j++) {
+    var f = filenames[j];
+    if (!f.endsWith(".json") && !f.endsWith(".jsonl")) continue;
+    if (f.endsWith(".jsonl") && jsonBaseNames[f.replace(/\.jsonl$/, "")]) continue;
+    result.push(f);
+  }
+  return result;
+}
+
+/**
+ * List VS Code Copilot Chat session files under a workspaceStorage root.
+ */
+export function findVSCodeSessionFiles(root) {
+  var results = [];
+  try {
+    var workspaceIds = fs.readdirSync(root);
+    for (var i = 0; i < workspaceIds.length; i++) {
+      var chatDir = path.join(root, workspaceIds[i], "chatSessions");
+      try {
+        if (!fs.statSync(chatDir).isDirectory()) continue;
+      } catch (e) {
+        continue;
+      }
+      var files = filterSessionFiles(fs.readdirSync(chatDir));
+      for (var j = 0; j < files.length; j++) {
+        results.push(path.join(chatDir, files[j]));
+      }
+    }
+  } catch (e) {}
+  return results;
+}
+
+function extractJSONFieldValue(snippet, fieldName, maxLength) {
+  if (!snippet) return null;
+  var fieldPattern = new RegExp('"' + fieldName + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.){1,' + maxLength + '})"');
+  var match = snippet.match(fieldPattern);
+  if (!match) return null;
+  try {
+    return JSON.parse('"' + match[1] + '"');
+  } catch (e) {
+    return null;
+  }
+}
+
+export function extractVSCodeCustomTitle(snippet) {
+  return extractJSONFieldValue(snippet, "customTitle", 120);
+}
+
+export function extractVSCodeSessionId(snippet) {
+  return extractJSONFieldValue(snippet, "sessionId", 200);
+}
+
+export function readVSCodeSessionPreview(filePath, fileSize) {
+  var fd = null;
+  try {
+    fd = fs.openSync(filePath, "r");
+    var headSize = Math.min(fileSize, 2048);
+    var tailSize = Math.min(fileSize, 2048);
+    var headBuf = Buffer.alloc(headSize);
+    var tailBuf = Buffer.alloc(tailSize);
+    fs.readSync(fd, headBuf, 0, headSize, 0);
+    fs.readSync(fd, tailBuf, 0, tailSize, Math.max(0, fileSize - tailSize));
+
+    var headSnippet = headBuf.toString("utf8");
+    var tailSnippet = tailBuf.toString("utf8");
+    var combinedSnippet = fileSize <= headSize ? headSnippet : headSnippet + "\n" + tailSnippet;
+
+    // sessionId is a top-level field before "requests". Truncate at the
+    // "requests" key boundary to avoid matching nested sessionId values.
+    var requestsIdx = headSnippet.indexOf('"requests"');
+    var sessionIdSnippet = requestsIdx > 0 ? headSnippet.slice(0, requestsIdx) : headSnippet.slice(0, 512);
+
+    return {
+      sessionId: extractVSCodeSessionId(sessionIdSnippet),
+      title: extractVSCodeCustomTitle(combinedSnippet),
+    };
+  } catch (e) {
+    return { sessionId: null, title: null };
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch (closeError) {}
+    }
+  }
+}
+
+export function readVSCodeCustomTitle(filePath, fileSize) {
+  return readVSCodeSessionPreview(filePath, fileSize).title;
+}
+
+function isPathInsideRoot(root, targetPath) {
+  var relative = path.relative(root, targetPath);
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+export function isAllowedSessionPath(resolvedSessionPath, homeDir) {
+  if (!homeDir) return false;
+
+  if (isPathInsideRoot(path.join(homeDir, ".claude", "projects"), resolvedSessionPath)) return true;
+  if (isPathInsideRoot(path.join(homeDir, ".copilot", "session-state"), resolvedSessionPath)) return true;
+
+  return getVSCodeStorageRoots(homeDir).some(function (root) {
+    if (!isPathInsideRoot(root, resolvedSessionPath)) return false;
+    var parts = path.relative(root, resolvedSessionPath).split(path.sep).filter(Boolean);
+    return parts.length >= 3 && parts[1] === "chatSessions";
+  });
 }
 
 export function handle(pathname, req, res, ctx) {
@@ -131,41 +250,22 @@ export function handle(pathname, req, res, ctx) {
                 wsProject = segments[segments.length - 1] || null;
               }
             } catch (e) {}
-            var dirFiles = fs.readdirSync(chatDir);
-            // Build set of .json basenames so we skip .jsonl duplicates
-            var jsonBaseNames = {};
-            dirFiles.forEach(function (f) {
-              if (f.endsWith(".json")) jsonBaseNames[f.replace(/\.json$/, "")] = true;
-            });
-            dirFiles.forEach(function (fname) {
-              var isJson = fname.endsWith(".json");
-              var isJsonl = fname.endsWith(".jsonl");
-              if (!isJson && !isJsonl) return;
-              // Skip .jsonl if a .json sibling exists (they share the same session)
-              if (isJsonl && jsonBaseNames[fname.replace(/\.jsonl$/, "")]) return;
+            var sessionFiles = filterSessionFiles(fs.readdirSync(chatDir));
+            sessionFiles.forEach(function (fname) {
               var filePath = path.join(chatDir, fname);
               try {
                 var stat = fs.statSync(filePath);
                 if (stat.size < 200) return;
                 // Quick-parse for customTitle (appears near end of file)
-                var title = null;
-                try {
-                  var fd = fs.openSync(filePath, "r");
-                  var tailSize = Math.min(stat.size, 1024);
-                  var buf = Buffer.alloc(tailSize);
-                  fs.readSync(fd, buf, 0, tailSize, Math.max(0, stat.size - tailSize));
-                  fs.closeSync(fd);
-                  var snippet = buf.toString("utf8");
-                  var titleMatch = snippet.match(/"customTitle"\s*:\s*"([^"]{1,120})"/);
-                  if (titleMatch) title = titleMatch[1];
-                } catch (e) {}
+                var preview = readVSCodeSessionPreview(filePath, stat.size);
                 results.push({
                   id: "vscode-chat:" + wsId + ":" + fname,
                   path: filePath,
                   filename: fname,
-                  file: title || fname,
-                  summary: title || null,
+                  file: preview.title || fname,
+                  summary: preview.title || null,
                   project: wsProject,
+                  sessionId: preview.sessionId,
                   format: "vscode-chat",
                   isInsiders: isInsiders,
                   size: stat.size,
@@ -199,14 +299,7 @@ export function handle(pathname, req, res, ctx) {
     }
 
     // Restrict reads to known session directories
-    var allowedRoots = [
-      path.join(home, ".claude", "projects"),
-      path.join(home, ".copilot", "session-state"),
-    ].concat(getVSCodeStorageRoots(home));
-    var isAllowed = allowedRoots.some(function (root) {
-      return resolvedSessionPath.startsWith(root + path.sep);
-    });
-    if (!home || !isAllowed) {
+    if (!isAllowedSessionPath(resolvedSessionPath, home)) {
       res.writeHead(403); res.end("Forbidden"); return true;
     }
     if (!resolvedSessionPath.endsWith(".jsonl") && !resolvedSessionPath.endsWith(".json")) {

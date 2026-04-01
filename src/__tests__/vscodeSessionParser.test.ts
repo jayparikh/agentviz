@@ -99,6 +99,10 @@ describe("parseVSCodeChatJSON", function () {
   it("extracts sessionMode", function () {
     expect(result.metadata.sessionMode).toBe("agent");
   });
+
+  it("preserves sessionId in metadata", function () {
+    expect(result.metadata.sessionId).toBe("test-vscode-session-001");
+  });
 });
 
 describe("event mapping", function () {
@@ -268,6 +272,29 @@ describe("JSONL incremental patches", function () {
     var text = JSON.stringify({ kind: 0, v: base }) + "\n" + JSON.stringify({ kind: 1, k: ["customTitle"], v: "Title Only" });
     var result = parseVSCodeChatJSON(text);
     expect(result).toBeNull();
+  });
+
+  it("ignores dangerous prototype pollution patch paths", function () {
+    var base = {
+      version: 3,
+      sessionId: "safe-session",
+      requests: [{
+        requestId: "req-1",
+        timestamp: 1772000010000,
+        message: { text: "Hello" },
+        response: [{ value: "Hi" }],
+        result: { timings: { totalElapsed: 1000 } },
+      }],
+    };
+    var text = [
+      JSON.stringify({ kind: 0, v: base }),
+      JSON.stringify({ kind: 1, k: ["__proto__", "polluted"], v: "yes" }),
+      JSON.stringify({ kind: 1, k: ["constructor", "prototype", "polluted"], v: "still-no" }),
+    ].join("\n");
+
+    var result = parseVSCodeChatJSON(text);
+    expect(result).not.toBeNull();
+    expect(({}).polluted).toBeUndefined();
   });
 });
 

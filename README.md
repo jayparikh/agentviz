@@ -66,6 +66,8 @@ ls ~/.copilot/session-state/
 # Each subdirectory is a session UUID containing an events.jsonl file
 ```
 
+VS Code Copilot Chat sessions live under your VS Code `workspaceStorage/*/chatSessions/` directories. The exact parent path depends on your OS and whether you use the stable or Insiders build.
+
 ## MCP Integration
 
 AGENTVIZ ships as an MCP server so you can open it directly from Claude Code or GitHub Copilot in VS Code without leaving your workflow. Both agents use the same `launch_agentviz` and `close_agentviz` tools.
@@ -124,7 +126,7 @@ Reload VS Code after adding the config. In Copilot Chat, use **Agent mode** and 
 
 `launch_agentviz` will:
 
-1. Auto-detect the most recently active session file (checks `~/.claude/projects/` and `~/.copilot/session-state/`)
+1. Auto-detect the most recently active session file from Claude Code, Copilot CLI, or VS Code Copilot Chat storage
 2. Start a local HTTP server on a free port
 3. Open the browser with live streaming enabled
 
@@ -139,7 +141,7 @@ To stop it, ask: "Close agentviz"
 
 ## Inbox and AI Coach
 
-When running via the CLI, AGENTVIZ automatically discovers recent sessions from `~/.copilot/session-state/` and lists them in an inbox sorted by review priority. Click any session to open it in the visualizer.
+When running via the CLI, AGENTVIZ automatically discovers recent Claude Code, Copilot CLI, and VS Code Copilot Chat sessions and lists them in an inbox sorted by review priority. Click any session to open it in the visualizer.
 
 Each session also gets an AI Coach analysis powered by the `@github/copilot-sdk` (gpt-4o). The coach reads your actual project config (`.github/copilot-instructions.md`, skills, MCP servers) and produces actionable recommendations for prompts, skills, and tooling setup. Recommendations can be applied directly with one click.
 
@@ -190,7 +192,7 @@ Export is available in two places:
 
 ### Landing View
 
-Drop zone for session files, with a demo session available instantly. When running via the CLI, the inbox is shown here instead -- auto-discovered sessions from `~/.copilot/session-state/` sorted by review priority.
+Drop zone for session files, with a demo session available instantly. When running via the CLI, the inbox is shown here instead -- auto-discovered Claude Code, Copilot CLI, and VS Code Copilot Chat sessions sorted by review priority.
 
 <div align="center">
 <img src="docs/screenshots/landing.svg" alt="Landing View" width="800" />
@@ -258,10 +260,10 @@ AI-powered session coaching available directly from any session. The coach reads
 | **Track Filters** | Toggle visibility per track type with filter chips in the header. |
 | **Playback Control** | Play/pause with variable speed (0.5x to 8x). Seek with arrow keys. |
 | **Diff Viewer** | Inline unified diff with dual-gutter line numbers for file-editing tool calls. |
-| **Auto-detect Format** | Supports Claude Code JSONL, Copilot CLI JSONL, and VS Code Copilot Chat JSON. Auto-detected. |
+| **Auto-detect Format** | Supports Claude Code JSONL, Copilot CLI JSONL, and VS Code Copilot Chat JSON or JSONL. Auto-detected. |
 | **Session Comparison** | Load two traces side by side. Scorecard and tool-usage chart with delta badges. |
 | **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
-| **Inbox Auto-discovery** | Automatically finds recent Copilot CLI and VS Code sessions and ranks them by review priority. |
+| **Inbox Auto-discovery** | Automatically finds recent Claude Code, Copilot CLI, and VS Code sessions and ranks them by review priority. |
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
 | **Session Q&A** | Slide-over drawer (`Cmd+Shift+K`) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
@@ -309,7 +311,9 @@ Modals, drawers, and overlay panels render keyboard hints with a shared `<kbd>` 
 
 | Format | File type | Auto-detected by |
 |--------|-----------|-----------------|
-| Claude Code | `.jsonl` from `~/.claude/projects/` | Default fallback || VS Code Copilot Chat | `.json` from VS Code workspaceStorage | `version` + `requests` + `sessionId` fields || Copilot CLI | `.jsonl` event traces | `session.start` with `producer: "copilot-agent"` |
+| Claude Code | `.jsonl` from `~/.claude/projects/` | Default fallback |
+| VS Code Copilot Chat | `.json` or `.jsonl` from VS Code `workspaceStorage/*/chatSessions/` | `version` + `requests` + `sessionId` fields |
+| Copilot CLI | `.jsonl` event traces | `session.start` with `producer: "copilot-agent"` |
 
 More formats planned -- see [Roadmap](#roadmap).
 

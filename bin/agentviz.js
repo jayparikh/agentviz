@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * CLI entry point: npx agentviz [session.jsonl]
+ * CLI entry point: npx agentviz [session-file]
  * Builds the SPA (if dist/ not found), starts the local server, and opens the browser.
  */
 
 import { createServer } from "../server.js";
 import { getConfiguredModel } from "../server.js";
 import { DEFAULT_API_PORT } from "../config.js";
+import { filterSessionFiles } from "../routes/sessions.js";
 import { createRequire } from "module";
 import fs from "fs";
 import path from "path";
@@ -37,15 +38,14 @@ process.on("unhandledRejection", function (reason) {
 });
 
 // -- Resolve session file from argv --
-// Accepts a .jsonl file path or a directory (picks the most recently modified .jsonl inside it).
-function findLatestJsonl(dir) {
+// Accepts a .jsonl/.json file path or a directory (picks the most recently modified session file inside it).
+function findLatestSessionFile(dir) {
   var best = null;
   var bestMtime = 0;
   try {
-    var entries = fs.readdirSync(dir);
-    for (var i = 0; i < entries.length; i++) {
-      if (!entries[i].endsWith(".jsonl")) continue;
-      var full = path.join(dir, entries[i]);
+    var sessionFiles = filterSessionFiles(fs.readdirSync(dir));
+    for (var i = 0; i < sessionFiles.length; i++) {
+      var full = path.join(dir, sessionFiles[i]);
       try {
         var mtime = fs.statSync(full).mtimeMs;
         if (mtime > bestMtime) { bestMtime = mtime; best = full; }
@@ -69,9 +69,9 @@ for (var i = 0; i < argv.length; i++) {
     }
     var stat = fs.statSync(resolved);
     if (stat.isDirectory()) {
-      sessionFile = findLatestJsonl(resolved);
+      sessionFile = findLatestSessionFile(resolved);
       if (!sessionFile) {
-        process.stderr.write("Error: no .jsonl files found in " + resolved + "\n");
+        process.stderr.write("Error: no .jsonl or .json session files found in " + resolved + "\n");
         process.exit(1);
       }
     } else {
