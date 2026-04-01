@@ -156,11 +156,13 @@ function extractGitJournal(repoDir) {
     } else {
       if (refactorArc.length >= 3) {
         // Collapse refactoring arc into a single pivot entry
+        // Use last element — git log is newest-first, so last = chronologically earliest
+        var arcAnchor = refactorArc[refactorArc.length - 1];
         entries.push({
           type: "pivot",
-          time: refactorArc[0].date,
-          hash: refactorArc[0].hash,
-          author: refactorArc[0].author,
+          time: arcAnchor.date,
+          hash: arcAnchor.hash,
+          author: arcAnchor.author,
           steeringCommand: refactorArc.length + "-phase refactoring initiative",
           whatHappened: refactorArc.map(function (c) {
             return extractSteeringCommand(c.message);
@@ -200,11 +202,12 @@ function extractGitJournal(repoDir) {
 
   // Flush any remaining refactor arc
   if (refactorArc.length >= 3) {
+    var flushAnchor = refactorArc[refactorArc.length - 1];
     entries.push({
       type: "pivot",
-      time: refactorArc[0].date,
-      hash: refactorArc[0].hash,
-      author: refactorArc[0].author,
+      time: flushAnchor.date,
+      hash: flushAnchor.hash,
+      author: flushAnchor.author,
       steeringCommand: refactorArc.length + "-phase refactoring initiative",
       whatHappened: refactorArc.map(function (c) {
         return extractSteeringCommand(c.message);
@@ -226,8 +229,10 @@ function extractGitJournal(repoDir) {
     });
   }
 
-  // Reverse to chronological order (git log is newest-first)
-  entries.reverse();
+  // Sort chronologically (git log is newest-first, plus timezone offsets need Date parsing)
+  entries.sort(function (a, b) {
+    return new Date(a.time).getTime() - new Date(b.time).getTime();
+  });
 
   return {
     entries: entries,

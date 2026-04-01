@@ -111,7 +111,7 @@ export function extractJournal(events, turns) {
 
   // ── Pass 3: Identify heavy-work milestones ─────────────────────────────
   var avgToolCount = turns.reduce(function (s, t) { return s + (t.toolCount || 0); }, 0) / Math.max(turns.length, 1);
-  var heavyThreshold = Math.max(avgToolCount * 2.5, 5);
+  var heavyThreshold = turns.length > 1 ? Math.max(avgToolCount * 2.5, 5) : 5;
 
   turns.forEach(function (turn) {
     if ((turn.toolCount || 0) < heavyThreshold) return;
