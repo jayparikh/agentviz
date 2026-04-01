@@ -34,6 +34,11 @@ function lookupPrice(modelName) {
   return null;
 }
 
+/** Returns true when we have pricing data for the given model name. */
+export function hasModelPricing(modelName) {
+  return lookupPrice(modelName) !== null;
+}
+
 /**
  * Estimate cost in USD for a tokenUsage object.
  * tokenUsage: { inputTokens, outputTokens, cacheRead, cacheWrite }
