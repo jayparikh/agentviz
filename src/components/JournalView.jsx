@@ -335,13 +335,13 @@ function RepoSummary({ repo, entryCount, sessionCount, gitCount }) {
         </span>
       )}
       <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.xs }}>·</span>
-      <span style={Object.assign({}, statStyle, { color: GIT_COLORS.milestone.color })}>
+      <span style={Object.assign({}, statStyle, { color: ENTRY_COLORS.milestone.color })}>
         ✅ {repo.releases} releases
       </span>
-      <span style={Object.assign({}, statStyle, { color: GIT_COLORS.levelup.color })}>
+      <span style={Object.assign({}, statStyle, { color: ENTRY_COLORS.levelup.color })}>
         🆙 {repo.features} features
       </span>
-      <span style={Object.assign({}, statStyle, { color: GIT_COLORS.mistake.color })}>
+      <span style={Object.assign({}, statStyle, { color: ENTRY_COLORS.mistake.color })}>
         ❌ {repo.fixes} fixes
       </span>
       <span style={Object.assign({}, statStyle, { color: theme.text.ghost })}>
