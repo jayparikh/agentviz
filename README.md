@@ -4,7 +4,7 @@
 
 **See what your AI agents actually do.**
 
-Drop a Claude Code or Copilot CLI session file and explore the agent's reasoning, tool calls, turn flow, and output through replay, tracks, waterfall, graph, and stats views. Or run it from the CLI for a live view that updates as your session unfolds.
+Drop a Claude Code, VS Code Copilot Chat, or Copilot CLI session file and explore the agent's reasoning, tool calls, turn flow, and output through replay, tracks, waterfall, graph, and stats views. Or run it from the CLI for a live view that updates as your session unfolds.
 
 [![CI](https://github.com/jayparikh/agentviz/actions/workflows/ci.yml/badge.svg)](https://github.com/jayparikh/agentviz/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/agentviz?color=blue&logo=npm)](https://www.npmjs.com/package/agentviz)
@@ -24,7 +24,7 @@ Drop a Claude Code or Copilot CLI session file and explore the agent's reasoning
 
 ## Why AGENTVIZ?
 
-AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, but reading raw JSONL is painful. AGENTVIZ turns those logs into something you can actually explore:
+AI coding agents (Claude Code, VS Code Copilot Chat, Copilot CLI, etc.) generate dense session logs, but reading raw JSONL is painful. AGENTVIZ turns those logs into something you can actually explore:
 
 - **Replay** sessions like a video, stepping through each tool call and reasoning step
 - **Trace** decision flow in a graph view with expandable turn and tool-call structure
@@ -32,7 +32,7 @@ AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, b
 - **Analyze** tool usage patterns, error rates, and model behavior at a glance
 - **Debug** failures by jumping directly between errors with one keystroke
 - **Stream live** as a session unfolds -- the view updates in real time
-- **Discover sessions** automatically from the Copilot CLI session store
+- **Discover sessions** automatically from the Copilot CLI and VS Code session stores
 - **Get AI coaching** on prompt engineering, skills, and MCP setup grounded in best practices
 - **Switch themes** between dark, light, and system-matched modes with one click
 
@@ -42,7 +42,7 @@ AI coding agents (Claude Code, Copilot CLI, etc.) generate dense session logs, b
 npx agentviz
 ```
 
-Opens AGENTVIZ in your browser. Drop a `.jsonl` session file or click **load a demo session** to try it instantly. Copilot CLI sessions are auto-discovered from `~/.copilot/session-state/`.
+Opens AGENTVIZ in your browser. Drop a `.jsonl` or `.json` session file or click **load a demo session** to try it instantly. Copilot CLI and VS Code Copilot Chat sessions are auto-discovered.
 
 ### CLI (live streaming)
 
@@ -258,10 +258,10 @@ AI-powered session coaching available directly from any session. The coach reads
 | **Track Filters** | Toggle visibility per track type with filter chips in the header. |
 | **Playback Control** | Play/pause with variable speed (0.5x to 8x). Seek with arrow keys. |
 | **Diff Viewer** | Inline unified diff with dual-gutter line numbers for file-editing tool calls. |
-| **Auto-detect Format** | Supports Claude Code and Copilot CLI JSONL. Format detected from first line. |
+| **Auto-detect Format** | Supports Claude Code JSONL, Copilot CLI JSONL, and VS Code Copilot Chat JSON. Auto-detected. |
 | **Session Comparison** | Load two traces side by side. Scorecard and tool-usage chart with delta badges. |
 | **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
-| **Inbox Auto-discovery** | Automatically finds recent Copilot CLI sessions and ranks them by review priority. |
+| **Inbox Auto-discovery** | Automatically finds recent Copilot CLI and VS Code sessions and ranks them by review priority. |
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
 | **Session Q&A** | Slide-over drawer (`Cmd+Shift+K`) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
@@ -309,8 +309,7 @@ Modals, drawers, and overlay panels render keyboard hints with a shared `<kbd>` 
 
 | Format | File type | Auto-detected by |
 |--------|-----------|-----------------|
-| Claude Code | `.jsonl` from `~/.claude/projects/` | Default fallback |
-| Copilot CLI | `.jsonl` event traces | `session.start` with `producer: "copilot-agent"` |
+| Claude Code | `.jsonl` from `~/.claude/projects/` | Default fallback || VS Code Copilot Chat | `.json` from VS Code workspaceStorage | `version` + `requests` + `sessionId` fields || Copilot CLI | `.jsonl` event traces | `session.start` with `producer: "copilot-agent"` |
 
 More formats planned -- see [Roadmap](#roadmap).
 
@@ -330,13 +329,14 @@ src/
     useFeatureFlag.js    # localStorage-backed feature flag evaluation
     useLiveStream.js     # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js    # localStorage-backed useState with debounced writes
-    useDiscoveredSessions.js # Auto-discovery of Copilot CLI sessions via /api/sessions
+    useDiscoveredSessions.js # Auto-discovery of Copilot CLI and VS Code sessions via /api/sessions
     useHashRouter.js     # Hash-based routing between inbox and session views
     useAsyncStatus.js    # Async operation state machine (idle/loading/success/error)
   lib/
     parseSession.ts      # Auto-detect format router
     parser.ts            # Claude Code JSONL parser
     copilotCliParser.ts  # Copilot CLI JSONL parser
+    vscodeSessionParser.ts # VS Code Copilot Chat JSON parser
     dataInspector.js     # Payload summary and preview helpers for inspector panels
     session.ts           # Pure helpers: getSessionTotal, buildFilteredEventEntries
     sessionLibrary.js    # localStorage-backed session library with content persistence
@@ -418,7 +418,7 @@ npx agentviz session.jsonl           # Open a specific session file
 npm start                            # Build and launch (from cloned repo)
 ```
 
-AGENTVIZ can also be launched from Claude Code or Copilot CLI via the MCP `launch_agentviz` tool.
+AGENTVIZ can also be launched from Claude Code, VS Code, or Copilot CLI via the MCP `launch_agentviz` tool.
 
 ## Development
 

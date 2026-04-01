@@ -1,6 +1,6 @@
 # AGENTVIZ
 
-Session replay visualizer for AI agent workflows (Claude Code, Copilot CLI).
+Session replay visualizer for AI agent workflows (Claude Code, VS Code Copilot Chat, Copilot CLI).
 
 ## Stack
 - React 18 + Vite 6, inline styles only, JetBrains Mono font

@@ -38,8 +38,9 @@ export var KNOWN_CONFIG_SURFACES = [
  */
 export function getRelevantSurfaces(format) {
   if (!format) return KNOWN_CONFIG_SURFACES.slice();
+  var effectiveFormat = format === "vscode-chat" ? "copilot-cli" : format;
   return KNOWN_CONFIG_SURFACES.filter(function (surface) {
-    return surface.format === format || surface.format === "both";
+    return surface.format === effectiveFormat || surface.format === "both";
   });
 }
 

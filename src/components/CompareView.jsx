@@ -38,7 +38,7 @@ function getToolCounts(events) {
 function buildMetrics(session) {
   var meta = session.metadata || {};
   var tu = meta.tokenUsage || {};
-  var isCopilot = meta.format === "copilot-cli";
+  var isCopilot = meta.format === "copilot-cli" || meta.format === "vscode-chat";
 
   // For Copilot: use the actual billed cost from session.shutdown.modelMetrics.
   // For Claude: estimate from token counts + pricing table.

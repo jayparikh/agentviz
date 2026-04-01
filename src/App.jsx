@@ -176,6 +176,7 @@ export default function App() {
           file: s.summary || s.filename,
           filename: s.filename,
           format: s.format,
+          isInsiders: s.isInsiders || false,
           project: s.project,
           repository: s.repository || null,
           branch: s.branch || null,

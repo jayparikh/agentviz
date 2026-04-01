@@ -40,7 +40,7 @@ var CONFIG_PATHS_COPILOT = [
 ];
 
 export function getConfigPathsForFormat(format) {
-  if (format === "copilot-cli") return CONFIG_PATHS_COPILOT;
+  if (format === "copilot-cli" || format === "vscode-chat") return CONFIG_PATHS_COPILOT;
   return CONFIG_PATHS_CLAUDE; // claude-code default
 }
 
@@ -294,7 +294,7 @@ var COPILOT_CLI_GUIDANCE = [
 ].join("\n");
 
 function buildSystemPrompt(format) {
-  var formatGuidance = format === "copilot-cli" ? COPILOT_CLI_GUIDANCE : CLAUDE_CODE_GUIDANCE;
+  var formatGuidance = (format === "copilot-cli" || format === "vscode-chat") ? COPILOT_CLI_GUIDANCE : CLAUDE_CODE_GUIDANCE;
   return [
     "You are an AI agent workflow coach. Your job is to:",
     "  1. Recommend changes to AI agent configuration files that fix observed problems.",
@@ -355,7 +355,9 @@ export function buildCoachPrompt(payload) {
     topTools, errorSamples, userFollowUps, existingSkills, existingMcpServers,
   } = payload;
 
-  var agentType = format === "copilot-cli" ? "GitHub Copilot CLI" : "Claude Code";
+  var agentType = format === "copilot-cli" ? "GitHub Copilot CLI"
+    : format === "vscode-chat" ? "VS Code Copilot Chat"
+    : "Claude Code";
   var configPaths = getConfigPathsForFormat(format);
   var toolList = (topTools || []).slice(0, 10).map(function (t) { return t.name + " x" + t.count; }).join(", ");
   var errors = (errorSamples || []).slice(0, 6).map(function (e, i) { return (i + 1) + ". " + e; }).join("\n");

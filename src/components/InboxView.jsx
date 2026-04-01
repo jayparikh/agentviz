@@ -14,6 +14,13 @@ var SORT_OPTIONS = [
   { id: "most-recent", label: "Most recent" },
 ];
 
+var FORMAT_OPTIONS = [
+  { id: "all", label: "All clients" },
+  { id: "claude-code", label: "Claude Code" },
+  { id: "copilot-cli", label: "Copilot CLI" },
+  { id: "vscode-chat", label: "VS Code" },
+];
+
 function sortEntries(entries, sortMode) {
   var sorted = (entries || []).slice();
 
@@ -51,13 +58,22 @@ function sortByDate(entries) {
   });
 }
 
+function formatLabel(entry) {
+  var format = typeof entry === "string" ? entry : (entry && entry.format);
+  var isInsiders = typeof entry === "object" && entry && entry.isInsiders;
+  if (format === "copilot-cli") return "Copilot CLI";
+  if (format === "vscode-chat") return isInsiders ? "VS Code Insiders" : "VS Code";
+  return "Claude Code";
+}
+
 function renderMeta(entry) {
   var parts = [
-    entry.format === "copilot-cli" ? "Copilot CLI" : "Claude Code",
+    formatLabel(entry),
     entry.project || null,
     entry.primaryModel,
     entry.repository,
     entry.branch ? "#" + entry.branch : null,
+    formatMtime(entry.updatedAt || entry.importedAt) || null,
   ].filter(Boolean);
 
   return parts.join(" \u00B7 ");
@@ -68,6 +84,17 @@ function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function formatMtime(isoString) {
+  if (!isoString) return "";
+  var d = new Date(isoString);
+  if (isNaN(d.getTime())) return "";
+  var mm = String(d.getMonth() + 1).padStart(2, "0");
+  var dd = String(d.getDate()).padStart(2, "0");
+  var hh = String(d.getHours()).padStart(2, "0");
+  var min = String(d.getMinutes()).padStart(2, "0");
+  return mm + "-" + dd + " " + hh + ":" + min;
 }
 
 function filterByQuery(entries, q) {
@@ -170,6 +197,7 @@ function CustomSelect({ ariaLabel, value, onChange, options }) {
 
 export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare }) {
   var [sortMode, setSortMode] = useState("most-recent");
+  var [formatFilter, setFormatFilter] = useState("all");
   var [query, setQuery] = useState("");
   var searchRef = useRef(null);
 
@@ -198,18 +226,25 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
   var sortedParsed = useMemo(function () {
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(parsedEntries, q);
+    if (formatFilter !== "all") {
+      filtered = filtered.filter(function (e) { return e.format === formatFilter; });
+    }
     var sorted = sortEntries(filtered, sortMode);
     return sorted;
-  }, [parsedEntries, sortMode, query]);
+  }, [parsedEntries, sortMode, query, formatFilter]);
 
   var [showAllDiscovered, setShowAllDiscovered] = useState(false);
 
   var sortedDiscovered = useMemo(function () {
     var q = query.trim().toLowerCase();
     var filtered = filterByQuery(discoveredEntries, q);
+    if (formatFilter !== "all") {
+      filtered = filtered.filter(function (e) { return e.format === formatFilter; });
+    }
     var sorted = sortByDate(filtered);
-    return showAllDiscovered ? sorted : sorted.slice(0, 15);
-  }, [discoveredEntries, query, showAllDiscovered]);
+    if (showAllDiscovered) return sorted;
+    return sorted.slice(0, 15);
+  }, [discoveredEntries, query, showAllDiscovered, formatFilter]);
 
   var totalVisible = sortedParsed.length + sortedDiscovered.length;
 
@@ -268,6 +303,12 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           )}
         </div>
         <CustomSelect
+          ariaLabel="Filter by format"
+          value={formatFilter}
+          onChange={function (val) { setFormatFilter(val); }}
+          options={FORMAT_OPTIONS}
+        />
+        <CustomSelect
           ariaLabel="Sort inbox sessions"
           value={sortMode}
           onChange={function (val) { setSortMode(val); }}
@@ -307,7 +348,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           }}>
             {query
               ? "No sessions matching \"" + query + "\""
-              : <>Sessions from <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.copilot/session-state/</span> and <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
+              : <>Sessions from <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>VS Code Copilot Chat</span>, <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.copilot/session-state/</span>, and <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
             }
             {!query && (onLoadSample || onStartCompare) && (
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 12 }}>
@@ -489,9 +530,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                       </div>
                       <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>
                         {[
-                          entry.format === "copilot-cli" ? "Copilot CLI" : "Claude Code",
+                          formatLabel(entry),
                           entry.project || null,
                           formatFileSize(entry.size),
+                          formatMtime(entry.updatedAt || entry.importedAt),
                         ].filter(Boolean).join(" \u00B7 ")}
                       </div>
                     </div>
@@ -518,7 +560,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               );
             })}
 
-            {!showAllDiscovered && discoveredEntries.length > 15 && (
+            {!showAllDiscovered && sortedDiscovered.length >= 15 && (
               <button
                 className="av-btn"
                 onClick={function () { setShowAllDiscovered(true); }}
@@ -535,7 +577,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                   marginTop: 4,
                 }}
               >
-                Show {discoveredEntries.length - 15} more discovered sessions
+                Show all discovered sessions
               </button>
             )}
           </>
