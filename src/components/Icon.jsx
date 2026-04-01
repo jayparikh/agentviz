@@ -35,6 +35,7 @@ import {
   SunMedium,
   Moon,
   Monitor,
+  BookOpen,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -74,6 +75,7 @@ var ICON_MAP = {
   sun: SunMedium,
   moon: Moon,
   monitor: Monitor,
+  "book-open": BookOpen,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {
