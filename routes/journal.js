@@ -5,11 +5,18 @@
  * and pivots from the repo's history. Returns structured journal entries
  * with the timeline format the Scribe uses.
  *
+ * Also manages the persistent steering log (.agentviz/steering-v{N}.jsonl)
+ * with safety controls: redaction of secrets/PII, retention limits per file
+ * (200 entries), versioned rotation, and opt-out via .agentviz/config.json.
+ *
  * Handles:
- *   GET /api/journal/git  — returns journal entries from git history
+ *   GET  /api/journal/git       — journal entries from git history
+ *   GET  /api/journal/steering  — persisted steering entries from the log
+ *   POST /api/journal/steering  — append a redacted steering entry to the log
  */
 
 import { execSync } from "child_process";
+import fs from "fs";
 import path from "path";
 
 // ── Commit classification ────────────────────────────────────────────────────
@@ -262,25 +269,207 @@ function extractGitJournal(repoDir) {
 
 // ── Route handler ────────────────────────────────────────────────────────────
 
-export function handle(pathname, req, res, ctx) {
-  if (pathname !== "/api/journal/git") return false;
+// ── Persistent steering log with safety controls ─────────────────────────────
 
-  if (req.method !== "GET") {
+var MAX_ENTRIES_PER_FILE = 200;
+var CURRENT_LOG_VERSION = 1;
+
+function getSteeringDir(repoDir) {
+  return path.join(repoDir, ".agentviz");
+}
+
+function getSteeringLogPath(repoDir, version) {
+  version = version || CURRENT_LOG_VERSION;
+  return path.join(getSteeringDir(repoDir), "steering-v" + version + ".jsonl");
+}
+
+function getSteeringConfig(repoDir) {
+  try {
+    var configPath = path.join(getSteeringDir(repoDir), "config.json");
+    var raw = fs.readFileSync(configPath, "utf8");
+    return JSON.parse(raw);
+  } catch (e) {
+    return {};
+  }
+}
+
+function isSteeringEnabled(repoDir) {
+  var config = getSteeringConfig(repoDir);
+  return config.steering !== false; // enabled by default, explicit false to disable
+}
+
+// ── Redaction — strip secrets before persisting ──────────────────────────────
+
+var SECRET_PATTERNS = [
+  /\b(ghp|gho|ghs|ghu|github_pat)_[A-Za-z0-9_]{16,}\b/g,  // GitHub tokens
+  /\b(sk-|pk_live_|pk_test_|sk_live_|sk_test_)[A-Za-z0-9]{20,}\b/g, // API keys
+  /\b(AKIA|ASIA)[A-Z0-9]{16}\b/g,                           // AWS keys
+  /\b[A-Za-z0-9+/]{40,}={0,2}\b/g,                          // Base64 blobs (likely keys)
+  /\bey[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/g, // JWTs
+  /\b(password|secret|token|key|credential)\s*[=:]\s*\S+/gi, // key=value secrets
+  /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g,   // emails
+];
+
+var HOME_RE = null;
+
+function getHomeRegex() {
+  if (HOME_RE) return HOME_RE;
+  try {
+    var home = process.env.HOME || process.env.USERPROFILE || "";
+    if (home) {
+      HOME_RE = new RegExp(home.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+    }
+  } catch (e) {}
+  return HOME_RE;
+}
+
+function redact(text) {
+  if (!text || typeof text !== "string") return text;
+  var result = text;
+
+  // Strip secrets
+  SECRET_PATTERNS.forEach(function (pat) {
+    result = result.replace(pat, "[REDACTED]");
+  });
+
+  // Strip home directory paths
+  var homeRe = getHomeRegex();
+  if (homeRe) {
+    result = result.replace(homeRe, "~");
+  }
+
+  return result;
+}
+
+function redactEntry(entry) {
+  return {
+    type: entry.type,
+    time: entry.time,
+    steeringCommand: redact(entry.steeringCommand),
+    whatHappened: redact(entry.whatHappened),
+    levelUp: redact(entry.levelUp),
+  };
+}
+
+// ── Read/write with versioning and retention ─────────────────────────────────
+
+function readSteeringLog(repoDir) {
+  // Read current version first, then older versions
+  var allEntries = [];
+  for (var v = CURRENT_LOG_VERSION; v >= 1; v--) {
+    var logPath = getSteeringLogPath(repoDir, v);
+    try {
+      var raw = fs.readFileSync(logPath, "utf8");
+      var entries = raw.trim().split("\n").filter(Boolean).map(function (line) {
+        try { return JSON.parse(line); } catch (e) { return null; }
+      }).filter(Boolean);
+      allEntries = allEntries.concat(entries);
+    } catch (e) {
+      // File doesn't exist, skip
+    }
+  }
+  return allEntries;
+}
+
+function appendSteeringEntry(repoDir, entry) {
+  var dir = getSteeringDir(repoDir);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  var logPath = getSteeringLogPath(repoDir, CURRENT_LOG_VERSION);
+
+  // Check retention: if current file has MAX_ENTRIES, rotate
+  try {
+    var existing = fs.readFileSync(logPath, "utf8");
+    var lineCount = existing.trim().split("\n").filter(Boolean).length;
+    if (lineCount >= MAX_ENTRIES_PER_FILE) {
+      // Rotate: bump version number by renaming current to v(N+1)
+      var nextVersion = CURRENT_LOG_VERSION + 1;
+      var archivePath = getSteeringLogPath(repoDir, nextVersion);
+      // Don't overwrite existing archives
+      if (!fs.existsSync(archivePath)) {
+        fs.renameSync(logPath, archivePath);
+      }
+    }
+  } catch (e) {
+    // File doesn't exist yet, that's fine
+  }
+
+  // Redact and write
+  var safe = redactEntry(entry);
+  var line = JSON.stringify(Object.assign({
+    contributedAt: new Date().toISOString(),
+    logVersion: CURRENT_LOG_VERSION,
+  }, safe)) + "\n";
+  fs.appendFileSync(logPath, line);
+}
+
+export function handle(pathname, req, res, ctx) {
+  // Git history route
+  if (pathname === "/api/journal/git") {
+    if (req.method !== "GET") {
+      res.writeHead(405);
+      res.end("Method not allowed");
+      return true;
+    }
+    try {
+      var repoDir = process.cwd();
+      var result = extractGitJournal(repoDir);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // Persistent steering log routes
+  if (pathname === "/api/journal/steering") {
+    if (req.method === "GET") {
+      try {
+        var entries = readSteeringLog(process.cwd());
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ entries: entries }));
+      } catch (e) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+      return true;
+    }
+
+    if (req.method === "POST") {
+      if (!isSteeringEnabled(process.cwd())) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, reason: "steering disabled in .agentviz/config.json" }));
+        return true;
+      }
+      var body = "";
+      req.on("data", function (chunk) { body += chunk; });
+      req.on("end", function () {
+        try {
+          var entry = JSON.parse(body);
+          if (!entry.steeringCommand || !entry.type) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: "steeringCommand and type are required" }));
+            return;
+          }
+          appendSteeringEntry(process.cwd(), entry);
+          res.writeHead(201, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+      return true;
+    }
+
     res.writeHead(405);
     res.end("Method not allowed");
     return true;
   }
 
-  try {
-    var repoDir = process.cwd();
-    var result = extractGitJournal(repoDir);
-
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(result));
-  } catch (e) {
-    res.writeHead(500);
-    res.end(JSON.stringify({ error: e.message }));
-  }
-
-  return true;
+  return false;
 }

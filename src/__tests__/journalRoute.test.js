@@ -143,3 +143,63 @@ describe("journal git route", function () {
     expect(journalEntries.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("journal steering route", function () {
+  it("returns false for non-matching paths", async function () {
+    var mod = await import("../../routes/journal.js");
+    var res = createMockRes();
+    var result = mod.handle("/api/other", { method: "GET" }, res, {});
+    expect(result).toBe(false);
+  });
+
+  it("GET /api/journal/steering returns entries array", async function () {
+    var mod = await import("../../routes/journal.js");
+    var res = createMockRes();
+    mod.handle("/api/journal/steering", { method: "GET" }, res, {});
+    expect(res.statusCode).toBe(200);
+    var data = JSON.parse(res.body);
+    expect(data).toHaveProperty("entries");
+    expect(Array.isArray(data.entries)).toBe(true);
+  });
+
+  it("POST /api/journal/steering redacts secrets from entries", async function () {
+    var mod = await import("../../routes/journal.js");
+    var fs = await import("fs");
+
+    // POST an entry with a fake GitHub token
+    var res = createMockRes();
+    var body = JSON.stringify({
+      type: "steering",
+      time: new Date().toISOString(),
+      steeringCommand: "Use token ghp_1234567890abcdef1234567890abcdef12345678 for auth",
+      whatHappened: "Set password=hunter2 and secret=mysecretkey123",
+      levelUp: "Learned about auth with sk-1234567890abcdef1234567890abcdef",
+    });
+
+    await new Promise(function (resolve) {
+      var mockReq = {
+        method: "POST",
+        on: function (event, cb) {
+          if (event === "data") cb(body);
+          if (event === "end") {
+            setTimeout(function () { cb(); resolve(); }, 10);
+          }
+        },
+      };
+      mod.handle("/api/journal/steering", mockReq, res, {});
+    });
+
+    // Read back and verify redaction
+    var getRes = createMockRes();
+    mod.handle("/api/journal/steering", { method: "GET" }, getRes, {});
+    var data = JSON.parse(getRes.body);
+    var latest = data.entries[data.entries.length - 1];
+
+    expect(latest.steeringCommand).toContain("[REDACTED]");
+    expect(latest.steeringCommand).not.toContain("ghp_");
+    expect(latest.whatHappened).toContain("[REDACTED]");
+    expect(latest.whatHappened).not.toContain("hunter2");
+    expect(latest.levelUp).toContain("[REDACTED]");
+    expect(latest.levelUp).not.toContain("sk-");
+  });
+});

@@ -52,19 +52,23 @@ function formatGitDay(isoDate) {
 
 function SourceBadge({ source }) {
   var isGit = source === "git";
+  var isContributed = source === "contributed";
+  var label = isGit ? "git" : isContributed ? "repo log" : "session";
+  var color = isGit ? theme.text.muted : isContributed ? "#10d97a" : theme.accent.primary;
+  var bg = isGit ? theme.bg.raised : isContributed ? "#10d97a20" : theme.accent.muted;
   return (
     <span style={{
       fontSize: 9,
       fontFamily: theme.font.mono,
-      color: isGit ? theme.text.muted : theme.accent.primary,
-      background: isGit ? theme.bg.raised : theme.accent.muted,
+      color: color,
+      background: bg,
       borderRadius: theme.radius.sm,
       padding: "1px 4px",
       textTransform: "uppercase",
       letterSpacing: 0.5,
       fontWeight: 600,
     }}>
-      {isGit ? "git" : "session"}
+      {label}
     </span>
   );
 }
@@ -142,7 +146,7 @@ function JournalRow({ entry, isSelected, onSelect }) {
         color: theme.text.primary,
         fontWeight: 500,
       })}>
-        {entry.source === "session" && (entry.type === "steering" || entry.type === "pivot") ? (
+        {(entry.source === "session" || entry.source === "contributed") && (entry.type === "steering" || entry.type === "pivot") ? (
           <span style={{ fontStyle: "italic" }}>
             &ldquo;{entry.steeringCommand}&rdquo;
           </span>
@@ -222,9 +226,9 @@ function EntryDetail({ entry, onSeek }) {
         fontWeight: 600,
         lineHeight: 1.4,
         marginBottom: theme.space.lg,
-        fontStyle: (entry.source === "session" && (entry.type === "steering" || entry.type === "pivot")) ? "italic" : "normal",
+        fontStyle: ((entry.source === "session" || entry.source === "contributed") && (entry.type === "steering" || entry.type === "pivot")) ? "italic" : "normal",
       }}>
-        {entry.source === "session" && (entry.type === "steering" || entry.type === "pivot")
+        {(entry.source === "session" || entry.source === "contributed") && (entry.type === "steering" || entry.type === "pivot")
           ? "\u201C" + entry.steeringCommand + "\u201D"
           : entry.steeringCommand}
       </div>
@@ -306,7 +310,7 @@ function EntryDetail({ entry, onSeek }) {
 
 // ── Repo summary header ──────────────────────────────────────────────────────
 
-function RepoSummary({ repo, entryCount, sessionCount, gitCount }) {
+function RepoSummary({ repo, entryCount, sessionCount, gitCount, contributedCount }) {
   if (!repo) return null;
 
   var statStyle = {
@@ -341,6 +345,11 @@ function RepoSummary({ repo, entryCount, sessionCount, gitCount }) {
       {sessionCount > 0 && (
         <span style={Object.assign({}, statStyle, { color: theme.accent.primary })}>
           {sessionCount} session
+        </span>
+      )}
+      {contributedCount > 0 && (
+        <span style={Object.assign({}, statStyle, { color: "#10d97a" })}>
+          {contributedCount} contributed
         </span>
       )}
       <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.xs }}>·</span>
@@ -471,22 +480,24 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
   var [gitData, setGitData] = useState(null);
   var [gitError, setGitError] = useState(null);
   var [gitLoading, setGitLoading] = useState(true);
+  var [steeringLog, setSteeringLog] = useState([]);
   var [selectedEntry, setSelectedEntry] = useState(null);
   var [activeFilters, setActiveFilters] = useState({});
 
-  // Fetch git history from backend
+  // Fetch git history and steering log from backend
   useEffect(function () {
     setGitLoading(true);
-    fetch("/api/journal/git")
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        setGitData(data);
-        setGitLoading(false);
-      })
-      .catch(function (err) {
-        setGitError(err.message);
-        setGitLoading(false);
-      });
+    Promise.all([
+      fetch("/api/journal/git").then(function (r) { return r.json(); }).catch(function () { return null; }),
+      fetch("/api/journal/steering").then(function (r) { return r.json(); }).catch(function () { return { entries: [] }; }),
+    ]).then(function (results) {
+      setGitData(results[0]);
+      setSteeringLog(results[1] ? results[1].entries : []);
+      setGitLoading(false);
+    }).catch(function (err) {
+      setGitError(err.message);
+      setGitLoading(false);
+    });
   }, []);
 
   // Extract session-level entries
@@ -499,15 +510,58 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     return normalizeSessionEntries(sessionEntries);
   }, [sessionEntries]);
 
-  // Merge git + session entries into unified timeline
+  // Auto-contribute session steering to persistent log (deduped)
+  useEffect(function () {
+    if (normalizedSessionEntries.length === 0) return;
+    var steeringToContribute = normalizedSessionEntries.filter(function (e) {
+      return e.type === "steering" || e.type === "pivot";
+    });
+    if (steeringToContribute.length === 0) return;
+
+    // Check which ones are already contributed (by matching steeringCommand text)
+    var existingCommands = new Set(steeringLog.map(function (e) { return e.steeringCommand; }));
+    var newEntries = steeringToContribute.filter(function (e) {
+      return !existingCommands.has(e.steeringCommand);
+    });
+    if (newEntries.length === 0) return;
+
+    // Contribute each new entry
+    Promise.all(newEntries.map(function (entry) {
+      return fetch("/api/journal/steering", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: entry.type,
+          time: entry.time,
+          steeringCommand: entry.steeringCommand,
+          whatHappened: entry.whatHappened,
+          levelUp: entry.levelUp,
+        }),
+      });
+    })).then(function () {
+      // Refresh the steering log
+      return fetch("/api/journal/steering").then(function (r) { return r.json(); });
+    }).then(function (data) {
+      setSteeringLog(data.entries || []);
+    }).catch(function () {});
+  }, [normalizedSessionEntries, steeringLog]);
+
+  // Normalize contributed steering entries
+  var contributedEntries = useMemo(function () {
+    return steeringLog.map(function (e) {
+      return Object.assign({}, e, { source: "contributed" });
+    });
+  }, [steeringLog]);
+
+  // Merge all three sources into unified timeline
   var allEntries = useMemo(function () {
     var gitEntries = (gitData && gitData.entries) ? gitData.entries.map(function (e) {
       return Object.assign({}, e, { source: "git" });
     }) : [];
-    return gitEntries.concat(normalizedSessionEntries);
-  }, [gitData, normalizedSessionEntries]);
+    return gitEntries.concat(contributedEntries).concat(normalizedSessionEntries);
+  }, [gitData, contributedEntries, normalizedSessionEntries]);
 
-  // Count by type across both sources
+  // Count by type across all sources
   var entryCounts = useMemo(function () {
     var c = {};
     allEntries.forEach(function (e) {
@@ -523,9 +577,10 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     });
   }, [allEntries, activeFilters]);
 
-  // Session count for summary
+  // Counts per source
   var sessionCount = normalizedSessionEntries.length;
   var gitCount = (gitData && gitData.entries) ? gitData.entries.length : 0;
+  var contributedCount = contributedEntries.length;
 
   function handleToggleFilter(typeId) {
     setActiveFilters(function (prev) {
@@ -534,6 +589,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
       return next;
     });
   }
+
 
   // Loading state
   if (gitLoading) {
@@ -598,7 +654,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     <ResizablePanel initialSplit={0.65} minPx={300} direction="horizontal" storageKey="agentviz:journal-split">
       {/* Left: Unified timeline table */}
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        <RepoSummary repo={gitData ? gitData.repo : null} entryCount={filteredEntries.length} sessionCount={sessionCount} gitCount={gitCount} />
+        <RepoSummary repo={gitData ? gitData.repo : null} entryCount={filteredEntries.length} sessionCount={sessionCount} gitCount={gitCount} contributedCount={contributedCount} />
         <GitFilterBar activeFilters={activeFilters} onToggle={handleToggleFilter} counts={entryCounts} />
 
         <div style={{ flex: 1, overflowY: "auto" }}>
