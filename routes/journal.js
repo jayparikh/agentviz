@@ -80,6 +80,17 @@ function extractSteeringCommand(message) {
   return cleaned || message;
 }
 
+// ── Author normalization ─────────────────────────────────────────────────────
+
+var AUTHOR_MAP = {
+  "Paul Yuknewicz": "paulyuk",
+  "dependabot[bot]": "dependabot",
+};
+
+function normalizeAuthor(name) {
+  return AUTHOR_MAP[name] || name;
+}
+
 // ── Git log parsing ──────────────────────────────────────────────────────────
 
 function parseGitLog(repoDir) {
@@ -93,7 +104,7 @@ function parseGitLog(repoDir) {
       return {
         hash: parts[0],
         date: parts[1],
-        author: parts[2],
+        author: normalizeAuthor(parts[2]),
         message: parts.slice(3).join("|"),
       };
     });
