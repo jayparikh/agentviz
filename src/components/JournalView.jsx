@@ -6,7 +6,7 @@
  * steering moments, level-ups, and mistakes from the loaded AI session.
  */
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { theme } from "../lib/theme.js";
 import { extractJournal, JOURNAL_TYPES } from "../lib/journalExtractor.js";
 import { formatTime } from "../lib/formatTime.js";
@@ -510,9 +510,13 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     return normalizeSessionEntries(sessionEntries);
   }, [sessionEntries]);
 
-  // Auto-contribute session steering to persistent log (deduped)
+  // Auto-contribute session steering to persistent log (once per session load)
+  var hasContributed = useRef(false);
   useEffect(function () {
+    if (hasContributed.current) return;
     if (normalizedSessionEntries.length === 0) return;
+    if (gitLoading) return; // wait until steering log is loaded
+
     var steeringToContribute = normalizedSessionEntries.filter(function (e) {
       return e.type === "steering" || e.type === "pivot";
     });
@@ -523,7 +527,12 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     var newEntries = steeringToContribute.filter(function (e) {
       return !existingCommands.has(e.steeringCommand);
     });
-    if (newEntries.length === 0) return;
+    if (newEntries.length === 0) {
+      hasContributed.current = true;
+      return;
+    }
+
+    hasContributed.current = true;
 
     // Contribute each new entry
     Promise.all(newEntries.map(function (entry) {
@@ -544,7 +553,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     }).then(function (data) {
       setSteeringLog(data.entries || []);
     }).catch(function () {});
-  }, [normalizedSessionEntries, steeringLog]);
+  }, [normalizedSessionEntries, steeringLog, gitLoading]);
 
   // Normalize contributed steering entries
   var contributedEntries = useMemo(function () {
