@@ -51,6 +51,21 @@ export function estimateCost(tokenUsage, modelName) {
 }
 
 /**
+ * Estimate cost across multiple models by pricing each model's tokens at its own rate.
+ * modelTokenMap: { [modelName]: { inputTokens, outputTokens, cacheRead, cacheWrite } }
+ * Returns 0 if no models have recognized pricing.
+ */
+export function estimateMultiModelCost(modelTokenMap) {
+  if (!modelTokenMap) return 0;
+  var total = 0;
+  var keys = Object.keys(modelTokenMap);
+  for (var i = 0; i < keys.length; i++) {
+    total += estimateCost(modelTokenMap[keys[i]], keys[i]);
+  }
+  return total;
+}
+
+/**
  * Format a cost in USD for display.
  * < $0.01  -> "<$0.01"
  * < $1     -> "$0.XX"

@@ -1,6 +1,6 @@
 import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
-import { estimateCost, formatCost } from "../lib/pricing.js";
+import { estimateCost, estimateMultiModelCost, formatCost } from "../lib/pricing.js";
 import { formatDurationLong } from "../lib/formatTime.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
@@ -79,14 +79,25 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
 
   // Aggregate token usage per turn
   var turnTokenMap = {};
+  var modelTokenMap = {};
   events.forEach(function (e) {
-    if (e.tokenUsage && e.turnIndex !== undefined) {
-      var t = turnTokenMap[e.turnIndex] || { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
-      t.inputTokens += e.tokenUsage.inputTokens || 0;
-      t.outputTokens += e.tokenUsage.outputTokens || 0;
-      t.cacheRead += e.tokenUsage.cacheRead || 0;
-      t.cacheWrite += e.tokenUsage.cacheWrite || 0;
-      turnTokenMap[e.turnIndex] = t;
+    if (e.tokenUsage) {
+      if (e.turnIndex !== undefined) {
+        var t = turnTokenMap[e.turnIndex] || { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
+        t.inputTokens += e.tokenUsage.inputTokens || 0;
+        t.outputTokens += e.tokenUsage.outputTokens || 0;
+        t.cacheRead += e.tokenUsage.cacheRead || 0;
+        t.cacheWrite += e.tokenUsage.cacheWrite || 0;
+        turnTokenMap[e.turnIndex] = t;
+      }
+      // Bucket by model; fall back to primaryModel for events without a model field
+      var modelKey = e.model || (metadata && metadata.primaryModel) || "__unknown__";
+      var m = modelTokenMap[modelKey] || { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
+      m.inputTokens += e.tokenUsage.inputTokens || 0;
+      m.outputTokens += e.tokenUsage.outputTokens || 0;
+      m.cacheRead += e.tokenUsage.cacheRead || 0;
+      m.cacheWrite += e.tokenUsage.cacheWrite || 0;
+      modelTokenMap[modelKey] = m;
     }
   });
 
@@ -236,19 +247,50 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 )}
               </div>
             )}
-            {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
+            {(function () {
+              var hasTokens = metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0;
+              var hasApiCost = metadata.totalCost != null;
+              if (!hasTokens && !hasApiCost) return null;
+              // Prefer per-model breakdown from parser (accurate); fall back to event-level aggregation
+              var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
+              var modelCount = perModelData ? Object.keys(perModelData).length : 0;
+              var estimated = modelCount > 1
+                ? estimateMultiModelCost(perModelData)
+                : estimateCost(metadata.tokenUsage, metadata.primaryModel);
+              var modelLabel = modelCount > 1
+                ? modelCount + " models"
+                : (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
+              return (
+              <>
+              {hasApiCost && (
+              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+                  Cost
+                </div>
+                <div style={{ fontSize: theme.fontSize.lg, color: theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
+                  {formatCost(metadata.totalCost)}
+                </div>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2 }}>
+                  reported by API
+                </div>
+              </div>
+              )}
+              {estimated > 0 && (
               <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
                   Est. Cost
                 </div>
-                <div style={{ fontSize: theme.fontSize.lg, color: theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
-                  {formatCost(estimateCost(metadata.tokenUsage, metadata.primaryModel))}
+                <div style={{ fontSize: theme.fontSize.lg, color: hasApiCost ? theme.text.muted : theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
+                  {formatCost(estimated)}
                 </div>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2 }}>
-                  based on {metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default"} pricing
+                  based on {modelLabel}
                 </div>
               </div>
-            )}
+              )}
+              </>
+              );
+            })()}
             {Object.keys(metadata.models).length > 1 && (
               <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>

@@ -419,6 +419,21 @@ describe("metadata", function () {
   it("computes total cost", function () {
     expect(meta.totalCost).toBe(1);
   });
+
+  it("provides per-model token breakdown", function () {
+    expect(meta.modelTokenUsage).not.toBeNull();
+    expect(meta.modelTokenUsage["claude-opus-4.6"]).toBeDefined();
+    expect(meta.modelTokenUsage["claude-opus-4.6"].inputTokens).toBe(5000);
+    expect(meta.modelTokenUsage["claude-opus-4.6"].outputTokens).toBe(150);
+    expect(meta.modelTokenUsage["claude-opus-4.6"].cacheRead).toBe(3000);
+  });
+
+  it("returns null totalCost and modelTokenUsage when no shutdown data", function () {
+    var traceNoShutdown = [SESSION_START, USER_MSG, TURN_START, ASSISTANT_MSG_WITH_REASONING, TOOL_START, TOOL_COMPLETE, TURN_END];
+    var parsed = parseCopilotCliJSONL(buildTrace(traceNoShutdown));
+    expect(parsed.metadata.totalCost).toBeNull();
+    expect(parsed.metadata.modelTokenUsage).toBeNull();
+  });
 });
 
 // ---- Parser: additional event types ----

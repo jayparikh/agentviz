@@ -539,10 +539,13 @@ function buildMetadata(
   let totalOutputTokens = 0;
   let totalCacheReadTokens = 0;
   let totalCacheWriteTokens = 0;
-  let totalCost = 0;
+  let totalCost: number | null = null;
+  let modelTokenUsage: Record<string, { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number }> | null = null;
 
   if (sessionShutdown && sessionShutdown.modelMetrics) {
     const modelMetrics = sessionShutdown.modelMetrics;
+    totalCost = 0;
+    modelTokenUsage = {};
     for (const model of Object.keys(modelMetrics)) {
       const metric = modelMetrics[model];
       if (metric.usage) {
@@ -550,6 +553,12 @@ function buildMetadata(
         totalOutputTokens += metric.usage.outputTokens || 0;
         totalCacheReadTokens += metric.usage.cacheReadTokens || 0;
         totalCacheWriteTokens += metric.usage.cacheWriteTokens || 0;
+        modelTokenUsage[model] = {
+          inputTokens: metric.usage.inputTokens || 0,
+          outputTokens: metric.usage.outputTokens || 0,
+          cacheRead: metric.usage.cacheReadTokens || 0,
+          cacheWrite: metric.usage.cacheWriteTokens || 0,
+        };
       }
       if (metric.requests) {
         totalCost += metric.requests.cost || 0;
@@ -607,6 +616,7 @@ function buildMetadata(
     premiumRequests: sessionShutdown ? sessionShutdown.totalPremiumRequests : null,
     totalApiDurationMs: sessionShutdown ? sessionShutdown.totalApiDurationMs : null,
     totalCost,
+    modelTokenUsage,
   };
 }
 

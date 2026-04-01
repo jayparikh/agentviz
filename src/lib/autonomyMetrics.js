@@ -45,10 +45,8 @@ function isContinuationMessage(text) {
 
 export function getSessionCost(metadata) {
   if (!metadata) return null;
-  if (metadata.format === "copilot-cli" || metadata.format === "vscode-chat") {
-    return metadata.totalCost != null ? metadata.totalCost : null;
-  }
-  // Claude Code: only estimate when model is recognized (avoid fabricating $0.00)
+  if (metadata.totalCost != null) return metadata.totalCost;
+  // Claude Code: estimate when model is recognized (avoid fabricating $0.00)
   if (!metadata.primaryModel) return null;
   return estimateCost(metadata.tokenUsage, metadata.primaryModel) || null;
 }

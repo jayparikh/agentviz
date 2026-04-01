@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { theme, alpha } from "../lib/theme.js";
-import { estimateCost, formatCost } from "../lib/pricing.js";
+import { formatCost } from "../lib/pricing.js";
 import { formatDurationLong as formatDuration } from "../lib/formatTime.js";
-import { buildAutonomyMetrics, formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
+import { buildAutonomyMetrics, formatAutonomyEfficiency, getSessionCost } from "../lib/autonomyMetrics.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
 
 function fmt(n) {
@@ -46,16 +46,8 @@ export function buildMetrics(session) {
   var format = meta.format || "claude-code";
   var hasTokenUsage = tu.inputTokens != null || tu.outputTokens != null || tu.cacheRead != null || tu.cacheWrite != null;
 
-  // Cost model differs by agent:
-  //   Claude Code: estimate from token counts + pricing table (USD).
-  //     Known models use exact pricing; unrecognized Claude variants use
-  //     Sonnet-class fallback (see DEFAULT_CLAUDE_PRICE in pricing.js).
-  //     Non-Claude models or missing model → null ("N/A").
-  //   Copilot CLI: actual billed cost from session.shutdown.modelMetrics (USD or PRU)
-  //   VS Code Copilot Chat: no cost data in session files; null ("N/A")
-  var cost = format === "claude-code"
-    ? (meta.primaryModel ? estimateCost(tu, meta.primaryModel) || null : null)
-    : (meta.totalCost != null ? meta.totalCost : null);
+  // Cost: use API-reported cost when available, fall back to estimate for Claude Code.
+  var cost = getSessionCost(meta);
 
   return {
     model: meta.primaryModel || null,
