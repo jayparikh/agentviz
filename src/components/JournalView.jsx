@@ -1,23 +1,27 @@
 /**
- * JournalView — The narrative view: tells the story of a repo's evolution.
+ * JournalView — The narrative view: tells the story of a repo AND its sessions.
  *
- * Fetches git history from the backend and renders it as a Scribe-style
- * timeline table with steering commands, what happened, and level-up moments.
- * Also shows session-level narrative when a session is loaded.
+ * Merges git history with session-level narrative into a unified Scribe-style
+ * timeline. Git entries show the repo's evolution; session entries show
+ * steering moments, level-ups, and mistakes from the loaded AI session.
  */
 
 import { useState, useMemo, useEffect } from "react";
 import { theme } from "../lib/theme.js";
-import { extractJournal, computeJournalStats, JOURNAL_TYPES } from "../lib/journalExtractor.js";
+import { extractJournal, JOURNAL_TYPES } from "../lib/journalExtractor.js";
+import { formatTime } from "../lib/formatTime.js";
 import ResizablePanel from "./ResizablePanel.jsx";
+import Icon from "./Icon.jsx";
 
-// ── Type colors for git entries ──────────────────────────────────────────────
+// ── Unified type palette (covers both git and session entries) ───────────────
 
-var GIT_COLORS = {
+var ENTRY_COLORS = {
   milestone: { color: "#a78bfa", emoji: "✅", label: "Release" },
-  levelup:   { color: "#10d97a", emoji: "🆙", label: "Feature" },
-  pivot:     { color: "#eab308", emoji: "🔄", label: "Refactor" },
+  levelup:   { color: "#10d97a", emoji: "🆙", label: "Level-Up" },
+  pivot:     { color: "#eab308", emoji: "🔄", label: "Pivot" },
   mistake:   { color: "#f43f5e", emoji: "❌", label: "Fix" },
+  steering:  { color: "#6475e8", emoji: "🎯", label: "Steering" },
+  insight:   { color: "#06b6d4", emoji: "💡", label: "Insight" },
 };
 
 // ── Format git date to readable string ───────────────────────────────────────
@@ -44,10 +48,31 @@ function formatGitDay(isoDate) {
   }
 }
 
+// ── Source badge (Git vs Session) ─────────────────────────────────────────────
+
+function SourceBadge({ source }) {
+  var isGit = source === "git";
+  return (
+    <span style={{
+      fontSize: 9,
+      fontFamily: theme.font.mono,
+      color: isGit ? theme.text.muted : theme.accent.primary,
+      background: isGit ? theme.bg.raised : theme.accent.muted,
+      borderRadius: theme.radius.sm,
+      padding: "1px 4px",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontWeight: 600,
+    }}>
+      {isGit ? "git" : "session"}
+    </span>
+  );
+}
+
 // ── Type badge ───────────────────────────────────────────────────────────────
 
-function TypeBadge({ type, source }) {
-  var info = source === "git" ? (GIT_COLORS[type] || GIT_COLORS.levelup) : (JOURNAL_TYPES[type] || JOURNAL_TYPES.insight);
+function TypeBadge({ type }) {
+  var info = ENTRY_COLORS[type] || ENTRY_COLORS.levelup;
   return (
     <span style={{
       display: "inline-flex",
@@ -73,7 +98,7 @@ function TypeBadge({ type, source }) {
 // ── Scribe-style timeline table row ──────────────────────────────────────────
 
 function JournalRow({ entry, isSelected, onSelect }) {
-  var info = GIT_COLORS[entry.type] || GIT_COLORS.levelup;
+  var info = ENTRY_COLORS[entry.type] || ENTRY_COLORS.levelup;
   var cellStyle = {
     padding: "8px 10px",
     fontSize: theme.fontSize.sm,
@@ -104,9 +129,12 @@ function JournalRow({ entry, isSelected, onSelect }) {
         {formatGitDate(entry.time)}
       </td>
 
-      {/* Type */}
-      <td style={Object.assign({}, cellStyle, { width: 90 })}>
-        <TypeBadge type={entry.type} source="git" />
+      {/* Source + Type */}
+      <td style={Object.assign({}, cellStyle, { width: 110 })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <TypeBadge type={entry.type} />
+          <SourceBadge source={entry.source} />
+        </div>
       </td>
 
       {/* Steering Command */}
@@ -118,6 +146,11 @@ function JournalRow({ entry, isSelected, onSelect }) {
         {entry.author && (
           <span style={{ color: theme.text.ghost, fontWeight: 400, marginLeft: 6, fontSize: theme.fontSize.xs }}>
             — {entry.author}
+          </span>
+        )}
+        {entry.turnLabel && (
+          <span style={{ color: theme.text.ghost, fontWeight: 400, marginLeft: 6, fontSize: theme.fontSize.xs }}>
+            — {entry.turnLabel}
           </span>
         )}
       </td>
@@ -135,9 +168,9 @@ function JournalRow({ entry, isSelected, onSelect }) {
   );
 }
 
-// ── Detail panel for selected git entry ──────────────────────────────────────
+// ── Detail panel for selected entry (git or session) ─────────────────────────
 
-function GitEntryDetail({ entry }) {
+function EntryDetail({ entry, onSeek }) {
   if (!entry) {
     return (
       <div style={{
@@ -159,7 +192,7 @@ function GitEntryDetail({ entry }) {
     );
   }
 
-  var info = GIT_COLORS[entry.type] || GIT_COLORS.levelup;
+  var info = ENTRY_COLORS[entry.type] || ENTRY_COLORS.levelup;
 
   return (
     <div style={{
@@ -169,9 +202,10 @@ function GitEntryDetail({ entry }) {
       height: "100%",
     }}>
       {/* Header */}
-      <div style={{ marginBottom: theme.space.lg }}>
-        <TypeBadge type={entry.type} source="git" />
-        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginLeft: 8 }}>
+      <div style={{ marginBottom: theme.space.lg, display: "flex", alignItems: "center", gap: 8 }}>
+        <TypeBadge type={entry.type} />
+        <SourceBadge source={entry.source} />
+        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
           {formatGitDate(entry.time)}
         </span>
       </div>
@@ -200,7 +234,7 @@ function GitEntryDetail({ entry }) {
         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
           What Happened
         </div>
-        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, lineHeight: 1.7 }}>
+        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.secondary, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
           {entry.whatHappened}
         </div>
       </div>
@@ -215,7 +249,7 @@ function GitEntryDetail({ entry }) {
         </div>
       </div>
 
-      {/* Commit info */}
+      {/* Commit info (git entries) */}
       {entry.hash && (
         <div style={{
           marginTop: theme.space.xl,
@@ -230,13 +264,40 @@ function GitEntryDetail({ entry }) {
           </div>
         </div>
       )}
+
+      {/* Seek button (session entries) */}
+      {entry.source === "session" && entry.seekTime != null && onSeek && (
+        <button
+          onClick={function () { onSeek(entry.seekTime); }}
+          style={{
+            marginTop: theme.space.xl,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 12px",
+            background: theme.bg.raised,
+            border: "1px solid " + theme.border.default,
+            borderRadius: theme.radius.md,
+            color: theme.accent.primary,
+            fontFamily: theme.font.mono,
+            fontSize: theme.fontSize.xs,
+            cursor: "pointer",
+            transition: "background " + theme.transition.fast,
+          }}
+          onMouseEnter={function (e) { e.currentTarget.style.background = theme.bg.hover; }}
+          onMouseLeave={function (e) { e.currentTarget.style.background = theme.bg.raised; }}
+        >
+          <Icon name="play" size={11} />
+          Jump to this moment in Replay
+        </button>
+      )}
     </div>
   );
 }
 
 // ── Repo summary header ──────────────────────────────────────────────────────
 
-function RepoSummary({ repo, entryCount }) {
+function RepoSummary({ repo, entryCount, sessionCount, gitCount }) {
   if (!repo) return null;
 
   var statStyle = {
@@ -263,6 +324,16 @@ function RepoSummary({ repo, entryCount }) {
         📖 {repo.name}
       </span>
       <span style={statStyle}>{entryCount} moments</span>
+      {gitCount > 0 && (
+        <span style={Object.assign({}, statStyle, { color: theme.text.ghost })}>
+          {gitCount} git
+        </span>
+      )}
+      {sessionCount > 0 && (
+        <span style={Object.assign({}, statStyle, { color: theme.accent.primary })}>
+          {sessionCount} session
+        </span>
+      )}
       <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.xs }}>·</span>
       <span style={Object.assign({}, statStyle, { color: GIT_COLORS.milestone.color })}>
         ✅ {repo.releases} releases
@@ -295,9 +366,10 @@ function GitFilterBar({ activeFilters, onToggle, counts }) {
       padding: "6px 16px",
       borderBottom: "1px solid " + theme.border.subtle,
       flexShrink: 0,
+      flexWrap: "wrap",
     }}>
-      {Object.keys(GIT_COLORS).map(function (typeId) {
-        var info = GIT_COLORS[typeId];
+      {Object.keys(ENTRY_COLORS).map(function (typeId) {
+        var info = ENTRY_COLORS[typeId];
         var count = counts[typeId] || 0;
         if (count === 0) return null;
         var isActive = activeFilters[typeId] !== false;
@@ -329,6 +401,35 @@ function GitFilterBar({ activeFilters, onToggle, counts }) {
   );
 }
 
+// ── Normalize session entries to unified shape ───────────────────────────────
+
+function normalizeSessionEntries(sessionEntries) {
+  return sessionEntries.map(function (e) {
+    var info = JOURNAL_TYPES[e.type] || JOURNAL_TYPES.insight;
+    return {
+      type: e.type,
+      time: new Date(Date.now() - (e.time != null ? (86400 - e.time) * 1000 : 0)).toISOString(),
+      source: "session",
+      steeringCommand: e.title,
+      whatHappened: e.detail,
+      levelUp: synthesizeSessionLevelUp(e),
+      seekTime: e.time,
+      turnLabel: "Turn " + e.turnIndex,
+      _sortTime: e.time != null ? e.time : 0,
+    };
+  });
+}
+
+function synthesizeSessionLevelUp(entry) {
+  if (entry.type === "steering") return "Human redirected the AI — steering is where taste lives";
+  if (entry.type === "levelup") return "Recovered from failure — resilience is a capability";
+  if (entry.type === "mistake") return "Honest about what broke — failures teach more than successes";
+  if (entry.type === "pivot") return "Multiple redirections signal a search for the right approach";
+  if (entry.type === "milestone") return "Work shipped — momentum matters";
+  if (entry.type === "insight") return "Discovery moment — the AI found something worth noting";
+  return "Progress made";
+}
+
 // ── Main JournalView ─────────────────────────────────────────────────────────
 
 export default function JournalView({ events, turns, metadata, onSeek }) {
@@ -353,28 +454,43 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
       });
   }, []);
 
-  // Also extract session-level entries (secondary)
+  // Extract session-level entries
   var sessionEntries = useMemo(function () {
     return extractJournal(events || [], turns || []);
   }, [events, turns]);
 
-  // Git entry counts for filters
-  var gitCounts = useMemo(function () {
-    if (!gitData || !gitData.entries) return {};
+  // Normalize session entries to unified shape
+  var normalizedSessionEntries = useMemo(function () {
+    return normalizeSessionEntries(sessionEntries);
+  }, [sessionEntries]);
+
+  // Merge git + session entries into unified timeline
+  var allEntries = useMemo(function () {
+    var gitEntries = (gitData && gitData.entries) ? gitData.entries.map(function (e) {
+      return Object.assign({}, e, { source: "git" });
+    }) : [];
+    return gitEntries.concat(normalizedSessionEntries);
+  }, [gitData, normalizedSessionEntries]);
+
+  // Count by type across both sources
+  var entryCounts = useMemo(function () {
     var c = {};
-    gitData.entries.forEach(function (e) {
+    allEntries.forEach(function (e) {
       c[e.type] = (c[e.type] || 0) + 1;
     });
     return c;
-  }, [gitData]);
+  }, [allEntries]);
 
-  // Filtered git entries
-  var filteredGitEntries = useMemo(function () {
-    if (!gitData || !gitData.entries) return [];
-    return gitData.entries.filter(function (e) {
+  // Filter
+  var filteredEntries = useMemo(function () {
+    return allEntries.filter(function (e) {
       return activeFilters[e.type] !== false;
     });
-  }, [gitData, activeFilters]);
+  }, [allEntries, activeFilters]);
+
+  // Session count for summary
+  var sessionCount = normalizedSessionEntries.length;
+  var gitCount = (gitData && gitData.entries) ? gitData.entries.length : 0;
 
   function handleToggleFilter(typeId) {
     setActiveFilters(function (prev) {
@@ -397,14 +513,14 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
         fontSize: theme.fontSize.sm,
         gap: 8,
       }}>
-        <span style={{ fontSize: 20, animation: "spin 1s linear infinite" }}>📖</span>
+        <span style={{ fontSize: 20 }}>📖</span>
         <span>Reading repo history...</span>
       </div>
     );
   }
 
-  // Error or no git data
-  if (gitError || !gitData || !gitData.entries || gitData.entries.length === 0) {
+  // No data at all
+  if (allEntries.length === 0) {
     return (
       <div style={{
         display: "flex",
@@ -419,9 +535,9 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
         textAlign: "center",
       }}>
         <span style={{ fontSize: 40, opacity: 0.4 }}>📖</span>
-        <span style={{ fontSize: theme.fontSize.md }}>No repo history found</span>
+        <span style={{ fontSize: theme.fontSize.md }}>No journal entries found</span>
         <span style={{ color: theme.text.ghost, maxWidth: 400 }}>
-          {gitError || "Run agentviz from inside a git repository to see its evolution story"}
+          {gitError || "Run agentviz from inside a git repo, or load a session with steering moments"}
         </span>
       </div>
     );
@@ -445,10 +561,10 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
 
   return (
     <ResizablePanel initialSplit={0.65} minPx={300} direction="horizontal" storageKey="agentviz:journal-split">
-      {/* Left: Scribe-style timeline table */}
+      {/* Left: Unified timeline table */}
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        <RepoSummary repo={gitData.repo} entryCount={filteredGitEntries.length} />
-        <GitFilterBar activeFilters={activeFilters} onToggle={handleToggleFilter} counts={gitCounts} />
+        <RepoSummary repo={gitData ? gitData.repo : null} entryCount={filteredEntries.length} sessionCount={sessionCount} gitCount={gitCount} />
+        <GitFilterBar activeFilters={activeFilters} onToggle={handleToggleFilter} counts={entryCounts} />
 
         <div style={{ flex: 1, overflowY: "auto" }}>
           <table style={{
@@ -459,16 +575,16 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
             <thead>
               <tr>
                 <th style={thStyle}>Time</th>
-                <th style={thStyle}>Type</th>
+                <th style={thStyle}>Source</th>
                 <th style={thStyle}>Steering Command</th>
                 <th style={thStyle}>Level-Up 🆙</th>
               </tr>
             </thead>
             <tbody>
-              {filteredGitEntries.map(function (entry, i) {
+              {filteredEntries.map(function (entry, i) {
                 return (
                   <JournalRow
-                    key={entry.hash + "-" + i}
+                    key={(entry.hash || entry.type) + "-" + i}
                     entry={entry}
                     isSelected={selectedEntry === entry}
                     onSelect={setSelectedEntry}
@@ -486,7 +602,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
         borderLeft: "1px solid " + theme.border.subtle,
         height: "100%",
       }}>
-        <GitEntryDetail entry={selectedEntry} />
+        <EntryDetail entry={selectedEntry} onSeek={onSeek} />
       </div>
     </ResizablePanel>
   );
