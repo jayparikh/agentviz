@@ -142,7 +142,13 @@ function JournalRow({ entry, isSelected, onSelect }) {
         color: theme.text.primary,
         fontWeight: 500,
       })}>
-        {entry.steeringCommand}
+        {entry.source === "session" && (entry.type === "steering" || entry.type === "pivot") ? (
+          <span style={{ fontStyle: "italic" }}>
+            &ldquo;{entry.steeringCommand}&rdquo;
+          </span>
+        ) : (
+          entry.steeringCommand
+        )}
         {entry.author && (
           <span style={{ color: theme.text.ghost, fontWeight: 400, marginLeft: 6, fontSize: theme.fontSize.xs }}>
             — {entry.author}
@@ -216,8 +222,11 @@ function EntryDetail({ entry, onSeek }) {
         fontWeight: 600,
         lineHeight: 1.4,
         marginBottom: theme.space.lg,
+        fontStyle: (entry.source === "session" && (entry.type === "steering" || entry.type === "pivot")) ? "italic" : "normal",
       }}>
-        {entry.steeringCommand}
+        {entry.source === "session" && (entry.type === "steering" || entry.type === "pivot")
+          ? "\u201C" + entry.steeringCommand + "\u201D"
+          : entry.steeringCommand}
       </div>
 
       {/* Accent line */}
@@ -406,11 +415,13 @@ function GitFilterBar({ activeFilters, onToggle, counts }) {
 function normalizeSessionEntries(sessionEntries) {
   return sessionEntries.map(function (e) {
     var info = JOURNAL_TYPES[e.type] || JOURNAL_TYPES.insight;
+    // For steering entries, use the full user message as the steering command
+    var command = (e.type === "steering" || e.type === "pivot") ? (e.detail || e.title) : e.title;
     return {
       type: e.type,
       time: new Date(Date.now() - (e.time != null ? (86400 - e.time) * 1000 : 0)).toISOString(),
       source: "session",
-      steeringCommand: e.title,
+      steeringCommand: command,
       whatHappened: e.detail,
       levelUp: synthesizeSessionLevelUp(e),
       seekTime: e.time,
@@ -421,12 +432,36 @@ function normalizeSessionEntries(sessionEntries) {
 }
 
 function synthesizeSessionLevelUp(entry) {
-  if (entry.type === "steering") return "Human redirected the AI — steering is where taste lives";
-  if (entry.type === "levelup") return "Recovered from failure — resilience is a capability";
-  if (entry.type === "mistake") return "Honest about what broke — failures teach more than successes";
-  if (entry.type === "pivot") return "Multiple redirections signal a search for the right approach";
-  if (entry.type === "milestone") return "Work shipped — momentum matters";
-  if (entry.type === "insight") return "Discovery moment — the AI found something worth noting";
+  var text = (entry.detail || entry.title || "").toLowerCase();
+
+  if (entry.type === "steering") {
+    // Extract specific insight from what they steered toward
+    if (text.indexOf("instead") !== -1 || text.indexOf("switch") !== -1) return "Changed direction — chose a different approach";
+    if (text.indexOf("don't") !== -1 || text.indexOf("stop") !== -1) return "Set a boundary — knowing what NOT to do is taste";
+    if (text.indexOf("try") !== -1 || text.indexOf("actually") !== -1) return "Course correction — refined the approach";
+    if (text.indexOf("wrong") !== -1 || text.indexOf("fix") !== -1) return "Quality gate — caught an issue and redirected";
+    if (text.indexOf("repo") !== -1 || text.indexOf("git") !== -1) return "Pivoted to repo-level narrative";
+    if (text.indexOf("test") !== -1 || text.indexOf("eval") !== -1) return "Raised the quality bar — demanded verification";
+    return "Human steered the AI — taste shaped the outcome";
+  }
+  if (entry.type === "levelup") {
+    if (text.indexOf("recover") !== -1) return "Recovered from failure — resilience is a capability";
+    return "Overcame a challenge — proved adaptability";
+  }
+  if (entry.type === "mistake") {
+    var errorSnippet = (entry.title || "").substring(0, 40);
+    return "Hit a wall: " + errorSnippet + " — learned from it";
+  }
+  if (entry.type === "pivot") return "Rapid redirections — searching for the right approach";
+  if (entry.type === "milestone") {
+    if (text.indexOf("started") !== -1) return "Session kicked off — intent established";
+    if (text.indexOf("ended") !== -1) return "Session complete — work delivered";
+    return "Milestone reached — momentum matters";
+  }
+  if (entry.type === "insight") {
+    var insightSnippet = (entry.title || "").substring(0, 50);
+    return "Discovered: " + insightSnippet;
+  }
   return "Progress made";
 }
 
