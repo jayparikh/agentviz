@@ -1,7 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { buildAutonomyMetrics, formatAutonomyEfficiency, getNeedsReviewScore } from "../lib/autonomyMetrics.js";
+import { buildAutonomyMetrics, formatAutonomyEfficiency, getNeedsReviewScore, getSessionCost } from "../lib/autonomyMetrics.js";
 
 describe("autonomy metrics", function () {
+  it("treats missing Copilot or VS Code cost data as unknown", function () {
+    expect(getSessionCost({ format: "copilot-cli" })).toBeNull();
+    expect(getSessionCost({ format: "vscode-chat" })).toBeNull();
+  });
+
+  it("returns null for Claude Code with unknown model", function () {
+    expect(getSessionCost({ format: "claude-code", primaryModel: null })).toBeNull();
+    expect(getSessionCost({ format: "claude-code" })).toBeNull();
+  });
+
+  it("returns null for non-Claude model (e.g. GPT)", function () {
+    expect(getSessionCost({
+      format: "claude-code",
+      primaryModel: "gpt-4o",
+      tokenUsage: { inputTokens: 1000, outputTokens: 1000 },
+    })).toBeNull();
+  });
+
+  it("estimates cost for Claude Code with recognized model", function () {
+    var cost = getSessionCost({
+      format: "claude-code",
+      primaryModel: "claude-sonnet-4-20250514",
+      tokenUsage: { inputTokens: 1000000, outputTokens: 100000 },
+    });
+    expect(cost).toBeGreaterThan(0);
+  });
+
+  it("uses fallback pricing for unrecognized Claude variant", function () {
+    var cost = getSessionCost({
+      format: "claude-code",
+      primaryModel: "claude-99-mega-20260101",
+      tokenUsage: { inputTokens: 1000000, outputTokens: 100000 },
+    });
+    expect(cost).toBeGreaterThan(0);
+  });
+
   it("derives babysitting, idle time, interventions, and efficiency from session gaps", function () {
     var events = [
       { t: 0, duration: 1, agent: "user", track: "output", text: "start" },

@@ -20,6 +20,7 @@ type VSCodeRequest = Record<string, any>;
 type VSCodeSession = Record<string, any>;
 
 const MAX_TEXT_LENGTH = 4000;
+const DANGEROUS_KEY_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
 
 function truncate(value: string | null | undefined, max: number): string {
   if (!value) return "";
@@ -59,6 +60,7 @@ function unwrapJsonl(text: string): VSCodeSession | null {
       const patch = JSON.parse(lines[i]);
       const keyPath: (string | number)[] = patch.k;
       if (!Array.isArray(keyPath) || keyPath.length === 0) continue;
+      if (keyPath.some(function (segment) { return DANGEROUS_KEY_SEGMENTS.has(String(segment)); })) continue;
 
       if (patch.kind === 1) {
         // Set: navigate to parent, set last key
@@ -468,6 +470,7 @@ function buildMetadata(
     primaryModel: modelEntries.length > 0 ? modelEntries[0][0] : null,
     tokenUsage: null, // VS Code does not log token counts
     format: "vscode-chat",
+    sessionId: typeof session.sessionId === "string" ? session.sessionId : undefined,
     customTitle: session.customTitle || undefined,
     sessionMode: (session.mode && session.mode.id) || undefined,
   };
