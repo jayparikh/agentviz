@@ -273,7 +273,7 @@ AI-powered session coaching available directly from any session. The coach reads
 
 Open the drawer with `Cmd+Shift+K` (or via the command palette). Questions are routed through a two-tier system:
 
-1. **Instant answers** -- a local classifier matches 9 common patterns and responds immediately from session data, with no API call:
+1. **Instant answers** -- a local classifier matches 20 common patterns and responds immediately from session data, with no API call:
 
    | Pattern | Example question |
    |---------|-----------------|
@@ -282,12 +282,29 @@ Open the drawer with `Cmd+Shift+K` (or via the command palette). Questions are r
    | Duration | "how long did this take?" |
    | Models | "what model was used?" |
    | Turns | "how many turns?" |
-   | Longest tool | "which tool took the longest?" |
    | Cost | "how much did this cost?" |
    | File edits | "what files were edited?" |
    | Summary | "summarize this session" |
+   | Commands | "what commands were run?" |
+   | Turn range | "what happened in turns 5-10?" |
+   | First/last turn | "what was the first thing done?" |
+   | User messages | "what did the user ask?" |
+   | Tool detail | "how many times was bash used?" |
+   | File detail | "what changes were made to auth.ts?" |
+   | Event count | "how many events?" |
+   | Format | "what format is this session?" |
 
-2. **Model fallback** -- anything the classifier can't match is sent to the Copilot SDK (configurable model, see [Configuration](#configuration)) with full session context for an AI-generated answer.
+2. **Model fallback** -- anything the classifier can't match is sent to the Copilot SDK with question-aware context. The context is tailored to the question topic (error questions get error samples, file questions get file operations, domain questions get keyword-matched tool call evidence). A precomputed session index provides full-session timeline context even for very large sessions.
+
+**Additional features:**
+
+- **Persistent history** -- Q&A conversations survive session navigation via localStorage. Return to a session and your prior Q&A is restored. The Clear button resets it.
+- **Answer caching** -- Model answers are cached by question fingerprint. Rephrased questions get the same cached answer in <1ms, even across page reloads.
+- **Thinking bubble** -- A green animated indicator shows while the model processes, with rotating labels ("Thinking", "Analyzing session", "Building answer").
+- **Stop button** -- Abort a streaming response mid-flight. Partial answers are preserved.
+- **Answer timing** -- Every answer shows how long it took: "instant 1ms", "cached 0ms", or "answered in 12.3s".
+- **Markdown rendering** -- Answers render with bullet lists, numbered lists, tables, headers, bold, code spans, and clickable `[Turn N]` links.
+- **Session rotation** -- After 6 model questions, a compact recap of prior Q&A is injected so the model retains conversational context.
 
 > **Feature flag:** Session Q&A is experimental. Enable it with `localStorage.setItem('agentviz:flag:qa', 'true')` in the browser console.
 

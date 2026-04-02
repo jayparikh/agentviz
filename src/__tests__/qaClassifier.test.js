@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classify, buildModelContext } from "../lib/qaClassifier.js";
+import { classify, buildModelContext, getSessionIndex, searchToolIndex } from "../lib/qaClassifier.js";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -384,5 +384,191 @@ describe("buildModelContext", function () {
   it("includes user messages", function () {
     var ctx = buildModelContext("explain", SESSION);
     expect(ctx.userMessages).toContain("Fix the bug");
+  });
+});
+
+// ── New classifier patterns ────────────────────────────────────────────────
+
+describe("classify: files", function () {
+  it("answers 'what files were edited?'", function () {
+    var s = makeSession({ events: [
+      { t: 0, track: "tool_call", toolName: "edit", toolInput: '{"file_path":"src/auth.ts"}', turnIndex: 0, isError: false },
+      { t: 1, track: "tool_call", toolName: "Read", toolInput: '{"path":"README.md"}', turnIndex: 0, isError: false },
+    ]});
+    var r = classify("What files were edited?", s);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("src/auth.ts");
+  });
+
+  it("reports no files when none found", function () {
+    var s = makeSession({ events: [] });
+    var r = classify("Which files were modified?", s);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("No file operations");
+  });
+});
+
+describe("classify: commands", function () {
+  it("answers 'what commands were run?'", function () {
+    var s = makeSession({ events: [
+      { t: 0, track: "tool_call", toolName: "bash", toolInput: '{"command":"npm test"}', turnIndex: 0, isError: false },
+      { t: 1, track: "tool_call", toolName: "bash", toolInput: '{"command":"git status"}', turnIndex: 1, isError: false },
+    ]});
+    var r = classify("What commands were run?", s);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("npm test");
+    expect(r.answer).toContain("git status");
+  });
+
+  it("answers 'list bash commands'", function () {
+    var r = classify("List all bash commands", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+});
+
+describe("classify: turn range", function () {
+  it("answers 'what happened in turns 0-1?'", function () {
+    var r = classify("What happened in turns 0-1?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("Turn 0");
+    expect(r.answer).toContain("Turn 1");
+  });
+
+  it("handles out-of-bounds range", function () {
+    var r = classify("What happened in turns 5-10?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("out of bounds");
+  });
+});
+
+describe("classify: first/last turn", function () {
+  it("answers 'what was the first thing done?'", function () {
+    var r = classify("What was the first thing done?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("Turn 0");
+  });
+
+  it("answers 'what was the last turn?'", function () {
+    var r = classify("What was the last turn?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("Turn 1");
+  });
+});
+
+describe("classify: format", function () {
+  it("answers 'what format is this session?'", function () {
+    var r = classify("What format is this session?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("claude-code");
+  });
+});
+
+describe("classify: user messages", function () {
+  it("answers 'what did the user ask?'", function () {
+    var r = classify("What did the user ask?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("Fix the bug");
+    expect(r.answer).toContain("Try again");
+  });
+});
+
+describe("classify: event count", function () {
+  it("answers 'how many events?'", function () {
+    var r = classify("How many events are there?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("6 event");
+  });
+});
+
+describe("classify: tool detail", function () {
+  it("answers 'how many times was bash used?'", function () {
+    var r = classify("How many times was bash used?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("bash");
+    expect(r.answer).toContain("3");
+  });
+
+  it("reports when tool not found", function () {
+    var r = classify("How many times was python used?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("not used");
+  });
+});
+
+// ── Session index ───────────────────────────────────────────────────────────
+
+describe("getSessionIndex", function () {
+  it("builds tool index from events", function () {
+    var index = getSessionIndex("test-idx-" + Date.now(), SESSION);
+    expect(index).toBeTruthy();
+    expect(index.toolIndex).toBeTruthy();
+    expect(index.toolIndex["bash"]).toBeTruthy();
+    expect(index.toolIndex["bash"].length).toBe(3);
+    expect(index.toolIndex["bash"][0].turn).toBe(0);
+  });
+
+  it("builds chunk summaries", function () {
+    var index = getSessionIndex("test-chunks-" + Date.now(), SESSION);
+    expect(index.chunks).toBeTruthy();
+    expect(index.chunks.length).toBeGreaterThan(0);
+    expect(index.chunks[0].turns).toBeDefined();
+    expect(index.chunks[0].eventCount).toBeGreaterThan(0);
+  });
+
+  it("extracts clean snippets from toolInput objects", function () {
+    var s = makeSession({ events: [
+      { t: 0, track: "tool_call", toolName: "kusto", text: "", toolInput: { query: "StormEvents | take 10" }, isError: false, turnIndex: 0 },
+    ]});
+    var index = getSessionIndex("test-snippet-" + Date.now(), s);
+    expect(index.toolIndex["kusto"][0].snippet).toContain("StormEvents");
+  });
+
+  it("chunks use single-pass bucketing (no O(n*m) filter)", function () {
+    // Build a session with 1000 events across 100 turns
+    var events = [];
+    var turns = [];
+    for (var t = 0; t < 100; t++) {
+      turns.push({ index: t, startTime: t, endTime: t + 1, eventIndices: [], userMessage: t === 0 ? "start" : null, toolCount: 0, hasError: false });
+      for (var e = 0; e < 10; e++) {
+        events.push({ t: t * 10 + e, track: "tool_call", toolName: "bash", text: "cmd " + e, toolInput: "", isError: false, turnIndex: t, duration: 1, intensity: 0.5 });
+      }
+    }
+    var s = makeSession({ events: events, turns: turns });
+    var index = getSessionIndex("test-perf-" + Date.now(), s);
+    // Verify all events are accounted for in chunks
+    var totalChunkEvents = index.chunks.reduce(function (sum, c) { return sum + c.eventCount; }, 0);
+    expect(totalChunkEvents).toBe(1000);
+  });
+});
+
+describe("searchToolIndex", function () {
+  it("finds tools by name", function () {
+    var index = getSessionIndex("test-search-" + Date.now(), SESSION);
+    var results = searchToolIndex(index, "bash");
+    expect(results.length).toBe(3);
+    expect(results[0].turn).toBe(0);
+  });
+
+  it("finds tools by snippet content", function () {
+    var s = makeSession({ events: [
+      { t: 0, track: "tool_call", toolName: "powershell", text: "", toolInput: { command: "Get-AzureKusto" }, isError: false, turnIndex: 0 },
+    ]});
+    var index = getSessionIndex("test-snippet-search-" + Date.now(), s);
+    var results = searchToolIndex(index, "kusto");
+    expect(results.length).toBe(1);
+  });
+
+  it("returns empty for no match", function () {
+    var index = getSessionIndex("test-nomatch-" + Date.now(), SESSION);
+    var results = searchToolIndex(index, "nonexistent");
+    expect(results.length).toBe(0);
+  });
+
+  it("sorts results by turn index", function () {
+    var index = getSessionIndex("test-sort-" + Date.now(), SESSION);
+    var results = searchToolIndex(index, "bash");
+    for (var i = 1; i < results.length; i++) {
+      expect(results[i].turn).toBeGreaterThanOrEqual(results[i - 1].turn);
+    }
   });
 });

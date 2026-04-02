@@ -11,43 +11,160 @@ import Icon from "./Icon.jsx";
 import useQA from "../hooks/useQA.js";
 import KeyboardHint from "./ui/KeyboardHint.jsx";
 
-var TURN_REF_RE = /\[Turns?\s*#?\s*(\d+(?:\s*[-,]\s*\d+)*)\]/gi;
+// Bracketed turn references: [Turn 0], [Turns 0-5], [Turn 0, Turn 5], [Turn 0 and Turn 2]
+var BRACKETED_TURN_RE = /\[Turns?\s*#?\s*[\d][\d\s,\-\u2013andTurn#]*/gi;
+// Unbracketed: Turn 5, turn 3 (case insensitive)
+var UNBRACKETED_TURN_RE = /Turn\s*#?\s*(\d+)/gi;
 var BOLD_RE = /\*\*(.+?)\*\*/g;
+var CODE_RE = /`([^`]+)`/g;
+
+function expandTurnNums(body) {
+  var nums = [];
+  var segments = body.split(/,|\band\b/);
+  for (var i = 0; i < segments.length; i++) {
+    var seg = segments[i].trim();
+    var rangeMatch = seg.match(/(?:Turns?\s*#?\s*)?(\d+)\s*[-\u2013]\s*(?:Turn\s*#?\s*)?(\d+)/i);
+    if (rangeMatch) {
+      var lo = parseInt(rangeMatch[1], 10);
+      var hi = parseInt(rangeMatch[2], 10);
+      for (var n = lo; n <= hi; n++) nums.push(n);
+      continue;
+    }
+    var singleMatch = seg.match(/(?:Turns?\s*#?\s*)?(\d+)/i);
+    if (singleMatch) nums.push(parseInt(singleMatch[1], 10));
+  }
+  return nums;
+}
 
 /**
- * Parse text into parts: turn refs, bold spans, and plain text.
+ * Parse text into parts: turn refs, bold spans, code spans, and plain text.
  */
 function parseMessageContent(text) {
-  // First pass: split on turn refs
+  // Collect all turn reference markers with position info
+  var markers = [];
+
+  // Pass 1: bracketed groups
+  BRACKETED_TURN_RE.lastIndex = 0;
+  var bm;
+  while ((bm = BRACKETED_TURN_RE.exec(text)) !== null) {
+    var close = text.indexOf("]", bm.index);
+    if (close === -1) continue;
+    var full = text.substring(bm.index, close + 1);
+    var body = full.slice(1, -1);
+    var nums = expandTurnNums(body);
+    if (nums.length > 0) {
+      markers.push({ start: bm.index, end: close + 1, label: full, turns: nums });
+    }
+    BRACKETED_TURN_RE.lastIndex = close + 1;
+  }
+
+  // Pass 2: unbracketed "Turn N" not already inside a bracketed group
+  UNBRACKETED_TURN_RE.lastIndex = 0;
+  var um;
+  while ((um = UNBRACKETED_TURN_RE.exec(text)) !== null) {
+    var inside = markers.some(function (m) { return um.index >= m.start && um.index < m.end; });
+    if (inside) continue;
+    markers.push({ start: um.index, end: UNBRACKETED_TURN_RE.lastIndex, label: um[0], turns: [parseInt(um[1], 10)] });
+  }
+
+  markers.sort(function (a, b) { return a.start - b.start; });
+
+  // Build turn-ref parts
   var turnParts = [];
   var last = 0;
-  var match;
-  TURN_REF_RE.lastIndex = 0;
-  while ((match = TURN_REF_RE.exec(text)) !== null) {
-    if (match.index > last) turnParts.push({ type: "text", value: text.slice(last, match.index) });
-    var nums = match[1].split(/\s*[,\-]\s*/).map(Number).filter(function (n) { return !isNaN(n); });
-    turnParts.push({ type: "ref", label: match[0], turns: nums });
-    last = match.index + match[0].length;
+  for (var i = 0; i < markers.length; i++) {
+    var m = markers[i];
+    if (m.start > last) turnParts.push({ type: "text", value: text.substring(last, m.start) });
+    turnParts.push({ type: "ref", label: m.label, turns: m.turns });
+    last = m.end;
   }
-  if (last < text.length) turnParts.push({ type: "text", value: text.slice(last) });
+  if (last < text.length) turnParts.push({ type: "text", value: text.substring(last) });
 
-  // Second pass: split text nodes on **bold**
+  // Second pass: split text nodes on **bold** and `code`
   var result = [];
-  for (var i = 0; i < turnParts.length; i++) {
-    var part = turnParts[i];
+  for (var j = 0; j < turnParts.length; j++) {
+    var part = turnParts[j];
     if (part.type !== "text") { result.push(part); continue; }
-    var str = part.value;
-    var bLast = 0;
-    BOLD_RE.lastIndex = 0;
-    var bMatch;
-    while ((bMatch = BOLD_RE.exec(str)) !== null) {
-      if (bMatch.index > bLast) result.push({ type: "text", value: str.slice(bLast, bMatch.index) });
-      result.push({ type: "bold", value: bMatch[1] });
-      bLast = bMatch.index + bMatch[0].length;
-    }
-    if (bLast < str.length) result.push({ type: "text", value: str.slice(bLast) });
+    splitFormattedText(part.value, result);
   }
   return result;
+}
+
+function splitFormattedText(str, out) {
+  // Combine bold and code into a single pass using alternation
+  var RE = /\*\*(.+?)\*\*|`([^`]+)`/g;
+  var last = 0;
+  var match;
+  while ((match = RE.exec(str)) !== null) {
+    if (match.index > last) out.push({ type: "text", value: str.slice(last, match.index) });
+    if (match[1] != null) {
+      out.push({ type: "bold", value: match[1] });
+    } else {
+      out.push({ type: "code", value: match[2] });
+    }
+    last = RE.lastIndex;
+  }
+  if (last < str.length) out.push({ type: "text", value: str.slice(last) });
+}
+
+var THINKING_LABELS = ["Thinking", "Analyzing session", "Building answer"];
+
+function ThinkingIndicator({ phase }) {
+  var [dotCount, setDotCount] = useState(0);
+  var [labelIdx, setLabelIdx] = useState(0);
+
+  useEffect(function () {
+    var dotTimer = setInterval(function () {
+      setDotCount(function (prev) { return (prev + 1) % 4; });
+    }, 400);
+    var labelTimer = setInterval(function () {
+      setLabelIdx(function (prev) { return (prev + 1) % THINKING_LABELS.length; });
+    }, 3000);
+    return function () { clearInterval(dotTimer); clearInterval(labelTimer); };
+  }, []);
+
+  var label = phase === "connecting" ? "Connecting to AI"
+    : phase === "streaming" ? "Receiving answer"
+    : THINKING_LABELS[labelIdx];
+  var dots = ".".repeat(dotCount);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, color: theme.accent.primary, fontSize: theme.fontSize.sm }}>
+      <span style={{
+        display: "inline-flex", gap: 3,
+      }}>
+        {[0, 1, 2].map(function (i) {
+          return (
+            <span key={i} style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: theme.accent.primary,
+              opacity: dotCount === i || dotCount === 3 ? 1 : 0.25,
+              transition: "opacity 200ms ease",
+            }} />
+          );
+        })}
+      </span>
+      <span>{label}{dots}</span>
+    </div>
+  );
+}
+
+function ThinkingBubble({ isStreaming, hasAnswerBubble, streamPhase }) {
+  // Show when model is working but no answer bubble exists yet
+  if (!isStreaming || hasAnswerBubble) return null;
+
+  return (
+    <div style={{
+      background: "rgba(34, 197, 94, 0.08)",
+      border: "1px solid rgba(34, 197, 94, 0.2)",
+      borderRadius: theme.radius.lg,
+      padding: "10px 12px",
+      alignSelf: "flex-start",
+      maxWidth: "92%",
+    }}>
+      <ThinkingIndicator phase={streamPhase} />
+    </div>
+  );
 }
 
 function SuggestedChips({ sessionData, onAsk }) {
@@ -89,12 +206,201 @@ function SuggestedChips({ sessionData, onAsk }) {
   );
 }
 
+function renderParts(parts, onSeekTurn) {
+  return parts.map(function (part, i) {
+    if (part.type === "ref") {
+      return (
+        <button
+          key={i}
+          className="av-btn"
+          aria-label={"Jump to " + part.label.replace(/[\[\]]/g, "")}
+          onClick={function () {
+            if (onSeekTurn && part.turns.length) onSeekTurn(part.turns[0]);
+          }}
+          style={{
+            display: "inline",
+            background: theme.accent.muted,
+            color: theme.accent.primary,
+            border: "none",
+            borderRadius: theme.radius.full,
+            fontFamily: theme.font.mono,
+            fontSize: theme.fontSize.sm,
+            padding: "1px 6px",
+            cursor: "pointer",
+            fontWeight: 600,
+          }}
+        >
+          {part.label.replace(/[\[\]]/g, "")}
+        </button>
+      );
+    }
+    if (part.type === "bold") {
+      return <strong key={i} style={{ color: theme.text.primary, fontWeight: 600 }}>{part.value}</strong>;
+    }
+    if (part.type === "code") {
+      return <code key={i} style={{ background: alpha(theme.text.primary, 0.08), borderRadius: 3, padding: "1px 4px", fontSize: theme.fontSize.sm }}>{part.value}</code>;
+    }
+    return <span key={i}>{part.value}</span>;
+  });
+}
+
+function MarkdownContent({ text, onSeekTurn }) {
+  if (!text) return null;
+  var lines = text.split("\n");
+  var elements = [];
+  var listItems = [];
+  var tableRows = [];
+
+  function flushList() {
+    if (listItems.length === 0) return;
+    elements.push(
+      <ul key={"ul-" + elements.length} style={{ margin: "4px 0", paddingLeft: 18 }}>
+        {listItems.map(function (item, j) {
+          return <li key={j} style={{ marginBottom: 2 }}>{renderParts(parseMessageContent(item), onSeekTurn)}</li>;
+        })}
+      </ul>
+    );
+    listItems = [];
+  }
+
+  function flushTable() {
+    if (tableRows.length === 0) return;
+    // Separate header, separator, and data rows
+    var header = null;
+    var dataRows = [];
+    for (var r = 0; r < tableRows.length; r++) {
+      var row = tableRows[r].trim();
+      // Skip separator rows like |---|---|
+      if (/^\|[\s\-:|]+\|$/.test(row)) continue;
+      if (!header) {
+        header = row;
+      } else {
+        dataRows.push(row);
+      }
+    }
+    if (!header) { tableRows = []; return; }
+
+    function parseCells(row) {
+      return row.split("|").filter(function (c, ci, arr) { return ci > 0 && ci < arr.length - 1; }).map(function (c) { return c.trim(); });
+    }
+
+    var headerCells = parseCells(header);
+
+    elements.push(
+      <div key={"tbl-" + elements.length} style={{ overflowX: "auto", margin: "6px 0" }}>
+        <table style={{ borderCollapse: "collapse", fontSize: theme.fontSize.sm, width: "100%" }}>
+          <thead>
+            <tr>
+              {headerCells.map(function (cell, k) {
+                return <th key={k} style={{
+                  border: "1px solid " + alpha(theme.text.muted, 0.2),
+                  padding: "4px 8px",
+                  textAlign: "left",
+                  fontWeight: 600,
+                  background: alpha(theme.text.muted, 0.08),
+                  whiteSpace: "nowrap",
+                }}>{renderParts(parseMessageContent(cell), onSeekTurn)}</th>;
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {dataRows.map(function (row, j) {
+              var cells = parseCells(row);
+              return (
+                <tr key={j}>
+                  {cells.map(function (cell, k) {
+                    return <td key={k} style={{
+                      border: "1px solid " + alpha(theme.text.muted, 0.15),
+                      padding: "4px 8px",
+                      textAlign: "left",
+                    }}>{renderParts(parseMessageContent(cell), onSeekTurn)}</td>;
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+    tableRows = [];
+  }
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.trim();
+
+    // Table row
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      flushList();
+      tableRows.push(trimmed);
+      continue;
+    } else {
+      flushTable();
+    }
+
+    // List item (- or *)
+    var listMatch = trimmed.match(/^[-*]\s+(.*)/);
+    if (listMatch) {
+      flushTable();
+      listItems.push(listMatch[1]);
+      continue;
+    } else {
+      flushList();
+    }
+
+    // Numbered list (1. 2. etc)
+    var numMatch = trimmed.match(/^\d+\.\s+(.*)/);
+    if (numMatch) {
+      listItems.push(numMatch[1]);
+      continue;
+    } else if (listItems.length > 0 && !listMatch) {
+      flushList();
+    }
+
+    // Empty line
+    if (!trimmed) {
+      elements.push(<div key={"br-" + i} style={{ height: 6 }} />);
+      continue;
+    }
+
+    // Section headers (## and ###)
+    var h3Match = trimmed.match(/^###\s+(.*)/);
+    if (h3Match) {
+      flushList(); flushTable();
+      elements.push(<div key={"h3-" + i} style={{ fontWeight: 600, fontSize: theme.fontSize.sm, color: theme.text.primary, marginTop: 8, marginBottom: 2 }}>{renderParts(parseMessageContent(h3Match[1]), onSeekTurn)}</div>);
+      continue;
+    }
+    var h2Match = trimmed.match(/^##\s+(.*)/);
+    if (h2Match) {
+      flushList(); flushTable();
+      elements.push(<div key={"h2-" + i} style={{ fontWeight: 700, fontSize: theme.fontSize.base, color: theme.text.primary, marginTop: 10, marginBottom: 2 }}>{renderParts(parseMessageContent(h2Match[1]), onSeekTurn)}</div>);
+      continue;
+    }
+    var h1Match = trimmed.match(/^#\s+(.*)/);
+    if (h1Match) {
+      flushList(); flushTable();
+      elements.push(<div key={"h1-" + i} style={{ fontWeight: 700, fontSize: theme.fontSize.md, color: theme.text.primary, marginTop: 12, marginBottom: 4 }}>{renderParts(parseMessageContent(h1Match[1]), onSeekTurn)}</div>);
+      continue;
+    }
+
+    // Regular text line
+    var parts = parseMessageContent(trimmed);
+    elements.push(<div key={"p-" + i}>{renderParts(parts, onSeekTurn)}</div>);
+  }
+
+  flushList();
+  flushTable();
+
+  return <>{elements}</>;
+}
+
 function MessageBubble({ message, onSeekTurn }) {
   var isUser = message.role === "user";
   var bg = isUser ? alpha(theme.agent.user, 0.08) : alpha(theme.agent.assistant, 0.06);
   var borderColor = isUser ? alpha(theme.agent.user, 0.15) : alpha(theme.agent.assistant, 0.12);
 
-  var parts = isUser ? [{ type: "text", value: message.content }] : parseMessageContent(message.content);
+  var content = message.content || "";
+  var answerText = content;
 
   return (
     <div style={{
@@ -106,48 +412,14 @@ function MessageBubble({ message, onSeekTurn }) {
       fontFamily: theme.font.mono,
       color: theme.text.primary,
       lineHeight: 1.6,
-      whiteSpace: "pre-wrap",
       wordBreak: "break-word",
       alignSelf: isUser ? "flex-end" : "flex-start",
       maxWidth: "92%",
     }}>
-      {message.streaming && !message.content && (
-        <span style={{ display: "inline-block", animation: "spin 1.2s linear infinite", color: theme.accent.primary }}>
-          {"\u2726"}
-        </span>
-      )}
-      {parts.map(function (part, i) {
-        if (part.type === "ref") {
-          return (
-            <button
-              key={i}
-              className="av-btn"
-              aria-label={"Jump to " + part.label.replace(/[\[\]]/g, "")}
-              onClick={function () {
-                if (onSeekTurn && part.turns.length) onSeekTurn(part.turns[0]);
-              }}
-              style={{
-                display: "inline",
-                background: theme.accent.muted,
-                color: theme.accent.primary,
-                border: "none",
-                borderRadius: theme.radius.full,
-                fontFamily: theme.font.mono,
-                fontSize: theme.fontSize.sm,
-                padding: "1px 6px",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              {part.label.replace(/[\[\]]/g, "")}
-            </button>
-          );
-        }
-        if (part.type === "bold") {
-          return <strong key={i} style={{ color: theme.text.primary, fontWeight: 600 }}>{part.value}</strong>;
-        }
-        return <span key={i}>{part.value}</span>;
-      })}
+      {isUser
+        ? <span>{answerText}</span>
+        : <MarkdownContent text={answerText} onSeekTurn={onSeekTurn} />
+      }
       {message.instant && (
         <span style={{
           display: "block",
@@ -155,18 +427,44 @@ function MessageBubble({ message, onSeekTurn }) {
           fontSize: theme.fontSize.xs,
           color: theme.text.ghost,
         }}>
-          instant answer
+          {"\u26A1"} instant
+          {message.elapsedMs != null && " \u00B7 " + message.elapsedMs + "ms"}
+        </span>
+      )}
+      {message.cached && (
+        <span style={{
+          display: "block",
+          marginTop: 6,
+          fontSize: theme.fontSize.xs,
+          color: theme.text.ghost,
+        }}>
+          {"\u21BB"} cached answer
+          {message.elapsedMs != null && " \u00B7 " + message.elapsedMs + "ms"}
+        </span>
+      )}
+      {!message.instant && !message.cached && !message.streaming && message.elapsedMs != null && (
+        <span style={{
+          display: "block",
+          marginTop: 6,
+          fontSize: theme.fontSize.xs,
+          color: theme.text.ghost,
+        }}>
+          answered in {message.elapsedMs < 1000
+            ? message.elapsedMs + "ms"
+            : (message.elapsedMs / 1000).toFixed(1) + "s"}
+          {message.model && " \u00B7 " + message.model}
         </span>
       )}
     </div>
   );
 }
 
-export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek, turns }) {
+export default function QADrawer({ open, onClose, onDisable, sessionKey, sessionData, onSeek, turns }) {
   var [input, setInput] = useState("");
   var messagesEndRef = useRef(null);
   var inputRef = useRef(null);
-  var qa = useQA(sessionData);
+  var lastQuestionRef = useRef("");
+  var qa = useQA(sessionData, sessionKey);
 
   // Auto-scroll to bottom on new messages
   useEffect(function () {
@@ -175,11 +473,14 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
     }
   }, [qa.messages]);
 
-  // Focus input when drawer opens
+  // Focus input when drawer opens + scroll to bottom
   useEffect(function () {
     if (!open) return;
     var id = setTimeout(function () {
       if (inputRef.current) inputRef.current.focus();
+      if (messagesEndRef.current && messagesEndRef.current.scrollIntoView) {
+        messagesEndRef.current.scrollIntoView({ behavior: "instant" });
+      }
     }, 50);
     return function () { clearTimeout(id); };
   }, [open]);
@@ -197,8 +498,16 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
   function handleSubmit(e) {
     e.preventDefault();
     if (!input.trim() || qa.isStreaming) return;
+    lastQuestionRef.current = input.trim();
     qa.ask(input);
     setInput("");
+  }
+
+  function handleInputKeyDown(e) {
+    if (e.key === "ArrowUp" && !input && lastQuestionRef.current) {
+      e.preventDefault();
+      setInput(lastQuestionRef.current);
+    }
   }
 
   function handleSeekTurn(turnIndex) {
@@ -334,6 +643,13 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
             return <MessageBubble key={i} message={msg} onSeekTurn={handleSeekTurn} />;
           })}
 
+          {/* Green thinking bubble -- shows while waiting for first token */}
+          <ThinkingBubble
+            isStreaming={qa.isStreaming}
+            hasAnswerBubble={qa.messages.some(function (m) { return m.role === "assistant" && m.streaming; })}
+            streamPhase={qa.streamPhase}
+          />
+
           {qa.error && (
             <div style={{
               background: theme.semantic.errorBg,
@@ -382,9 +698,10 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               type="text"
               value={input}
               onChange={function (e) { setInput(e.target.value); }}
+              onKeyDown={handleInputKeyDown}
               placeholder="Ask about this session..."
               aria-label="Ask about this session"
-              disabled={qa.isStreaming}
+              disabled={false}
               style={{
                 flex: 1,
                 background: "transparent",
@@ -396,25 +713,51 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                 outline: "none",
               }}
             />
-            <button
-              type="submit"
-              disabled={!input.trim() || qa.isStreaming}
-              aria-label="Send question"
-              style={{
-                background: input.trim() ? theme.accent.primary : "transparent",
-                border: "none",
-                borderRadius: theme.radius.sm,
-                color: input.trim() ? theme.text.primary : theme.text.ghost,
-                cursor: input.trim() ? "pointer" : "default",
-                padding: "4px 6px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Icon name="send" size={12} />
-            </button>
+            {qa.isStreaming ? (
+              <button
+                type="button"
+                onClick={qa.abort}
+                aria-label="Stop generating"
+                style={{
+                  background: theme.semantic.errorBg,
+                  border: "1px solid " + theme.semantic.errorBorder,
+                  borderRadius: theme.radius.sm,
+                  color: theme.semantic.errorText,
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  gap: 4,
+                  fontFamily: theme.font.mono,
+                  fontSize: theme.fontSize.xs,
+                }}
+              >
+                <Icon name="square" size={10} />
+                Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                aria-label="Send question"
+                style={{
+                  background: input.trim() ? theme.accent.primary : "transparent",
+                  border: "none",
+                  borderRadius: theme.radius.sm,
+                  color: input.trim() ? theme.text.primary : theme.text.ghost,
+                  cursor: input.trim() ? "pointer" : "default",
+                  padding: "4px 6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="send" size={12} />
+              </button>
+            )}
           </form>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
             <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>

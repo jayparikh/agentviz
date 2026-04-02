@@ -17,7 +17,7 @@ src/
     usePlayback.js     # Playback state: time, playing, speed, seek, playPause
     useSearch.js       # Debounced search with matchSet/matchedEntries
     useKeyboardShortcuts.js # Centralized keyboard handler (ref-based, stable listener)
-    useQA.js           # Session Q&A state: messages, classifier, SSE streaming, abort
+    useQA.js           # Session Q&A state: messages, classifier, SSE streaming, abort, caching, session index
     useFeatureFlag.js  # localStorage-backed feature flag evaluation
     useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
     useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
@@ -39,7 +39,7 @@ src/
     autonomyMetrics.js # Human response time, idle gaps, intervention scoring
     projectConfig.js   # Project config surface detection (CLAUDE.md, .github/, etc.)
     aiCoachAgent.js    # AI Coach powered by @github/copilot-sdk (gpt-4o)
-    qaClassifier.js    # Session Q&A instant answer engine (9 patterns + model context)
+    qaClassifier.js    # Session Q&A instant answer engine (20 patterns + model context + session index)
     qaAgent.js         # Q&A agent powered by @github/copilot-sdk for model fallback
     replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
     commandPalette.js  # Precomputed search index with scoring and per-type caps

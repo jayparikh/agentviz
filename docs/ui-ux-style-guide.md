@@ -736,6 +736,22 @@ Three overlay patterns exist:
 
 Drawers use flex column layout with a scrollable middle area (`flex: 1; minHeight: 0; overflowY: auto`) and a fixed input area at bottom. Dismiss via close button, Escape key, or a footer "Disable" link. Bottom controls must reserve generous space with `paddingBottom: calc(theme.space.huge + env(safe-area-inset-bottom, 0px))` so footer rows do not clip at the viewport edge in Safari or Chrome.
 
+**Message bubbles:** User messages align right with `alpha(theme.agent.user, 0.08)` background. Assistant messages align left with `alpha(theme.agent.assistant, 0.06)`. Both use monospace font, `borderRadius: theme.radius.lg`, 12px/14px padding.
+
+**Thinking bubble:** Green animated indicator (`rgba(34, 197, 94, 0.08)` background, `rgba(34, 197, 94, 0.2)` border) with three pulsing dots and rotating labels. Shows while waiting for first model token; disappears once answer streams.
+
+**Stop button:** Replaces Send button during streaming. Uses `theme.semantic.errorBg` background with `theme.semantic.errorBorder`. Contains square icon + "Stop" label.
+
+**Markdown in answers:** Rendered inline without dependencies:
+- Lists (`-`, `*`, `1.`): `<ul>/<li>` with `paddingLeft: 18px`
+- Tables (`| col |`): `<table>` with `<thead>/<tbody>`, header row bold with tinted background
+- Headers (`#`, `##`, `###`): Styled divs with appropriate font size/weight
+- Bold (`**text**`): `<strong>` with `fontWeight: 600`
+- Code (`` `text` ``): `<code>` with `alpha(theme.text.primary, 0.08)` background, 3px radius
+- Turn refs (`[Turn N]`): Clickable buttons with `theme.accent.muted` background, pill shape
+
+**Answer timing:** Ghost-colored text below each answer: "⚡ instant · Nms", "↻ cached answer · Nms", or "answered in Ns".
+
 All overlays dismiss on backdrop click via `e.stopPropagation()` on the inner container.
 
 ### Modal Container

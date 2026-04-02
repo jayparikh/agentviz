@@ -10,11 +10,14 @@ import { CopilotClient, approveAll } from "@github/copilot-sdk";
 var SYSTEM_PROMPT = [
   "You are a session analysis assistant for AGENTVIZ, a developer tool that visualizes AI agent workflows.",
   "The user will ask questions about an AI coding session (Claude Code or Copilot CLI).",
-  "Answer concisely and precisely based on the provided session context.",
-  "When referencing specific turns, use the format [Turn N] so the UI can create clickable links.",
-  "If the context does not contain enough information to answer, say so honestly.",
-  "Do not speculate beyond what the session data shows.",
-].join(" ");
+  "The context provided below IS the complete session data available to you. There is no other store or database to query.",
+  "Rules:",
+  "1. Answer concisely using markdown: bullet lists, **bold** key terms, `code` for paths/commands.",
+  "2. When referencing turns, use [Turn N] format so the UI can create clickable links.",
+  "3. Base your answer only on the provided context. If the answer is not in the context, say 'This information isn't in the session data' and stop.",
+  "4. Never apologize for missing data or mention technical limitations. The provided context is all there is.",
+  "5. Keep answers under 300 words. For long lists, show the top 5-10 and note how many more exist.",
+].join("\n");
 
 var SDK_TIMEOUT_MS = 15000; // 15s for client.start() and createSession()
 var SESSION_TIMEOUT_MS = 60000; // 60s for the full model response
@@ -102,6 +105,11 @@ export async function runQAQuery(payload, opts) {
     }
 
     var contextBlock = formatContext(payload.context);
+    // Limit total prompt to ~8K tokens (~32K chars) for faster model response
+    var MAX_PROMPT_CHARS = 32000;
+    if (contextBlock.length > MAX_PROMPT_CHARS) {
+      contextBlock = contextBlock.slice(0, MAX_PROMPT_CHARS) + "\n\n[Context truncated for speed]";
+    }
     var prompt = contextBlock + "\n\nUser question: " + payload.question;
 
     // Stream tokens via session events, with overall timeout
@@ -113,8 +121,14 @@ export async function runQAQuery(payload, opts) {
         if (event.type === "content.delta" && event.data && event.data.text) {
           if (onToken) onToken(event.data.text);
         } else if (event.type === "assistant.message" && event.data && event.data.content) {
-          // SDK may send full response as a single message instead of streaming deltas
-          if (onToken) onToken(event.data.content);
+          // SDK sent full response at once -- break into word-sized chunks
+          // so the client sees progressive streaming
+          if (onToken) {
+            var words = event.data.content.split(/(\s+)/);
+            for (var w = 0; w < words.length; w++) {
+              if (words[w]) onToken(words[w]);
+            }
+          }
         } else if (event.type === "session.idle") {
           done = true; unsubscribe(); resolve();
         } else if (event.type === "session.error") {
@@ -149,27 +163,71 @@ function formatContext(ctx) {
 
   if (ctx.metadata) {
     parts.push("## Session metadata");
-    parts.push(ctx.metadata);
+    parts.push(typeof ctx.metadata === "string" ? ctx.metadata : JSON.stringify(ctx.metadata, null, 2));
   }
 
-  if (ctx.topTools) {
+  // Relevant events go first -- these are the primary evidence for answering the question
+  if (ctx.relevantEvents && ctx.relevantEvents.length) {
+    parts.push("\n## RELEVANT TOOL CALLS (primary evidence -- use these to answer the question)");
+    for (var ri = 0; ri < ctx.relevantEvents.length; ri++) {
+      var re = ctx.relevantEvents[ri];
+      var rLine = "- [Turn " + re.turn + "] " + (re.tool || re.toolName || "unknown") + ": " + (re.snippet || re.text || "(no text)");
+      if (re.isError) rLine += " [ERROR]";
+      parts.push(rLine);
+    }
+  }
+
+  if (ctx.relevantTurns && ctx.relevantTurns.length) {
+    parts.push("\n## Relevant turn events");
+    parts.push(typeof ctx.relevantTurns === "string" ? ctx.relevantTurns : JSON.stringify(ctx.relevantTurns));
+  }
+
+  if (ctx.sessionTimeline && ctx.sessionTimeline.length) {
+    parts.push("\n## Session timeline (chunk summaries across entire session)");
+    for (var ci = 0; ci < ctx.sessionTimeline.length; ci++) {
+      var chunk = ctx.sessionTimeline[ci];
+      var cLines = ["Turns " + chunk.turns + " (" + chunk.eventCount + " events)"];
+      if (chunk.userMessages.length) cLines.push("  User: " + chunk.userMessages.join(" | "));
+      if (chunk.tools.length) cLines.push("  Tools: " + chunk.tools.join(", "));
+      if (chunk.files.length) cLines.push("  Files: " + chunk.files.join(", "));
+      if (chunk.errors) cLines.push("  Errors: " + chunk.errors);
+      parts.push(cLines.join("\n"));
+    }
+  }
+
+  if (ctx.topTools && ctx.topTools.length) {
     parts.push("\n## Top tools used");
-    parts.push(ctx.topTools);
+    parts.push(typeof ctx.topTools === "string" ? ctx.topTools : JSON.stringify(ctx.topTools));
   }
 
-  if (ctx.errorSamples) {
+  if (ctx.errorSamples && ctx.errorSamples.length) {
     parts.push("\n## Error samples");
-    parts.push(ctx.errorSamples);
+    parts.push(typeof ctx.errorSamples === "string" ? ctx.errorSamples : JSON.stringify(ctx.errorSamples));
   }
 
-  if (ctx.relevantTurns) {
-    parts.push("\n## Relevant turns");
-    parts.push(ctx.relevantTurns);
+  if (ctx.fileOperations && ctx.fileOperations.length) {
+    parts.push("\n## File operations");
+    parts.push(JSON.stringify(ctx.fileOperations));
   }
 
-  if (ctx.userMessages) {
-    parts.push("\n## Recent user messages");
-    parts.push(ctx.userMessages);
+  if (ctx.commandHistory && ctx.commandHistory.length) {
+    parts.push("\n## Command history");
+    parts.push(JSON.stringify(ctx.commandHistory));
+  }
+
+  if (ctx.turnMessages && ctx.turnMessages.length) {
+    parts.push("\n## Turn user messages");
+    parts.push(ctx.turnMessages.join("\n"));
+  }
+
+  if (ctx.userMessages && ctx.userMessages.length) {
+    parts.push("\n## User messages (conversation history)");
+    parts.push(typeof ctx.userMessages === "string" ? ctx.userMessages : ctx.userMessages.join("\n"));
+  }
+
+  if (ctx.conversationRecap) {
+    parts.push("\n## Prior Q&A conversation");
+    parts.push(ctx.conversationRecap);
   }
 
   return parts.join("\n");
