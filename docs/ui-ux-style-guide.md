@@ -1147,3 +1147,14 @@ When reviewing a PR that touches UI, verify each of these:
 - [ ] **Data formatting**: Durations, numbers, and costs follow the formatting rules in Section 15.
 - [ ] **z-index**: Uses `theme.z.*` tokens for new code. No new arbitrary values.
 - [ ] **Transitions**: `ease-out` only. Duration uses `theme.transition.*`. No decorative motion.
+
+## 20. Steering View
+
+The Steering view uses the standard table layout with `theme.font.mono` throughout.
+
+- **Steering entries**: italic quoted text (`fontStyle: "italic"`) with `theme.text.primary` for emphasis
+- **Commit entries**: dimmer text using `theme.text.muted` with commit hash in `theme.accent.primary`
+- **Type badges**: use `theme.accent.primary` for steering, `theme.track.reasoning` for commits
+- **Impact column**: stacked layout with progress bar, test count, and eval grade
+- **Detail panel**: uses `ResizablePanel` with `theme.bg.surface` background
+- **Colors**: all from theme tokens — no hardcoded hex values
