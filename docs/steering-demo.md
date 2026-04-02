@@ -1,28 +1,9 @@
-# 📖 Steering View — Demo Guide
+# Steering View — Demo Guide
 
-> **What you're tasting:** A new view that tells the *story* of a repo's evolution,
-> not just the data. While Replay/Tracks/Waterfall/Graph/Stats show *what happened*,
-> Steering shows *why it happened* — steering moments, level-ups, and pivots.
-
----
-
-## Two Data Sources
-
-The Steering draws from two sources:
-
-1. **Git history** (always available) — shows the repo's evolution: releases,
-   features, refactoring arcs, bug fixes. This data appears automatically
-   when you run agentviz from any git repo.
-
-2. **Session steering** (requires a loaded session) — shows the actual human
-   prompts that redirected the AI, in *italic quotes*. These only appear
-   when you load a session that contains steering moments — user messages
-   with redirections like "instead", "try again", "don't", "switch to", etc.
-
-**To see steering in action:** Run an AI coding session with real back-and-forth
-(redirect the agent, correct mistakes, change approaches), then load that
-session in agentviz and click Steering. The richer your steering, the richer
-the Steering.
+> The Steering view analyzes which human prompts actually changed the direction
+> of an AI coding session. It pairs each steering command with the git commits
+> and code changes it produced, then runs an agent-assisted analysis to surface
+> what happened, what was learned, and the impact.
 
 ---
 
@@ -30,62 +11,85 @@ the Steering.
 
 ```bash
 cd agentviz
-git checkout feature/steering-view
+git checkout feature/journal-view
 npm install && npm run dev
 # → opens http://localhost:3000
 ```
 
+Load any session, click the Steering tab (last tab, after Coach).
+
+---
+
 ## What You Should See
 
-### 1. Click the **Steering** tab (📖 icon, between Stats and Coach)
+### 1. Timeline table
 
-You'll see agentviz's own git history rendered as a **Scribe-style timeline table**:
+Each row is either a human steering command or a git commit:
 
-| Time | Type | Steering Command | Level-Up 🆙 |
-|------|------|------------------|-------------|
-| Mar 23, 15:23 | 🆙 Feature | add Graph view with interactive DAG visualization | New capability unlocked |
-| Mar 25, 15:31 | 🆙 Feature | inbox auto-discovery + AI Coach agent | New capability unlocked |
-| Mar 29, 23:00 | 🔄 Refactor | 4-phase refactoring initiative | Architecture leveled up through disciplined multi-phase refactoring |
-| Mar 29, 22:30 | ✅ Release | v0.1.1 | Shipped v0.1.1 — a versioned milestone |
-| Mar 30, 21:50 | ✅ Release | v0.3.0: multi-agent visualization with fork/join DAG | Shipped v0.3.0 |
+- Steering commands appear in italic quotes with bright text
+- Git commits appear in plain text with a blue commit hash
+- Columns: Time, Type, Steering Command, What Happened, Level-Up, Impact
 
-### 2. Load a session with steering to see the full picture
+### 2. Background analysis
 
-If your session includes user redirections, you'll see them interleaved:
+On mount, the view runs an agent-assisted analysis in the background using the
+Copilot SDK (same SDK as Coach, no extra setup). You'll see a pulsing indicator
+near the Impact column while analysis is in progress. When complete, the
+What Happened, Level-Up, and Impact columns update with richer content than
+the static heuristics produce alone.
 
-| Time | Type | Steering Command | Level-Up 🆙 |
-|------|------|------------------|-------------|
-| ... | 🎯 Steering `session` | *"I don't see the key evolutionary moments from the REPO itself"* | Pivoted to repo-level narrative |
-| ... | 🆙 Feature `git` | git-powered Steering — repo evolution as Scribe-style timeline | New capability unlocked |
+The analysis retries up to 2 times with backoff if the SDK call fails.
 
-Git entries are plain text. Session steering entries are *"quoted and italic"*.
+### 3. Filter badges
 
-### 3. The summary header shows both sources
+Click the type badges at the top to filter:
+- Steering — human redirections only
+- Release — version milestones
+- Feature — capability additions
+- Fix / Refactor — corrections and restructuring
 
-`📖 agentviz · 43 moments · 39 git · 4 session · ✅ 4 releases · 🆙 11 features`
+### 4. Detail panel
 
-### 4. Use the **filter badges** to focus
+Click any row to see:
+- The full steering command
+- What happened (agent response summary)
+- Level-Up (what was learned or unlocked)
+- Responding To — what the agent said that prompted the user's steering
+- Files changed — list of files affected
+- Jump to this moment in Replay — seeks to the event and switches to Replay view
 
-- Click `🎯 Steering` to see only human redirections
-- Click `✅ Release` to see only version milestones
-- Click `🆙 Level-Up` to see only capability unlocks
+### 5. Steering intelligence panel
 
-### 5. Click any row to see the **detail panel**
+Below the timeline, an expandable panel shows session-level analysis:
 
-Shows:
-- The steering command (what was decided)
-- What happened (the full commit message or user prompt)
-- Level-Up 🆙 (the specific insight or capability gain)
-- For session entries: **"Jump to this moment in Replay"** button
+- Density score — steering commands per hour. High density suggests the agent
+  isn't matching your taste; low density suggests alignment.
+- Category breakdown — how many steerings were about quality, tone, bugs,
+  naming, testing, visual design, or simplification.
+- Insights — actionable observations like "Quality was redirected 4 times,
+  consider adding a quality-focused skill" or "Simplification corrections
+  suggest the agent over-engineers by default."
+
+---
+
+## Two Data Sources
+
+1. Git history (always available) — the repo's commit timeline, classified by
+   conventional commit prefix (feat, fix, refactor, chore, release tags).
+   Consecutive refactoring commits collapse into one pivot arc.
+
+2. Session events (requires a loaded session) — user messages detected as
+   steering by pattern matching (redirections like "instead", "try again",
+   "don't", "switch to"). Minimum 15 characters to filter noise.
 
 ---
 
 ## What Makes This High Taste
 
-1. **Narrative, not data.** Other views show events, timing, graphs. Steering tells the *story*.
-2. **Dual-source truth.** Git shows what changed. Session shows why. Both in one timeline.
-3. **Honest visual separation.** Real human prompts are *"quoted and italic"*. Commit summaries are plain.
-4. **Smart arc detection.** Consecutive refactoring commits collapse into one pivot entry.
-5. **Zero dependencies.** No API key, no AI model — works offline, any repo.
-6. **Gets richer as you work.** The more you steer, the more the Steering captures.
+1. Narrative, not data. Other views show events, timing, graphs. Steering tells the story.
+2. Dual-source truth. Git shows what changed. Session shows why. Both in one timeline.
+3. Agent-assisted analysis. Background analysis improves results beyond static heuristics.
+4. Honest visual separation. Real human prompts are italic. Commit summaries are plain text.
+5. Smart arc detection. Consecutive refactoring commits collapse into one pivot entry.
+6. Actionable intelligence. Density scoring and category analysis suggest concrete improvements.
 

@@ -8,8 +8,9 @@
 
 | Suite | Tests | Status |
 |-------|-------|--------|
-| steeringExtractor.test.js | 18 | Pending first run |
-| steeringRoute.test.js | 10 | Pending first run |
+| steeringExtractor.test.js | 27 | Passing |
+| steeringRoute.test.js | 15 | Passing |
+| steeringView.test.jsx | 6 | Passing |
 
 ## Extraction Quality Rubric
 
