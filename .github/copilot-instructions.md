@@ -1,48 +1,77 @@
-# Copilot Instructions — The Default Squad
+# AGENTVIZ
 
-> **You are part of a squad.** This repository uses multi-agent team coordination.
+Session replay visualizer for AI agent workflows (Claude Code, VS Code Copilot Chat, Copilot CLI).
 
-## On Every Session
+## Stack
+- React 18 + Vite 6, inline styles only, JetBrains Mono font
+- Mixed JS/TS: components and hooks are plain JSX, parsers and data libs are TypeScript
+- Design tokens in `src/lib/theme.js`
 
-1. Read `AGENTS.md` at repo root for universal squad instructions
-2. Read `CLAUDE.md` at repo root for session memory and project context
-3. Read `.squad/team.md` for the full team roster
-4. Read `.squad/routing.md` for work routing rules
-5. Check `.squad/decisions.md` before starting work
-
-## Squad-Aware Behavior
-
-- Identify which squad member is best suited for the current task
-- **Start every substantive response with a role tag:** `> **[AgentName]**` (see AGENTS.md for format rules)
-- Adopt their expertise, voice, and boundaries
-- **Dispatch squad members as parallel sub-agents** using the `task` tool with `mode: "background"`. Include charter context from `.squad/agents/<name>/charter.md`. See AGENTS.md "Squad Dispatch" section.
-- Log significant decisions to `.squad/decisions.md` after completing work
-
-## Proactive Quality Triggers
-
-These fire automatically — they are not optional:
-
-| Trigger | Action |
-|---------|--------|
-| Code changed | Run `npm test` before committing — never commit red |
-| User-visible behavior changed | Dispatch DevRel — update docs and README |
-| Prompt or agent behavior changed | Dispatch Evaluator — review eval baselines |
-| Important trade-off made | Log decision to `.squad/decisions.md` |
-| Meaningful milestone reached | Dispatch Scribe — update `JOURNAL.md` with what happened and why |
-| Another role's expertise needed | Dispatch that role as a background sub-agent via `task` tool |
-
-## Before You Respond With "Done"
-
-Verify that all triggered duties above were handled or explicitly called out as deferred. Do not silently skip them.
-
-## Managing This Squad
-
-This squad was created with [snap-squad](https://github.com/paulyuk/snap-squad).
-If the user asks to change, reset, or switch their squad:
-
+## Commands
 ```bash
-npx snap-squad init --type <preset> --force    # switch to a different preset
-npx snap-squad list                            # see available presets
+npm run dev          # Dev server
+npm run build        # Production build to dist/
+npm test             # Run tests via Vitest
+npm run test:watch   # Watch mode
+npm run typecheck    # tsc --noEmit
 ```
 
-Available presets: default, fast, mentors, specialists
+## Rules
+- Search existing code before writing new abstractions.
+- Run tests after every non-trivial change.
+- Prefer editing existing files over creating new ones.
+- Never silently apply config changes — surface drafts first.
+- Product name is always AGENTVIZ (all caps, no spaces). Never "AgentViz" or "Agentviz".
+- All UI changes must conform to `docs/ui-ux-style-guide.md`. Review the checklist at the bottom of that file before approving any PR that touches components, styles, or visual behavior.
+
+## Four-Artifact Sync Rule
+Every UI change must update ALL FOUR of these before committing. Never let them drift:
+1. `README.md` — feature descriptions, architecture section, file tree
+2. `docs/ui-ux-style-guide.md` — token values, patterns, rules
+3. `docs/screenshots/` — all 8 screenshots (see Screenshots section below)
+4. Repo memory — store any new conventions with `store_memory`
+
+## Screenshots
+The README references 8 screenshot files in `docs/screenshots/`. All must be kept in sync.
+
+**Files:** `landing.svg`, `session-hero.svg`, `replay-view.svg`, `tracks-view.svg`, `waterfall-view.svg`, `graph-view.svg`, `stats-view.svg`, `coach-view.svg`
+
+**Workflow (using Playwright MCP tools):**
+1. Start dev server: `npm run dev`
+2. Navigate to `http://127.0.0.1:3000`, resize to **1400x860**
+3. Capture `landing.png` from the landing page (before loading a session)
+4. Click **"load a demo session"**, then click each tab and capture: replay, tracks, waterfall, graph, stats
+5. For **Coach**: click the tab, hide the error banner with JS before capturing:
+   ```js
+   document.querySelectorAll('*').forEach(el => {
+     if (el.children.length === 0 && el.textContent.trim().startsWith('AI analysis failed')) {
+       let n = el;
+       for (let i = 0; i < 6; i++) {
+         if (n.parentElement?.textContent.trim().startsWith('AI analysis failed')) n = n.parentElement;
+         else break;
+       }
+       n.style.display = 'none';
+     }
+   });
+   ```
+6. Copy `replay-view.png` → `session-hero.png` (hero reuses replay image)
+7. Encode each PNG as base64 and wrap in SVG:
+   ```bash
+   b64=$(base64 -i file.png)
+   echo "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"1400\" height=\"860\"><image href=\"data:image/png;base64,${b64}\" width=\"1400\" height=\"860\"/></svg>" > file.svg
+   ```
+
+**Note:** `session-hero.svg` is the hero image at the top of the README. It must always be regenerated alongside `replay-view.svg` — they use the same source image.
+
+## MCP vs Dev Server
+The MCP `launch_agentviz` tool serves the **production build** from `dist/` — NOT the dev server. Changes to source code are not reflected in MCP until `npm run build` is run. Always run `npm run build` before testing via MCP, and after any code change that the user will view via `open agentviz`.
+
+## Document Authoring Autonomy
+
+When working on long-form documents (markdown specs, design docs, research reports), you are authorized to make the following decisions WITHOUT asking for confirmation:
+
+- **Move or re-order sections**: If a section logically belongs in an appendix, a different chapter, or a new file, move it and note the change in your summary.
+- **Add external references**: When a claim references a known URL (GitHub pages, docs, marketplace), fetch the URL with `web_search` or `web_fetch`, extract the relevant fact, and inline the citation. Do not pause to ask "should I add a reference here?"
+- **Propose then immediately draft**: When the human says "propose if X is a requirement" or "what do you think about Y?", write your recommendation AND a complete draft of the resulting section in the same turn. Do not stop at the proposal.
+- **Create parallel sections**: If the human asks to "create a similar stream for X" (e.g. MCP server deploy stream), write the full new section modeled on the existing one without asking for a template or outline first.
+- **Explore and summarize URLs proactively**: When the human provides URLs to investigate (e.g. `github.com/mcp`, `github.com/marketplace?category=ai-assisted`, `github.com/copilot/agents`), fetch and summarize ALL provided URLs in a single turn before writing any document section. Do not stop after the first URL.

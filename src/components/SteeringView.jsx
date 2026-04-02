@@ -8,7 +8,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { theme } from "../lib/theme.js";
-import { extractJournal, JOURNAL_TYPES } from "../lib/journalExtractor.js";
+import { extractSteering, STEERING_TYPES } from "../lib/steeringExtractor.js";
 import { formatTime } from "../lib/formatTime.js";
 import ResizablePanel from "./ResizablePanel.jsx";
 import Icon from "./Icon.jsx";
@@ -101,7 +101,7 @@ function TypeBadge({ type }) {
 
 // ── Scribe-style timeline table row ──────────────────────────────────────────
 
-function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
+function SteeringRow({ entry, isSelected, onSelect, maxImpact }) {
   var info = ENTRY_COLORS[entry.type] || ENTRY_COLORS.levelup;
   var isPrompt = entry.type === "steering" && (entry.source === "session" || entry.source === "contributed");
   var isCommit = entry.source === "git";
@@ -538,7 +538,7 @@ function normalizeSessionEntries(sessionEntries, sessionDuration) {
   var durationMs = (sessionDuration || 0) * 1000;
 
   return sessionEntries.map(function (e) {
-    var info = JOURNAL_TYPES[e.type] || JOURNAL_TYPES.insight;
+    var info = STEERING_TYPES[e.type] || STEERING_TYPES.insight;
     var fullText = (e.type === "steering" || e.type === "pivot") ? (e.detail || e.title) : e.title;
     var command = truncateToSentence(fullText, 110);
 
@@ -603,9 +603,9 @@ function truncateToSentence(text, max) {
   return truncated + "...";
 }
 
-// ── Main JournalView ─────────────────────────────────────────────────────────
+// ── Main SteeringView ─────────────────────────────────────────────────────────
 
-export default function JournalView({ events, turns, metadata, onSeek }) {
+export default function SteeringView({ events, turns, metadata, onSeek }) {
   var [gitData, setGitData] = useState(null);
   var [gitError, setGitError] = useState(null);
   var [gitLoading, setGitLoading] = useState(true);
@@ -637,7 +637,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
 
   // Extract session-level entries
   var sessionEntries = useMemo(function () {
-    return extractJournal(events || [], turns || []);
+    return extractSteering(events || [], turns || []);
   }, [events, turns]);
 
   // Normalize session entries to unified shape
@@ -863,7 +863,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
             <tbody>
               {filteredEntries.map(function (entry, i) {
                 return (
-                  <JournalRow
+                  <SteeringRow
                     key={(entry.hash || entry.type) + "-" + i}
                     entry={entry}
                     isSelected={selectedEntry === entry}

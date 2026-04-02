@@ -106,13 +106,13 @@ function waitFor(fn, timeout) {
 
 describe("SteeringView component", function () {
   it("renders without crashing (catches missing variable references)", async function () {
-    var JournalView = (await import("../components/JournalView.jsx")).default;
+    var SteeringView = (await import("../components/SteeringView.jsx")).default;
     var container = document.createElement("div");
     document.body.appendChild(container);
     var root = createRoot(container);
 
     await act(async function () {
-      root.render(createElement(JournalView, {
+      root.render(createElement(SteeringView, {
         events: [],
         turns: [],
         metadata: {},
@@ -136,13 +136,13 @@ describe("SteeringView component", function () {
   });
 
   it("renders repo summary header with correct data", async function () {
-    var JournalView = (await import("../components/JournalView.jsx")).default;
+    var SteeringView = (await import("../components/SteeringView.jsx")).default;
     var container = document.createElement("div");
     document.body.appendChild(container);
     var root = createRoot(container);
 
     await act(async function () {
-      root.render(createElement(JournalView, {
+      root.render(createElement(SteeringView, {
         events: [],
         turns: [],
         metadata: {},
@@ -167,13 +167,13 @@ describe("SteeringView component", function () {
   });
 
   it("renders steering rows from git data", async function () {
-    var JournalView = (await import("../components/JournalView.jsx")).default;
+    var SteeringView = (await import("../components/SteeringView.jsx")).default;
     var container = document.createElement("div");
     document.body.appendChild(container);
     var root = createRoot(container);
 
     await act(async function () {
-      root.render(createElement(JournalView, {
+      root.render(createElement(SteeringView, {
         events: [],
         turns: [],
         metadata: {},
@@ -199,13 +199,13 @@ describe("SteeringView component", function () {
   });
 
   it("renders filter badges for all entry types present", async function () {
-    var JournalView = (await import("../components/JournalView.jsx")).default;
+    var SteeringView = (await import("../components/SteeringView.jsx")).default;
     var container = document.createElement("div");
     document.body.appendChild(container);
     var root = createRoot(container);
 
     await act(async function () {
-      root.render(createElement(JournalView, {
+      root.render(createElement(SteeringView, {
         events: [],
         turns: [],
         metadata: {},
@@ -228,7 +228,7 @@ describe("SteeringView component", function () {
   });
 
   it("renders session entries alongside git entries", async function () {
-    var JournalView = (await import("../components/JournalView.jsx")).default;
+    var SteeringView = (await import("../components/SteeringView.jsx")).default;
     var container = document.createElement("div");
     document.body.appendChild(container);
     var root = createRoot(container);
@@ -244,7 +244,7 @@ describe("SteeringView component", function () {
     ];
 
     await act(async function () {
-      root.render(createElement(JournalView, {
+      root.render(createElement(SteeringView, {
         events: events,
         turns: turns,
         metadata: {},
@@ -273,13 +273,13 @@ describe("SteeringView component", function () {
       return Promise.reject(new Error("network error"));
     });
 
-    var JournalView = (await import("../components/JournalView.jsx")).default;
+    var SteeringView = (await import("../components/SteeringView.jsx")).default;
     var container = document.createElement("div");
     document.body.appendChild(container);
     var root = createRoot(container);
 
     await act(async function () {
-      root.render(createElement(JournalView, {
+      root.render(createElement(SteeringView, {
         events: [],
         turns: [],
         metadata: {},

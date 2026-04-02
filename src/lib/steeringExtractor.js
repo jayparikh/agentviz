@@ -7,7 +7,7 @@
 
 // ── Entry types ──────────────────────────────────────────────────────────────
 
-export var JOURNAL_TYPES = {
+export var STEERING_TYPES = {
   steering:  { id: "steering",  label: "Steering",  emoji: "🎯", color: "#6475e8" },
   levelup:   { id: "levelup",   label: "Level-Up",  emoji: "🆙", color: "#10d97a" },
   pivot:     { id: "pivot",     label: "Pivot",      emoji: "🔄", color: "#eab308" },
@@ -38,7 +38,7 @@ var INSIGHT_PATTERNS = [
  * Extract journal entries from session events and turns.
  * Returns an array of { type, turnIndex, time, title, detail, events }.
  */
-export function extractJournal(events, turns) {
+export function extractSteering(events, turns) {
   if (!events || !turns || turns.length === 0) return [];
 
   var entries = [];
@@ -279,7 +279,7 @@ export function extractJournal(events, turns) {
 
 // ── Computed summary stats ───────────────────────────────────────────────────
 
-export function computeJournalStats(entries) {
+export function computeSteeringStats(entries) {
   var stats = {
     total: entries.length,
     steering: 0,

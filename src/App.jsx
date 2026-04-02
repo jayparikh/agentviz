@@ -19,7 +19,7 @@ import Timeline from "./components/Timeline.jsx";
 import ReplayView from "./components/ReplayView.jsx";
 import TracksView from "./components/TracksView.jsx";
 import StatsView from "./components/StatsView.jsx";
-import JournalView from "./components/JournalView.jsx";
+import SteeringView from "./components/SteeringView.jsx";
 import WaterfallView from "./components/WaterfallView.jsx";
 var GraphView = React.lazy(function () { return import("./components/GraphView.jsx"); });
 import CommandPalette from "./components/CommandPalette.jsx";
@@ -96,7 +96,7 @@ function renderActiveView(activeView, props) {
 
   if (activeView === "steering") {
     return (
-      <JournalView
+      <SteeringView
         events={props.filteredEvents}
         turns={props.session.turns}
         metadata={props.session.metadata}

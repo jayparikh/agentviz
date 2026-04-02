@@ -8,8 +8,8 @@
 
 | Suite | Tests | Status |
 |-------|-------|--------|
-| journalExtractor.test.js | 18 | Pending first run |
-| journalRoute.test.js | 10 | Pending first run |
+| steeringExtractor.test.js | 18 | Pending first run |
+| steeringRoute.test.js | 10 | Pending first run |
 
 ## Extraction Quality Rubric
 
@@ -91,4 +91,4 @@ Following the ui-ux-style-guide.md standards:
 
 ---
 
-*Maintained by Evaluator. Update after changes to journalExtractor.js or JournalView.jsx.*
+*Maintained by Evaluator. Update after changes to steeringExtractor.js or SteeringView.jsx.*

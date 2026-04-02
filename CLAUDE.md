@@ -1,54 +1,134 @@
-# CLAUDE.md — The Default Squad Session Memory
+# AGENTVIZ
 
-> Read this at the start of every session. Update when context changes.
+Session replay visualizer for AI agent workflows. Renders Claude Code, VS Code Copilot Chat, and Copilot CLI session logs as interactive timelines, with auto-detection of file format.
 
-## Identity
+## Stack
+- React 18 + Vite 6
+- No CSS framework, all inline styles
+- Font: JetBrains Mono (loaded from Google Fonts in index.html)
+- Mixed JS/TS: components and hooks are plain JSX, parsers and data libs are TypeScript
 
-You are working in a repository using the **The Default Squad** squad preset.
+## Architecture
+```
+src/
+  App.jsx              # Main orchestrator: file loading, playback, keyboard shortcuts, view routing
+  main.jsx             # React entry point
+  hooks/
+    usePlayback.js     # Playback state: time, playing, speed, seek, playPause
+    useSearch.js       # Debounced search with matchSet/matchedEntries
+    useKeyboardShortcuts.js # Centralized keyboard handler (ref-based, stable listener)
+    useQA.js           # Session Q&A state: messages, classifier, SSE streaming, abort
+    useFeatureFlag.js  # localStorage-backed feature flag evaluation
+    useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
+    useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
+    usePersistentState.js # localStorage-backed useState with debounced writes
+    useDiscoveredSessions.js # Auto-discovery of Copilot CLI and VS Code sessions via /api/sessions
+    useHashRouter.js   # Hash-based routing between inbox and session views
+    useAsyncStatus.js  # Async operation state machine (idle/loading/success/error)
+  lib/
+    theme.js           # Design token system, TRACK_TYPES, AGENT_COLORS
+    constants.js       # SAMPLE_EVENTS data for demo mode
+    parser.ts          # parseClaudeCodeJSONL() - Claude Code JSONL parser
+    copilotCliParser.ts # parseCopilotCliJSONL() - Copilot CLI JSONL parser
+    vscodeSessionParser.ts # parseVSCodeChatJSON() - VS Code Copilot Chat JSON parser
+    parseSession.ts    # Auto-detect format router: detectFormat() + parseSession()
+    session.ts         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
+    sessionLibrary.js  # localStorage-backed session library with content persistence
+    sessionParsing.ts  # Session parsing utilities and types
+    sessionTypes.ts    # TypeScript type definitions for session data
+    autonomyMetrics.js # Human response time, idle gaps, intervention scoring
+    projectConfig.js   # Project config surface detection (CLAUDE.md, .github/, etc.)
+    aiCoachAgent.js    # AI Coach powered by @github/copilot-sdk (gpt-4o)
+    qaClassifier.js    # Session Q&A instant answer engine (9 patterns + model context)
+    qaAgent.js         # Q&A agent powered by @github/copilot-sdk for model fallback
+    replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
+    commandPalette.js  # Precomputed search index with scoring and per-type caps
+    diffUtils.js       # Diff detection (isFileEditEvent) + Myers line diff algorithm
+    waterfall.ts       # Waterfall view helpers: item building, stats, layout, windowing
+    graphLayout.js     # Graph view helpers: ELKjs DAG builder, layout runner, position merger
+    pricing.js         # Claude model pricing table and cost estimation
+    exportHtml.js      # Self-contained HTML export for single sessions and comparisons
+    dataInspector.js   # Payload summary and preview helpers for inspector panels
+    formatTime.js      # Duration and date formatting utilities
+    playbackUtils.js   # Playback state helpers
+  components/
+    InboxView.jsx      # Session inbox with auto-discovery, sorting, and review priority
+    DebriefView.jsx    # AI Coach panel with cached analysis and one-click apply
+    FileUploader.jsx   # Drag-and-drop file input with error handling
+    Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
+    ReplayView.jsx     # Windowed event stream + resizable inspector sidebar
+    TracksView.jsx     # DAW-style multi-track lanes with solo/mute
+    WaterfallView.jsx  # Tool execution waterfall with nesting, inspector sidebar
+    GraphView.jsx      # Interactive DAG of turns/tool calls with ELKjs layout, pan/zoom, animations
+    StatsView.jsx      # Aggregate metrics, tool ranking, turn summary
+    CompareView.jsx    # Side-by-side session comparison: Scorecard + Tools tabs
+    CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
+    DiffViewer.jsx     # Inline unified diff view for file-editing tool calls
+    DataInspector.jsx  # Readable payload inspector with summaries and copy support
+    LiveIndicator.jsx  # Pulsing LIVE badge shown in CLI streaming mode
+    ShortcutsModal.jsx # Keyboard shortcuts overlay
+    QADrawer.jsx       # Session Q&A slide-over drawer with instant answers
+    RecentSessionsPicker.jsx # Recent sessions dropdown picker
+    SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
+    ResizablePanel.jsx # Drag-to-resize split panel utility
+    ErrorBoundary.jsx  # React error boundary with resetKey for recovery
+    Icon.jsx           # Lucide icon wrapper
+    app/               # Shell components: AppHeader, AppLandingState, AppLoadingState, CompareShell
+    ui/                # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton
+    waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, TimeAxis
+bin/
+  agentviz.js          # CLI entry point: finds free port, starts server, opens browser
+mcp/
+  server.js            # MCP server: launch_agentviz and close_agentviz tools
+server.js              # HTTP server: serves dist/ SPA + SSE /api/stream file tail
+```
 
-**You are part of a squad.** Read `.squad/team.md` for the full roster.
+## Key data types
 
-## Project Context
+Normalized event (output of parser, consumed by all views):
+```
+{ t, agent, track, text, duration, intensity, toolName?, toolInput?, raw, turnIndex, isError, model?, tokenUsage? }
+```
 
-- **Owner:** unknown
-- **Squad:** The Default Squad (friendly)
-- **Theme:** Community Builders
+Turn (groups events by user-initiated conversation rounds):
+```
+{ index, startTime, endTime, eventIndices, userMessage, toolCount, hasError }
+```
 
-## Session Start Protocol
+Session metadata (aggregate stats):
+```
+{ totalEvents, totalTurns, totalToolCalls, errorCount, duration, models, primaryModel, tokenUsage }
+```
 
-Immediately after reading this file, before responding to the user:
+Parser returns: `{ events, turns, metadata }` or null
 
-1. Read `.squad/team.md`, `.squad/routing.md`, and `.squad/decisions.md`
-2. Determine which squad member should lead this task
-3. **Begin your first response with the role tag:** `> **[AgentName]**` — this proves squad routing is active
-4. Check whether `JOURNAL.md` has recent entries — if stale, plan to update it
-5. Identify downstream needs: will this work require tests? docs? evals? decisions? Include them in your plan.
-6. **Dispatch, don't role-play.** Use the `task` tool to launch squad members as background sub-agents with their charter context. See AGENTS.md "Squad Dispatch" section.
+Track types: reasoning, tool_call, context, output
+Agent types: user, assistant, system
 
-## Non-Optional Operating Behaviors
+## Commands
+- `npm start` - Build and launch AGENTVIZ in browser (production)
+- `npm run dev` - Vite dev server + API backend (both auto-started)
+- `npm run build` - Production build to dist/
+- `npm test` - Run 300 tests via Vitest (parsers, layout, diff, graph, autonomy, QA, regressions, and more)
+- `npm run test:watch` - Watch mode for tests
+- `npm run typecheck` - Type-check with tsc --noEmit
 
-These apply in **every session**, whether or not the user asks:
+`npm run dev` auto-starts the API backend on port 4242.
+Vite proxies `/api/*` to the backend automatically.
 
-- **Code changed → tests reviewed.** Don't skip testing because it wasn't mentioned.
-- **Behavior changed → dispatch DevRel.** If what the user sees changed, docs must change too.
-- **Trade-off made → decision logged.** Record it in `.squad/decisions.md` with context and reasoning.
-- **Milestone reached → dispatch Scribe.** `JOURNAL.md` captures the story, not just the code.
-- **Prompts or evals changed → dispatch Evaluator.** Verify eval baselines haven't regressed.
-- **Another role's domain touched → dispatch that role as a sub-agent.** Don't role-switch — use the `task` tool.
+## Conventions
+- No em dashes in any content or comments
+- All styles are inline (no CSS files), all colors reference theme.js tokens
+- Unicode characters used directly or as escape sequences in JS
+- Components receive data as props, no global state management
+- Design tokens defined in src/lib/theme.js
+- Product name is always AGENTVIZ (all caps, no spaces)
+- UI/UX design system: see docs/ui-ux-style-guide.md -- all UI changes must conform to it
 
-## Session Completion Gate
-
-Before ending the session, verify:
-
-1. `.squad/decisions.md` — Updated if any decisions were made
-2. `JOURNAL.md` — Updated if a milestone was reached
-3. Relevant docs — Updated if user-visible behavior changed
-4. Open risks or follow-ups — Explicitly called out, not silently dropped
-
-## First Session After Init
-
-If this is the first working session after squad initialization:
-
-1. Update project context above (Owner, Stack, Description)
-2. Record the first real decision in `.squad/decisions.md`
-3. Start the build story in `JOURNAL.md` — capture what's being built and why
+## Planned features
+- Bookmarks and annotations (persisted to localStorage)
+- Vim-style keyboard navigation
+- Parsers for: LangSmith traces, OpenTelemetry
+- Multi-agent hierarchy (parent/child agents, nested tracks)
+- Fork-from-any-point replay
+- Publish to npm (`npx agentviz`)

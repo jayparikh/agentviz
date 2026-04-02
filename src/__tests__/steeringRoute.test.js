@@ -29,20 +29,20 @@ describe("journal git route", function () {
   var handle;
 
   it("can import the route handler", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     handle = mod.handle;
     expect(typeof handle).toBe("function");
   });
 
   it("returns false for non-matching paths", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     var result = mod.handle("/api/sessions", { method: "GET" }, res, {});
     expect(result).toBe(false);
   });
 
   it("returns 405 for POST requests", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     var result = mod.handle("/api/journal/git", { method: "POST" }, res, {});
     expect(result).toBe(true);
@@ -50,7 +50,7 @@ describe("journal git route", function () {
   });
 
   it("returns valid JSON with entries and repo metadata", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     mod.handle("/api/journal/git", { method: "GET" }, res, {});
     expect(res.statusCode).toBe(200);
@@ -62,7 +62,7 @@ describe("journal git route", function () {
   });
 
   it("repo metadata has expected fields", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     mod.handle("/api/journal/git", { method: "GET" }, res, {});
     var data = JSON.parse(res.body);
@@ -77,7 +77,7 @@ describe("journal git route", function () {
   });
 
   it("entries have the scribe timeline shape", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     mod.handle("/api/journal/git", { method: "GET" }, res, {});
     var data = JSON.parse(res.body);
@@ -94,7 +94,7 @@ describe("journal git route", function () {
   });
 
   it("entries use valid journal types", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     mod.handle("/api/journal/git", { method: "GET" }, res, {});
     var data = JSON.parse(res.body);
@@ -106,7 +106,7 @@ describe("journal git route", function () {
   });
 
   it("entries are in chronological order", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     mod.handle("/api/journal/git", { method: "GET" }, res, {});
     var data = JSON.parse(res.body);
@@ -119,7 +119,7 @@ describe("journal git route", function () {
   });
 
   it("collapses consecutive refactors into pivot arcs", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     mod.handle("/api/journal/git", { method: "GET" }, res, {});
     var data = JSON.parse(res.body);
@@ -132,7 +132,7 @@ describe("journal git route", function () {
   });
 
   it("includes our own Journal commits as level-ups", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     mod.handle("/api/journal/git", { method: "GET" }, res, {});
     var data = JSON.parse(res.body);
@@ -159,14 +159,14 @@ describe("journal steering route", function () {
   });
 
   it("returns false for non-matching paths", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     var result = mod.handle("/api/other", { method: "GET" }, res, {});
     expect(result).toBe(false);
   });
 
   it("GET /api/journal/steering returns entries array", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
     var res = createMockRes();
     mod.handle("/api/journal/steering", { method: "GET" }, res, {});
     expect(res.statusCode).toBe(200);
@@ -176,7 +176,7 @@ describe("journal steering route", function () {
   });
 
   it("POST /api/journal/steering redacts secrets from entries", async function () {
-    var mod = await import("../../routes/journal.js");
+    var mod = await import("../../routes/steering.js");
 
     // POST an entry with a fake GitHub token
     var res = createMockRes();

@@ -2,13 +2,13 @@
 
 > **What you're tasting:** A new view that tells the *story* of a repo's evolution,
 > not just the data. While Replay/Tracks/Waterfall/Graph/Stats show *what happened*,
-> Journal shows *why it happened* — steering moments, level-ups, and pivots.
+> Steering shows *why it happened* — steering moments, level-ups, and pivots.
 
 ---
 
 ## Two Data Sources
 
-The Journal draws from two sources:
+The Steering draws from two sources:
 
 1. **Git history** (always available) — shows the repo's evolution: releases,
    features, refactoring arcs, bug fixes. This data appears automatically
@@ -22,7 +22,7 @@ The Journal draws from two sources:
 **To see steering in action:** Run an AI coding session with real back-and-forth
 (redirect the agent, correct mistakes, change approaches), then load that
 session in agentviz and click Steering. The richer your steering, the richer
-the Journal.
+the Steering.
 
 ---
 
@@ -30,14 +30,14 @@ the Journal.
 
 ```bash
 cd agentviz
-git checkout feature/journal-view
+git checkout feature/steering-view
 npm install && npm run dev
 # → opens http://localhost:3000
 ```
 
 ## What You Should See
 
-### 1. Click the **Journal** tab (📖 icon, between Stats and Coach)
+### 1. Click the **Steering** tab (📖 icon, between Stats and Coach)
 
 You'll see agentviz's own git history rendered as a **Scribe-style timeline table**:
 
@@ -56,7 +56,7 @@ If your session includes user redirections, you'll see them interleaved:
 | Time | Type | Steering Command | Level-Up 🆙 |
 |------|------|------------------|-------------|
 | ... | 🎯 Steering `session` | *"I don't see the key evolutionary moments from the REPO itself"* | Pivoted to repo-level narrative |
-| ... | 🆙 Feature `git` | git-powered Journal — repo evolution as Scribe-style timeline | New capability unlocked |
+| ... | 🆙 Feature `git` | git-powered Steering — repo evolution as Scribe-style timeline | New capability unlocked |
 
 Git entries are plain text. Session steering entries are *"quoted and italic"*.
 
@@ -82,10 +82,10 @@ Shows:
 
 ## What Makes This High Taste
 
-1. **Narrative, not data.** Other views show events, timing, graphs. Journal tells the *story*.
+1. **Narrative, not data.** Other views show events, timing, graphs. Steering tells the *story*.
 2. **Dual-source truth.** Git shows what changed. Session shows why. Both in one timeline.
 3. **Honest visual separation.** Real human prompts are *"quoted and italic"*. Commit summaries are plain.
 4. **Smart arc detection.** Consecutive refactoring commits collapse into one pivot entry.
 5. **Zero dependencies.** No API key, no AI model — works offline, any repo.
-6. **Gets richer as you work.** The more you steer, the more the Journal captures.
+6. **Gets richer as you work.** The more you steer, the more the Steering captures.
 

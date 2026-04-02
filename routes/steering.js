@@ -1,8 +1,8 @@
 /**
- * Git Journal Route — serves repo evolution as Scribe-quality journal entries.
+ * Git Steering Route — serves repo evolution as Scribe-quality steering entries.
  *
  * Analyzes git log to extract steering moments, level-ups, milestones,
- * and pivots from the repo's history. Returns structured journal entries
+ * and pivots from the repo's history. Returns structured steering entries
  * with the timeline format the Scribe uses.
  *
  * Also manages the persistent steering log (.agentviz/steering-v{N}.jsonl)
@@ -10,7 +10,7 @@
  * (200 entries), versioned rotation, and opt-out via .agentviz/config.json.
  *
  * Handles:
- *   GET  /api/journal/git       — journal entries from git history
+ *   GET  /api/journal/git       — steering entries from git history
  *   GET  /api/journal/steering  — persisted steering entries from the log
  *   POST /api/journal/steering  — append a redacted steering entry to the log
  */
@@ -44,9 +44,9 @@ function classifyCommit(message) {
   return "other";
 }
 
-// ── Journal entry types ──────────────────────────────────────────────────────
+// ── Steering entry types ──────────────────────────────────────────────────────
 
-function commitToJournalType(classification, message) {
+function commitToSteeringType(classification, message) {
   if (classification === "release") return "milestone";
   if (classification === "feat") return "levelup";
   if (classification === "refactor") return "pivot";
@@ -174,7 +174,7 @@ function getContributorCount(repoDir) {
 
 // ── Main extraction ──────────────────────────────────────────────────────────
 
-function extractGitJournal(repoDir) {
+function extractGitSteering(repoDir) {
   var commits = parseGitLog(repoDir);
   if (commits.length === 0) return { entries: [], repo: null };
 
@@ -189,9 +189,9 @@ function extractGitJournal(repoDir) {
 
   commits.forEach(function (commit) {
     var classification = classifyCommit(commit.message);
-    var journalType = commitToJournalType(classification, commit.message);
+    var steeringType = commitToSteeringType(classification, commit.message);
 
-    if (!journalType) return; // skip non-narrative commits
+    if (!steeringType) return; // skip non-narrative commits
 
     if (classification === "release") releaseCount++;
     if (classification === "feat") featCount++;
@@ -237,7 +237,7 @@ function extractGitJournal(repoDir) {
 
     if (classification !== "refactor") {
       entries.push({
-        type: journalType,
+        type: steeringType,
         time: commit.date,
         hash: commit.hash,
         author: commit.author,
@@ -480,7 +480,7 @@ export function handle(pathname, req, res, ctx) {
     }
     try {
       var repoDir = process.cwd();
-      var result = extractGitJournal(repoDir);
+      var result = extractGitSteering(repoDir);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
     } catch (e) {

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  extractJournal,
-  computeJournalStats,
-  JOURNAL_TYPES,
-} from "../lib/journalExtractor.js";
+  extractSteering,
+  computeSteeringStats,
+  STEERING_TYPES,
+} from "../lib/steeringExtractor.js";
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -32,21 +32,21 @@ function makeEvent(overrides) {
   }, overrides);
 }
 
-// ── JOURNAL_TYPES ────────────────────────────────────────────────────────────
+// ── STEERING_TYPES ────────────────────────────────────────────────────────────
 
-describe("JOURNAL_TYPES", function () {
+describe("STEERING_TYPES", function () {
   it("defines all 6 entry types", function () {
-    expect(Object.keys(JOURNAL_TYPES)).toHaveLength(6);
-    expect(JOURNAL_TYPES).toHaveProperty("steering");
-    expect(JOURNAL_TYPES).toHaveProperty("levelup");
-    expect(JOURNAL_TYPES).toHaveProperty("pivot");
-    expect(JOURNAL_TYPES).toHaveProperty("mistake");
-    expect(JOURNAL_TYPES).toHaveProperty("milestone");
-    expect(JOURNAL_TYPES).toHaveProperty("insight");
+    expect(Object.keys(STEERING_TYPES)).toHaveLength(6);
+    expect(STEERING_TYPES).toHaveProperty("steering");
+    expect(STEERING_TYPES).toHaveProperty("levelup");
+    expect(STEERING_TYPES).toHaveProperty("pivot");
+    expect(STEERING_TYPES).toHaveProperty("mistake");
+    expect(STEERING_TYPES).toHaveProperty("milestone");
+    expect(STEERING_TYPES).toHaveProperty("insight");
   });
 
   it("each type has id, label, emoji, and color", function () {
-    Object.values(JOURNAL_TYPES).forEach(function (t) {
+    Object.values(STEERING_TYPES).forEach(function (t) {
       expect(t).toHaveProperty("id");
       expect(t).toHaveProperty("label");
       expect(t).toHaveProperty("emoji");
@@ -56,21 +56,21 @@ describe("JOURNAL_TYPES", function () {
   });
 });
 
-// ── extractJournal — empty/edge inputs ───────────────────────────────────────
+// ── extractSteering — empty/edge inputs ───────────────────────────────────────
 
-describe("extractJournal", function () {
+describe("extractSteering", function () {
   describe("empty and edge inputs", function () {
     it("returns empty array for null events", function () {
-      expect(extractJournal(null, null)).toEqual([]);
+      expect(extractSteering(null, null)).toEqual([]);
     });
 
     it("returns empty array for empty arrays", function () {
-      expect(extractJournal([], [])).toEqual([]);
+      expect(extractSteering([], [])).toEqual([]);
     });
 
     it("returns empty array for events with no turns", function () {
       var events = [makeEvent({ t: 1 })];
-      expect(extractJournal(events, [])).toEqual([]);
+      expect(extractSteering(events, [])).toEqual([]);
     });
   });
 
@@ -83,7 +83,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 1, startTime: 10, userMessage: "Use regex instead of manual parsing" }),
       ];
       var events = [makeEvent({ t: 0 }), makeEvent({ t: 10 })];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       var steering = entries.filter(function (e) { return e.type === "steering"; });
       expect(steering.length).toBeGreaterThanOrEqual(1);
       expect(steering[0].turnIndex).toBe(1);
@@ -94,7 +94,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 0, startTime: 0, userMessage: "Create the API" }),
         makeTurn({ index: 1, startTime: 10, userMessage: "That's wrong, try again with Express" }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var steering = entries.filter(function (e) { return e.type === "steering"; });
       expect(steering.length).toBeGreaterThanOrEqual(1);
     });
@@ -104,7 +104,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 0, startTime: 0, userMessage: "Start" }),
         makeTurn({ index: 1, startTime: 5, userMessage: "Don't use that library" }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var steering = entries.filter(function (e) { return e.type === "steering"; });
       expect(steering.length).toBeGreaterThanOrEqual(1);
     });
@@ -113,7 +113,7 @@ describe("extractJournal", function () {
       var turns = [
         makeTurn({ index: 0, startTime: 0, userMessage: "Actually let's try something instead" }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var steering = entries.filter(function (e) { return e.type === "steering"; });
       expect(steering.length).toBe(0);
     });
@@ -123,7 +123,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 0, startTime: 0, userMessage: "go" }),
         makeTurn({ index: 1, startTime: 5, userMessage: "ok" }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var steering = entries.filter(function (e) { return e.type === "steering"; });
       expect(steering.length).toBe(0);
     });
@@ -139,7 +139,7 @@ describe("extractJournal", function () {
       var turns = [
         makeTurn({ index: 0, startTime: 0, hasError: true, eventIndices: [0] }),
       ];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       var mistakes = entries.filter(function (e) { return e.type === "mistake"; });
       expect(mistakes.length).toBeGreaterThanOrEqual(1);
     });
@@ -153,7 +153,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 0, startTime: 0, hasError: true, eventIndices: [0] }),
         makeTurn({ index: 1, startTime: 10, hasError: false, toolCount: 3, eventIndices: [1] }),
       ];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       var levelups = entries.filter(function (e) { return e.type === "levelup"; });
       expect(levelups.length).toBeGreaterThanOrEqual(1);
       expect(levelups[0].title).toContain("Recovered");
@@ -167,7 +167,7 @@ describe("extractJournal", function () {
       var turns = [
         makeTurn({ index: 0, startTime: 0, userMessage: "Build the feature" }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var milestones = entries.filter(function (e) { return e.type === "milestone"; });
       expect(milestones.length).toBeGreaterThanOrEqual(1);
       var start = milestones.find(function (m) { return m.title === "Session started"; });
@@ -179,7 +179,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 0, startTime: 0 }),
         makeTurn({ index: 1, startTime: 10 }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var end = entries.find(function (e) { return e.title === "Session ended"; });
       expect(end).toBeDefined();
       expect(end.type).toBe("milestone");
@@ -195,7 +195,7 @@ describe("extractJournal", function () {
       var turns = [
         makeTurn({ index: 0, startTime: 0, toolCount: 20, eventIndices: indices }),
       ];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       var milestones = entries.filter(function (e) {
         return e.type === "milestone" && e.title !== "Session started";
       });
@@ -216,7 +216,7 @@ describe("extractJournal", function () {
         }),
       ];
       var turns = [makeTurn({ index: 0, startTime: 0 })];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       var insights = entries.filter(function (e) { return e.type === "insight"; });
       expect(insights.length).toBeGreaterThanOrEqual(1);
     });
@@ -226,7 +226,7 @@ describe("extractJournal", function () {
         makeEvent({ t: 5, track: "reasoning", text: "found it", turnIndex: 0 }),
       ];
       var turns = [makeTurn({ index: 0, startTime: 0 })];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       var insights = entries.filter(function (e) { return e.type === "insight"; });
       expect(insights.length).toBe(0);
     });
@@ -243,7 +243,7 @@ describe("extractJournal", function () {
         }));
       }
       var turns = [makeTurn({ index: 0, startTime: 0 })];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       var insights = entries.filter(function (e) { return e.type === "insight"; });
       expect(insights.length).toBeLessThanOrEqual(10);
     });
@@ -258,7 +258,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 1, startTime: 5, userMessage: "Actually switch to GraphQL instead" }),
         makeTurn({ index: 2, startTime: 10, userMessage: "No wait, let's try REST instead" }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var pivots = entries.filter(function (e) { return e.type === "pivot"; });
       expect(pivots.length).toBe(0);
     });
@@ -272,7 +272,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 0, startTime: 0, userMessage: "Build it" }),
         makeTurn({ index: 1, startTime: 5, userMessage: "Switch to a different approach instead" }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var keys = entries.map(function (e) { return e.type + ":" + e.turnIndex; });
       var unique = keys.filter(function (k, i) { return keys.indexOf(k) === i; });
       expect(unique.length).toBe(keys.length);
@@ -292,7 +292,7 @@ describe("extractJournal", function () {
       var events = [
         makeEvent({ t: 20, isError: true, turnIndex: 2 }),
       ];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       for (var i = 1; i < entries.length; i++) {
         expect(entries[i].time).toBeGreaterThanOrEqual(entries[i - 1].time);
       }
@@ -307,14 +307,14 @@ describe("extractJournal", function () {
         makeTurn({ index: 0, startTime: 0, userMessage: "Build the initial feature" }),
         makeTurn({ index: 1, startTime: 10, userMessage: "Switch to a different approach instead of this one" }),
       ];
-      var baseEntries = extractJournal([], baseTurns);
+      var baseEntries = extractSteering([], baseTurns);
       var baseSteering = baseEntries.filter(function (e) { return e.type === "steering"; });
 
       // Simulate live update: new turn arrives
       var updatedTurns = baseTurns.concat([
         makeTurn({ index: 2, startTime: 20, userMessage: "Actually try using the repo history instead of session data" }),
       ]);
-      var updatedEntries = extractJournal([], updatedTurns);
+      var updatedEntries = extractSteering([], updatedTurns);
       var updatedSteering = updatedEntries.filter(function (e) { return e.type === "steering"; });
 
       expect(updatedSteering.length).toBeGreaterThan(baseSteering.length);
@@ -329,7 +329,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 0, startTime: 0, userMessage: "Build the feature", eventIndices: [0] }),
         makeTurn({ index: 1, startTime: 10, userMessage: "No wait, try a completely different approach instead", eventIndices: [1] }),
       ];
-      var entries = extractJournal(events, turns);
+      var entries = extractSteering(events, turns);
       var steering = entries.filter(function (e) { return e.type === "steering"; });
       expect(steering.length).toBeGreaterThanOrEqual(1);
       expect(steering[0].assistantResponse).toContain("squad reasoning");
@@ -342,7 +342,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 2, startTime: 10, userMessage: "good" }),
         makeTurn({ index: 3, startTime: 15, userMessage: "ok do it" }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var steering = entries.filter(function (e) { return e.type === "steering"; });
       expect(steering.length).toBe(0);
     });
@@ -355,7 +355,7 @@ describe("extractJournal", function () {
         makeTurn({ index: 3, startTime: 15, userMessage: "Switch to a completely different architecture instead" }),
         makeTurn({ index: 4, startTime: 20 }),
       ];
-      var entries = extractJournal([], turns);
+      var entries = extractSteering([], turns);
       var steering = entries.filter(function (e) { return e.type === "steering"; });
       expect(steering.length).toBeGreaterThanOrEqual(1);
       var first = steering[0];
@@ -364,9 +364,9 @@ describe("extractJournal", function () {
   });
 });
 
-// ── computeJournalStats ──────────────────────────────────────────────────────
+// ── computeSteeringStats ──────────────────────────────────────────────────────
 
-describe("computeJournalStats", function () {
+describe("computeSteeringStats", function () {
   it("counts entries by type", function () {
     var entries = [
       { type: "steering" },
@@ -377,7 +377,7 @@ describe("computeJournalStats", function () {
       { type: "milestone" },
       { type: "milestone" },
     ];
-    var stats = computeJournalStats(entries);
+    var stats = computeSteeringStats(entries);
     expect(stats.total).toBe(7);
     expect(stats.steering).toBe(2);
     expect(stats.mistake).toBe(1);
@@ -388,7 +388,7 @@ describe("computeJournalStats", function () {
   });
 
   it("handles empty array", function () {
-    var stats = computeJournalStats([]);
+    var stats = computeSteeringStats([]);
     expect(stats.total).toBe(0);
   });
 });
