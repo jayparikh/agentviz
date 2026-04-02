@@ -145,6 +145,7 @@ function JournalRow({ entry, isSelected, onSelect }) {
       <td style={Object.assign({}, cellStyle, {
         color: theme.text.primary,
         fontWeight: 500,
+        maxWidth: 500,
       })}>
         {(entry.source === "session" || entry.source === "contributed") && (entry.type === "steering" || entry.type === "pivot") ? (
           <span style={{ fontStyle: "italic" }}>
@@ -158,25 +159,18 @@ function JournalRow({ entry, isSelected, onSelect }) {
             — {entry.author}
           </span>
         )}
-        {entry.turnLabel && (
-          <span style={{ color: theme.text.ghost, fontWeight: 400, marginLeft: 6, fontSize: theme.fontSize.xs }}>
-            — {entry.turnLabel}
-          </span>
-        )}
       </td>
 
       {/* Level-Up */}
       <td style={Object.assign({}, cellStyle, {
         color: info.color,
-        fontStyle: "italic",
-        opacity: 0.85,
-        maxWidth: 300,
+        fontStyle: "normal",
+        opacity: 0.9,
+        maxWidth: 280,
+        fontSize: theme.fontSize.xs,
+        lineHeight: 1.5,
       })}>
-        {entry.resultingCommit ? (
-          <span>{entry.levelUp}</span>
-        ) : (
-          entry.levelUp
-        )}
+        {entry.levelUp}
       </td>
     </tr>
   );
@@ -428,8 +422,9 @@ function GitFilterBar({ activeFilters, onToggle, counts }) {
 function normalizeSessionEntries(sessionEntries) {
   return sessionEntries.map(function (e) {
     var info = JOURNAL_TYPES[e.type] || JOURNAL_TYPES.insight;
-    // For steering entries, use the full user message as the steering command
-    var command = (e.type === "steering" || e.type === "pivot") ? (e.detail || e.title) : e.title;
+    // For steering entries, truncate to first sentence for the command column
+    var fullText = (e.type === "steering" || e.type === "pivot") ? (e.detail || e.title) : e.title;
+    var command = truncateToSentence(fullText, 120);
     return {
       type: e.type,
       time: new Date(Date.now() - (e.time != null ? (86400 - e.time) * 1000 : 0)).toISOString(),
@@ -444,38 +439,53 @@ function normalizeSessionEntries(sessionEntries) {
   });
 }
 
+function truncateToSentence(text, max) {
+  if (!text) return "";
+  // Take first sentence
+  var first = text.split(/[.!?\n]/)[0].trim();
+  if (first.length <= max) return first;
+  // Truncate at word boundary
+  var truncated = first.substring(0, max);
+  var lastSpace = truncated.lastIndexOf(" ");
+  if (lastSpace > max * 0.6) truncated = truncated.substring(0, lastSpace);
+  return truncated + "...";
+}
+
 function synthesizeSessionLevelUp(entry) {
   var text = (entry.detail || entry.title || "").toLowerCase();
+  var title = entry.title || "";
 
   if (entry.type === "steering") {
-    // Extract specific insight from what they steered toward
-    if (text.indexOf("instead") !== -1 || text.indexOf("switch") !== -1) return "Changed direction — chose a different approach";
-    if (text.indexOf("don't") !== -1 || text.indexOf("stop") !== -1) return "Set a boundary — knowing what NOT to do is taste";
-    if (text.indexOf("try") !== -1 || text.indexOf("actually") !== -1) return "Course correction — refined the approach";
-    if (text.indexOf("wrong") !== -1 || text.indexOf("fix") !== -1) return "Quality gate — caught an issue and redirected";
-    if (text.indexOf("repo") !== -1 || text.indexOf("git") !== -1) return "Pivoted to repo-level narrative";
-    if (text.indexOf("test") !== -1 || text.indexOf("eval") !== -1) return "Raised the quality bar — demanded verification";
-    return "Human steered the AI — taste shaped the outcome";
+    if (text.indexOf("instead") !== -1 || text.indexOf("switch") !== -1) return "🔄 **Direction change.** Chose a different path.";
+    if (text.indexOf("don't") !== -1 || text.indexOf("stop") !== -1 || text.indexOf("not") !== -1) return "🚫 **Boundary set.** Knowing what NOT to do.";
+    if (text.indexOf("try") !== -1 || text.indexOf("actually") !== -1) return "🎯 **Course corrected.** Refined the approach.";
+    if (text.indexOf("wrong") !== -1 || text.indexOf("fix") !== -1 || text.indexOf("broken") !== -1) return "🔧 **Quality gate.** Caught an issue, redirected.";
+    if (text.indexOf("repo") !== -1 || text.indexOf("git") !== -1) return "📡 **Scope expanded.** Brought repo context in.";
+    if (text.indexOf("test") !== -1 || text.indexOf("eval") !== -1) return "✅ **Quality bar raised.** Demanded verification.";
+    if (text.indexOf("screenshot") !== -1 || text.indexOf("demo") !== -1) return "📸 **Show don't tell.** Visual proof requested.";
+    if (text.indexOf("tone") !== -1 || text.indexOf("brag") !== -1 || text.indexOf("boast") !== -1) return "✍️ **Tone refined.** Taste applied to voice.";
+    if (text.indexOf("name") !== -1 || text.indexOf("rename") !== -1 || text.indexOf("call") !== -1) return "🏷️ **Naming matters.** Words shape understanding.";
+    return "🎯 **Human steered.** Taste shaped the outcome.";
   }
   if (entry.type === "levelup") {
-    if (text.indexOf("recover") !== -1) return "Recovered from failure — resilience is a capability";
-    return "Overcame a challenge — proved adaptability";
+    if (text.indexOf("recover") !== -1) return "💪 **Recovered.** Bounced back from failure.";
+    return "⬆️ **Leveled up.** Overcame a challenge.";
   }
   if (entry.type === "mistake") {
-    var errorSnippet = (entry.title || "").substring(0, 40);
-    return "Hit a wall: " + errorSnippet + " — learned from it";
+    var snippet = title.substring(0, 35);
+    return "❌ **Hit a wall.** " + snippet;
   }
-  if (entry.type === "pivot") return "Rapid redirections — searching for the right approach";
+  if (entry.type === "pivot") return "🔄 **Pivot.** Multiple redirections, searching for the right approach.";
   if (entry.type === "milestone") {
-    if (text.indexOf("started") !== -1) return "Session kicked off — intent established";
-    if (text.indexOf("ended") !== -1) return "Session complete — work delivered";
-    return "Milestone reached — momentum matters";
+    if (text.indexOf("started") !== -1) return "🚀 **Session started.** Intent established.";
+    if (text.indexOf("ended") !== -1) return "✅ **Session complete.** Work delivered.";
+    return "📦 **Milestone.** Momentum matters.";
   }
   if (entry.type === "insight") {
-    var insightSnippet = (entry.title || "").substring(0, 50);
-    return "Discovered: " + insightSnippet;
+    var insightSnippet = title.substring(0, 40);
+    return "💡 **Discovered.** " + insightSnippet;
   }
-  return "Progress made";
+  return "📝 Progress made.";
 }
 
 // ── Main JournalView ─────────────────────────────────────────────────────────

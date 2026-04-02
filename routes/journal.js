@@ -58,23 +58,26 @@ function commitToJournalType(classification, message) {
 // ── Narrative synthesis ──────────────────────────────────────────────────────
 
 function synthesizeLevelUp(message, classification) {
+  var cleaned = message.replace(/^(feat|fix|refactor|perf|docs|chore|ci|test)\s*[:(]\s*/i, "").replace(/\s*\(#\d+\)\s*$/, "").replace(/\)$/, "").trim();
+  var short = cleaned.length > 50 ? cleaned.substring(0, 47) + "..." : cleaned;
+
   if (classification === "release") {
     var ver = message.match(/v?\d+\.\d+\.\d+/);
-    return "Shipped " + (ver ? ver[0] : "a release") + " — a versioned milestone the community can depend on";
+    return "📦 **" + (ver ? ver[0] + " shipped" : "Release shipped") + ".** Versioned milestone.";
   }
   if (classification === "feat") {
-    return "New capability unlocked — the product can now do something it couldn't before";
+    return "✨ **" + short + ".** New capability.";
   }
   if (classification === "refactor") {
-    return "Codebase leveled up — cleaner architecture enables faster future work";
+    return "🏗️ **Architecture improved.** " + short;
   }
   if (classification === "perf") {
-    return "Performance breakthrough — users experience a faster, smoother tool";
+    return "⚡ **Faster.** " + short;
   }
   if (classification === "fix") {
-    return "Bug squashed — reliability improved through honest failure acknowledgment";
+    return "🔧 **Fixed.** " + short;
   }
-  return "Progress made";
+  return "📝 " + short;
 }
 
 function extractSteeringCommand(message) {
