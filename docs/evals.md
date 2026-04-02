@@ -1,6 +1,6 @@
-# Journal View — Eval Baselines
+# Steering View — Eval Baselines
 
-> Quality baselines for the Journal View feature.
+> Quality baselines for the Steering View feature.
 > Updated by Evaluator after each milestone.
 > Grading follows the SCORECARD.md rubric.
 

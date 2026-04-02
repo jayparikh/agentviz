@@ -1,4 +1,4 @@
-# 📖 Journal View — Demo Guide
+# 📖 Steering View — Demo Guide
 
 > **What you're tasting:** A new view that tells the *story* of a repo's evolution,
 > not just the data. While Replay/Tracks/Waterfall/Graph/Stats show *what happened*,
@@ -21,7 +21,7 @@ The Journal draws from two sources:
 
 **To see steering in action:** Run an AI coding session with real back-and-forth
 (redirect the agent, correct mistakes, change approaches), then load that
-session in agentviz and click Journal. The richer your steering, the richer
+session in agentviz and click Steering. The richer your steering, the richer
 the Journal.
 
 ---

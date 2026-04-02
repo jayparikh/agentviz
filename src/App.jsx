@@ -94,7 +94,7 @@ function renderActiveView(activeView, props) {
     );
   }
 
-  if (activeView === "journal") {
+  if (activeView === "steering") {
     return (
       <JournalView
         events={props.filteredEvents}

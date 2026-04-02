@@ -1,5 +1,5 @@
 /**
- * JournalView — The narrative view: tells the story of a repo AND its sessions.
+ * SteeringView — The narrative view: tells the story of a repo AND its sessions.
  *
  * Merges git history with session-level narrative into a unified Scribe-style
  * timeline. Git entries show the repo's evolution; session entries show
@@ -635,7 +635,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
         textAlign: "center",
       }}>
         <span style={{ fontSize: 40, opacity: 0.4 }}>📖</span>
-        <span style={{ fontSize: theme.fontSize.md }}>No journal entries found</span>
+        <span style={{ fontSize: theme.fontSize.md }}>No steering entries found</span>
         <span style={{ color: theme.text.ghost, maxWidth: 400 }}>
           {gitError || "Run agentviz from inside a git repo, or load a session with steering moments"}
         </span>

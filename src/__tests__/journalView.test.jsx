@@ -104,7 +104,7 @@ function waitFor(fn, timeout) {
   });
 }
 
-describe("JournalView component", function () {
+describe("SteeringView component", function () {
   it("renders without crashing (catches missing variable references)", async function () {
     var JournalView = (await import("../components/JournalView.jsx")).default;
     var container = document.createElement("div");
@@ -166,7 +166,7 @@ describe("JournalView component", function () {
     container.remove();
   });
 
-  it("renders journal rows from git data", async function () {
+  it("renders steering rows from git data", async function () {
     var JournalView = (await import("../components/JournalView.jsx")).default;
     var container = document.createElement("div");
     document.body.appendChild(container);
@@ -294,7 +294,7 @@ describe("JournalView component", function () {
     });
 
     var html = container.innerHTML;
-    expect(html).toContain("No journal entries found");
+    expect(html).toContain("No steering entries found");
 
     await act(async function () {
       root.unmount();
