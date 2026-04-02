@@ -612,6 +612,8 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
   var [steeringLog, setSteeringLog] = useState([]);
   var [selectedEntry, setSelectedEntry] = useState(null);
   var [activeFilters, setActiveFilters] = useState({});
+  var [synthesizing, setSynthesizing] = useState(false);
+  var [synthResults, setSynthResults] = useState({});
 
   // Fetch git history and steering log from backend
   useEffect(function () {
@@ -753,8 +755,18 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
     filtered.sort(function (a, b) {
       return new Date(b.time).getTime() - new Date(a.time).getTime();
     });
-    return filtered;
-  }, [allEntries, activeFilters]);
+    // Apply AI synthesis results on top of heuristic data
+    return filtered.map(function (e) {
+      var synth = synthResults[e.steeringCommand];
+      if (synth) {
+        return Object.assign({}, e, {
+          whatHappened: synth.whatHappened || e.whatHappened,
+          levelUp: synth.levelUp || e.levelUp,
+        });
+      }
+      return e;
+    });
+  }, [allEntries, activeFilters, synthResults]);
 
   // Compute max impact for bar normalization
   var maxImpact = useMemo(function () {
@@ -776,6 +788,47 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
       }
       return next;
     });
+  }
+
+  function handleSynthesize() {
+    if (synthesizing) return;
+    // Collect session steering entries that need synthesis
+    var toSynthesize = normalizedSessionEntries.filter(function (e) {
+      return e.type === "steering" && !synthResults[e.steeringCommand];
+    }).slice(0, 15); // cap at 15 to avoid overloading
+
+    if (toSynthesize.length === 0) return;
+    setSynthesizing(true);
+
+    fetch("/api/journal/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entries: toSynthesize.map(function (e) {
+          return {
+            steeringCommand: e.steeringCommand,
+            assistantResponse: e.assistantResponse ? e.assistantResponse.substring(0, 600) : "",
+            resultingCommitMsg: e.levelUp || "",
+            linesChanged: e.impact || 0,
+          };
+        }),
+      }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.results) {
+        var newResults = Object.assign({}, synthResults);
+        Object.keys(data.results).forEach(function (idx) {
+          var entry = toSynthesize[parseInt(idx)];
+          if (entry) {
+            newResults[entry.steeringCommand] = data.results[idx];
+          }
+        });
+        setSynthResults(newResults);
+      }
+      setSynthesizing(false);
+    })
+    .catch(function () { setSynthesizing(false); });
   }
 
 
@@ -843,7 +896,26 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
       {/* Left: Unified timeline table */}
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <RepoSummary repo={gitData ? gitData.repo : null} entryCount={filteredEntries.length} />
-        <GitFilterBar activeFilters={activeFilters} onToggle={handleToggleFilter} counts={entryCounts} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 16px" }}>
+          <GitFilterBar activeFilters={activeFilters} onToggle={handleToggleFilter} counts={entryCounts} />
+          <button
+            onClick={handleSynthesize}
+            disabled={synthesizing}
+            style={{
+              padding: "2px 10px",
+              background: theme.bg.raised,
+              border: "1px solid " + theme.border.default,
+              borderRadius: theme.radius.full,
+              color: synthesizing ? theme.text.ghost : theme.accent.primary,
+              fontFamily: theme.font.mono,
+              fontSize: theme.fontSize.xs,
+              cursor: synthesizing ? "default" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {synthesizing ? "Synthesizing..." : "✨ Synthesize"}
+          </button>
+        </div>
 
         <div style={{ flex: 1, overflowY: "auto" }}>
           <table style={{

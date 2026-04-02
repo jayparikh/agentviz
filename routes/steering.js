@@ -536,5 +536,41 @@ export function handle(pathname, req, res, ctx) {
     return true;
   }
 
+  // AI synthesis route
+  if (pathname === "/api/journal/synthesize") {
+    if (req.method !== "POST") {
+      res.writeHead(405);
+      res.end("Method not allowed");
+      return true;
+    }
+
+    var body = "";
+    req.on("data", function (chunk) { body += chunk; });
+    req.on("end", async function () {
+      try {
+        var payload = JSON.parse(body);
+        var entries = payload.entries || [];
+        if (entries.length === 0) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ results: {} }));
+          return;
+        }
+
+        // Lazy import to avoid loading SDK when not needed
+        var mod = await import("../src/lib/steeringAgent.js");
+        var results = await mod.synthesizeSteeringEntries(entries, {
+          model: ctx.getConfiguredModel(),
+        });
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ results: results }));
+      } catch (e) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return true;
+  }
+
   return false;
 }
