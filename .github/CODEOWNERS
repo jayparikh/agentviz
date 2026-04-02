@@ -1,0 +1,18 @@
+# Core product surfaces
+/src/components/ @jayparikh
+/src/App.jsx @jayparikh
+
+# High-risk data and backend surfaces
+/src/lib/*Parser* @jayparikh
+/src/lib/parse* @jayparikh
+/src/lib/*Extractor* @jayparikh
+/routes/ @jayparikh
+/server.js @jayparikh
+
+# Product contract and design system
+/README.md @jayparikh
+/docs/ui-ux-style-guide.md @jayparikh
+/docs/screenshots/ @jayparikh
+
+# Repo review workflow
+/.github/ @jayparikh

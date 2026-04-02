@@ -40,6 +40,7 @@
     "build:debug": "vite build --mode debug",
     "preview": "vite preview",
     "prepare": "npm run build",
+    "pr:guard": "node scripts/pr-review-guard.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
