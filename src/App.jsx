@@ -100,7 +100,7 @@ function renderActiveView(activeView, props) {
         events={props.filteredEvents}
         turns={props.session.turns}
         metadata={props.session.metadata}
-        onSeek={props.playback.seek}
+        onSeek={props.onSeekReplay}
       />
     );
   }
@@ -632,6 +632,7 @@ function AppSessionView({
           autonomyMetrics: autonomyMetrics,
           debrief: debrief,
           onOpenCoach: function () { setView("coach"); },
+          onSeekReplay: function (time) { pb.playback.seek(time); setView("replay"); },
         })}
       </div>
 
