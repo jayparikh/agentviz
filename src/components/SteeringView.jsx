@@ -800,6 +800,70 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
     return max;
   }, [filteredEntries]);
 
+  // ── Steering Intelligence ──────────────────────────────────────────────
+
+  var steeringIntel = useMemo(function () {
+    var sessionSteering = normalizedSessionEntries.filter(function (e) { return e.type === "steering"; });
+    if (sessionSteering.length === 0 || !metadata) return null;
+
+    // Density: steerings per hour
+    var sessionHours = (metadata.duration || 1) / 3600;
+    var density = sessionSteering.length / Math.max(sessionHours, 0.1);
+
+    // Token cost between steerings (approximate from turn gaps)
+    var totalTurns = (turns || []).length;
+    var avgTurnsBetween = sessionSteering.length > 0 ? totalTurns / sessionSteering.length : 0;
+
+    // Categorize corrections
+    var categories = {};
+    sessionSteering.forEach(function (e) {
+      var text = (e.steeringCommand || "").toLowerCase();
+      var cat = "general";
+      if (text.indexOf("tone") !== -1 || text.indexOf("brag") !== -1 || text.indexOf("boast") !== -1 || text.indexOf("fancy") !== -1) cat = "tone";
+      else if (text.indexOf("quality") !== -1 || text.indexOf("taste") !== -1 || text.indexOf("close to what") !== -1 || text.indexOf("not delivering") !== -1) cat = "quality";
+      else if (text.indexOf("test") !== -1 || text.indexOf("eval") !== -1 || text.indexOf("verify") !== -1) cat = "testing";
+      else if (text.indexOf("name") !== -1 || text.indexOf("rename") !== -1 || text.indexOf("call") !== -1 || text.indexOf("word") !== -1) cat = "naming";
+      else if (text.indexOf("fix") !== -1 || text.indexOf("bug") !== -1 || text.indexOf("broke") !== -1 || text.indexOf("crash") !== -1) cat = "bugs";
+      else if (text.indexOf("screenshot") !== -1 || text.indexOf("ui") !== -1 || text.indexOf("color") !== -1 || text.indexOf("visual") !== -1) cat = "visual";
+      else if (text.indexOf("remove") !== -1 || text.indexOf("less") !== -1 || text.indexOf("simplif") !== -1 || text.indexOf("trim") !== -1) cat = "simplification";
+      categories[cat] = (categories[cat] || 0) + 1;
+    });
+
+    // Sort categories by frequency
+    var sortedCats = Object.entries(categories).sort(function (a, b) { return b[1] - a[1]; });
+
+    // Generate insights
+    var insights = [];
+    sortedCats.forEach(function (pair) {
+      var cat = pair[0];
+      var count = pair[1];
+      if (count < 2) return;
+      if (cat === "quality") insights.push("Quality was redirected " + count + " times — consider a quality checklist or grounding doc as a skill");
+      else if (cat === "tone") insights.push("Tone corrected " + count + " times — a style guide skill would reduce this");
+      else if (cat === "testing") insights.push("Testing demanded " + count + " times — automate test runs before presenting results");
+      else if (cat === "naming") insights.push("Naming revised " + count + " times — names matter to this user, get them right first");
+      else if (cat === "bugs") insights.push("Bug fixes redirected " + count + " times — run build+test before every commit");
+      else if (cat === "visual") insights.push("Visual corrections " + count + " times — validate rendered output, not just code");
+      else if (cat === "simplification") insights.push("Simplification requested " + count + " times — start minimal, add complexity only when asked");
+      else if (cat === "general" && count >= 3) insights.push(count + " general redirections — the agent needed frequent course corrections");
+    });
+
+    // Density insight
+    if (density > 5) {
+      insights.unshift("High steering density (" + density.toFixed(1) + "/hr) — agent needed frequent correction");
+    } else if (density < 2) {
+      insights.unshift("Low steering density (" + density.toFixed(1) + "/hr) — agent was well-aligned");
+    }
+
+    return {
+      density: density,
+      totalSteering: sessionSteering.length,
+      avgTurnsBetween: avgTurnsBetween,
+      categories: sortedCats,
+      insights: insights.slice(0, 4),
+    };
+  }, [normalizedSessionEntries, metadata, turns]);
+
   function handleToggleFilter(typeId, forcedState) {
     setActiveFilters(function (prev) {
       var next = Object.assign({}, prev);
@@ -962,6 +1026,79 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
             </span>
           )}
         </div>
+
+        {/* Steering Intelligence Panel */}
+        {steeringIntel && steeringIntel.insights.length > 0 && (
+          <div style={{
+            padding: "8px 16px",
+            borderBottom: "1px solid " + theme.border.subtle,
+            flexShrink: 0,
+          }}>
+            <div style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 16,
+            }}>
+              {/* Density score */}
+              <div style={{
+                padding: "6px 10px",
+                background: theme.bg.base,
+                borderRadius: theme.radius.md,
+                border: "1px solid " + theme.border.subtle,
+                minWidth: 80,
+                textAlign: "center",
+                flexShrink: 0,
+              }}>
+                <div style={{
+                  fontSize: theme.fontSize.lg,
+                  fontFamily: theme.font.mono,
+                  fontWeight: 700,
+                  color: steeringIntel.density > 5 ? theme.accent.primary : theme.text.muted,
+                }}>
+                  {steeringIntel.density.toFixed(1)}
+                </div>
+                <div style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono }}>
+                  steerings/hr
+                </div>
+              </div>
+
+              {/* Insights */}
+              <div style={{ flex: 1 }}>
+                {steeringIntel.insights.map(function (insight, i) {
+                  return (
+                    <div key={i} style={{
+                      fontSize: theme.fontSize.xs,
+                      fontFamily: theme.font.mono,
+                      color: theme.text.secondary,
+                      lineHeight: 1.5,
+                      padding: "2px 0",
+                    }}>
+                      {i === 0 ? "→ " : "  "}{insight}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Categories */}
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                {steeringIntel.categories.slice(0, 4).map(function (pair) {
+                  return (
+                    <span key={pair[0]} style={{
+                      fontSize: 9,
+                      fontFamily: theme.font.mono,
+                      color: theme.text.ghost,
+                      background: theme.bg.raised,
+                      borderRadius: theme.radius.sm,
+                      padding: "1px 5px",
+                    }}>
+                      {pair[0]} {pair[1]}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ flex: 1, overflowY: "auto" }}>
           <table style={{
