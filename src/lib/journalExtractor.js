@@ -56,7 +56,10 @@ export function extractJournal(events, turns) {
     if (i === 0) return; // skip first turn (initial prompt, not steering)
 
     var userMsg = turn.userMessage || "";
-    if (!userMsg || userMsg.length < 15) return; // skip short messages — not real steering
+    if (!userMsg || userMsg.length < 15) return;
+    // Skip test artifacts and redacted content
+    if (userMsg.indexOf("[REDACTED]") !== -1) return;
+    if (userMsg.indexOf("ghp_") !== -1 || userMsg.indexOf("sk-") !== -1) return;
 
     var isSteering = STEERING_PATTERNS.some(function (pat) {
       return pat.test(userMsg);
@@ -64,14 +67,12 @@ export function extractJournal(events, turns) {
 
     if (isSteering) {
       // Collect the assistant's response from this turn's events
-      // Skip tool invocations, only keep substantive reasoning and output
       var turnEvents = turnEventsMap[turn.index] || [];
       var responseChunks = [];
       var totalLen = 0;
       for (var j = 0; j < turnEvents.length; j++) {
         var ev = turnEvents[j];
         if (!ev || !ev.text) continue;
-        // Skip tool calls, invocations, and short noise
         if (ev.track === "tool_call" || ev.track === "context") continue;
         var chunk = ev.text.trim();
         if (chunk.length < 15) continue;
@@ -90,6 +91,26 @@ export function extractJournal(events, turns) {
       }
       var assistantResponse = responseChunks.join("\n\n");
 
+      // Capture prior turn's assistant response — the context the user was responding to
+      var priorContext = "";
+      if (i > 0) {
+        var prevTurn = turns[i - 1];
+        var prevEvents = turnEventsMap[prevTurn.index] || [];
+        var prevChunks = [];
+        var prevLen = 0;
+        for (var k = prevEvents.length - 1; k >= 0 && prevLen < 800; k--) {
+          var pe = prevEvents[k];
+          if (!pe || !pe.text || pe.text.length < 15) continue;
+          if (pe.track === "tool_call" || pe.track === "context") continue;
+          if (pe.text.indexOf("Invoking:") === 0) continue;
+          if (pe.track === "assistant" || pe.track === "output" || pe.track === "reasoning") {
+            prevChunks.unshift(pe.text.trim());
+            prevLen += pe.text.length;
+          }
+        }
+        priorContext = prevChunks.join("\n").substring(0, 800);
+      }
+
       entries.push({
         type: "steering",
         turnIndex: turn.index,
@@ -97,6 +118,7 @@ export function extractJournal(events, turns) {
         title: extractTitle(userMsg, "Redirected approach"),
         detail: userMsg,
         assistantResponse: assistantResponse,
+        priorContext: priorContext,
         severity: 1,
       });
     }

@@ -292,6 +292,30 @@ function EntryDetail({ entry, onSeek }) {
         opacity: 0.4,
       }} />
 
+      {/* Prior Context — what the assistant said that the user was responding to */}
+      {entry.priorContext && (
+        <div style={{ marginBottom: theme.space.lg }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
+            Responding To
+          </div>
+          <div style={{
+            fontSize: theme.fontSize.xs,
+            color: theme.text.dim,
+            lineHeight: 1.5,
+            whiteSpace: "pre-wrap",
+            padding: "8px 10px",
+            background: theme.bg.base,
+            borderRadius: theme.radius.md,
+            border: "1px solid " + theme.border.subtle,
+            borderLeft: "2px solid " + theme.text.ghost,
+            maxHeight: 150,
+            overflowY: "auto",
+          }}>
+            {entry.priorContext}
+          </div>
+        </div>
+      )}
+
       {/* What happened */}
       <div style={{ marginBottom: theme.space.lg }}>
         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
@@ -557,6 +581,7 @@ function normalizeSessionEntries(sessionEntries, sessionDuration) {
       steeringCommand: command,
       whatHappened: whatHappened,
       assistantResponse: e.assistantResponse || "",
+      priorContext: e.priorContext || "",
       levelUp: levelUp,
       impactTurns: e.impactTurns || 0,
       seekTime: e.time,
