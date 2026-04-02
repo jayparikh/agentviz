@@ -790,14 +790,19 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
     });
   }
 
-  function handleSynthesize() {
-    if (synthesizing) return;
-    // Collect session steering entries that need synthesis
+  // Auto-analyze: once session entries are loaded, synthesize in background
+  var hasStartedSynth = useRef(false);
+  useEffect(function () {
+    if (hasStartedSynth.current) return;
+    if (gitLoading) return;
+    if (normalizedSessionEntries.length === 0) return;
+
     var toSynthesize = normalizedSessionEntries.filter(function (e) {
-      return e.type === "steering" && !synthResults[e.steeringCommand];
-    }).slice(0, 15); // cap at 15 to avoid overloading
+      return e.type === "steering";
+    }).slice(0, 15);
 
     if (toSynthesize.length === 0) return;
+    hasStartedSynth.current = true;
     setSynthesizing(true);
 
     fetch("/api/journal/synthesize", {
@@ -817,7 +822,7 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
     .then(function (r) { return r.json(); })
     .then(function (data) {
       if (data.results) {
-        var newResults = Object.assign({}, synthResults);
+        var newResults = {};
         Object.keys(data.results).forEach(function (idx) {
           var entry = toSynthesize[parseInt(idx)];
           if (entry) {
@@ -829,7 +834,7 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
       setSynthesizing(false);
     })
     .catch(function () { setSynthesizing(false); });
-  }
+  }, [normalizedSessionEntries, gitLoading]);
 
 
   // Loading state
@@ -898,23 +903,16 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
         <RepoSummary repo={gitData ? gitData.repo : null} entryCount={filteredEntries.length} />
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 16px" }}>
           <GitFilterBar activeFilters={activeFilters} onToggle={handleToggleFilter} counts={entryCounts} />
-          <button
-            onClick={handleSynthesize}
-            disabled={synthesizing}
-            style={{
-              padding: "2px 10px",
-              background: theme.bg.raised,
-              border: "1px solid " + theme.border.default,
-              borderRadius: theme.radius.full,
-              color: synthesizing ? theme.text.ghost : theme.accent.primary,
-              fontFamily: theme.font.mono,
+          {synthesizing && (
+            <span style={{
               fontSize: theme.fontSize.xs,
-              cursor: synthesizing ? "default" : "pointer",
+              fontFamily: theme.font.mono,
+              color: theme.accent.primary,
               whiteSpace: "nowrap",
-            }}
-          >
-            {synthesizing ? "Synthesizing..." : "✨ Synthesize"}
-          </button>
+            }}>
+              ✨ Analyzing...
+            </span>
+          )}
         </div>
 
         <div style={{ flex: 1, overflowY: "auto" }}>
