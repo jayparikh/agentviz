@@ -16,12 +16,12 @@ import Icon from "./Icon.jsx";
 // ── Unified type palette (covers both git and session entries) ───────────────
 
 var ENTRY_COLORS = {
-  milestone: { color: "#a78bfa", emoji: "✅", label: "Release" },
-  levelup:   { color: "#94a3b8", emoji: "🆙", label: "Level-Up" },
-  pivot:     { color: "#a78bfa", emoji: "🔄", label: "Pivot" },
-  mistake:   { color: "#94a3b8", emoji: "🔧", label: "Fix" },
   steering:  { color: "#6475e8", emoji: "🎯", label: "Steering" },
-  insight:   { color: "#94a3b8", emoji: "💡", label: "Insight" },
+  milestone: { color: "#94a3b8", emoji: "📦", label: "Commit" },
+  levelup:   { color: "#94a3b8", emoji: "📦", label: "Commit" },
+  pivot:     { color: "#94a3b8", emoji: "📦", label: "Commit" },
+  mistake:   { color: "#94a3b8", emoji: "📦", label: "Commit" },
+  insight:   { color: "#94a3b8", emoji: "💡", label: "Commit" },
 };
 
 // ── Format git date to readable string ───────────────────────────────────────
@@ -103,8 +103,8 @@ function TypeBadge({ type }) {
 
 function JournalRow({ entry, isSelected, onSelect }) {
   var info = ENTRY_COLORS[entry.type] || ENTRY_COLORS.levelup;
-  var isSteering = entry.type === "steering" || entry.type === "pivot";
-  var isPrompt = isSteering && (entry.source === "session" || entry.source === "contributed");
+  var isPrompt = entry.type === "steering" && (entry.source === "session" || entry.source === "contributed");
+  var isCommit = entry.source === "git";
   var cellStyle = {
     padding: "6px 10px",
     fontSize: theme.fontSize.sm,
@@ -135,53 +135,47 @@ function JournalRow({ entry, isSelected, onSelect }) {
         {formatGitDate(entry.time)}
       </td>
 
-      {/* Steering Command — prompts intense white, commits dimmer */}
+      {/* Steering Command — prompts intense white, commits dimmer with blue hash */}
       <td style={Object.assign({}, cellStyle, {
-        color: isPrompt ? theme.text.primary : theme.text.secondary,
+        color: isPrompt ? theme.text.primary : theme.text.muted,
         fontWeight: isPrompt ? 500 : 400,
-        maxWidth: 420,
+        maxWidth: 460,
       })}>
         {isPrompt ? (
           <span style={{ fontStyle: "italic" }}>
-            &ldquo;{entry.steeringCommand}&rdquo;
+            &ldquo;{truncateToSentence(entry.steeringCommand, 110)}&rdquo;
           </span>
         ) : (
           <span>
-            <TypeBadge type={entry.type} />
-            <span style={{ marginLeft: 6 }}>{entry.steeringCommand}</span>
-          </span>
-        )}
-        {entry.author && (
-          <span style={{ color: theme.text.ghost, fontWeight: 400, marginLeft: 6, fontSize: theme.fontSize.xs }}>
-            — {entry.author}
+            {isCommit && entry.hash && (
+              <span style={{ color: "#6475e8", marginRight: 6, fontSize: theme.fontSize.xs }}>
+                {entry.hash.substring(0, 7)}
+              </span>
+            )}
+            {entry.steeringCommand}
+            {entry.author && (
+              <span style={{ color: theme.text.ghost, fontWeight: 400, marginLeft: 6, fontSize: theme.fontSize.xs }}>
+                — {entry.author}
+              </span>
+            )}
           </span>
         )}
       </td>
 
       {/* What Happened */}
       <td style={Object.assign({}, cellStyle, {
-        color: theme.text.muted,
+        color: theme.text.dim,
         fontSize: theme.fontSize.xs,
-        maxWidth: 300,
+        maxWidth: 280,
       })}>
-        {entry.whatHappened ? truncateToSentence(entry.whatHappened, 100) : ""}
-        {entry.resultingCommit && (
-          <span style={{ color: theme.text.ghost, marginLeft: 4 }}>
-            {entry.resultingCommit.substring(0, 7)}
-          </span>
-        )}
-        {entry.hash && (
-          <span style={{ color: theme.text.ghost, marginLeft: 4 }}>
-            {entry.hash.substring(0, 7)}
-          </span>
-        )}
+        {entry.whatHappened ? truncateToSentence(entry.whatHappened, 90) : ""}
       </td>
 
       {/* Level-Up */}
       <td style={Object.assign({}, cellStyle, {
-        color: isPrompt ? info.color : theme.text.muted,
+        color: isPrompt ? "#6475e8" : theme.text.dim,
         fontSize: theme.fontSize.xs,
-        maxWidth: 250,
+        maxWidth: 240,
         lineHeight: 1.4,
       })}>
         {entry.levelUp}
@@ -193,6 +187,17 @@ function JournalRow({ entry, isSelected, onSelect }) {
 // ── Detail panel for selected entry (git or session) ─────────────────────────
 
 function EntryDetail({ entry, onSeek }) {
+  var [files, setFiles] = useState(null);
+
+  // Fetch files affected when a git commit entry is selected
+  useEffect(function () {
+    setFiles(null);
+    if (!entry || !entry.hash) return;
+    fetch("/api/journal/commit-files?hash=" + entry.hash)
+      .then(function (r) { return r.json(); })
+      .then(function (data) { setFiles(data.files || []); })
+      .catch(function () { setFiles(null); });
+  }, [entry ? entry.hash : null]);
   if (!entry) {
     return (
       <div style={{
@@ -282,9 +287,30 @@ function EntryDetail({ entry, onSeek }) {
           borderRadius: theme.radius.md,
           border: "1px solid " + theme.border.subtle,
         }}>
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: "#6475e8" }}>
             {entry.hash.slice(0, 8)} · {entry.author}
             {entry.commitCount ? " · " + entry.commitCount + " commits" : ""}
+          </div>
+        </div>
+      )}
+
+      {/* Files affected */}
+      {files && files.length > 0 && (
+        <div style={{ marginTop: theme.space.lg }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
+            Files Changed
+          </div>
+          <div style={{
+            fontSize: theme.fontSize.xs,
+            fontFamily: theme.font.mono,
+            color: theme.text.dim,
+            lineHeight: 1.6,
+          }}>
+            {files.map(function (f, i) {
+              return (
+                <div key={i}>{f}</div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -364,6 +390,12 @@ function RepoSummary({ repo, entryCount }) {
 // ── Filter bar ───────────────────────────────────────────────────────────────
 
 function GitFilterBar({ activeFilters, onToggle, counts }) {
+  // Simplified: just two filter categories
+  var filters = [
+    { id: "steering", label: "🎯 Steering", color: "#6475e8", count: counts.steering || 0 },
+    { id: "commit", label: "📦 Commits", color: "#94a3b8", count: (counts.milestone || 0) + (counts.levelup || 0) + (counts.pivot || 0) + (counts.mistake || 0) + (counts.insight || 0) },
+  ];
+
   return (
     <div style={{
       display: "flex",
@@ -371,26 +403,34 @@ function GitFilterBar({ activeFilters, onToggle, counts }) {
       padding: "6px 16px",
       borderBottom: "1px solid " + theme.border.subtle,
       flexShrink: 0,
-      flexWrap: "wrap",
     }}>
-      {Object.keys(ENTRY_COLORS).map(function (typeId) {
-        var info = ENTRY_COLORS[typeId];
-        var count = counts[typeId] || 0;
-        if (count === 0) return null;
-        var isActive = activeFilters[typeId] !== false;
+      {filters.map(function (f) {
+        if (f.count === 0) return null;
+        // For "commit" filter, check if ANY commit type is filtered out
+        var isActive = f.id === "steering"
+          ? activeFilters.steering !== false
+          : activeFilters.milestone !== false && activeFilters.levelup !== false && activeFilters.pivot !== false && activeFilters.mistake !== false;
         return (
           <button
-            key={typeId}
-            onClick={function () { onToggle(typeId); }}
+            key={f.id}
+            onClick={function () {
+              if (f.id === "steering") {
+                onToggle("steering");
+              } else {
+                // Toggle all commit types together
+                var newState = !isActive;
+                ["milestone", "levelup", "pivot", "mistake", "insight"].forEach(function (t) { onToggle(t, newState); });
+              }
+            }}
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 3,
               padding: "2px 8px",
-              background: isActive ? info.color + "15" : "transparent",
-              border: "1px solid " + (isActive ? info.color + "35" : theme.border.subtle),
+              background: isActive ? f.color + "15" : "transparent",
+              border: "1px solid " + (isActive ? f.color + "35" : theme.border.subtle),
               borderRadius: theme.radius.full,
-              color: isActive ? info.color : theme.text.ghost,
+              color: isActive ? f.color : theme.text.ghost,
               fontFamily: theme.font.mono,
               fontSize: theme.fontSize.xs,
               cursor: "pointer",
@@ -398,7 +438,7 @@ function GitFilterBar({ activeFilters, onToggle, counts }) {
               transition: "all " + theme.transition.fast,
             }}
           >
-            {info.emoji} {info.label} <span style={{ opacity: 0.6 }}>{count}</span>
+            {f.label} <span style={{ opacity: 0.6 }}>{f.count}</span>
           </button>
         );
       })}
@@ -666,10 +706,14 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
   var gitCount = (gitData && gitData.entries) ? gitData.entries.length : 0;
   var contributedCount = contributedEntries.length;
 
-  function handleToggleFilter(typeId) {
+  function handleToggleFilter(typeId, forcedState) {
     setActiveFilters(function (prev) {
       var next = Object.assign({}, prev);
-      next[typeId] = prev[typeId] === false ? true : false;
+      if (forcedState !== undefined) {
+        next[typeId] = forcedState;
+      } else {
+        next[typeId] = prev[typeId] === false ? true : false;
+      }
       return next;
     });
   }

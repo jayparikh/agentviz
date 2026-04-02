@@ -218,10 +218,8 @@ describe("SteeringView component", function () {
     });
 
     var html = container.innerHTML;
-    expect(html).toContain("Release");
-    expect(html).toContain("Level-Up");
-    expect(html).toContain("Fix");
-    expect(html).toContain("Pivot");
+    expect(html).toContain("Steering");
+    expect(html).toContain("Commits");
 
     await act(async function () {
       root.unmount();

@@ -409,6 +409,40 @@ function appendSteeringEntry(repoDir, entry) {
 }
 
 export function handle(pathname, req, res, ctx) {
+  // Commit files route
+  if (pathname === "/api/journal/commit-files") {
+    if (req.method !== "GET") {
+      res.writeHead(405);
+      res.end("Method not allowed");
+      return true;
+    }
+    try {
+      var url = require("url");
+      var parsed = url.parse(req.url, true);
+      var hash = (parsed.query.hash || "").replace(/[^a-f0-9]/gi, "").substring(0, 40);
+      if (!hash) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: "hash required" }));
+        return true;
+      }
+      var raw = execSync(
+        "git show --stat --format='' " + hash,
+        { cwd: process.cwd(), encoding: "utf8", timeout: 3000 }
+      );
+      var files = raw.trim().split("\n").filter(function (line) {
+        return line.indexOf("|") !== -1;
+      }).map(function (line) {
+        return line.split("|")[0].trim();
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ files: files }));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ files: [] }));
+    }
+    return true;
+  }
+
   // Git history route
   if (pathname === "/api/journal/git") {
     if (req.method !== "GET") {
