@@ -172,7 +172,11 @@ function JournalRow({ entry, isSelected, onSelect }) {
         opacity: 0.85,
         maxWidth: 300,
       })}>
-        {entry.levelUp}
+        {entry.resultingCommit ? (
+          <span>{entry.levelUp}</span>
+        ) : (
+          entry.levelUp
+        )}
       </td>
     </tr>
   );
@@ -555,19 +559,86 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     }).catch(function () {});
   }, [normalizedSessionEntries, steeringLog, gitLoading]);
 
-  // Normalize contributed steering entries
+  // Normalize contributed steering entries — use contributedAt as the real time
   var contributedEntries = useMemo(function () {
     return steeringLog.map(function (e) {
-      return Object.assign({}, e, { source: "contributed" });
+      return Object.assign({}, e, {
+        source: "contributed",
+        time: e.contributedAt || e.time,
+      });
     });
   }, [steeringLog]);
 
-  // Merge all three sources into unified timeline
+  // Merge all three sources and link steering to resulting commits
   var allEntries = useMemo(function () {
     var gitEntries = (gitData && gitData.entries) ? gitData.entries.map(function (e) {
       return Object.assign({}, e, { source: "git" });
     }) : [];
-    return gitEntries.concat(contributedEntries).concat(normalizedSessionEntries);
+
+    // Sort git entries by time for binary lookup
+    var sortedGit = gitEntries.slice().sort(function (a, b) {
+      return new Date(a.time).getTime() - new Date(b.time).getTime();
+    });
+
+    // For contributed entries: the steering happened BEFORE the commit,
+    // but was persisted AFTER. So find the closest feat/milestone commit
+    // BEFORE the contributedAt time — that's what the steering produced.
+    function findResultForContributed(contributedAt) {
+      var t = new Date(contributedAt).getTime();
+      if (isNaN(t)) return null;
+      var best = null;
+      for (var i = 0; i < sortedGit.length; i++) {
+        var commitTime = new Date(sortedGit[i].time).getTime();
+        if (commitTime < t && (sortedGit[i].type === "levelup" || sortedGit[i].type === "milestone")) {
+          best = sortedGit[i]; // keep updating — we want the latest one before contributedAt
+        }
+      }
+      return best;
+    }
+
+    // For session entries: find the next commit after the session time
+    function findResultForSession(sessionTime) {
+      var t = new Date(sessionTime).getTime();
+      if (isNaN(t)) return null;
+      for (var i = 0; i < sortedGit.length; i++) {
+        var commitTime = new Date(sortedGit[i].time).getTime();
+        if (commitTime > t && (sortedGit[i].type === "levelup" || sortedGit[i].type === "milestone")) {
+          return sortedGit[i];
+        }
+      }
+      return null;
+    }
+
+    // Track which commits have been claimed so each steering gets a unique result
+    var claimedCommits = {};
+
+    var enrichedContributed = contributedEntries.map(function (e) {
+      if (e.type !== "steering" && e.type !== "pivot") return e;
+      var result = findResultForContributed(e.contributedAt || e.time);
+      if (result && !claimedCommits[result.hash]) {
+        claimedCommits[result.hash] = true;
+        return Object.assign({}, e, {
+          levelUp: "→ " + result.steeringCommand,
+          resultingCommit: result.hash,
+        });
+      }
+      return e;
+    });
+
+    var enrichedSession = normalizedSessionEntries.map(function (e) {
+      if (e.type !== "steering" && e.type !== "pivot") return e;
+      var result = findResultForSession(e.time);
+      if (result && !claimedCommits[result.hash]) {
+        claimedCommits[result.hash] = true;
+        return Object.assign({}, e, {
+          levelUp: "→ " + result.steeringCommand,
+          resultingCommit: result.hash,
+        });
+      }
+      return e;
+    });
+
+    return gitEntries.concat(enrichedContributed).concat(enrichedSession);
   }, [gitData, contributedEntries, normalizedSessionEntries]);
 
   // Count by type across all sources
