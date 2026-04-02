@@ -185,24 +185,34 @@ function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
         {entry.levelUp}
       </td>
 
-      {/* Impact bar */}
-      <td style={Object.assign({}, cellStyle, { width: 80, padding: "6px 8px" })}>
-        {(lines > 0 || turns > 0) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{
-              height: 4,
-              width: Math.max(impactPct * 40, 2),
-              borderRadius: 2,
-              background: isPrompt ? "#6475e8" : "#94a3b850",
-              transition: "width 200ms ease-out",
-            }} />
-            <span style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono, whiteSpace: "nowrap" }}>
-              {lines > 0 ? (lines > 999 ? Math.round(lines / 1000) + "k" : lines) + "L" : ""}
-              {lines > 0 && turns > 0 ? " " : ""}
-              {turns > 0 ? turns + "T" : ""}
+      {/* Impact */}
+      <td style={Object.assign({}, cellStyle, { width: 90, padding: "6px 8px" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {(lines > 0 || turns > 0) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{
+                height: 3,
+                width: Math.max(impactPct * 36, 2),
+                borderRadius: 2,
+                background: isPrompt ? "#6475e8" : "#94a3b850",
+              }} />
+              <span style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono, whiteSpace: "nowrap" }}>
+                {lines > 0 ? (lines > 999 ? Math.round(lines / 1000) + "k" : lines) + "L" : ""}
+                {turns > 0 ? " " + turns + "T" : ""}
+              </span>
+            </div>
+          )}
+          {entry.tests && (
+            <span style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono }}>
+              ✓ {entry.tests}
             </span>
-          </div>
-        )}
+          )}
+          {entry.levelUp && entry.whatHappened && (
+            <span style={{ fontSize: 9, color: entry.levelUp.length > 20 ? "#6475e8" : theme.text.ghost, fontFamily: theme.font.mono }}>
+              {entry.levelUp && entry.whatHappened && entry.steeringCommand ? "A" : "B"}
+            </span>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -325,8 +335,8 @@ function EntryDetail({ entry, onSeek }) {
         </div>
       </div>
 
-      {/* Commit info (git entries) */}
-      {entry.hash && (
+      {/* Commit info (git entries or contributed with resultingCommit) */}
+      {(entry.hash || entry.resultingCommit) && (
         <div style={{
           marginTop: theme.space.xl,
           padding: "8px 10px",
@@ -335,14 +345,17 @@ function EntryDetail({ entry, onSeek }) {
           border: "1px solid " + theme.border.subtle,
         }}>
           <div style={{ fontSize: theme.fontSize.xs, color: "#6475e8" }}>
-            {entry.hash.slice(0, 8)} · {entry.author}
+            {(entry.hash || entry.resultingCommit || "").substring(0, 8)}
+            {entry.author ? " · " + entry.author : ""}
             {entry.commitCount ? " · " + entry.commitCount + " commits" : ""}
+            {entry.impact ? " · " + entry.impact + " lines" : ""}
+            {entry.tests ? " · tests: " + entry.tests : ""}
           </div>
         </div>
       )}
 
-      {/* Files affected */}
-      {files && files.length > 0 && (
+      {/* Files affected — from curated data or git fetch */}
+      {(entry.filesChanged || (files && files.length > 0)) && (
         <div style={{ marginTop: theme.space.lg }}>
           <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
             Files Changed
@@ -353,7 +366,7 @@ function EntryDetail({ entry, onSeek }) {
             color: theme.text.dim,
             lineHeight: 1.6,
           }}>
-            {files.map(function (f, i) {
+            {(entry.filesChanged || files || []).map(function (f, i) {
               return (
                 <div key={i}>{f}</div>
               );
