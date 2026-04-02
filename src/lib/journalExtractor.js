@@ -56,7 +56,7 @@ export function extractJournal(events, turns) {
     if (i === 0) return; // skip first turn (initial prompt, not steering)
 
     var userMsg = turn.userMessage || "";
-    if (!userMsg || userMsg.length < 5) return;
+    if (!userMsg || userMsg.length < 15) return; // skip short messages — not real steering
 
     var isSteering = STEERING_PATTERNS.some(function (pat) {
       return pat.test(userMsg);

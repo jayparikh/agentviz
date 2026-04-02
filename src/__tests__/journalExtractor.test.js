@@ -298,6 +298,70 @@ describe("extractJournal", function () {
       }
     });
   });
+
+  // ── Live update simulation ─────────────────────────────────────────────
+
+  describe("live update behavior", function () {
+    it("produces new steering entries when new turns are appended", function () {
+      var baseTurns = [
+        makeTurn({ index: 0, startTime: 0, userMessage: "Build the initial feature" }),
+        makeTurn({ index: 1, startTime: 10, userMessage: "Switch to a different approach instead of this one" }),
+      ];
+      var baseEntries = extractJournal([], baseTurns);
+      var baseSteering = baseEntries.filter(function (e) { return e.type === "steering"; });
+
+      // Simulate live update: new turn arrives
+      var updatedTurns = baseTurns.concat([
+        makeTurn({ index: 2, startTime: 20, userMessage: "Actually try using the repo history instead of session data" }),
+      ]);
+      var updatedEntries = extractJournal([], updatedTurns);
+      var updatedSteering = updatedEntries.filter(function (e) { return e.type === "steering"; });
+
+      expect(updatedSteering.length).toBeGreaterThan(baseSteering.length);
+    });
+
+    it("captures assistant response from new turn events", function () {
+      var events = [
+        makeEvent({ t: 0, track: "assistant", text: "Initial response", turnIndex: 0 }),
+        makeEvent({ t: 10, track: "assistant", text: "This is the detailed squad reasoning about the new direction we should take for this feature", turnIndex: 1 }),
+      ];
+      var turns = [
+        makeTurn({ index: 0, startTime: 0, userMessage: "Build the feature", eventIndices: [0] }),
+        makeTurn({ index: 1, startTime: 10, userMessage: "No wait, try a completely different approach instead", eventIndices: [1] }),
+      ];
+      var entries = extractJournal(events, turns);
+      var steering = entries.filter(function (e) { return e.type === "steering"; });
+      expect(steering.length).toBeGreaterThanOrEqual(1);
+      expect(steering[0].assistantResponse).toContain("squad reasoning");
+    });
+
+    it("filters out short messages as non-steering", function () {
+      var turns = [
+        makeTurn({ index: 0, startTime: 0, userMessage: "Build it" }),
+        makeTurn({ index: 1, startTime: 5, userMessage: "iterate" }),
+        makeTurn({ index: 2, startTime: 10, userMessage: "good" }),
+        makeTurn({ index: 3, startTime: 15, userMessage: "ok do it" }),
+      ];
+      var entries = extractJournal([], turns);
+      var steering = entries.filter(function (e) { return e.type === "steering"; });
+      expect(steering.length).toBe(0);
+    });
+
+    it("computes impactTurns between consecutive steerings", function () {
+      var turns = [
+        makeTurn({ index: 0, startTime: 0, userMessage: "Start the project with a basic setup" }),
+        makeTurn({ index: 1, startTime: 5 }),
+        makeTurn({ index: 2, startTime: 10 }),
+        makeTurn({ index: 3, startTime: 15, userMessage: "Switch to a completely different architecture instead" }),
+        makeTurn({ index: 4, startTime: 20 }),
+      ];
+      var entries = extractJournal([], turns);
+      var steering = entries.filter(function (e) { return e.type === "steering"; });
+      expect(steering.length).toBeGreaterThanOrEqual(1);
+      var first = steering[0];
+      expect(first.impactTurns).toBeGreaterThan(0);
+    });
+  });
 });
 
 // ── computeJournalStats ──────────────────────────────────────────────────────
