@@ -631,33 +631,31 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
       return new Date(a.time).getTime() - new Date(b.time).getTime();
     });
 
-    // For contributed entries: the steering happened BEFORE the commit,
-    // but was persisted AFTER. So find the closest feat/milestone commit
-    // BEFORE the contributedAt time — that's what the steering produced.
-    function findResultForContributed(contributedAt) {
-      var t = new Date(contributedAt).getTime();
-      if (isNaN(t)) return null;
-      var best = null;
-      for (var i = 0; i < sortedGit.length; i++) {
-        var commitTime = new Date(sortedGit[i].time).getTime();
-        if (commitTime < t && (sortedGit[i].type === "levelup" || sortedGit[i].type === "milestone")) {
-          best = sortedGit[i]; // keep updating — we want the latest one before contributedAt
-        }
-      }
-      return best;
-    }
-
     // For session entries: find the next commit after the session time
     function findResultForSession(sessionTime) {
       var t = new Date(sessionTime).getTime();
       if (isNaN(t)) return null;
       for (var i = 0; i < sortedGit.length; i++) {
         var commitTime = new Date(sortedGit[i].time).getTime();
-        if (commitTime > t && (sortedGit[i].type === "levelup" || sortedGit[i].type === "milestone")) {
+        if (commitTime > t) {
           return sortedGit[i];
         }
       }
       return null;
+    }
+
+    // For contributed entries: find closest commit before contributedAt
+    function findResultForContributed(contributedAt) {
+      var t = new Date(contributedAt).getTime();
+      if (isNaN(t)) return null;
+      var best = null;
+      for (var i = 0; i < sortedGit.length; i++) {
+        var commitTime = new Date(sortedGit[i].time).getTime();
+        if (commitTime < t) {
+          best = sortedGit[i];
+        }
+      }
+      return best;
     }
 
     // Track which commits have been claimed so each steering gets a unique result
