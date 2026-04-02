@@ -75,7 +75,19 @@ beforeEach(function () {
     disconnect() {}
   };
 
-  global.fetch = vi.fn(function () {
+  global.fetch = vi.fn(function (url) {
+    if (typeof url === "string" && url.indexOf("synthesize") !== -1) {
+      return Promise.resolve({
+        ok: true,
+        json: function () { return Promise.resolve({ results: {} }); },
+      });
+    }
+    if (typeof url === "string" && url.indexOf("steering") !== -1) {
+      return Promise.resolve({
+        ok: true,
+        json: function () { return Promise.resolve({ entries: [] }); },
+      });
+    }
     return Promise.resolve({
       ok: true,
       json: function () { return Promise.resolve(mockGitData); },

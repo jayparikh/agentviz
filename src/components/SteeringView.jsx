@@ -101,13 +101,14 @@ function TypeBadge({ type }) {
 
 // ── Scribe-style timeline table row ──────────────────────────────────────────
 
-function SteeringRow({ entry, isSelected, onSelect, maxImpact }) {
+function SteeringRow({ entry, isSelected, onSelect, maxImpact, analyzing }) {
   var info = ENTRY_COLORS[entry.type] || ENTRY_COLORS.levelup;
   var isPrompt = entry.type === "steering" && (entry.source === "session" || entry.source === "contributed");
   var isCommit = entry.source === "git";
+  var isSynthesized = entry._synthesized;
   var lines = entry.impact || entry.linesChanged || 0;
   var turns = entry.impactTurns || 0;
-  var impactValue = lines + (turns * 50); // weight turns heavily — each turn ≈ 50 lines of impact
+  var impactValue = lines + (turns * 50);
   var impactPct = maxImpact > 0 ? Math.min(impactValue / maxImpact, 1) : 0;
   var cellStyle = {
     padding: "6px 10px",
@@ -182,7 +183,17 @@ function SteeringRow({ entry, isSelected, onSelect, maxImpact }) {
         maxWidth: 240,
         lineHeight: 1.4,
       })}>
-        {entry.levelUp}
+        {isPrompt && analyzing && !isSynthesized ? (
+          <span style={{
+            color: theme.accent.primary,
+            opacity: 0.6,
+            animation: "pulse 1.5s ease-in-out infinite",
+          }}>
+            ✨ analyzing...
+          </span>
+        ) : (
+          entry.levelUp
+        )}
       </td>
 
       {/* Impact */}
@@ -207,9 +218,19 @@ function SteeringRow({ entry, isSelected, onSelect, maxImpact }) {
               ✓ {entry.tests}
             </span>
           )}
-          {entry.levelUp && entry.whatHappened && (
-            <span style={{ fontSize: 9, color: entry.levelUp.length > 20 ? theme.accent.primary : theme.text.ghost, fontFamily: theme.font.mono }}>
-              {entry.levelUp && entry.whatHappened && entry.steeringCommand ? "A" : "B"}
+          {isPrompt && analyzing && !isSynthesized && (
+            <span style={{ fontSize: 9, color: theme.accent.primary, fontFamily: theme.font.mono }}>
+              ✨
+            </span>
+          )}
+          {isSynthesized && (
+            <span style={{ fontSize: 9, color: theme.accent.primary, fontFamily: theme.font.mono }}>
+              ✨
+            </span>
+          )}
+          {!isPrompt && entry.levelUp && entry.whatHappened && (
+            <span style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono }}>
+              A
             </span>
           )}
         </div>
@@ -612,7 +633,7 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
   var [steeringLog, setSteeringLog] = useState([]);
   var [selectedEntry, setSelectedEntry] = useState(null);
   var [activeFilters, setActiveFilters] = useState({});
-  var [synthesizing, setSynthesizing] = useState(false);
+  var [analysisState, setAnalysisState] = useState("idle"); // idle | analyzing | done | error
   var [synthResults, setSynthResults] = useState({});
 
   // Fetch git history and steering log from backend
@@ -762,6 +783,7 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
         return Object.assign({}, e, {
           whatHappened: synth.whatHappened || e.whatHappened,
           levelUp: synth.levelUp || e.levelUp,
+          _synthesized: true,
         });
       }
       return e;
@@ -790,20 +812,16 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
     });
   }
 
-  // Auto-analyze: once session entries are loaded, synthesize in background
-  var hasStartedSynth = useRef(false);
-  useEffect(function () {
-    if (hasStartedSynth.current) return;
-    if (gitLoading) return;
-    if (normalizedSessionEntries.length === 0) return;
-
+  function runAnalysis(retryCount) {
     var toSynthesize = normalizedSessionEntries.filter(function (e) {
-      return e.type === "steering";
+      return e.type === "steering" && !synthResults[e.steeringCommand];
     }).slice(0, 15);
 
-    if (toSynthesize.length === 0) return;
-    hasStartedSynth.current = true;
-    setSynthesizing(true);
+    if (toSynthesize.length === 0) {
+      setAnalysisState("done");
+      return;
+    }
+    setAnalysisState("analyzing");
 
     fetch("/api/journal/synthesize", {
       method: "POST",
@@ -821,21 +839,51 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {
-      if (data.results) {
-        var newResults = {};
-        Object.keys(data.results).forEach(function (idx) {
-          var entry = toSynthesize[parseInt(idx)];
-          if (entry) {
-            newResults[entry.steeringCommand] = data.results[idx];
-          }
+      if (data.results && Object.keys(data.results).length > 0) {
+        setSynthResults(function (prev) {
+          var merged = Object.assign({}, prev);
+          Object.keys(data.results).forEach(function (idx) {
+            var entry = toSynthesize[parseInt(idx)];
+            if (entry) merged[entry.steeringCommand] = data.results[idx];
+          });
+          return merged;
         });
-        setSynthResults(newResults);
+        setAnalysisState("done");
+      } else if (retryCount < 2) {
+        // Empty results — retry with backoff
+        setTimeout(function () { runAnalysis(retryCount + 1); }, 3000 * (retryCount + 1));
+      } else {
+        setAnalysisState("done");
       }
-      setSynthesizing(false);
     })
-    .catch(function () { setSynthesizing(false); });
-  }, [normalizedSessionEntries, gitLoading]);
+    .catch(function () {
+      if (retryCount < 2) {
+        setTimeout(function () { runAnalysis(retryCount + 1); }, 3000 * (retryCount + 1));
+      } else {
+        setAnalysisState("error");
+      }
+    });
+  }
 
+  // Auto-analyze on first load, retry-safe
+  useEffect(function () {
+    if (analysisState !== "idle") return;
+    if (gitLoading) return;
+    if (normalizedSessionEntries.length === 0) return;
+    var hasSteering = normalizedSessionEntries.some(function (e) { return e.type === "steering"; });
+    if (!hasSteering) return;
+    runAnalysis(0);
+  }, [normalizedSessionEntries, gitLoading, analysisState]);
+
+
+  // Inject pulse animation for analyzing indicator
+  useEffect(function () {
+    if (document.getElementById("steering-pulse-style")) return;
+    var style = document.createElement("style");
+    style.id = "steering-pulse-style";
+    style.textContent = "@keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }";
+    document.head.appendChild(style);
+  }, []);
 
   // Loading state
   if (gitLoading) {
@@ -903,7 +951,7 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
         <RepoSummary repo={gitData ? gitData.repo : null} entryCount={filteredEntries.length} />
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 16px" }}>
           <GitFilterBar activeFilters={activeFilters} onToggle={handleToggleFilter} counts={entryCounts} />
-          {synthesizing && (
+          {analysisState === "analyzing" && (
             <span style={{
               fontSize: theme.fontSize.xs,
               fontFamily: theme.font.mono,
@@ -939,6 +987,7 @@ export default function SteeringView({ events, turns, metadata, onSeek }) {
                     isSelected={selectedEntry === entry}
                     onSelect={setSelectedEntry}
                     maxImpact={maxImpact}
+                    analyzing={analysisState === "analyzing"}
                   />
                 );
               })}
