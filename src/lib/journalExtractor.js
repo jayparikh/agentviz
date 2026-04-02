@@ -63,12 +63,24 @@ export function extractJournal(events, turns) {
     });
 
     if (isSteering) {
+      // Find the assistant's response in this turn's events (squad perspective)
+      var turnEvents = turnEventsMap[turn.index] || [];
+      var assistantResponse = "";
+      for (var j = 0; j < turnEvents.length; j++) {
+        var ev = turnEvents[j];
+        if (ev && (ev.track === "assistant" || ev.track === "output" || ev.track === "reasoning") && ev.text && ev.text.length > 20) {
+          assistantResponse = ev.text;
+          break;
+        }
+      }
+
       entries.push({
         type: "steering",
         turnIndex: turn.index,
         time: turn.startTime,
         title: extractTitle(userMsg, "Redirected approach"),
         detail: userMsg,
+        assistantResponse: assistantResponse,
         severity: 1,
       });
     }

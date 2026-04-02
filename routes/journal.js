@@ -109,15 +109,41 @@ function parseGitLog(repoDir) {
       "git log --format=\"%H|%aI|%an|%s\" --all -100",
       { cwd: repoDir, encoding: "utf8", timeout: 5000 }
     );
-    return raw.trim().split("\n").filter(Boolean).map(function (line) {
+    var commits = raw.trim().split("\n").filter(Boolean).map(function (line) {
       var parts = line.split("|");
       return {
         hash: parts[0],
         date: parts[1],
         author: normalizeAuthor(parts[2]),
         message: parts.slice(3).join("|"),
+        linesChanged: 0,
       };
     });
+
+    // Second pass: get lines changed per commit (batch for performance)
+    try {
+      var statRaw = execSync(
+        "git log --format=\"COMMIT:%H\" --shortstat --all -100",
+        { cwd: repoDir, encoding: "utf8", timeout: 8000 }
+      );
+      var currentHash = null;
+      statRaw.split("\n").forEach(function (line) {
+        if (line.startsWith("COMMIT:")) {
+          currentHash = line.substring(7).trim();
+        } else if (currentHash && line.indexOf("changed") !== -1) {
+          var ins = line.match(/(\d+) insertion/);
+          var del = line.match(/(\d+) deletion/);
+          var total = (ins ? parseInt(ins[1]) : 0) + (del ? parseInt(del[1]) : 0);
+          var commit = commits.find(function (c) { return c.hash === currentHash; });
+          if (commit) commit.linesChanged = total;
+          currentHash = null;
+        }
+      });
+    } catch (e) {
+      // stat pass failed, linesChanged stays 0
+    }
+
+    return commits;
   } catch (e) {
     return [];
   }
@@ -190,6 +216,7 @@ function extractGitJournal(repoDir) {
           }).join(" → "),
           levelUp: "Architecture leveled up through disciplined multi-phase refactoring — not a rewrite, but a careful evolution",
           commitCount: refactorArc.length,
+          linesChanged: refactorArc.reduce(function (s, c) { return s + (c.linesChanged || 0); }, 0),
         });
       } else {
         // Individual refactors
@@ -217,6 +244,7 @@ function extractGitJournal(repoDir) {
         steeringCommand: extractSteeringCommand(commit.message),
         whatHappened: commit.message,
         levelUp: synthesizeLevelUp(commit.message, classification),
+        linesChanged: commit.linesChanged || 0,
       });
     }
   });

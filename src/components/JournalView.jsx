@@ -101,10 +101,12 @@ function TypeBadge({ type }) {
 
 // ── Scribe-style timeline table row ──────────────────────────────────────────
 
-function JournalRow({ entry, isSelected, onSelect }) {
+function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
   var info = ENTRY_COLORS[entry.type] || ENTRY_COLORS.levelup;
   var isPrompt = entry.type === "steering" && (entry.source === "session" || entry.source === "contributed");
   var isCommit = entry.source === "git";
+  var impactValue = entry.impact || entry.linesChanged || 0;
+  var impactPct = maxImpact > 0 ? Math.min(impactValue / maxImpact, 1) : 0;
   var cellStyle = {
     padding: "6px 10px",
     fontSize: theme.fontSize.sm,
@@ -179,6 +181,24 @@ function JournalRow({ entry, isSelected, onSelect }) {
         lineHeight: 1.4,
       })}>
         {entry.levelUp}
+      </td>
+
+      {/* Impact bar */}
+      <td style={Object.assign({}, cellStyle, { width: 60, padding: "6px 8px" })}>
+        {impactValue > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{
+              height: 4,
+              width: Math.max(impactPct * 40, 2),
+              borderRadius: 2,
+              background: isPrompt ? "#6475e8" : "#94a3b850",
+              transition: "width 200ms ease-out",
+            }} />
+            <span style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono }}>
+              {impactValue > 999 ? Math.round(impactValue / 1000) + "k" : impactValue}
+            </span>
+          </div>
+        )}
       </td>
     </tr>
   );
@@ -267,6 +287,31 @@ function EntryDetail({ entry, onSeek }) {
           {entry.whatHappened}
         </div>
       </div>
+
+      {/* Squad Response (from assistant turn following the steering) */}
+      {entry.assistantResponse && (
+        <div style={{ marginBottom: theme.space.lg }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
+            Squad Response
+          </div>
+          <div style={{
+            fontSize: theme.fontSize.xs,
+            color: theme.text.dim,
+            lineHeight: 1.6,
+            whiteSpace: "pre-wrap",
+            padding: "8px 10px",
+            background: theme.bg.base,
+            borderRadius: theme.radius.md,
+            border: "1px solid " + theme.border.subtle,
+            maxHeight: 200,
+            overflowY: "auto",
+          }}>
+            {entry.assistantResponse.length > 500
+              ? entry.assistantResponse.substring(0, 500) + "..."
+              : entry.assistantResponse}
+          </div>
+        </div>
+      )}
 
       {/* Level-Up */}
       <div style={{ marginBottom: theme.space.lg }}>
@@ -460,6 +505,7 @@ function normalizeSessionEntries(sessionEntries) {
       source: "session",
       steeringCommand: command,
       whatHappened: e.detail,
+      assistantResponse: e.assistantResponse || "",
       levelUp: synthesizeSessionLevelUp(e),
       seekTime: e.time,
       turnLabel: "Turn " + e.turnIndex,
@@ -659,6 +705,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
         return Object.assign({}, e, {
           levelUp: "→ " + result.steeringCommand,
           resultingCommit: result.hash,
+          impact: result.linesChanged || 0,
         });
       }
       return e;
@@ -672,6 +719,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
         return Object.assign({}, e, {
           levelUp: "→ " + result.steeringCommand,
           resultingCommit: result.hash,
+          impact: result.linesChanged || 0,
         });
       }
       return e;
@@ -701,10 +749,15 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     return filtered;
   }, [allEntries, activeFilters]);
 
-  // Counts per source
-  var sessionCount = normalizedSessionEntries.length;
-  var gitCount = (gitData && gitData.entries) ? gitData.entries.length : 0;
-  var contributedCount = contributedEntries.length;
+  // Compute max impact for bar normalization
+  var maxImpact = useMemo(function () {
+    var max = 0;
+    filteredEntries.forEach(function (e) {
+      var v = e.impact || e.linesChanged || 0;
+      if (v > max) max = v;
+    });
+    return max;
+  }, [filteredEntries]);
 
   function handleToggleFilter(typeId, forcedState) {
     setActiveFilters(function (prev) {
@@ -797,6 +850,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
                 <th style={thStyle}>Steering Command</th>
                 <th style={thStyle}>What Happened</th>
                 <th style={thStyle}>Level-Up 🆙</th>
+                <th style={Object.assign({}, thStyle, { width: 60 })}>Impact</th>
               </tr>
             </thead>
             <tbody>
@@ -807,6 +861,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
                     entry={entry}
                     isSelected={selectedEntry === entry}
                     onSelect={setSelectedEntry}
+                    maxImpact={maxImpact}
                   />
                 );
               })}
