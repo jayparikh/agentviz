@@ -17,11 +17,11 @@ import Icon from "./Icon.jsx";
 
 var ENTRY_COLORS = {
   milestone: { color: "#a78bfa", emoji: "✅", label: "Release" },
-  levelup:   { color: "#10d97a", emoji: "🆙", label: "Level-Up" },
-  pivot:     { color: "#eab308", emoji: "🔄", label: "Pivot" },
-  mistake:   { color: "#f43f5e", emoji: "❌", label: "Fix" },
+  levelup:   { color: "#94a3b8", emoji: "🆙", label: "Level-Up" },
+  pivot:     { color: "#a78bfa", emoji: "🔄", label: "Pivot" },
+  mistake:   { color: "#94a3b8", emoji: "🔧", label: "Fix" },
   steering:  { color: "#6475e8", emoji: "🎯", label: "Steering" },
-  insight:   { color: "#06b6d4", emoji: "💡", label: "Insight" },
+  insight:   { color: "#94a3b8", emoji: "💡", label: "Insight" },
 };
 
 // ── Format git date to readable string ───────────────────────────────────────
@@ -103,12 +103,14 @@ function TypeBadge({ type }) {
 
 function JournalRow({ entry, isSelected, onSelect }) {
   var info = ENTRY_COLORS[entry.type] || ENTRY_COLORS.levelup;
+  var isSteering = entry.type === "steering" || entry.type === "pivot";
+  var isPrompt = isSteering && (entry.source === "session" || entry.source === "contributed");
   var cellStyle = {
-    padding: "8px 10px",
+    padding: "6px 10px",
     fontSize: theme.fontSize.sm,
     fontFamily: theme.font.mono,
     verticalAlign: "top",
-    lineHeight: 1.6,
+    lineHeight: 1.5,
     borderBottom: "1px solid " + theme.border.subtle,
   };
 
@@ -127,32 +129,27 @@ function JournalRow({ entry, isSelected, onSelect }) {
       <td style={Object.assign({}, cellStyle, {
         color: theme.text.dim,
         whiteSpace: "nowrap",
-        width: 90,
+        width: 80,
         fontSize: theme.fontSize.xs,
       })}>
         {formatGitDate(entry.time)}
       </td>
 
-      {/* Source + Type */}
-      <td style={Object.assign({}, cellStyle, { width: 110 })}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <TypeBadge type={entry.type} />
-          <SourceBadge source={entry.source} />
-        </div>
-      </td>
-
-      {/* Steering Command */}
+      {/* Steering Command — prompts intense white, commits dimmer */}
       <td style={Object.assign({}, cellStyle, {
-        color: theme.text.primary,
-        fontWeight: 500,
-        maxWidth: 500,
+        color: isPrompt ? theme.text.primary : theme.text.secondary,
+        fontWeight: isPrompt ? 500 : 400,
+        maxWidth: 420,
       })}>
-        {(entry.source === "session" || entry.source === "contributed") && (entry.type === "steering" || entry.type === "pivot") ? (
+        {isPrompt ? (
           <span style={{ fontStyle: "italic" }}>
             &ldquo;{entry.steeringCommand}&rdquo;
           </span>
         ) : (
-          entry.steeringCommand
+          <span>
+            <TypeBadge type={entry.type} />
+            <span style={{ marginLeft: 6 }}>{entry.steeringCommand}</span>
+          </span>
         )}
         {entry.author && (
           <span style={{ color: theme.text.ghost, fontWeight: 400, marginLeft: 6, fontSize: theme.fontSize.xs }}>
@@ -161,14 +158,31 @@ function JournalRow({ entry, isSelected, onSelect }) {
         )}
       </td>
 
+      {/* What Happened */}
+      <td style={Object.assign({}, cellStyle, {
+        color: theme.text.muted,
+        fontSize: theme.fontSize.xs,
+        maxWidth: 300,
+      })}>
+        {entry.whatHappened ? truncateToSentence(entry.whatHappened, 100) : ""}
+        {entry.resultingCommit && (
+          <span style={{ color: theme.text.ghost, marginLeft: 4 }}>
+            {entry.resultingCommit.substring(0, 7)}
+          </span>
+        )}
+        {entry.hash && (
+          <span style={{ color: theme.text.ghost, marginLeft: 4 }}>
+            {entry.hash.substring(0, 7)}
+          </span>
+        )}
+      </td>
+
       {/* Level-Up */}
       <td style={Object.assign({}, cellStyle, {
-        color: info.color,
-        fontStyle: "normal",
-        opacity: 0.9,
-        maxWidth: 280,
+        color: isPrompt ? info.color : theme.text.muted,
         fontSize: theme.fontSize.xs,
-        lineHeight: 1.5,
+        maxWidth: 250,
+        lineHeight: 1.4,
       })}>
         {entry.levelUp}
       </td>
@@ -212,7 +226,6 @@ function EntryDetail({ entry, onSeek }) {
       {/* Header */}
       <div style={{ marginBottom: theme.space.lg, display: "flex", alignItems: "center", gap: 8 }}>
         <TypeBadge type={entry.type} />
-        <SourceBadge source={entry.source} />
         <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
           {formatGitDate(entry.time)}
         </span>
@@ -308,7 +321,7 @@ function EntryDetail({ entry, onSeek }) {
 
 // ── Repo summary header ──────────────────────────────────────────────────────
 
-function RepoSummary({ repo, entryCount, sessionCount, gitCount, contributedCount }) {
+function RepoSummary({ repo, entryCount }) {
   if (!repo) return null;
 
   var statStyle = {
@@ -335,33 +348,9 @@ function RepoSummary({ repo, entryCount, sessionCount, gitCount, contributedCoun
         📖 {repo.name}
       </span>
       <span style={statStyle}>{entryCount} moments</span>
-      {gitCount > 0 && (
-        <span style={Object.assign({}, statStyle, { color: theme.text.ghost })}>
-          {gitCount} git
-        </span>
-      )}
-      {sessionCount > 0 && (
-        <span style={Object.assign({}, statStyle, { color: theme.accent.primary })}>
-          {sessionCount} session
-        </span>
-      )}
-      {contributedCount > 0 && (
-        <span style={Object.assign({}, statStyle, { color: "#10d97a" })}>
-          {contributedCount} contributed
-        </span>
-      )}
       <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.xs }}>·</span>
-      <span style={Object.assign({}, statStyle, { color: ENTRY_COLORS.milestone.color })}>
-        ✅ {repo.releases} releases
-      </span>
-      <span style={Object.assign({}, statStyle, { color: ENTRY_COLORS.levelup.color })}>
-        🆙 {repo.features} features
-      </span>
-      <span style={Object.assign({}, statStyle, { color: ENTRY_COLORS.mistake.color })}>
-        ❌ {repo.fixes} fixes
-      </span>
-      <span style={Object.assign({}, statStyle, { color: theme.text.ghost })}>
-        {repo.contributors} contributor{repo.contributors !== 1 ? "s" : ""}
+      <span style={statStyle}>
+        {repo.releases} releases · {repo.features} features · {repo.fixes} fixes · {repo.contributors} contributor{repo.contributors !== 1 ? "s" : ""}
       </span>
       {repo.firstCommit && (
         <span style={Object.assign({}, statStyle, { color: theme.text.ghost, marginLeft: "auto" })}>
@@ -662,9 +651,14 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
 
   // Filter
   var filteredEntries = useMemo(function () {
-    return allEntries.filter(function (e) {
+    var filtered = allEntries.filter(function (e) {
       return activeFilters[e.type] !== false;
     });
+    // Sort newest first
+    filtered.sort(function (a, b) {
+      return new Date(b.time).getTime() - new Date(a.time).getTime();
+    });
+    return filtered;
   }, [allEntries, activeFilters]);
 
   // Counts per source
@@ -744,7 +738,7 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     <ResizablePanel initialSplit={0.65} minPx={300} direction="horizontal" storageKey="agentviz:journal-split">
       {/* Left: Unified timeline table */}
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        <RepoSummary repo={gitData ? gitData.repo : null} entryCount={filteredEntries.length} sessionCount={sessionCount} gitCount={gitCount} contributedCount={contributedCount} />
+        <RepoSummary repo={gitData ? gitData.repo : null} entryCount={filteredEntries.length} />
         <GitFilterBar activeFilters={activeFilters} onToggle={handleToggleFilter} counts={entryCounts} />
 
         <div style={{ flex: 1, overflowY: "auto" }}>
@@ -756,8 +750,8 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
             <thead>
               <tr>
                 <th style={thStyle}>Time</th>
-                <th style={thStyle}>Source</th>
                 <th style={thStyle}>Steering Command</th>
+                <th style={thStyle}>What Happened</th>
                 <th style={thStyle}>Level-Up 🆙</th>
               </tr>
             </thead>
