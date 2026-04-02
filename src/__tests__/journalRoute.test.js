@@ -145,6 +145,19 @@ describe("journal git route", function () {
 });
 
 describe("journal steering route", function () {
+  var originalCwd;
+  var tmpDir;
+
+  it("setup: use temp dir for steering log", async function () {
+    var os = await import("os");
+    var fs = await import("fs");
+    var path = await import("path");
+    tmpDir = path.default.join(os.default.tmpdir(), "agentviz-test-" + Date.now());
+    fs.default.mkdirSync(tmpDir, { recursive: true });
+    originalCwd = process.cwd;
+    process.cwd = function () { return tmpDir; };
+  });
+
   it("returns false for non-matching paths", async function () {
     var mod = await import("../../routes/journal.js");
     var res = createMockRes();
@@ -164,7 +177,6 @@ describe("journal steering route", function () {
 
   it("POST /api/journal/steering redacts secrets from entries", async function () {
     var mod = await import("../../routes/journal.js");
-    var fs = await import("fs");
 
     // POST an entry with a fake GitHub token
     var res = createMockRes();
@@ -201,5 +213,13 @@ describe("journal steering route", function () {
     expect(latest.whatHappened).not.toContain("hunter2");
     expect(latest.levelUp).toContain("[REDACTED]");
     expect(latest.levelUp).not.toContain("sk-");
+  });
+
+  it("cleanup: restore cwd and remove temp dir", async function () {
+    if (originalCwd) process.cwd = originalCwd;
+    if (tmpDir) {
+      var fs = await import("fs");
+      fs.default.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
