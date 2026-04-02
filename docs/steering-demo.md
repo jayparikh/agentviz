@@ -11,12 +11,32 @@
 
 ```bash
 cd agentviz
-git checkout feature/journal-view
+git checkout feature/steering-view
 npm install && npm run dev
-# → opens http://localhost:3000
 ```
 
-Load any session, click the Steering tab (last tab, after Coach).
+Then start a coding session in another terminal. For example with Copilot CLI:
+
+```bash
+ghcs "add a /healthcheck endpoint that returns uptime and version"
+```
+
+Or with Claude Code:
+
+```bash
+claude "refactor the config loading to use environment variables instead of hardcoded values"
+```
+
+Work with the agent for a few turns. Redirect it at least once — that's the
+steering the view captures. For example:
+
+```
+> "that's too verbose, simplify it to just return JSON"
+> "don't use console.log, use the existing logger"
+```
+
+Then open agentviz, load the session file, and click the Steering tab (last
+tab, after Coach). The more you redirect the agent, the richer the timeline.
 
 ---
 
