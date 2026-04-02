@@ -246,6 +246,10 @@ AI-powered session coaching available directly from any session. The coach reads
 <img src="docs/screenshots/coach-view.svg" alt="Coach View" width="800" />
 </div>
 
+### Steering View
+
+Surfaces the human steering commands that shaped the work, alongside the resulting git history and code changes. Understands not just the primary coding agent but also sub-agents and [squads](https://github.com/bradygaster/squad) — capturing reasoning from dispatched agents as they respond to steering. Three data sources feed one timeline: git commits, session events, and a persistent steering log (`.agentviz/steering-v1.jsonl`). Real human prompts render in *italic quotes*; commit-derived entries show the hash in blue.
+
 ### More Features
 
 | Feature | Description |

@@ -16,12 +16,12 @@ import Icon from "./Icon.jsx";
 // ── Unified type palette (covers both git and session entries) ───────────────
 
 var ENTRY_COLORS = {
-  steering:  { color: "#6475e8", emoji: "🎯", label: "Steering" },
-  milestone: { color: "#94a3b8", emoji: "📦", label: "Commit" },
-  levelup:   { color: "#94a3b8", emoji: "📦", label: "Commit" },
-  pivot:     { color: "#94a3b8", emoji: "📦", label: "Commit" },
-  mistake:   { color: "#94a3b8", emoji: "📦", label: "Commit" },
-  insight:   { color: "#94a3b8", emoji: "💡", label: "Commit" },
+  steering:  { color: theme.accent.primary, emoji: "🎯", label: "Steering" },
+  milestone: { color: theme.track.reasoning, emoji: "📦", label: "Commit" },
+  levelup:   { color: theme.track.reasoning, emoji: "📦", label: "Commit" },
+  pivot:     { color: theme.track.reasoning, emoji: "📦", label: "Commit" },
+  mistake:   { color: theme.track.reasoning, emoji: "📦", label: "Commit" },
+  insight:   { color: theme.track.reasoning, emoji: "💡", label: "Commit" },
 };
 
 // ── Format git date to readable string ───────────────────────────────────────
@@ -54,8 +54,8 @@ function SourceBadge({ source }) {
   var isGit = source === "git";
   var isContributed = source === "contributed";
   var label = isGit ? "git" : isContributed ? "repo log" : "session";
-  var color = isGit ? theme.text.muted : isContributed ? "#10d97a" : theme.accent.primary;
-  var bg = isGit ? theme.bg.raised : isContributed ? "#10d97a20" : theme.accent.muted;
+  var color = isGit ? theme.text.muted : isContributed ? theme.semantic.success : theme.accent.primary;
+  var bg = isGit ? theme.bg.raised : isContributed ? theme.semantic.success + "20" : theme.accent.muted;
   return (
     <span style={{
       fontSize: 9,
@@ -152,7 +152,7 @@ function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
         ) : (
           <span>
             {isCommit && entry.hash && (
-              <span style={{ color: "#6475e8", marginRight: 6, fontSize: theme.fontSize.xs }}>
+              <span style={{ color: theme.accent.primary, marginRight: 6, fontSize: theme.fontSize.xs }}>
                 {entry.hash.substring(0, 7)}
               </span>
             )}
@@ -177,7 +177,7 @@ function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
 
       {/* Level-Up */}
       <td style={Object.assign({}, cellStyle, {
-        color: isPrompt ? "#6475e8" : theme.text.dim,
+        color: isPrompt ? theme.accent.primary : theme.text.dim,
         fontSize: theme.fontSize.xs,
         maxWidth: 240,
         lineHeight: 1.4,
@@ -194,7 +194,7 @@ function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
                 height: 3,
                 width: Math.max(impactPct * 36, 2),
                 borderRadius: 2,
-                background: isPrompt ? "#6475e8" : "#94a3b850",
+                background: isPrompt ? theme.accent.primary : theme.track.reasoning + "50",
               }} />
               <span style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono, whiteSpace: "nowrap" }}>
                 {lines > 0 ? (lines > 999 ? Math.round(lines / 1000) + "k" : lines) + "L" : ""}
@@ -208,7 +208,7 @@ function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
             </span>
           )}
           {entry.levelUp && entry.whatHappened && (
-            <span style={{ fontSize: 9, color: entry.levelUp.length > 20 ? "#6475e8" : theme.text.ghost, fontFamily: theme.font.mono }}>
+            <span style={{ fontSize: 9, color: entry.levelUp.length > 20 ? theme.accent.primary : theme.text.ghost, fontFamily: theme.font.mono }}>
               {entry.levelUp && entry.whatHappened && entry.steeringCommand ? "A" : "B"}
             </span>
           )}
@@ -368,7 +368,7 @@ function EntryDetail({ entry, onSeek }) {
           borderRadius: theme.radius.md,
           border: "1px solid " + theme.border.subtle,
         }}>
-          <div style={{ fontSize: theme.fontSize.xs, color: "#6475e8" }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary }}>
             {(entry.hash || entry.resultingCommit || "").substring(0, 8)}
             {entry.author ? " · " + entry.author : ""}
             {entry.commitCount ? " · " + entry.commitCount + " commits" : ""}
@@ -476,8 +476,8 @@ function RepoSummary({ repo, entryCount }) {
 function GitFilterBar({ activeFilters, onToggle, counts }) {
   // Simplified: just two filter categories
   var filters = [
-    { id: "steering", label: "🎯 Steering", color: "#6475e8", count: counts.steering || 0 },
-    { id: "commit", label: "📦 Commits", color: "#94a3b8", count: (counts.milestone || 0) + (counts.levelup || 0) + (counts.pivot || 0) + (counts.mistake || 0) + (counts.insight || 0) },
+    { id: "steering", label: "🎯 Steering", color: theme.accent.primary, count: counts.steering || 0 },
+    { id: "commit", label: "📦 Commits", color: theme.track.reasoning, count: (counts.milestone || 0) + (counts.levelup || 0) + (counts.pivot || 0) + (counts.mistake || 0) + (counts.insight || 0) },
   ];
 
   return (
