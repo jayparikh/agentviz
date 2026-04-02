@@ -15,10 +15,10 @@ git checkout feature/steering-view
 npm install && npm run dev
 ```
 
-Then start a coding session in another terminal. For example with Copilot CLI:
+Then start a coding session in another terminal. For example with Copilot:
 
 ```bash
-ghcs "add a /healthcheck endpoint that returns uptime and version"
+copilot "add a /healthcheck endpoint that returns uptime and version"
 ```
 
 Or with Claude Code:
