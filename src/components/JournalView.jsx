@@ -652,16 +652,14 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
 
     var enrichedContributed = contributedEntries.map(function (e) {
       if (e.type !== "steering" && e.type !== "pivot") return e;
+      // If curated entry already has levelUp and whatHappened, keep them
+      if (e.levelUp && e.whatHappened) return e;
       var result = findResultForContributed(e.contributedAt || e.time);
       if (result && !claimedCommits[result.hash]) {
         claimedCommits[result.hash] = true;
-        var happened = e.whatHappened || e.assistantResponse || "";
-        if (!happened || happened === e.steeringCommand) {
-          happened = result.steeringCommand + " (" + result.hash.substring(0, 7) + ")";
-        }
         return Object.assign({}, e, {
-          whatHappened: truncateToSentence(happened, 200),
-          levelUp: result.levelUp || result.steeringCommand,
+          whatHappened: e.whatHappened || truncateToSentence(result.steeringCommand + " (" + result.hash.substring(0, 7) + ")", 200),
+          levelUp: e.levelUp || result.levelUp || result.steeringCommand,
           resultingCommit: result.hash,
           impact: result.linesChanged || 0,
         });
@@ -671,16 +669,13 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
 
     var enrichedSession = normalizedSessionEntries.map(function (e) {
       if (e.type !== "steering" && e.type !== "pivot") return e;
+      if (e.levelUp && e.whatHappened) return e;
       var result = findResultForSession(e.time);
       if (result && !claimedCommits[result.hash]) {
         claimedCommits[result.hash] = true;
-        var happened = e.whatHappened || "";
-        if (!happened) {
-          happened = result.steeringCommand + " (" + result.hash.substring(0, 7) + ")";
-        }
         return Object.assign({}, e, {
-          whatHappened: truncateToSentence(happened, 200),
-          levelUp: result.levelUp || result.steeringCommand,
+          whatHappened: e.whatHappened || truncateToSentence(result.steeringCommand + " (" + result.hash.substring(0, 7) + ")", 200),
+          levelUp: e.levelUp || result.levelUp || result.steeringCommand,
           resultingCommit: result.hash,
           impact: result.linesChanged || 0,
         });
