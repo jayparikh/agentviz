@@ -63,16 +63,32 @@ export function extractJournal(events, turns) {
     });
 
     if (isSteering) {
-      // Find the assistant's response in this turn's events (squad perspective)
+      // Collect the assistant's response from this turn's events
+      // Skip tool invocations, only keep substantive reasoning and output
       var turnEvents = turnEventsMap[turn.index] || [];
-      var assistantResponse = "";
+      var responseChunks = [];
+      var totalLen = 0;
       for (var j = 0; j < turnEvents.length; j++) {
         var ev = turnEvents[j];
-        if (ev && (ev.track === "assistant" || ev.track === "output" || ev.track === "reasoning") && ev.text && ev.text.length > 20) {
-          assistantResponse = ev.text;
-          break;
+        if (!ev || !ev.text) continue;
+        // Skip tool calls, invocations, and short noise
+        if (ev.track === "tool_call" || ev.track === "context") continue;
+        var chunk = ev.text.trim();
+        if (chunk.length < 15) continue;
+        if (chunk.indexOf("Invoking:") === 0) continue;
+        if (chunk.indexOf("invoke") !== -1 && chunk.length < 40) continue;
+        if (ev.track === "assistant" || ev.track === "output" || ev.track === "reasoning") {
+          if (totalLen + chunk.length > 6000) {
+            if (totalLen < 500) {
+              responseChunks.push(chunk.substring(0, 6000 - totalLen) + "...");
+            }
+            break;
+          }
+          responseChunks.push(chunk);
+          totalLen += chunk.length;
         }
       }
+      var assistantResponse = responseChunks.join("\n\n");
 
       entries.push({
         type: "steering",
@@ -185,22 +201,15 @@ export function extractJournal(events, turns) {
     }
   });
 
-  // ── Pass 5: Detect pivots (consecutive different steering commands) ────
+  // ── Pass 5: Compute impactTurns for steering entries ────────────────────
+  // Count turns between this steering and the next one (or end of session)
   var steeringEntries = entries.filter(function (e) { return e.type === "steering"; });
-  for (var s = 1; s < steeringEntries.length; s++) {
-    var gap = steeringEntries[s].turnIndex - steeringEntries[s - 1].turnIndex;
-    if (gap <= 3) {
-      // Multiple steering commands close together = pivot
-      entries.push({
-        type: "pivot",
-        turnIndex: steeringEntries[s].turnIndex,
-        time: steeringEntries[s].time,
-        title: "Approach pivot",
-        detail: "Multiple redirections in close succession (turns " +
-          steeringEntries[s - 1].turnIndex + "–" + steeringEntries[s].turnIndex + ")",
-        severity: 2,
-      });
-    }
+  steeringEntries.sort(function (a, b) { return a.turnIndex - b.turnIndex; });
+  for (var si = 0; si < steeringEntries.length; si++) {
+    var nextTurnIdx = si < steeringEntries.length - 1
+      ? steeringEntries[si + 1].turnIndex
+      : turns.length;
+    steeringEntries[si].impactTurns = nextTurnIdx - steeringEntries[si].turnIndex;
   }
 
   // ── Pass 6: First and last turn as bookends ────────────────────────────

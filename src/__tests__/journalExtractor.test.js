@@ -251,8 +251,8 @@ describe("extractJournal", function () {
 
   // ── Pivot detection ────────────────────────────────────────────────────
 
-  describe("pivot detection", function () {
-    it("detects rapid consecutive steerings as pivot", function () {
+  describe("pivot detection (removed)", function () {
+    it("no longer generates synthetic pivot entries from consecutive steerings", function () {
       var turns = [
         makeTurn({ index: 0, startTime: 0, userMessage: "Build the API" }),
         makeTurn({ index: 1, startTime: 5, userMessage: "Actually switch to GraphQL instead" }),
@@ -260,7 +260,7 @@ describe("extractJournal", function () {
       ];
       var entries = extractJournal([], turns);
       var pivots = entries.filter(function (e) { return e.type === "pivot"; });
-      expect(pivots.length).toBeGreaterThanOrEqual(1);
+      expect(pivots.length).toBe(0);
     });
   });
 

@@ -105,7 +105,9 @@ function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
   var info = ENTRY_COLORS[entry.type] || ENTRY_COLORS.levelup;
   var isPrompt = entry.type === "steering" && (entry.source === "session" || entry.source === "contributed");
   var isCommit = entry.source === "git";
-  var impactValue = entry.impact || entry.linesChanged || 0;
+  var lines = entry.impact || entry.linesChanged || 0;
+  var turns = entry.impactTurns || 0;
+  var impactValue = lines + (turns * 50); // weight turns heavily — each turn ≈ 50 lines of impact
   var impactPct = maxImpact > 0 ? Math.min(impactValue / maxImpact, 1) : 0;
   var cellStyle = {
     padding: "6px 10px",
@@ -184,8 +186,8 @@ function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
       </td>
 
       {/* Impact bar */}
-      <td style={Object.assign({}, cellStyle, { width: 60, padding: "6px 8px" })}>
-        {impactValue > 0 && (
+      <td style={Object.assign({}, cellStyle, { width: 80, padding: "6px 8px" })}>
+        {(lines > 0 || turns > 0) && (
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <div style={{
               height: 4,
@@ -194,8 +196,10 @@ function JournalRow({ entry, isSelected, onSelect, maxImpact }) {
               background: isPrompt ? "#6475e8" : "#94a3b850",
               transition: "width 200ms ease-out",
             }} />
-            <span style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono }}>
-              {impactValue > 999 ? Math.round(impactValue / 1000) + "k" : impactValue}
+            <span style={{ fontSize: 9, color: theme.text.ghost, fontFamily: theme.font.mono, whiteSpace: "nowrap" }}>
+              {lines > 0 ? (lines > 999 ? Math.round(lines / 1000) + "k" : lines) + "L" : ""}
+              {lines > 0 && turns > 0 ? " " : ""}
+              {turns > 0 ? turns + "T" : ""}
             </span>
           </div>
         )}
@@ -296,19 +300,17 @@ function EntryDetail({ entry, onSeek }) {
           </div>
           <div style={{
             fontSize: theme.fontSize.xs,
-            color: theme.text.dim,
+            color: theme.text.secondary,
             lineHeight: 1.6,
             whiteSpace: "pre-wrap",
-            padding: "8px 10px",
+            padding: "10px 12px",
             background: theme.bg.base,
             borderRadius: theme.radius.md,
             border: "1px solid " + theme.border.subtle,
-            maxHeight: 200,
+            maxHeight: 400,
             overflowY: "auto",
           }}>
-            {entry.assistantResponse.length > 500
-              ? entry.assistantResponse.substring(0, 500) + "..."
-              : entry.assistantResponse}
+            {entry.assistantResponse}
           </div>
         </div>
       )}
@@ -496,17 +498,47 @@ function GitFilterBar({ activeFilters, onToggle, counts }) {
 function normalizeSessionEntries(sessionEntries) {
   return sessionEntries.map(function (e) {
     var info = JOURNAL_TYPES[e.type] || JOURNAL_TYPES.insight;
-    // For steering entries, truncate to first sentence for the command column
     var fullText = (e.type === "steering" || e.type === "pivot") ? (e.detail || e.title) : e.title;
-    var command = truncateToSentence(fullText, 120);
+    var command = truncateToSentence(fullText, 110);
+
+    // whatHappened: extract substantive reasoning, skip tool calls and role tags
+    var whatHappened = "";
+    if (e.assistantResponse) {
+      var respLines = e.assistantResponse.split("\n").filter(function (l) {
+        var t = l.trim();
+        if (t.length < 15) return false;
+        if (t.indexOf("Invoking:") === 0) return false;
+        if (t.indexOf("Intent logged") !== -1) return false;
+        return true;
+      });
+      // Strip role tag prefixes but keep the content
+      var cleaned = respLines.map(function (l) {
+        return l.replace(/^>\s*\*\*\[[^\]]+\]\*\*\s*/, "").trim();
+      }).filter(function (l) { return l.length > 10; });
+      whatHappened = truncateToSentence(cleaned.join(" ").replace(/\s+/g, " "), 200);
+    } else if (e.type !== "steering") {
+      whatHappened = e.detail || "";
+    }
+
+    // Level-up: left empty for steering — the merge step fills it from resulting commit
+    var levelUp = "";
+    if (e.type === "milestone") {
+      levelUp = e.title || "";
+    } else if (e.type === "mistake") {
+      levelUp = "Error encountered";
+    } else if (e.type === "levelup") {
+      levelUp = e.title || "Recovered";
+    }
+
     return {
       type: e.type,
       time: new Date(Date.now() - (e.time != null ? (86400 - e.time) * 1000 : 0)).toISOString(),
       source: "session",
       steeringCommand: command,
-      whatHappened: e.detail,
+      whatHappened: whatHappened,
       assistantResponse: e.assistantResponse || "",
-      levelUp: synthesizeSessionLevelUp(e),
+      levelUp: levelUp,
+      impactTurns: e.impactTurns || 0,
       seekTime: e.time,
       turnLabel: "Turn " + e.turnIndex,
       _sortTime: e.time != null ? e.time : 0,
@@ -524,43 +556,6 @@ function truncateToSentence(text, max) {
   var lastSpace = truncated.lastIndexOf(" ");
   if (lastSpace > max * 0.6) truncated = truncated.substring(0, lastSpace);
   return truncated + "...";
-}
-
-function synthesizeSessionLevelUp(entry) {
-  var text = (entry.detail || entry.title || "").toLowerCase();
-  var title = entry.title || "";
-
-  if (entry.type === "steering") {
-    if (text.indexOf("instead") !== -1 || text.indexOf("switch") !== -1) return "🔄 **Direction change.** Chose a different path.";
-    if (text.indexOf("don't") !== -1 || text.indexOf("stop") !== -1 || text.indexOf("not") !== -1) return "🚫 **Boundary set.** Knowing what NOT to do.";
-    if (text.indexOf("try") !== -1 || text.indexOf("actually") !== -1) return "🎯 **Course corrected.** Refined the approach.";
-    if (text.indexOf("wrong") !== -1 || text.indexOf("fix") !== -1 || text.indexOf("broken") !== -1) return "🔧 **Quality gate.** Caught an issue, redirected.";
-    if (text.indexOf("repo") !== -1 || text.indexOf("git") !== -1) return "📡 **Scope expanded.** Brought repo context in.";
-    if (text.indexOf("test") !== -1 || text.indexOf("eval") !== -1) return "✅ **Quality bar raised.** Demanded verification.";
-    if (text.indexOf("screenshot") !== -1 || text.indexOf("demo") !== -1) return "📸 **Show don't tell.** Visual proof requested.";
-    if (text.indexOf("tone") !== -1 || text.indexOf("brag") !== -1 || text.indexOf("boast") !== -1) return "✍️ **Tone refined.** Taste applied to voice.";
-    if (text.indexOf("name") !== -1 || text.indexOf("rename") !== -1 || text.indexOf("call") !== -1) return "🏷️ **Naming matters.** Words shape understanding.";
-    return "🎯 **Human steered.** Taste shaped the outcome.";
-  }
-  if (entry.type === "levelup") {
-    if (text.indexOf("recover") !== -1) return "💪 **Recovered.** Bounced back from failure.";
-    return "⬆️ **Leveled up.** Overcame a challenge.";
-  }
-  if (entry.type === "mistake") {
-    var snippet = title.substring(0, 35);
-    return "❌ **Hit a wall.** " + snippet;
-  }
-  if (entry.type === "pivot") return "🔄 **Pivot.** Multiple redirections, searching for the right approach.";
-  if (entry.type === "milestone") {
-    if (text.indexOf("started") !== -1) return "🚀 **Session started.** Intent established.";
-    if (text.indexOf("ended") !== -1) return "✅ **Session complete.** Work delivered.";
-    return "📦 **Milestone.** Momentum matters.";
-  }
-  if (entry.type === "insight") {
-    var insightSnippet = title.substring(0, 40);
-    return "💡 **Discovered.** " + insightSnippet;
-  }
-  return "📝 Progress made.";
 }
 
 // ── Main JournalView ─────────────────────────────────────────────────────────
@@ -599,50 +594,8 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     return normalizeSessionEntries(sessionEntries);
   }, [sessionEntries]);
 
-  // Auto-contribute session steering to persistent log (once per session load)
-  var hasContributed = useRef(false);
-  useEffect(function () {
-    if (hasContributed.current) return;
-    if (normalizedSessionEntries.length === 0) return;
-    if (gitLoading) return; // wait until steering log is loaded
-
-    var steeringToContribute = normalizedSessionEntries.filter(function (e) {
-      return e.type === "steering" || e.type === "pivot";
-    });
-    if (steeringToContribute.length === 0) return;
-
-    // Check which ones are already contributed (by matching steeringCommand text)
-    var existingCommands = new Set(steeringLog.map(function (e) { return e.steeringCommand; }));
-    var newEntries = steeringToContribute.filter(function (e) {
-      return !existingCommands.has(e.steeringCommand);
-    });
-    if (newEntries.length === 0) {
-      hasContributed.current = true;
-      return;
-    }
-
-    hasContributed.current = true;
-
-    // Contribute each new entry
-    Promise.all(newEntries.map(function (entry) {
-      return fetch("/api/journal/steering", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: entry.type,
-          time: entry.time,
-          steeringCommand: entry.steeringCommand,
-          whatHappened: entry.whatHappened,
-          levelUp: entry.levelUp,
-        }),
-      });
-    })).then(function () {
-      // Refresh the steering log
-      return fetch("/api/journal/steering").then(function (r) { return r.json(); });
-    }).then(function (data) {
-      setSteeringLog(data.entries || []);
-    }).catch(function () {});
-  }, [normalizedSessionEntries, steeringLog, gitLoading]);
+  // Auto-contribute disabled — produces noise without AI summarization.
+  // Steering log is populated via curated .agentviz/steering-v1.jsonl committed to repo.
 
   // Normalize contributed steering entries — use contributedAt as the real time
   var contributedEntries = useMemo(function () {
@@ -702,8 +655,13 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
       var result = findResultForContributed(e.contributedAt || e.time);
       if (result && !claimedCommits[result.hash]) {
         claimedCommits[result.hash] = true;
+        var happened = e.whatHappened || e.assistantResponse || "";
+        if (!happened || happened === e.steeringCommand) {
+          happened = result.steeringCommand + " (" + result.hash.substring(0, 7) + ")";
+        }
         return Object.assign({}, e, {
-          levelUp: "→ " + result.steeringCommand,
+          whatHappened: truncateToSentence(happened, 200),
+          levelUp: result.levelUp || result.steeringCommand,
           resultingCommit: result.hash,
           impact: result.linesChanged || 0,
         });
@@ -716,8 +674,13 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
       var result = findResultForSession(e.time);
       if (result && !claimedCommits[result.hash]) {
         claimedCommits[result.hash] = true;
+        var happened = e.whatHappened || "";
+        if (!happened) {
+          happened = result.steeringCommand + " (" + result.hash.substring(0, 7) + ")";
+        }
         return Object.assign({}, e, {
-          levelUp: "→ " + result.steeringCommand,
+          whatHappened: truncateToSentence(happened, 200),
+          levelUp: result.levelUp || result.steeringCommand,
           resultingCommit: result.hash,
           impact: result.linesChanged || 0,
         });
