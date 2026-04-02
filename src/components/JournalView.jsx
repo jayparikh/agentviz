@@ -508,11 +508,18 @@ function GitFilterBar({ activeFilters, onToggle, counts }) {
 
 // ── Normalize session entries to unified shape ───────────────────────────────
 
-function normalizeSessionEntries(sessionEntries) {
+function normalizeSessionEntries(sessionEntries, sessionDuration) {
+  // Convert session-relative seconds to wall-clock ISO timestamps
+  var now = Date.now();
+  var durationMs = (sessionDuration || 0) * 1000;
+
   return sessionEntries.map(function (e) {
     var info = JOURNAL_TYPES[e.type] || JOURNAL_TYPES.insight;
     var fullText = (e.type === "steering" || e.type === "pivot") ? (e.detail || e.title) : e.title;
     var command = truncateToSentence(fullText, 110);
+
+    // Convert session-relative time to wall-clock
+    var wallTime = new Date(now - durationMs + (e.time || 0) * 1000).toISOString();
 
     // whatHappened: extract substantive reasoning, skip tool calls and role tags
     var whatHappened = "";
@@ -545,7 +552,7 @@ function normalizeSessionEntries(sessionEntries) {
 
     return {
       type: e.type,
-      time: new Date(Date.now() - (e.time != null ? (86400 - e.time) * 1000 : 0)).toISOString(),
+      time: wallTime,
       source: "session",
       steeringCommand: command,
       whatHappened: whatHappened,
@@ -597,6 +604,12 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
     });
   }, []);
 
+  // Compute session duration from events
+  var sessionDuration = useMemo(function () {
+    if (!events || events.length === 0) return 0;
+    return events[events.length - 1].t || 0;
+  }, [events]);
+
   // Extract session-level entries
   var sessionEntries = useMemo(function () {
     return extractJournal(events || [], turns || []);
@@ -604,8 +617,8 @@ export default function JournalView({ events, turns, metadata, onSeek }) {
 
   // Normalize session entries to unified shape
   var normalizedSessionEntries = useMemo(function () {
-    return normalizeSessionEntries(sessionEntries);
-  }, [sessionEntries]);
+    return normalizeSessionEntries(sessionEntries, sessionDuration);
+  }, [sessionEntries, sessionDuration]);
 
   // Auto-contribute disabled — produces noise without AI summarization.
   // Steering log is populated via curated .agentviz/steering-v1.jsonl committed to repo.
