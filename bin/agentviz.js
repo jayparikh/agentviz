@@ -8,7 +8,6 @@ import { createServer } from "../server.js";
 import { getConfiguredModel } from "../server.js";
 import { DEFAULT_API_PORT } from "../config.js";
 import { filterSessionFiles } from "../routes/sessions.js";
-import { createRequire } from "module";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";

@@ -243,8 +243,10 @@ export default function App() {
     };
   }, []);
 
-  setThemePreference(themeModePreference);
-  setSystemThemePreference(systemThemeMode);
+  useEffect(function () {
+    setThemePreference(themeModePreference);
+    setSystemThemePreference(systemThemeMode);
+  }, [themeModePreference, systemThemeMode]);
 
   var resolvedThemeMode = getResolvedThemeMode(themeModePreference, systemThemeMode);
 

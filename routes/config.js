@@ -29,7 +29,15 @@ function validateProjectPath(filePath) {
   var cwd = process.cwd();
   var resolved = path.resolve(cwd, filePath);
   if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) return null;
-  return resolved;
+  // Resolve symlinks to prevent escaping via symlink targets
+  try {
+    var real = fs.realpathSync(resolved);
+    if (!real.startsWith(cwd + path.sep) && real !== cwd) return null;
+    return real;
+  } catch (e) {
+    // File does not exist yet (e.g., new file creation via /api/apply)
+    return resolved;
+  }
 }
 
 export function handle(pathname, req, res, ctx) {

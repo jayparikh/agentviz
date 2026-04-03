@@ -142,6 +142,11 @@ export async function runQAQuery(payload, opts) {
 /**
  * Format the context object into a readable text block for the model prompt.
  */
+function formatContextValue(value) {
+  if (typeof value === "string") return value;
+  return JSON.stringify(value, null, 2);
+}
+
 function formatContext(ctx) {
   if (!ctx) return "No session context provided.";
 
@@ -149,27 +154,27 @@ function formatContext(ctx) {
 
   if (ctx.metadata) {
     parts.push("## Session metadata");
-    parts.push(ctx.metadata);
+    parts.push(formatContextValue(ctx.metadata));
   }
 
   if (ctx.topTools) {
     parts.push("\n## Top tools used");
-    parts.push(ctx.topTools);
+    parts.push(formatContextValue(ctx.topTools));
   }
 
   if (ctx.errorSamples) {
     parts.push("\n## Error samples");
-    parts.push(ctx.errorSamples);
+    parts.push(formatContextValue(ctx.errorSamples));
   }
 
   if (ctx.relevantTurns) {
     parts.push("\n## Relevant turns");
-    parts.push(ctx.relevantTurns);
+    parts.push(formatContextValue(ctx.relevantTurns));
   }
 
   if (ctx.userMessages) {
     parts.push("\n## Recent user messages");
-    parts.push(ctx.userMessages);
+    parts.push(formatContextValue(ctx.userMessages));
   }
 
   return parts.join("\n");
