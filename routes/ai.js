@@ -10,7 +10,7 @@
 import fs from "fs";
 import path from "path";
 import { runCoachAgent } from "../src/lib/aiCoachAgent.js";
-import { runQAQuery } from "../src/lib/qaAgent.js";
+import { runQAQuery, resetQASession } from "../src/lib/qaAgent.js";
 
 export function handle(pathname, req, res, ctx) {
 
@@ -100,10 +100,13 @@ export function handle(pathname, req, res, ctx) {
           sse({ error: "question is required" }); if (!res.writableEnded) res.end(); return;
         }
 
+        sse({ status: "Analyzing session..." });
+
         var model = ctx.getConfiguredModel();
         await runQAQuery(payload, {
           model: model,
           signal: abort.signal,
+          onStatus: function (status) { sse({ status: status }); },
           onToken: function (token) { sse({ token: token }); },
         });
 
@@ -115,6 +118,18 @@ export function handle(pathname, req, res, ctx) {
         if (!res.writableEnded) res.end();
       }
     });
+    return true;
+  }
+
+  if (pathname === "/api/qa/reset") {
+    if (req.method !== "POST") {
+      res.setHeader("Content-Type", "application/json");
+      res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return true;
+    }
+    resetQASession();
+    res.setHeader("Content-Type", "application/json");
+    res.writeHead(200);
+    res.end(JSON.stringify({ ok: true }));
     return true;
   }
 

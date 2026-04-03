@@ -35,6 +35,11 @@ import {
   SunMedium,
   Moon,
   Monitor,
+  LayoutList,
+  Wrench,
+  Coins,
+  FileEdit,
+  Square,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -74,6 +79,11 @@ var ICON_MAP = {
   sun: SunMedium,
   moon: Moon,
   monitor: Monitor,
+  "layout-list": LayoutList,
+  wrench: Wrench,
+  coins: Coins,
+  "file-edit": FileEdit,
+  square: Square,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

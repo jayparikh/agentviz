@@ -3,6 +3,7 @@
  *
  * Lightweight wrapper: no tools, no retries, just a single prompt/response with streaming.
  * Reuses the CopilotClient pattern from aiCoachAgent.js.
+ * Keeps a persistent SDK session across calls to avoid per-question cold starts.
  */
 
 import { CopilotClient, approveAll } from "@github/copilot-sdk";
@@ -58,41 +59,68 @@ function getWarmClient() {
 // Kick off warm-up immediately on import (fire and forget)
 getWarmClient().catch(function () {});
 
+// ── Persistent session ──────────────────────────────────────────
+// Keep a single SDK session alive across Q&A calls so follow-up
+// questions don't pay the createSession() penalty (~2-5s).
+// The session is invalidated on error or model change.
+
+var _persistentSession = null;
+var _sessionModel = null;
+
+async function getOrCreateSession(client, model) {
+  // Reuse if same model and session exists
+  if (_persistentSession && _sessionModel === model) {
+    return _persistentSession;
+  }
+  // Tear down stale session
+  if (_persistentSession) {
+    _persistentSession.disconnect().catch(function () {});
+    _persistentSession = null;
+  }
+
+  var sessionOpts = {
+    onPermissionRequest: approveAll,
+    systemMessage: { mode: "replace", content: SYSTEM_PROMPT },
+  };
+  if (model) sessionOpts.model = model;
+
+  try {
+    _persistentSession = await withTimeout(client.createSession(sessionOpts), SDK_TIMEOUT_MS, "Copilot SDK session");
+  } catch (sessionErr) {
+    // Warm client may be stale -- invalidate and retry once
+    _warmClient = null;
+    client = await getWarmClient();
+    _persistentSession = await withTimeout(client.createSession(sessionOpts), SDK_TIMEOUT_MS, "Copilot SDK session (retry)");
+  }
+  _sessionModel = model;
+  return _persistentSession;
+}
+
 /**
  * Run a Q&A query against the Copilot SDK.
  *
- * @param {object} payload - { question: string, context: object }
+ * @param {object} payload - { question: string, context: object, history?: Array<{role, content}> }
  * @param {object} opts
  * @param {string|null} [opts.model] - model ID from config, or null for SDK default
  * @param {AbortSignal} [opts.signal] - cancellation signal
  * @param {function} [opts.onToken] - called with each streamed token string
+ * @param {function} [opts.onStatus] - called with status updates (e.g. "Retrieving context...")
  * @returns {Promise<void>}
  */
 export async function runQAQuery(payload, opts) {
   var signal = opts && opts.signal;
   var onToken = opts && opts.onToken;
+  var onStatus = opts && opts.onStatus;
   var model = opts && opts.model;
 
   var client;
   var session;
 
   try {
+    if (onStatus) onStatus("Connecting to AI...");
+
     client = await getWarmClient();
-
-    var sessionOpts = {
-      onPermissionRequest: approveAll,
-      systemMessage: { mode: "replace", content: SYSTEM_PROMPT },
-    };
-    if (model) sessionOpts.model = model;
-
-    try {
-      session = await withTimeout(client.createSession(sessionOpts), SDK_TIMEOUT_MS, "Copilot SDK session");
-    } catch (sessionErr) {
-      // Warm client may be stale -- invalidate and retry once
-      _warmClient = null;
-      client = await getWarmClient();
-      session = await withTimeout(client.createSession(sessionOpts), SDK_TIMEOUT_MS, "Copilot SDK session (retry)");
-    }
+    session = await getOrCreateSession(client, model);
 
     if (signal && signal.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     if (signal) {
@@ -101,8 +129,15 @@ export async function runQAQuery(payload, opts) {
       }, { once: true });
     }
 
+    if (onStatus) onStatus("Generating answer...");
+
     var contextBlock = formatContext(payload.context);
-    var prompt = contextBlock + "\n\nUser question: " + payload.question;
+    var historyBlock = formatHistory(payload.history);
+    var prompt = contextBlock + historyBlock + "\n\nUser question: " + payload.question;
+
+    // Guard against duplicate output: track whether we got content.delta events.
+    // If so, ignore the final assistant.message to prevent duplication.
+    var gotDeltas = false;
 
     // Stream tokens via session events, with overall timeout
     await withTimeout(new Promise(function (resolve, reject) {
@@ -111,14 +146,18 @@ export async function runQAQuery(payload, opts) {
       var unsubscribe = session.on(function (event) {
         if (done) return;
         if (event.type === "content.delta" && event.data && event.data.text) {
+          gotDeltas = true;
           if (onToken) onToken(event.data.text);
         } else if (event.type === "assistant.message" && event.data && event.data.content) {
-          // SDK may send full response as a single message instead of streaming deltas
-          if (onToken) onToken(event.data.content);
+          // Only use the full message if we didn't get streaming deltas
+          if (!gotDeltas && onToken) onToken(event.data.content);
         } else if (event.type === "session.idle") {
           done = true; unsubscribe(); resolve();
         } else if (event.type === "session.error") {
           done = true; unsubscribe();
+          // Disconnect and invalidate persistent session on error
+          session.disconnect().catch(function () {});
+          _persistentSession = null;
           reject(new Error(event.data && event.data.message ? event.data.message : "Session error"));
         }
       });
@@ -131,12 +170,40 @@ export async function runQAQuery(payload, opts) {
     if (signal && signal.aborted) {
       throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     }
-  } finally {
-    // Only disconnect the session; keep the warm client alive for reuse.
-    // If the session errors in a way that corrupts the client, invalidate it
-    // so the next call creates a fresh one.
-    if (session) await session.disconnect().catch(function () {});
+  } catch (err) {
+    // Disconnect and invalidate persistent session on non-abort errors
+    if (err.name !== "AbortError" && _persistentSession) {
+      _persistentSession.disconnect().catch(function () {});
+      _persistentSession = null;
+    }
+    throw err;
   }
+  // Note: we no longer disconnect the session -- it stays alive for reuse
+}
+
+/**
+ * Invalidate the persistent SDK session (e.g. when user switches sessions or clears Q&A).
+ * Next call to runQAQuery will create a fresh session.
+ */
+export function resetQASession() {
+  if (_persistentSession) {
+    _persistentSession.disconnect().catch(function () {});
+    _persistentSession = null;
+  }
+}
+
+/**
+ * Format conversation history into a prompt section for follow-up context.
+ */
+function formatHistory(history) {
+  if (!history || history.length === 0) return "";
+  var lines = ["\n\n## Prior conversation"];
+  for (var i = 0; i < history.length; i++) {
+    var msg = history[i];
+    var role = msg.role === "user" ? "User" : "Assistant";
+    lines.push(role + ": " + msg.content);
+  }
+  return lines.join("\n");
 }
 
 /**

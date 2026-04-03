@@ -349,6 +349,181 @@ describe("classify: model fallback", function () {
   });
 });
 
+// ── File edits ───────────────────────────────────────────────────────────────
+
+describe("classify: files", function () {
+  it("answers 'what files were edited?'", function () {
+    var session = makeSession({
+      events: [
+        { t: 0, agent: "assistant", track: "tool_call", text: "path: src/auth.ts", duration: 2, intensity: 0.7, isError: false, turnIndex: 0, toolName: "edit" },
+        { t: 5, agent: "assistant", track: "tool_call", text: "path: src/auth.ts", duration: 2, intensity: 0.7, isError: false, turnIndex: 0, toolName: "edit" },
+        { t: 10, agent: "assistant", track: "tool_call", text: "path: src/index.ts", duration: 2, intensity: 0.7, isError: false, turnIndex: 1, toolName: "create" },
+      ],
+    });
+    var r = classify("what files were edited?", session);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("src/auth.ts");
+    expect(r.answer).toContain("src/index.ts");
+    expect(r.answer).toContain("2 files");
+  });
+
+  it("answers 'which files were changed'", function () {
+    var session = makeSession({
+      events: [
+        { t: 0, agent: "assistant", track: "tool_call", text: "path: src/app.js", duration: 1, intensity: 0.5, isError: false, turnIndex: 0, toolName: "write" },
+      ],
+    });
+    var r = classify("which files were changed", session);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("src/app.js");
+  });
+
+  it("reports no edits when none found", function () {
+    var session = makeSession({
+      events: [
+        { t: 0, agent: "assistant", track: "tool_call", text: "npm test", duration: 1, intensity: 0.5, isError: false, turnIndex: 0, toolName: "bash" },
+      ],
+    });
+    var r = classify("what files were edited?", session);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("No file edits");
+  });
+
+  it("matches 'file changes'", function () {
+    var r = classify("show me the file changes", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("matches 'list files'", function () {
+    var r = classify("list files modified", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+});
+
+// ── Longest turn ─────────────────────────────────────────────────────────────
+
+describe("classify: longest turn", function () {
+  it("answers 'which turn took the longest?'", function () {
+    var r = classify("which turn took the longest?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("[Turn ");
+  });
+
+  it("answers 'slowest turn'", function () {
+    var r = classify("slowest turn", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("answers 'which turn was the slowest'", function () {
+    var r = classify("which turn was the slowest?", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("finds the turn with max duration", function () {
+    var session = makeSession({
+      turns: [
+        { index: 0, startTime: 0, endTime: 5, eventIndices: [0], userMessage: "short", toolCount: 1, hasError: false },
+        { index: 1, startTime: 5, endTime: 50, eventIndices: [1], userMessage: "long turn", toolCount: 5, hasError: true },
+        { index: 2, startTime: 50, endTime: 60, eventIndices: [2], userMessage: "medium", toolCount: 2, hasError: false },
+      ],
+    });
+    var r = classify("longest turn", session);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("[Turn 1]");
+    expect(r.answer).toContain("45s");
+  });
+});
+
+// ── Turn detail clickable refs ────────────────────────────────────────────────
+
+describe("classify: turn detail uses clickable refs", function () {
+  it("uses [Turn N] format for clickable links", function () {
+    var r = classify("what happened in turn 0?", SESSION);
+    expect(r.tier).toBe("instant");
+    expect(r.answer).toContain("[Turn 0]");
+    // Should NOT use the old **Turn N** format for the header
+    expect(r.answer).not.toMatch(/^\*\*Turn \d+\*\*/m);
+  });
+});
+
+// ── Broader pattern matching ─────────────────────────────────────────────────
+
+describe("classify: broader pattern matching", function () {
+  it("matches 'what went wrong'", function () {
+    var r = classify("what went wrong?", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("matches 'what failed'", function () {
+    var r = classify("what failed?", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("matches 'what was the cost'", function () {
+    var r = classify("what was the cost?", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("matches 'how much time'", function () {
+    var r = classify("how much time did this take?", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("matches 'give me a summary'", function () {
+    var r = classify("give me a summary", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("matches 'give me an overview'", function () {
+    var r = classify("give me an overview", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("matches 'tool breakdown'", function () {
+    var r = classify("show me the tool breakdown", SESSION);
+    expect(r.tier).toBe("instant");
+  });
+
+  it("sends 'which tool took the most time?' to model (not tools)", function () {
+    var r = classify("which tool took the most time?", SESSION);
+    expect(r.tier).toBe("model");
+  });
+
+  it("sends 'which file took the longest?' to model (not files)", function () {
+    var r = classify("which file took the longest?", SESSION);
+    expect(r.tier).toBe("model");
+  });
+});
+
+// ── Insight binding test ──────────────────────────────────────────────────────
+
+describe("classify: INSIGHT_DEFS always resolve as instant", function () {
+  var INSIGHT_QUESTIONS = [
+    "summarize this session",
+    "what tools were used",
+    "what errors occurred",
+    "how much did this cost",
+    "what files were edited",
+    "which turn took the longest",
+  ];
+
+  INSIGHT_QUESTIONS.forEach(function (q) {
+    it("'" + q + "' resolves as instant", function () {
+      var session = makeSession({
+        events: [
+          { t: 0, agent: "assistant", track: "tool_call", text: "path: src/app.ts", duration: 2, intensity: 0.7, isError: true, turnIndex: 0, toolName: "edit" },
+        ],
+        metadata: {
+          errorCount: 1,
+          tokenUsage: { inputTokens: 100, outputTokens: 50 },
+        },
+      });
+      var r = classify(q, session);
+      expect(r.tier).toBe("instant");
+    });
+  });
+});
+
 // ── buildModelContext ───────────────────────────────────────────────────────
 
 describe("buildModelContext", function () {

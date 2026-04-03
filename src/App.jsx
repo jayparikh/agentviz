@@ -32,6 +32,7 @@ import { APP_VIEWS } from "./components/app/constants.js";
 var DebriefView = React.lazy(function () { return import("./components/DebriefView.jsx"); });
 import QADrawer from "./components/QADrawer.jsx";
 import useFeatureFlag from "./hooks/useFeatureFlag.js";
+import useQA from "./hooks/useQA.js";
 import { buildAutonomyMetrics, buildAutonomySummary } from "./lib/autonomyMetrics.js";
 import {
   loadStoredSessionContent,
@@ -474,6 +475,17 @@ function AppSessionView({
 }) {
   var pb = usePlaybackContext();
 
+  // Q&A state lives at this level so it persists across drawer open/close
+  var qaSessionData = useMemo(function () {
+    return {
+      events: session.events,
+      turns: session.turns,
+      metadata: session.metadata,
+      autonomyMetrics: autonomyMetrics,
+    };
+  }, [session.events, session.turns, session.metadata, autonomyMetrics]);
+  var qa = useQA(qaSessionData);
+
   useEffect(function () {
     if (!showFilters) return;
 
@@ -629,14 +641,10 @@ function AppSessionView({
         open={showQA}
         onClose={function () { setShowQA(false); }}
         onDisable={function () { setShowQA(false); qaFlag.setEnabled(false); }}
-        sessionData={{
-          events: session.events,
-          turns: session.turns,
-          metadata: session.metadata,
-          autonomyMetrics: autonomyMetrics,
-        }}
+        sessionData={qaSessionData}
         onSeek={pb.playback.seek}
         turns={session.turns}
+        qa={qa}
       />
     </div>
   );
