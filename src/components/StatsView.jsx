@@ -47,31 +47,31 @@ function MetricCard({ value, label, tooltip, color }) {
 // ── Capabilities panel (skills, instructions, MCP, agents) ──────────────────
 
 var SOURCE_COLORS = {
-  project: "#3b9eff",
-  personal: "#a78bfa",
-  extension: "#f59e0b",
-  "built-in": "#94a3b8",
-  mcp: "#10d97a",
-  unknown: "#585860",
+  project: theme.track.tool_call,
+  personal: theme.track.context,
+  extension: theme.track.agent,
+  "built-in": theme.track.reasoning,
+  mcp: theme.semantic.success,
+  unknown: theme.text.dim,
 };
 
 var CATEGORY_COLORS = {
-  skill: "#a78bfa",
-  instruction: "#6475e8",
-  agent: "#f59e0b",
-  tool: "#3b9eff",
-  "mcp-server": "#10d97a",
-  prompt: "#10d97a",
-  plugin: "#ec4899",
+  skill: theme.track.context,
+  instruction: theme.accent.primary,
+  agent: theme.track.agent,
+  tool: theme.track.tool_call,
+  "mcp-server": theme.semantic.success,
+  prompt: theme.semantic.success,
+  plugin: theme.agentType["configure-copilot"],
 };
 
 var STAGE_COLORS = {
-  discovered: "#585860",
-  loaded: "#6475e8",
-  invoked: "#3b9eff",
-  "resource-accessed": "#a78bfa",
-  completed: "#10d97a",
-  errored: "#ef4444",
+  discovered: theme.text.dim,
+  loaded: theme.accent.primary,
+  invoked: theme.track.tool_call,
+  "resource-accessed": theme.track.context,
+  completed: theme.semantic.success,
+  errored: theme.semantic.error,
 };
 
 var STAGE_LABELS = {
@@ -101,12 +101,111 @@ function SkillStageBar({ maxStage, hasError }) {
               width: 14,
               height: 3,
               borderRadius: 1.5,
-              background: isErr ? "#ef4444" : reached ? STAGE_COLORS[stage] : theme.text.ghost,
+              background: isErr ? theme.semantic.error : reached ? STAGE_COLORS[stage] : theme.text.ghost,
               opacity: reached ? 1 : 0.25,
             }}
           />
         );
       })}
+    </div>
+  );
+}
+
+function CapabilityRow({ skill, isExpanded, onToggle, sourceFilter, onSourceFilter }) {
+  var [hovered, setHovered] = useState(false);
+  var catColor = CATEGORY_COLORS[skill.category] || theme.track.tool_call;
+  return (
+    <div style={{ marginBottom: 2 }}>
+      <div
+        onClick={onToggle}
+        onMouseEnter={function () { setHovered(true); }}
+        onMouseLeave={function () { setHovered(false); }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "5px 6px",
+          borderRadius: theme.radius.md,
+          cursor: "pointer",
+          transition: "background " + theme.transition.fast,
+          background: hovered ? theme.bg.hover : "transparent",
+        }}
+      >
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: catColor, flexShrink: 0 }} />
+        <span style={{
+          fontSize: theme.fontSize.sm,
+          color: theme.text.primary,
+          fontFamily: theme.font.mono,
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}>
+          {skill.name}
+          {skill.autoLoaded && (
+            <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginLeft: 4, fontFamily: theme.font.mono }}>auto</span>
+          )}
+        </span>
+        <SkillStageBar maxStage={skill.maxStage} hasError={skill.errorCount > 0} />
+        {skill.invocationCount > 0 && (
+          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontFamily: theme.font.mono, flexShrink: 0 }}>
+            {skill.invocationCount}x
+          </span>
+        )}
+        <span
+          onClick={function (e) { e.stopPropagation(); onSourceFilter(sourceFilter === skill.source ? null : skill.source); }}
+          style={{
+            fontSize: theme.fontSize.xs,
+            padding: "0 4px",
+            borderRadius: 3,
+            color: SOURCE_COLORS[skill.source],
+            background: alpha(SOURCE_COLORS[skill.source] || theme.text.dim, 0.1),
+            flexShrink: 0,
+            cursor: "pointer",
+            border: sourceFilter === skill.source ? "1px solid " + SOURCE_COLORS[skill.source] : "1px solid transparent",
+          }}
+          title={skill.sourceLabel || skill.source}
+        >
+          {skill.sourceLabel || skill.source}
+        </span>
+      </div>
+
+      {isExpanded && (
+        <div style={{
+          marginLeft: 18,
+          padding: "6px 8px",
+          borderLeft: "2px solid " + alpha(catColor, 0.3),
+          background: theme.bg.surface,
+          borderRadius: "0 " + theme.radius.sm + "px " + theme.radius.sm + "px 0",
+          marginBottom: 4,
+        }}>
+          {skill.description && (
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, marginBottom: 4 }}>{skill.description}</div>
+          )}
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginBottom: 4 }}>
+            {STAGE_LABELS[skill.maxStage]} {"\u2022"} {skill.events.length} events {"\u2022"} {skill.invocationCount} uses
+            {skill.errorCount > 0 && (<span style={{ color: theme.semantic.error }}> {"\u2022"} {skill.errorCount} errors</span>)}
+          </div>
+          <div style={{ maxHeight: 120, overflowY: "auto" }}>
+            {skill.events.map(function (ev, idx) {
+              var stageColor = STAGE_COLORS[ev.stage] || theme.text.dim;
+              return (
+                <div key={idx} style={{
+                  display: "flex", alignItems: "center", gap: 5, padding: "2px 0",
+                  fontSize: theme.fontSize.xs, color: theme.text.secondary,
+                }}>
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: ev.isError ? theme.semantic.error : stageColor, flexShrink: 0 }} />
+                  <span style={{ color: theme.text.dim, fontFamily: theme.font.mono }}>T{ev.turnIndex}</span>
+                  <span style={{ color: stageColor, fontFamily: theme.font.mono }}>{STAGE_LABELS[ev.stage]}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{ev.text}</span>
+                  {ev.duration > 0 && <span style={{ color: theme.text.dim }}>{ev.duration.toFixed(1)}s</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -140,6 +239,7 @@ function CapabilitiesPanel({ events, turns, metadata }) {
     { id: "agent", label: "Agents", count: (summary.byCategory.agent || []).length },
     { id: "tool", label: "Tools", count: (summary.byCategory.tool || []).length },
     { id: "mcp-server", label: "MCP", count: (summary.byCategory["mcp-server"] || []).length },
+    { id: "prompt", label: "Prompts", count: (summary.byCategory.prompt || []).length },
   ].filter(function (t) { return t.count > 0 || t.id === "all"; });
 
   return (
@@ -159,7 +259,7 @@ function CapabilitiesPanel({ events, turns, metadata }) {
               style={{
                 padding: "2px 7px",
                 borderRadius: theme.radius.full,
-                fontSize: 9,
+                fontSize: theme.fontSize.xs,
                 fontFamily: theme.font.mono,
                 border: "1px solid " + (active ? theme.accent.primary : theme.border.default),
                 background: active ? alpha(theme.accent.primary, 0.15) : "transparent",
@@ -178,10 +278,10 @@ function CapabilitiesPanel({ events, turns, metadata }) {
             style={{
               padding: "2px 7px",
               borderRadius: theme.radius.full,
-              fontSize: 9,
-              fontFamily: theme.font.mono,
-              border: "1px solid " + (SOURCE_COLORS[sourceFilter] || theme.border.default),
-              background: alpha(SOURCE_COLORS[sourceFilter] || "#585860", 0.15),
+                fontSize: theme.fontSize.xs,
+                fontFamily: theme.font.mono,
+                border: "1px solid " + (SOURCE_COLORS[sourceFilter] || theme.border.default),
+              background: alpha(SOURCE_COLORS[sourceFilter] || theme.text.dim, 0.15),
               color: SOURCE_COLORS[sourceFilter] || theme.text.dim,
               cursor: "pointer",
               lineHeight: "14px",
@@ -195,101 +295,15 @@ function CapabilitiesPanel({ events, turns, metadata }) {
 
       {/* Skill list */}
       {nonToolSkills.map(function (skill) {
-        var catColor = CATEGORY_COLORS[skill.category] || "#3b9eff";
-        var isExpanded = expandedId === skill.id;
-
         return (
-          <div key={skill.id} style={{ marginBottom: 2 }}>
-            <div
-              onClick={function () { setExpandedId(isExpanded ? null : skill.id); }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "5px 6px",
-                borderRadius: theme.radius.md,
-                cursor: "pointer",
-                transition: "background " + theme.transition.fast,
-              }}
-              onMouseEnter={function (e) { e.currentTarget.style.background = theme.bg.hover; }}
-              onMouseLeave={function (e) { e.currentTarget.style.background = "transparent"; }}
-            >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: catColor, flexShrink: 0 }} />
-              <span style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.text.primary,
-                fontFamily: theme.font.mono,
-                flex: 1,
-                minWidth: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}>
-                {skill.name}
-                {skill.autoLoaded && (
-                  <span style={{ fontSize: 9, color: theme.text.dim, marginLeft: 4, fontFamily: theme.font.ui }}>auto</span>
-                )}
-              </span>
-              <SkillStageBar maxStage={skill.maxStage} hasError={skill.errorCount > 0} />
-              {skill.invocationCount > 0 && (
-                <span style={{ fontSize: 9, color: theme.text.dim, fontFamily: theme.font.mono, flexShrink: 0 }}>
-                  {skill.invocationCount}x
-                </span>
-              )}
-              <span
-                onClick={function (e) { e.stopPropagation(); setSourceFilter(sourceFilter === skill.source ? null : skill.source); }}
-                style={{
-                  fontSize: 9,
-                  padding: "0 4px",
-                  borderRadius: 3,
-                  color: SOURCE_COLORS[skill.source],
-                  background: alpha(SOURCE_COLORS[skill.source] || "#585860", 0.1),
-                  flexShrink: 0,
-                  cursor: "pointer",
-                  border: sourceFilter === skill.source ? "1px solid " + SOURCE_COLORS[skill.source] : "1px solid transparent",
-                }}
-                title={skill.sourceLabel || skill.source}
-              >
-                {skill.sourceLabel || skill.source}
-              </span>
-            </div>
-
-            {isExpanded && (
-              <div style={{
-                marginLeft: 18,
-                padding: "6px 8px",
-                borderLeft: "2px solid " + alpha(catColor, 0.3),
-                background: theme.bg.surface,
-                borderRadius: "0 " + theme.radius.sm + "px " + theme.radius.sm + "px 0",
-                marginBottom: 4,
-              }}>
-                {skill.description && (
-                  <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary, marginBottom: 4 }}>{skill.description}</div>
-                )}
-                <div style={{ fontSize: 9, color: theme.text.muted, marginBottom: 4 }}>
-                  {STAGE_LABELS[skill.maxStage]} {"\u2022"} {skill.events.length} events {"\u2022"} {skill.invocationCount} uses
-                  {skill.errorCount > 0 && (<span style={{ color: theme.semantic.error }}> {"\u2022"} {skill.errorCount} errors</span>)}
-                </div>
-                <div style={{ maxHeight: 120, overflowY: "auto" }}>
-                  {skill.events.map(function (ev, idx) {
-                    var stageColor = STAGE_COLORS[ev.stage] || "#585860";
-                    return (
-                      <div key={idx} style={{
-                        display: "flex", alignItems: "center", gap: 5, padding: "2px 0",
-                        fontSize: 9, color: theme.text.secondary,
-                      }}>
-                        <span style={{ width: 4, height: 4, borderRadius: "50%", background: ev.isError ? "#ef4444" : stageColor, flexShrink: 0 }} />
-                        <span style={{ color: theme.text.dim, fontFamily: theme.font.mono }}>T{ev.turnIndex}</span>
-                        <span style={{ color: stageColor, fontFamily: theme.font.mono }}>{STAGE_LABELS[ev.stage]}</span>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{ev.text}</span>
-                        {ev.duration > 0 && <span style={{ color: theme.text.dim }}>{ev.duration.toFixed(1)}s</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <CapabilityRow
+            key={skill.id}
+            skill={skill}
+            isExpanded={expandedId === skill.id}
+            onToggle={function () { setExpandedId(expandedId === skill.id ? null : skill.id); }}
+            sourceFilter={sourceFilter}
+            onSourceFilter={setSourceFilter}
+          />
         );
       })}
     </div>

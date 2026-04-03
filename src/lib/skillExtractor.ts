@@ -110,8 +110,8 @@ var STAGE_ORDER: SkillLifecycleStage[] = [
 ];
 
 function stageRank(stage: SkillLifecycleStage): number {
-  // errored is alongside completed, not "higher"
-  if (stage === "errored") return STAGE_ORDER.indexOf("completed");
+  // errored ranks above completed so it always wins when present
+  if (stage === "errored") return STAGE_ORDER.indexOf("completed") + 1;
   var idx = STAGE_ORDER.indexOf(stage);
   return idx >= 0 ? idx : 0;
 }

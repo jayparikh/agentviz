@@ -135,6 +135,18 @@ describe("extractSkills", function () {
     expect(tool.maxStage).toBe("errored");
   });
 
+  it("errored overrides completed when completed comes first", function () {
+    var events = [
+      makeEvent({ toolName: "run_in_terminal", track: "tool_call", t: 0, isError: false }),
+      makeEvent({ toolName: "run_in_terminal", track: "tool_call", t: 1, isError: true }),
+    ];
+    var result = extractSkills(events, [], makeMeta());
+    var tool = result.skills.find(function (s) { return s.name === "run_in_terminal"; });
+    expect(tool.maxStage).toBe("errored");
+    expect(tool.errorCount).toBe(1);
+    expect(tool.invocationCount).toBe(2);
+  });
+
   it("extracts custom instructions with discovered + loaded stages", function () {
     var events = [
       makeEvent({
