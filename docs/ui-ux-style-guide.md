@@ -662,6 +662,39 @@ dim the partial cards:
 - Full data: normal rendering
 - Partial data: `opacity: 0.7` on the metrics row, show "Not yet analyzed" in `theme.text.dim`
 
+### Tag Filter Chips
+
+Used in InboxView when sessions carry freeform tags (e.g., static manifest mode).
+Tags render as a horizontal wrap row below the toolbar, separated by `gap: 6`.
+
+**Toolbar-level chips** (filter bar):
+
+| Property | Value | Token |
+|----------|-------|-------|
+| Padding | `2px 8px` | -- |
+| Border radius | pill | `theme.radius.full` |
+| Font size | 10px | `theme.fontSize.xs` |
+| Font family | mono | `theme.font.mono` |
+| Inactive border | `1px solid` | `theme.border.default` |
+| Inactive text | -- | `theme.text.muted` |
+| Inactive background | transparent | -- |
+| Active border | `1px solid` | `theme.accent.primary` |
+| Active text | -- | `theme.accent.primary` |
+| Active background | 12% alpha | `alpha(theme.accent.primary, 0.12)` |
+
+A "clear" text button appears when any tag is active (`theme.text.ghost`, no border).
+
+**Card-level tag chips** (inside session cards):
+
+Same style as toolbar chips, except:
+
+- Padding: `1px 6px` (tighter).
+- Inactive background: `alpha(theme.bg.surface, 0.6)` instead of transparent.
+- Inactive text: `theme.text.ghost`.
+- `onClick` calls `e.stopPropagation()` to avoid opening the session.
+
+Tags use AND logic when multiple are active. Pre-apply filters from the URL with `&tag=X` query params.
+
 ### Overflow Handling
 
 - Text truncation: `overflow: hidden; textOverflow: ellipsis; whiteSpace: nowrap`.
