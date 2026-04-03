@@ -57,6 +57,8 @@ var INSIGHT_DEFS = [
   { id: "tools",   label: "Tools",   icon: "wrench",      question: "what tools were used" },
   { id: "errors",  label: "Errors",  icon: "alert-circle", question: "what errors occurred", condition: function (d) { return d.metadata && d.metadata.errorCount > 0; } },
   { id: "cost",    label: "Cost",    icon: "coins",       question: "how much did this cost", condition: function (d) { return d.metadata && d.metadata.tokenUsage; } },
+  { id: "files",   label: "Files",   icon: "file-edit",   question: "what files were edited" },
+  { id: "longest", label: "Longest", icon: "clock",       question: "which turn took the longest", condition: function (d) { return d.turns && d.turns.length > 1; } },
 ];
 
 function QuickInsights({ sessionData, onAsk }) {

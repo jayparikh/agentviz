@@ -19,15 +19,17 @@ import { formatCost } from "./pricing.js";
 // ── Keyword patterns ────────────────────────────────────────────────────────
 
 var PATTERNS = [
-  { id: "tools",     re: /\b(tools?\s+used|tool\s+calls?|which\s+tools?|what\s+tools?\s+(were|was|did)|most.?used\s+tool|top\s+tools?|tool\s+count|how\s+many\s+tools?|list\s+(all\s+)?tools|tool\s+(ranking|breakdown|stats?))\b/i },
-  { id: "errors",    re: /\b(how\s+many\s+errors?|any\s+errors?|what\s+errors?|errors?\s+(occurred|found|count)|show\s+errors?|list\s+errors?|did\s+(anything|it|the)\s+fail|were\s+there\s+(errors?|failures?))\b/i },
+  { id: "tools",     re: /\b(tools?\s+used|tool\s+calls?|which\s+tools?|what\s+tools?\s+(were|was|did)|most.?used\s+tool|top\s+tools?|tool\s+count|how\s+many\s+tools?|list\s+(all\s+)?tools|tool\s+(ranking|breakdown|stats?)|tool\s+breakdown)\b/i },
+  { id: "errors",    re: /\b(how\s+many\s+errors?|any\s+errors?|what\s+errors?|errors?\s+(occurred|found|count)|show\s+errors?|list\s+errors?|did\s+(anything|it|the)\s+fail|were\s+there\s+(errors?|failures?)|what\s+(went\s+wrong|failed))\b/i },
   { id: "model",     re: /\b(what\s+model|which\s+model|model\s+(used|was|name)|what\s+llm|which\s+llm)\b/i },
-  { id: "duration",  re: /\b(how\s+long\s+(did|was|does)|session\s+duration|total\s+(time|duration)|how\s+long\s+.*\s+(take|last|run))\b/i },
-  { id: "cost",      re: /\b(how\s+much\s+(did\s+(it|this)|does\s+it)\s+cost|total\s+cost|estimated?\s+cost|token\s+(usage|count|stats?)|how\s+many\s+tokens?)\b/i },
+  { id: "duration",  re: /\b(how\s+long\s+(did|was|does)|session\s+duration|total\s+(time|duration)|how\s+long\s+.*\s+(take|last|run)|how\s+much\s+time)\b/i },
+  { id: "cost",      re: /\b(how\s+much\s+(did\s+(it|this)|does\s+it)\s+cost|total\s+cost|estimated?\s+cost|token\s+(usage|count|stats?)|how\s+many\s+tokens?|what\s+(did\s+this|was\s+the)\s+cost)\b/i },
   { id: "turnN",     re: /\bturn\s*#?\s*(\d+)\b/i },
   { id: "turns",     re: /\b(how\s+many\s+turns|turn\s+count|number\s+of\s+turns|total\s+turns)\b/i },
   { id: "autonomy",  re: /\b(autonom\w*\s*(score|efficiency|rating|metric)?|how\s+autonom|babysit\w*\s*time|idle\s+time|human.?wait|intervention\s+(count|rate))\b/i },
-  { id: "summary",   re: /\b(summarize?\s+(this|the)\s+session|session\s+(summary|overview|recap))\b/i },
+  { id: "summary",   re: /\b(summarize?\s+(this|the)\s+session|session\s+(summary|overview|recap)|give\s+me\s+(a\s+|an\s+)?(summary|overview|recap))\b/i },
+  { id: "files",     re: /\b(what\s+files?\s+(were\s+)?(edited|changed|modified|touched|created|written)|files?\s+(edited|changed|modified)|which\s+files?|show\s+files?|list\s+files?|file\s+changes?)\b/i },
+  { id: "longest",   re: /\b(longest\s+turn|slowest\s+turn|which\s+turn\s+(took|was)\s+(the\s+)?(longest|slowest|most\s+time)|most\s+time|biggest\s+turn)\b/i },
 ];
 
 // ── Classifier ──────────────────────────────────────────────────────────────
@@ -62,6 +64,8 @@ export function classify(question, data) {
   if (matched === "turns")    return answerTurnCount(data);
   if (matched === "autonomy") return answerAutonomy(data);
   if (matched === "summary")  return answerSummary(data);
+  if (matched === "files")    return answerFiles(data);
+  if (matched === "longest")  return answerLongestTurn(data);
 
   return { tier: "model", context: buildModelContext(q, data) };
 }
@@ -247,7 +251,7 @@ function answerTurnDetail(idx, data) {
   var toolCalls = events.filter(function (e) { return e.track === "tool_call"; });
   var errors = events.filter(function (e) { return e.isError; });
 
-  var lines = ["**Turn " + idx + "**\n"];
+  var lines = ["**[Turn " + idx + "]**\n"];
   if (turn.userMessage) {
     lines.push('User: "' + truncate(turn.userMessage, 200) + '"');
   }
@@ -272,6 +276,67 @@ function answerTurnDetail(idx, data) {
   return instant(lines.join("\n"));
 }
 
+function answerFiles(data) {
+  if (!data.events) return instant("No file edit data available.");
+
+  var fileEdits = {};
+  for (var i = 0; i < data.events.length; i++) {
+    var e = data.events[i];
+    if (e.track === "tool_call" && isFileEditTool(e.toolName)) {
+      var fname = extractFileName(e.text, e.toolName);
+      if (fname) {
+        if (!fileEdits[fname]) fileEdits[fname] = { count: 0, tools: {} };
+        fileEdits[fname].count++;
+        fileEdits[fname].tools[e.toolName] = (fileEdits[fname].tools[e.toolName] || 0) + 1;
+      }
+    }
+  }
+
+  var files = Object.keys(fileEdits);
+  if (files.length === 0) {
+    return instant("No file edits detected in this session.");
+  }
+
+  // Sort by edit count descending
+  files.sort(function (a, b) { return fileEdits[b].count - fileEdits[a].count; });
+
+  var lines = ["**" + files.length + " file" + (files.length !== 1 ? "s" : "") + " edited:**\n"];
+  var shown = Math.min(files.length, 15);
+  for (var j = 0; j < shown; j++) {
+    var f = files[j];
+    var info = fileEdits[f];
+    lines.push("- **" + f + "** (" + info.count + " edit" + (info.count !== 1 ? "s" : "") + ")");
+  }
+  if (files.length > shown) {
+    lines.push("\n(" + (files.length - shown) + " more not shown)");
+  }
+  return instant(lines.join("\n"));
+}
+
+function answerLongestTurn(data) {
+  if (!data.turns || data.turns.length === 0) {
+    return instant("No turns found in this session.");
+  }
+
+  var longest = data.turns[0];
+  for (var i = 1; i < data.turns.length; i++) {
+    var dur = (data.turns[i].endTime || 0) - (data.turns[i].startTime || 0);
+    var longestDur = (longest.endTime || 0) - (longest.startTime || 0);
+    if (dur > longestDur) longest = data.turns[i];
+  }
+
+  var secs = (longest.endTime || 0) - (longest.startTime || 0);
+  var lines = [
+    "Longest turn: **[Turn " + longest.index + "]** (" + formatDurationLong(secs) + ")\n",
+  ];
+  if (longest.userMessage) {
+    lines.push('User: "' + truncate(longest.userMessage, 150) + '"');
+  }
+  lines.push("- Tool calls: " + (longest.toolCount || 0));
+  if (longest.hasError) lines.push("- Had errors");
+  return instant(lines.join("\n"));
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function instant(answer) {
@@ -282,6 +347,36 @@ function truncate(text, maxLen) {
   if (!text) return "";
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen) + "...";
+}
+
+var FILE_EDIT_TOOLS = ["edit", "create", "write", "file_edit", "str_replace_editor", "write_to_file", "insert_code_at_cursor"];
+
+function isFileEditTool(toolName) {
+  if (!toolName) return false;
+  var lower = toolName.toLowerCase();
+  for (var i = 0; i < FILE_EDIT_TOOLS.length; i++) {
+    if (lower === FILE_EDIT_TOOLS[i] || lower.indexOf(FILE_EDIT_TOOLS[i]) !== -1) return true;
+  }
+  return false;
+}
+
+function extractFileName(text, toolName) {
+  if (!text) return null;
+  // Try common patterns: "path: /foo/bar.js", "/foo/bar.ext", "Edit: foo.ts"
+  var pathMatch = text.match(/(?:path|file|editing|created?|writ\w+)[:\s]+([^\s,\n]+\.\w+)/i);
+  if (pathMatch) return pathMatch[1];
+  // Try any file-like path
+  var fileMatch = text.match(/([^\s,()]+\/[^\s,()]+\.\w{1,10})\b/);
+  if (fileMatch) return fileMatch[1];
+  return null;
+}
+
+function formatDurationLong(seconds) {
+  if (!seconds || seconds <= 0) return "0s";
+  var mins = Math.floor(seconds / 60);
+  var secs = Math.round(seconds % 60);
+  if (mins > 0) return mins + "m " + secs + "s";
+  return secs + "s";
 }
 
 function getErrorSamples(events, limit) {
