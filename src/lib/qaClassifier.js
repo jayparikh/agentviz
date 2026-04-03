@@ -251,7 +251,7 @@ function answerTurnDetail(idx, data) {
   var toolCalls = events.filter(function (e) { return e.track === "tool_call"; });
   var errors = events.filter(function (e) { return e.isError; });
 
-  var lines = ["**[Turn " + idx + "]**\n"];
+  var lines = ["[Turn " + idx + "]\n"];
   if (turn.userMessage) {
     lines.push('User: "' + truncate(turn.userMessage, 200) + '"');
   }

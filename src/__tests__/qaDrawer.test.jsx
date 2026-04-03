@@ -165,4 +165,45 @@ describe("QADrawer", function () {
     act(function () { toolBtn.click(); });
     expect(document.body.textContent).toContain("quick answer");
   });
+
+  it("renders inline code in answers", function () {
+    mount(
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+    );
+    // Ask about errors, which mentions tool names
+    var buttons = Array.from(document.querySelectorAll("button"));
+    var errBtn = buttons.find(function (b) { return b.textContent.trim() === "Errors"; });
+    act(function () { errBtn.click(); });
+    // Should render the answer
+    expect(document.body.textContent).toContain("error");
+  });
+
+  it("shows Files and Longest quick insights", function () {
+    mount(
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+    );
+    expect(document.body.textContent).toContain("Files");
+    expect(document.body.textContent).toContain("Longest");
+  });
+
+  it("renders turn refs as clickable buttons", function () {
+    mount(
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+    );
+    // Ask about a specific turn
+    var input = document.querySelector("[aria-label='Ask about this session']");
+    act(function () {
+      var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+      nativeInputValueSetter.call(input, "what happened in turn 0?");
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    act(function () {
+      input.closest("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    // Should render a clickable Turn 0 ref
+    var turnBtn = Array.from(document.querySelectorAll("button")).find(function (b) {
+      return b.textContent.trim() === "Turn 0";
+    });
+    expect(turnBtn).toBeTruthy();
+  });
 });

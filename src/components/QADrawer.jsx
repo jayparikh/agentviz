@@ -14,40 +14,90 @@ import { classify } from "../lib/qaClassifier.js";
 
 var TURN_REF_RE = /\[Turns?\s*#?\s*(\d+(?:\s*[-,]\s*\d+)*)\]/gi;
 var BOLD_RE = /\*\*(.+?)\*\*/g;
+var INLINE_CODE_RE = /`([^`]+)`/g;
+
 /**
- * Parse text into parts: turn refs, bold spans, and plain text.
+ * Parse markdown-like text into renderable parts.
+ * Supports: turn refs, bold, inline code, code blocks, list items, headers.
  */
 function parseMessageContent(text) {
-  // First pass: split on turn refs
-  var turnParts = [];
-  var last = 0;
-  var match;
-  TURN_REF_RE.lastIndex = 0;
-  while ((match = TURN_REF_RE.exec(text)) !== null) {
-    if (match.index > last) turnParts.push({ type: "text", value: text.slice(last, match.index) });
-    var nums = match[1].split(/\s*[,\-]\s*/).map(Number).filter(function (n) { return !isNaN(n); });
-    turnParts.push({ type: "ref", label: match[0], turns: nums });
-    last = match.index + match[0].length;
+  // Pre-pass: split on code blocks (```...```) to protect them from inline parsing
+  var segments = [];
+  var codeBlockRe = /```(\w*)\n?([\s\S]*?)```/g;
+  var cbLast = 0;
+  var cbMatch;
+  while ((cbMatch = codeBlockRe.exec(text)) !== null) {
+    if (cbMatch.index > cbLast) segments.push({ type: "text", value: text.slice(cbLast, cbMatch.index) });
+    segments.push({ type: "codeblock", lang: cbMatch[1] || "", value: cbMatch[2] });
+    cbLast = cbMatch.index + cbMatch[0].length;
   }
-  if (last < text.length) turnParts.push({ type: "text", value: text.slice(last) });
+  if (cbLast < text.length) segments.push({ type: "text", value: text.slice(cbLast) });
 
-  // Second pass: split text nodes on **bold**
   var result = [];
-  for (var i = 0; i < turnParts.length; i++) {
-    var part = turnParts[i];
-    if (part.type !== "text") { result.push(part); continue; }
-    var str = part.value;
-    var bLast = 0;
-    BOLD_RE.lastIndex = 0;
-    var bMatch;
-    while ((bMatch = BOLD_RE.exec(str)) !== null) {
-      if (bMatch.index > bLast) result.push({ type: "text", value: str.slice(bLast, bMatch.index) });
-      result.push({ type: "bold", value: bMatch[1] });
-      bLast = bMatch.index + bMatch[0].length;
+  for (var s = 0; s < segments.length; s++) {
+    if (segments[s].type === "codeblock") {
+      result.push(segments[s]);
+      continue;
     }
-    if (bLast < str.length) result.push({ type: "text", value: str.slice(bLast) });
+    // Parse inline content within non-code-block text
+    var lines = segments[s].value.split("\n");
+    for (var li = 0; li < lines.length; li++) {
+      if (li > 0) result.push({ type: "newline" });
+      var line = lines[li];
+
+      // Check for header lines (## Header)
+      var headerMatch = line.match(/^(#{1,3})\s+(.+)$/);
+      if (headerMatch) {
+        result.push({ type: "header", level: headerMatch[1].length, value: headerMatch[2] });
+        continue;
+      }
+
+      // Check for list items (- item or * item)
+      var listMatch = line.match(/^(\s*[-*])\s+(.+)$/);
+      if (listMatch) {
+        var indent = listMatch[1].length > 1 ? 1 : 0;
+        result.push({ type: "list_start", indent: indent });
+        parseInline(listMatch[2], result);
+        result.push({ type: "list_end" });
+        continue;
+      }
+
+      parseInline(line, result);
+    }
   }
   return result;
+}
+
+/**
+ * Parse inline formatting: turn refs, bold, inline code, plain text.
+ */
+function parseInline(text, result) {
+  // Merge turn refs, bold, and inline code into one pass via combined regex
+  var combined = /(\[Turns?\s*#?\s*\d+(?:\s*[-,]\s*\d+)*\])|\*\*(.+?)\*\*|`([^`]+)`/gi;
+  var last = 0;
+  var match;
+  while ((match = combined.exec(text)) !== null) {
+    if (match.index > last) result.push({ type: "text", value: text.slice(last, match.index) });
+
+    if (match[1]) {
+      // Turn ref
+      TURN_REF_RE.lastIndex = 0;
+      var refMatch = TURN_REF_RE.exec(match[1]);
+      if (refMatch) {
+        var nums = refMatch[1].split(/\s*[,\-]\s*/).map(Number).filter(function (n) { return !isNaN(n); });
+        result.push({ type: "ref", label: match[1], turns: nums });
+      } else {
+        result.push({ type: "text", value: match[1] });
+      }
+    } else if (match[2]) {
+      result.push({ type: "bold", value: match[2] });
+    } else if (match[3]) {
+      result.push({ type: "code", value: match[3] });
+    }
+
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) result.push({ type: "text", value: text.slice(last) });
 }
 
 // ── Quick insights ──────────────────────────────────────────────────────────
@@ -125,6 +175,105 @@ function QuickInsights({ sessionData, onAsk }) {
   );
 }
 
+// ── Part renderer ───────────────────────────────────────────────────────────
+
+function renderParts(parts, onSeekTurn) {
+  var elements = [];
+  var inList = false;
+
+  for (var i = 0; i < parts.length; i++) {
+    var part = parts[i];
+
+    if (part.type === "ref") {
+      elements.push(
+        <button
+          key={i}
+          className="av-btn"
+          aria-label={"Jump to " + part.label.replace(/[\[\]]/g, "")}
+          onClick={(function (turns) {
+            return function () { if (onSeekTurn && turns.length) onSeekTurn(turns[0]); };
+          })(part.turns)}
+          style={{
+            display: "inline",
+            background: theme.accent.muted,
+            color: theme.accent.primary,
+            border: "none",
+            borderRadius: theme.radius.full,
+            fontFamily: theme.font.mono,
+            fontSize: theme.fontSize.sm,
+            padding: "1px 6px",
+            cursor: "pointer",
+            fontWeight: 600,
+          }}
+        >
+          {part.label.replace(/[\[\]]/g, "")}
+        </button>
+      );
+    } else if (part.type === "bold") {
+      elements.push(<strong key={i} style={{ color: theme.text.primary, fontWeight: 600 }}>{part.value}</strong>);
+    } else if (part.type === "code") {
+      elements.push(
+        <code key={i} style={{
+          background: alpha(theme.accent.primary, 0.08),
+          borderRadius: theme.radius.sm,
+          padding: "1px 5px",
+          fontSize: "0.9em",
+          fontFamily: theme.font.mono,
+        }}>
+          {part.value}
+        </code>
+      );
+    } else if (part.type === "codeblock") {
+      elements.push(
+        <pre key={i} style={{
+          background: theme.bg.inset,
+          border: "1px solid " + theme.border.default,
+          borderRadius: theme.radius.md,
+          padding: "10px 12px",
+          margin: "6px 0",
+          fontSize: theme.fontSize.sm,
+          fontFamily: theme.font.mono,
+          overflowX: "auto",
+          whiteSpace: "pre",
+        }}>
+          {part.value}
+        </pre>
+      );
+    } else if (part.type === "header") {
+      var headerSize = part.level === 1 ? theme.fontSize.lg : part.level === 2 ? theme.fontSize.base : theme.fontSize.sm;
+      elements.push(
+        <div key={i} style={{
+          fontSize: headerSize,
+          fontWeight: 700,
+          color: theme.text.primary,
+          margin: "8px 0 4px",
+        }}>
+          {part.value}
+        </div>
+      );
+    } else if (part.type === "list_start") {
+      inList = true;
+      elements.push(
+        <span key={i} style={{
+          display: "inline",
+          color: theme.accent.primary,
+          marginLeft: part.indent ? 16 : 0,
+        }}>
+          {"\u2022 "}
+        </span>
+      );
+    } else if (part.type === "list_end") {
+      inList = false;
+    } else if (part.type === "newline") {
+      elements.push(<br key={i} />);
+    } else {
+      elements.push(<span key={i}>{part.value}</span>);
+    }
+  }
+
+  return elements;
+}
+
 // ── Message bubble ──────────────────────────────────────────────────────────
 
 function MessageBubble({ message, onSeekTurn }) {
@@ -154,38 +303,7 @@ function MessageBubble({ message, onSeekTurn }) {
           {"\u2726"}
         </span>
       )}
-      {parts.map(function (part, i) {
-        if (part.type === "ref") {
-          return (
-            <button
-              key={i}
-              className="av-btn"
-              aria-label={"Jump to " + part.label.replace(/[\[\]]/g, "")}
-              onClick={function () {
-                if (onSeekTurn && part.turns.length) onSeekTurn(part.turns[0]);
-              }}
-              style={{
-                display: "inline",
-                background: theme.accent.muted,
-                color: theme.accent.primary,
-                border: "none",
-                borderRadius: theme.radius.full,
-                fontFamily: theme.font.mono,
-                fontSize: theme.fontSize.sm,
-                padding: "1px 6px",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              {part.label.replace(/[\[\]]/g, "")}
-            </button>
-          );
-        }
-        if (part.type === "bold") {
-          return <strong key={i} style={{ color: theme.text.primary, fontWeight: 600 }}>{part.value}</strong>;
-        }
-        return <span key={i}>{part.value}</span>;
-      })}
+      {renderParts(parts, onSeekTurn)}
       {!isUser && !message.streaming && (
         <span style={{
           display: "block",
