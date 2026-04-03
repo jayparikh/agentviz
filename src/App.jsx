@@ -279,7 +279,7 @@ export default function App() {
     return { summary: buildAutonomySummary(autonomyMetrics) };
   }, [autonomyMetrics]);
 
-  var isValidView= APP_VIEWS.some(function (item) { return item.id === view; });
+  var isValidView = APP_VIEWS.some(function (item) { return item.id === view; });
   var activeView = isValidView ? view : "replay";
 
   useEffect(function () {

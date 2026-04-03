@@ -14,10 +14,8 @@ import { classify } from "../lib/qaClassifier.js";
 
 var TURN_REF_RE = /\[Turns?\s*#?\s*(\d+(?:\s*[-,]\s*\d+)*)\]/gi;
 var BOLD_RE = /\*\*(.+?)\*\*/g;
-var LIST_RE = /^- (.+)$/gm;
-
 /**
- * Parse text into parts: turn refs, bold spans, list items, and plain text.
+ * Parse text into parts: turn refs, bold spans, and plain text.
  */
 function parseMessageContent(text) {
   // First pass: split on turn refs
