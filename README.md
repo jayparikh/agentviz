@@ -344,7 +344,7 @@ The manifest lists sessions with display names, relative URLs, and freeform tags
 }
 ```
 
-Session URLs are resolved relative to the manifest location. Tags appear as filter chips in the inbox (AND logic). Pre-apply filters with `&tag=X` query params. See [docs/static-manifest-mode.md](docs/static-manifest-mode.md) for the full spec.
+Session URLs are resolved relative to the manifest location. Tags appear as filter chips in the inbox (AND logic). Pre-apply filters with `&tag=X` query params.
 ## Architecture
 
 ```

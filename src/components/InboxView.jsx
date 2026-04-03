@@ -220,7 +220,10 @@ function CustomSelect({ ariaLabel, value, onChange, options }) {
   );
 }
 
-export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare }) {
+// Exported for testing
+export { filterByTags, collectAllTags, getInitialTagsFromURL };
+
+export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare, manifestError }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [formatFilter, setFormatFilter] = useState("all");
   var [query, setQuery] = useState("");
@@ -436,7 +439,21 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
       )}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-        {totalVisible === 0 && (
+        {manifestError && (
+          <div style={{
+            background: theme.semantic.errorBg,
+            border: "1px solid " + theme.semantic.error,
+            borderRadius: theme.radius.xl,
+            padding: "12px 16px",
+            fontSize: theme.fontSize.sm,
+            color: theme.semantic.errorText,
+            fontFamily: theme.font.mono,
+            lineHeight: 1.6,
+          }}>
+            {manifestError}
+          </div>
+        )}
+        {totalVisible === 0 && !manifestError && (
           <div style={{
             border: "1px dashed " + theme.border.strong,
             borderRadius: theme.radius.xl,
@@ -652,7 +669,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                                   border: "1px solid " + (isActive ? theme.accent.primary : theme.border.default),
                                   background: isActive ? alpha(theme.accent.primary, 0.12) : alpha(theme.bg.surface, 0.6),
                                   color: isActive ? theme.accent.primary : theme.text.ghost,
-                                  fontSize: 10,
+                                  fontSize: theme.fontSize.xs,
                                   fontFamily: theme.font.mono,
                                   cursor: "pointer",
                                   lineHeight: 1.4,

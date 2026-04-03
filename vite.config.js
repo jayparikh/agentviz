@@ -41,6 +41,9 @@ export default defineConfig(function ({ mode }) {
   var isDebugBuild = mode === 'debug'
 
   return {
+    // Use VITE_BASE_PATH env var to override the base URL for built assets.
+    // Defaults to './' (relative paths) so the SPA works when served from a
+    // subdirectory (e.g. static manifest mode). Set to '/' for root deployments.
     base: process.env.VITE_BASE_PATH || './',
     plugins: [react(), agentvizBackend()],
     server: {

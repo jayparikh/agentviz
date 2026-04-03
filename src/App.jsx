@@ -150,7 +150,7 @@ export default function App() {
       var discoveredByPath = {};
       var discoveredBySessionId = {};
       discovered.sessions.forEach(function (s) {
-        if (!s._manifest && s.size < 5000) return;
+        if (s.source !== "manifest" && s.size < 5000) return;
         if (s.path) discoveredByPath[s.path] = s;
         if (s.sessionId) discoveredBySessionId[s.sessionId] = s;
       });
@@ -166,15 +166,15 @@ export default function App() {
 
       // Only add discovered entries that aren't already in the library
       var discoveredOnly = discovered.sessions.filter(function (s) {
-        if (!s._manifest && s.size < 5000) return false;
+        if (s.source !== "manifest" && s.size < 5000) return false;
         return !libraryEntries.some(function (e) {
           return e.discoveredPath === s.path || e.sessionId === s.sessionId;
         });
       }).map(function (s) {
         return {
           id: s.id || s.path,
-          file: s.name || s.summary || s.filename,
-          filename: s.filename || s.name,
+          file: s.file || s.summary || s.filename,
+          filename: s.filename || s.file,
           format: s.format,
           isInsiders: s.isInsiders || false,
           project: s.project || null,
@@ -187,7 +187,7 @@ export default function App() {
           size: s.size,
           tags: s.tags || [],
           isDiscovered: true,
-          _manifest: s._manifest || false,
+          source: s.source || "discovered",
         };
       });
       return enrichedLibrary.concat(discoveredOnly);
@@ -310,24 +310,30 @@ export default function App() {
       }
     }
 
-    // Manifest sessions: fetch directly from relative URL
-    if (entry._manifest && entry.discoveredPath) {
+    // Manifest sessions: fetch directly from resolved URL
+    if (entry.source === "manifest" && entry.discoveredPath) {
       fetch(entry.discoveredPath).then(function (r) {
         if (!r.ok) throw new Error("fetch failed: " + r.status);
         return r.text();
-      }).then(afterLoad).catch(function () { });
+      }).then(afterLoad).catch(function (err) {
+        console.error("[manifest] failed to load session:", entry.discoveredPath, err);
+      });
       return;
     }
 
     if (entry.isDiscovered && entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () { });
+      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function (err) {
+        console.error("[discovered] failed to load session:", entry.discoveredPath, err);
+      });
       return;
     }
 
     var rawText = loadStoredSessionContent(entry.id);
     if (rawText) { afterLoad(rawText); return; }
     if (entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () { });
+      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function (err) {
+        console.error("[discovered] failed to load session:", entry.discoveredPath, err);
+      });
       return;
     }
   }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);
@@ -417,6 +423,7 @@ export default function App() {
         onStartCompare={function () { setCompareLanding(true); }}
         inboxEntries={allSessions}
         onOpenInboxSession={openStoredSession}
+        manifestError={discovered.manifestError}
       />
     );
   }
