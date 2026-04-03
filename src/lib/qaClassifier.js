@@ -19,7 +19,8 @@ import { formatCost } from "./pricing.js";
 // ── Keyword patterns ────────────────────────────────────────────────────────
 
 var PATTERNS = [
-  { id: "tools",     re: /\b(tools?\s+used|tool\s+calls?|which\s+tools?|what\s+tools?\s+(were|was|did)|most.?used\s+tool|top\s+tools?|tool\s+count|how\s+many\s+tools?|list\s+(all\s+)?tools|tool\s+(ranking|breakdown|stats?)|tool\s+breakdown)\b/i },
+  { id: "longest",   re: /\b(longest\s+turn|slowest\s+turn|which\s+turn\s+(took|was)\s+(the\s+)?(longest|slowest|most\s+time)|biggest\s+turn)\b/i },
+  { id: "tools",     re: /\b(tools?\s+used|tool\s+calls?|which\s+tools?\s+(were|was|did)|what\s+tools?\s+(were|was|did)|most.?used\s+tool|top\s+tools?|tool\s+count|how\s+many\s+tools?|list\s+(all\s+)?tools|tool\s+(ranking|breakdown|stats?)|tool\s+breakdown)\b/i },
   { id: "errors",    re: /\b(how\s+many\s+errors?|any\s+errors?|what\s+errors?|errors?\s+(occurred|found|count)|show\s+errors?|list\s+errors?|did\s+(anything|it|the)\s+fail|were\s+there\s+(errors?|failures?)|what\s+(went\s+wrong|failed))\b/i },
   { id: "model",     re: /\b(what\s+model|which\s+model|model\s+(used|was|name)|what\s+llm|which\s+llm)\b/i },
   { id: "duration",  re: /\b(how\s+long\s+(did|was|does)|session\s+duration|total\s+(time|duration)|how\s+long\s+.*\s+(take|last|run)|how\s+much\s+time)\b/i },
@@ -28,8 +29,7 @@ var PATTERNS = [
   { id: "turns",     re: /\b(how\s+many\s+turns|turn\s+count|number\s+of\s+turns|total\s+turns)\b/i },
   { id: "autonomy",  re: /\b(autonom\w*\s*(score|efficiency|rating|metric)?|how\s+autonom|babysit\w*\s*time|idle\s+time|human.?wait|intervention\s+(count|rate))\b/i },
   { id: "summary",   re: /\b(summarize?\s+(this|the)\s+session|session\s+(summary|overview|recap)|give\s+me\s+(a\s+|an\s+)?(summary|overview|recap))\b/i },
-  { id: "files",     re: /\b(what\s+files?\s+(were\s+)?(edited|changed|modified|touched|created|written)|files?\s+(edited|changed|modified)|which\s+files?|show\s+files?|list\s+files?|file\s+changes?)\b/i },
-  { id: "longest",   re: /\b(longest\s+turn|slowest\s+turn|which\s+turn\s+(took|was)\s+(the\s+)?(longest|slowest|most\s+time)|most\s+time|biggest\s+turn)\b/i },
+  { id: "files",     re: /\b(what\s+files?\s+(were\s+)?(edited|changed|modified|touched|created|written)|files?\s+(edited|changed|modified)|which\s+files?\s+(were|did)|show\s+files?|list\s+files?|file\s+changes?)\b/i },
 ];
 
 // ── Classifier ──────────────────────────────────────────────────────────────
@@ -327,7 +327,7 @@ function answerLongestTurn(data) {
 
   var secs = (longest.endTime || 0) - (longest.startTime || 0);
   var lines = [
-    "Longest turn: **[Turn " + longest.index + "]** (" + formatDurationLong(secs) + ")\n",
+    "Longest turn: [Turn " + longest.index + "] (" + formatDurationLong(secs) + ")\n",
   ];
   if (longest.userMessage) {
     lines.push('User: "' + truncate(longest.userMessage, 150) + '"');

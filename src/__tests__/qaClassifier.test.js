@@ -483,6 +483,16 @@ describe("classify: broader pattern matching", function () {
     var r = classify("show me the tool breakdown", SESSION);
     expect(r.tier).toBe("instant");
   });
+
+  it("sends 'which tool took the most time?' to model (not tools)", function () {
+    var r = classify("which tool took the most time?", SESSION);
+    expect(r.tier).toBe("model");
+  });
+
+  it("sends 'which file took the longest?' to model (not files)", function () {
+    var r = classify("which file took the longest?", SESSION);
+    expect(r.tier).toBe("model");
+  });
 });
 
 // ── Insight binding test ──────────────────────────────────────────────────────

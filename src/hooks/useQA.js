@@ -23,6 +23,9 @@ export default function useQA(sessionData) {
   var [streamingStatus, setStreamingStatus] = useState(null);
   var [error, setError] = useState(null);
   var abortRef = useRef(null);
+  var messagesRef = useRef(messages);
+  // Keep ref in sync with state so history can be read synchronously
+  messagesRef.current = messages;
 
   var ask = useCallback(function (question) {
     if (!question || !question.trim()) return;
@@ -51,20 +54,16 @@ export default function useQA(sessionData) {
     // Reuse context from classifier if available, otherwise build it
     var context = result.context || buildModelContext(q, sessionData);
 
-    // Build conversation history from prior messages (up to last 10)
+    // Build conversation history synchronously from ref (up to last 10)
     var history = [];
-    setMessages(function (prev) {
-      // Collect non-streaming completed messages for history
-      for (var i = 0; i < prev.length; i++) {
-        var msg = prev[i];
-        if (!msg.streaming && msg.content) {
-          history.push({ role: msg.role, content: msg.content });
-        }
+    var currentMsgs = messagesRef.current;
+    for (var i = 0; i < currentMsgs.length; i++) {
+      var msg = currentMsgs[i];
+      if (!msg.streaming && msg.content) {
+        history.push({ role: msg.role, content: msg.content });
       }
-      // Cap history to last 10 exchanges
-      if (history.length > 10) history = history.slice(-10);
-      return prev;
-    });
+    }
+    if (history.length > 10) history = history.slice(-10);
 
     var streamMsgId = nextMsgId();
 
@@ -141,6 +140,8 @@ export default function useQA(sessionData) {
     abort();
     setMessages([]);
     setError(null);
+    // Reset server-side persistent session so context doesn't leak
+    fetch("/api/qa/reset", { method: "POST" }).catch(function () {});
   }, [abort]);
 
   return {

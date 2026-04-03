@@ -155,7 +155,8 @@ export async function runQAQuery(payload, opts) {
           done = true; unsubscribe(); resolve();
         } else if (event.type === "session.error") {
           done = true; unsubscribe();
-          // Invalidate persistent session on error
+          // Disconnect and invalidate persistent session on error
+          session.disconnect().catch(function () {});
           _persistentSession = null;
           reject(new Error(event.data && event.data.message ? event.data.message : "Session error"));
         }
@@ -170,13 +171,25 @@ export async function runQAQuery(payload, opts) {
       throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     }
   } catch (err) {
-    // Invalidate persistent session on non-abort errors so next call gets a fresh one
-    if (err.name !== "AbortError") {
+    // Disconnect and invalidate persistent session on non-abort errors
+    if (err.name !== "AbortError" && _persistentSession) {
+      _persistentSession.disconnect().catch(function () {});
       _persistentSession = null;
     }
     throw err;
   }
   // Note: we no longer disconnect the session -- it stays alive for reuse
+}
+
+/**
+ * Invalidate the persistent SDK session (e.g. when user switches sessions or clears Q&A).
+ * Next call to runQAQuery will create a fresh session.
+ */
+export function resetQASession() {
+  if (_persistentSession) {
+    _persistentSession.disconnect().catch(function () {});
+    _persistentSession = null;
+  }
 }
 
 /**
