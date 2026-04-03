@@ -100,10 +100,13 @@ export function handle(pathname, req, res, ctx) {
           sse({ error: "question is required" }); if (!res.writableEnded) res.end(); return;
         }
 
+        sse({ status: "Analyzing session..." });
+
         var model = ctx.getConfiguredModel();
         await runQAQuery(payload, {
           model: model,
           signal: abort.signal,
+          onStatus: function (status) { sse({ status: status }); },
           onToken: function (token) { sse({ token: token }); },
         });
 

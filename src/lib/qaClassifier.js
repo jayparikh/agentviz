@@ -371,14 +371,6 @@ function extractFileName(text, toolName) {
   return null;
 }
 
-function formatDurationLong(seconds) {
-  if (!seconds || seconds <= 0) return "0s";
-  var mins = Math.floor(seconds / 60);
-  var secs = Math.round(seconds % 60);
-  if (mins > 0) return mins + "m " + secs + "s";
-  return secs + "s";
-}
-
 function getErrorSamples(events, limit) {
   if (!events) return [];
   var errors = [];

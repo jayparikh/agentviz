@@ -3,6 +3,8 @@
  *
  * Owns: message list, ask(), abort(), clear(), streaming state + status phases.
  * Uses qaClassifier for instant answers; falls back to /api/qa/ask SSE for model answers.
+ * Sends conversation history to model for follow-up context.
+ * Batches token updates (~50ms) to reduce React re-render churn.
  */
 
 import { useState, useRef, useCallback } from "react";
@@ -49,6 +51,21 @@ export default function useQA(sessionData) {
     // Reuse context from classifier if available, otherwise build it
     var context = result.context || buildModelContext(q, sessionData);
 
+    // Build conversation history from prior messages (up to last 10)
+    var history = [];
+    setMessages(function (prev) {
+      // Collect non-streaming completed messages for history
+      for (var i = 0; i < prev.length; i++) {
+        var msg = prev[i];
+        if (!msg.streaming && msg.content) {
+          history.push({ role: msg.role, content: msg.content });
+        }
+      }
+      // Cap history to last 10 exchanges
+      if (history.length > 10) history = history.slice(-10);
+      return prev;
+    });
+
     var streamMsgId = nextMsgId();
 
     // Add empty assistant message that we'll stream into
@@ -56,7 +73,7 @@ export default function useQA(sessionData) {
       return prev.concat({ id: streamMsgId, role: "assistant", content: "", instant: false, streaming: true });
     });
 
-    fetchSSE(q, context, controller.signal, {
+    fetchSSE(q, context, history, controller.signal, {
       onToken: function (token) {
         setStreamingStatus("Generating answer...");
         setMessages(function (prev) {
@@ -67,6 +84,9 @@ export default function useQA(sessionData) {
           }
           return prev;
         });
+      },
+      onStatus: function (status) {
+        setStreamingStatus(status);
       },
       onDone: function () {
         setMessages(function (prev) {
@@ -137,8 +157,9 @@ export default function useQA(sessionData) {
 // ── SSE fetch helper ─────────────────────────────────────────────
 
 var QA_TIMEOUT_MS = 60000; // 60s to match backend SESSION_TIMEOUT_MS
+var TOKEN_BATCH_MS = 50; // Buffer tokens for 50ms before flushing to reduce re-renders
 
-function fetchSSE(question, context, signal, handlers) {
+function fetchSSE(question, context, history, signal, handlers) {
   var reader = null;
   var timedOut = false;
   var timer = setTimeout(function () {
@@ -147,10 +168,39 @@ function fetchSSE(question, context, signal, handlers) {
     handlers.onError("Request timed out. Check that the Copilot SDK is running and authenticated.");
   }, QA_TIMEOUT_MS);
 
+  // Token batching: buffer incoming tokens and flush at intervals
+  var tokenBuffer = "";
+  var batchTimer = null;
+  function flushTokens() {
+    batchTimer = null;
+    if (tokenBuffer) {
+      var batch = tokenBuffer;
+      tokenBuffer = "";
+      handlers.onToken(batch);
+    }
+  }
+  function bufferToken(token) {
+    tokenBuffer += token;
+    if (!batchTimer) {
+      batchTimer = setTimeout(flushTokens, TOKEN_BATCH_MS);
+    }
+  }
+  function cleanupBatch() {
+    if (batchTimer) { clearTimeout(batchTimer); batchTimer = null; }
+    // Flush any remaining tokens
+    if (tokenBuffer) {
+      handlers.onToken(tokenBuffer);
+      tokenBuffer = "";
+    }
+  }
+
+  var payload = { question: question, context: context };
+  if (history && history.length > 0) payload.history = history;
+
   fetch("/api/qa/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question: question, context: context }),
+    body: JSON.stringify(payload),
     signal: signal,
   })
     .then(function (res) {
@@ -164,7 +214,7 @@ function fetchSSE(question, context, signal, handlers) {
         if (timedOut) return;
         return reader.read().then(function (result) {
           if (timedOut) return;
-          if (result.done) { clearTimeout(timer); handlers.onDone(); return; }
+          if (result.done) { clearTimeout(timer); cleanupBatch(); handlers.onDone(); return; }
           buffer += decoder.decode(result.value, { stream: true });
 
           // Parse SSE lines
@@ -176,9 +226,10 @@ function fetchSSE(question, context, signal, handlers) {
             if (line.startsWith("data: ")) {
               try {
                 var data = JSON.parse(line.slice(6));
-                if (data.token) { clearTimeout(timer); handlers.onToken(data.token); }
-                else if (data.done) { clearTimeout(timer); handlers.onDone(); return; }
-                else if (data.error) { clearTimeout(timer); handlers.onError(data.error); return; }
+                if (data.token) { clearTimeout(timer); bufferToken(data.token); }
+                else if (data.status && handlers.onStatus) { handlers.onStatus(data.status); }
+                else if (data.done) { clearTimeout(timer); cleanupBatch(); handlers.onDone(); return; }
+                else if (data.error) { clearTimeout(timer); cleanupBatch(); handlers.onError(data.error); return; }
               } catch (_) { /* skip malformed SSE line */ }
             }
           }
@@ -191,6 +242,7 @@ function fetchSSE(question, context, signal, handlers) {
     })
     .catch(function (err) {
       clearTimeout(timer);
+      cleanupBatch();
       if (timedOut) return;
       if (reader) reader.cancel().catch(function () {});
       if (err.name === "AbortError") {
