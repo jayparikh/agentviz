@@ -26,7 +26,9 @@ export default function useDiscoveredSessions() {
         })
         .then(function (manifest) {
           if (manifest && Array.isArray(manifest.sessions)) {
-            var mapped = manifest.sessions.map(function (s) {
+            var mapped = manifest.sessions.filter(function (s) {
+              return s && s.url;
+            }).map(function (s) {
               return {
                 path: new URL(s.url, manifestUrl).href,
                 file: s.name || s.filename || s.url,
