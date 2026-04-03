@@ -298,9 +298,10 @@ function getErrorSamples(events, limit) {
 function getUserMessages(turns, limit) {
   if (!turns) return [];
   var msgs = [];
-  for (var i = 0; i < turns.length && msgs.length < limit; i++) {
+  for (var i = turns.length - 1; i >= 0 && msgs.length < limit; i--) {
     if (turns[i].userMessage) msgs.push(turns[i].userMessage);
   }
+  msgs.reverse();
   return msgs;
 }
 

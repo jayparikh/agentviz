@@ -1,20 +1,24 @@
 /**
  * useQA -- state management for the Session Q&A drawer.
  *
- * Owns: message list, ask(), abort(), clear(), streaming state.
+ * Owns: message list, ask(), abort(), clear(), streaming state + status phases.
  * Uses qaClassifier for instant answers; falls back to /api/qa/ask SSE for model answers.
  */
 
 import { useState, useRef, useCallback } from "react";
 import { classify, buildModelContext } from "../lib/qaClassifier.js";
 
+var _msgId = 0;
+function nextMsgId() { return "qa-msg-" + (++_msgId); }
+
 /**
  * @param {object} sessionData - { events, turns, metadata, autonomyMetrics }
- * @returns {{ messages, isStreaming, error, ask, abort, clear }}
+ * @returns {{ messages, isStreaming, streamingStatus, error, ask, abort, clear }}
  */
 export default function useQA(sessionData) {
   var [messages, setMessages] = useState([]);
   var [isStreaming, setIsStreaming] = useState(false);
+  var [streamingStatus, setStreamingStatus] = useState(null);
   var [error, setError] = useState(null);
   var abortRef = useRef(null);
 
@@ -23,7 +27,7 @@ export default function useQA(sessionData) {
     var q = question.trim();
 
     // Add user message immediately
-    setMessages(function (prev) { return prev.concat({ role: "user", content: q }); });
+    setMessages(function (prev) { return prev.concat({ id: nextMsgId(), role: "user", content: q }); });
     setError(null);
 
     // Try instant classification first
@@ -31,25 +35,30 @@ export default function useQA(sessionData) {
 
     if (result.tier === "instant") {
       setMessages(function (prev) {
-        return prev.concat({ role: "assistant", content: result.answer, instant: true });
+        return prev.concat({ id: nextMsgId(), role: "assistant", content: result.answer, instant: true });
       });
       return;
     }
 
     // Model fallback via SSE
     setIsStreaming(true);
+    setStreamingStatus("Analyzing session...");
     var controller = new AbortController();
     abortRef.current = controller;
 
-    var context = buildModelContext(q, sessionData);
+    // Reuse context from classifier if available, otherwise build it
+    var context = result.context || buildModelContext(q, sessionData);
+
+    var streamMsgId = nextMsgId();
 
     // Add empty assistant message that we'll stream into
     setMessages(function (prev) {
-      return prev.concat({ role: "assistant", content: "", instant: false, streaming: true });
+      return prev.concat({ id: streamMsgId, role: "assistant", content: "", instant: false, streaming: true });
     });
 
     fetchSSE(q, context, controller.signal, {
       onToken: function (token) {
+        setStreamingStatus("Generating answer...");
         setMessages(function (prev) {
           var last = prev[prev.length - 1];
           if (last && last.role === "assistant" && last.streaming) {
@@ -68,6 +77,7 @@ export default function useQA(sessionData) {
           return prev;
         });
         setIsStreaming(false);
+        setStreamingStatus(null);
         abortRef.current = null;
       },
       onError: function (msg) {
@@ -80,6 +90,7 @@ export default function useQA(sessionData) {
         });
         setError(msg);
         setIsStreaming(false);
+        setStreamingStatus(null);
         abortRef.current = null;
       },
     });
@@ -90,7 +101,20 @@ export default function useQA(sessionData) {
       abortRef.current.abort();
       abortRef.current = null;
     }
+    // Mark last streaming message as done (keep partial content)
+    setMessages(function (prev) {
+      var last = prev[prev.length - 1];
+      if (last && last.streaming) {
+        if (!last.content) {
+          // Empty: remove it
+          return prev.slice(0, -1);
+        }
+        return prev.slice(0, -1).concat(Object.assign({}, last, { streaming: false }));
+      }
+      return prev;
+    });
     setIsStreaming(false);
+    setStreamingStatus(null);
   }, []);
 
   var clear = useCallback(function () {
@@ -99,19 +123,28 @@ export default function useQA(sessionData) {
     setError(null);
   }, [abort]);
 
-  return { messages: messages, isStreaming: isStreaming, error: error, ask: ask, abort: abort, clear: clear };
+  return {
+    messages: messages,
+    isStreaming: isStreaming,
+    streamingStatus: streamingStatus,
+    error: error,
+    ask: ask,
+    abort: abort,
+    clear: clear,
+  };
 }
 
 // ── SSE fetch helper ─────────────────────────────────────────────
 
-var QA_TIMEOUT_MS = 30000; // 30s frontend safety net
+var QA_TIMEOUT_MS = 60000; // 60s to match backend SESSION_TIMEOUT_MS
 
 function fetchSSE(question, context, signal, handlers) {
   var reader = null;
   var timedOut = false;
   var timer = setTimeout(function () {
     timedOut = true;
-    handlers.onError("Request timed out. The Copilot SDK may not be running.");
+    if (reader) reader.cancel().catch(function () {});
+    handlers.onError("Request timed out. Check that the Copilot SDK is running and authenticated.");
   }, QA_TIMEOUT_MS);
 
   fetch("/api/qa/ask", {

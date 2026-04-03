@@ -1,21 +1,23 @@
 /**
- * QADrawer -- slide-over chat panel for Session Q&A.
+ * QADrawer -- slide-over panel for Session Q&A.
  *
  * Slides in from the right edge, overlays any view.
- * Uses useQA for state; qaClassifier handles instant answers client-side.
+ * Shows Quick insights (instant facts) and a chat input for AI-powered questions.
+ * Accepts qa state from parent so conversation persists across drawer open/close.
  */
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
-import useQA from "../hooks/useQA.js";
 import KeyboardHint from "./ui/KeyboardHint.jsx";
+import { classify } from "../lib/qaClassifier.js";
 
 var TURN_REF_RE = /\[Turns?\s*#?\s*(\d+(?:\s*[-,]\s*\d+)*)\]/gi;
 var BOLD_RE = /\*\*(.+?)\*\*/g;
+var LIST_RE = /^- (.+)$/gm;
 
 /**
- * Parse text into parts: turn refs, bold spans, and plain text.
+ * Parse text into parts: turn refs, bold spans, list items, and plain text.
  */
 function parseMessageContent(text) {
   // First pass: split on turn refs
@@ -50,44 +52,80 @@ function parseMessageContent(text) {
   return result;
 }
 
-function SuggestedChips({ sessionData, onAsk }) {
-  var chips = useMemo(function () {
-    var c = ["What tools were used most?", "Summarize this session"];
-    if (sessionData && sessionData.metadata && sessionData.metadata.errorCount > 0) {
-      c.splice(1, 0, "What errors occurred?");
-    }
-    if (sessionData && sessionData.metadata && sessionData.metadata.tokenUsage) {
-      c.push("What was the total cost?");
-    }
-    return c;
+// ── Quick insights ──────────────────────────────────────────────────────────
+
+var INSIGHT_DEFS = [
+  { id: "summary", label: "Summary", icon: "layout-list", question: "summarize this session" },
+  { id: "tools",   label: "Tools",   icon: "wrench",      question: "what tools were used" },
+  { id: "errors",  label: "Errors",  icon: "alert-circle", question: "what errors occurred", condition: function (d) { return d.metadata && d.metadata.errorCount > 0; } },
+  { id: "cost",    label: "Cost",    icon: "coins",       question: "how much did this cost", condition: function (d) { return d.metadata && d.metadata.tokenUsage; } },
+];
+
+function QuickInsights({ sessionData, onAsk }) {
+  var insights = useMemo(function () {
+    if (!sessionData || !sessionData.metadata) return [];
+    return INSIGHT_DEFS.filter(function (def) {
+      return !def.condition || def.condition(sessionData);
+    }).map(function (def) {
+      var result = classify(def.question, sessionData);
+      if (result.tier !== "instant") return null;
+      // Extract a short preview from the answer (first meaningful line)
+      var lines = result.answer.split("\n").filter(function (l) { return l.trim(); });
+      var preview = lines[0] || "";
+      // Strip markdown bold for preview
+      preview = preview.replace(/\*\*/g, "");
+      if (preview.length > 80) preview = preview.slice(0, 77) + "...";
+      return { id: def.id, label: def.label, icon: def.icon, preview: preview, question: def.question };
+    }).filter(Boolean);
   }, [sessionData]);
 
+  if (insights.length === 0) return null;
+
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
-      {chips.map(function (q) {
-        return (
-          <button
-            key={q}
-            className="av-btn"
-            onClick={function () { onAsk(q); }}
-            style={{
-              background: alpha(theme.accent.primary, 0.06),
-              border: "1px solid " + alpha(theme.accent.primary, 0.15),
-              borderRadius: theme.radius.full,
-              color: theme.text.secondary,
-              fontFamily: theme.font.mono,
-              fontSize: theme.fontSize.sm,
-              padding: "4px 10px",
-              cursor: "pointer",
-            }}
-          >
-            {q}
-          </button>
-        );
-      })}
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <span style={{
+        fontSize: theme.fontSize.xs,
+        color: theme.text.ghost,
+        textTransform: "uppercase",
+        letterSpacing: 1.5,
+        fontFamily: theme.font.mono,
+      }}>
+        Quick insights
+      </span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {insights.map(function (ins) {
+          return (
+            <button
+              key={ins.id}
+              className="av-btn"
+              onClick={function () { onAsk(ins.question); }}
+              title={ins.preview}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                background: alpha(theme.accent.primary, 0.06),
+                border: "1px solid " + alpha(theme.accent.primary, 0.12),
+                borderRadius: theme.radius.md,
+                color: theme.text.secondary,
+                fontFamily: theme.font.mono,
+                fontSize: theme.fontSize.sm,
+                padding: "5px 10px",
+                cursor: "pointer",
+                transition: "background 100ms ease-out",
+              }}
+            >
+              <Icon name={ins.icon} size={11} style={{ color: theme.text.dim, flexShrink: 0 }} />
+              {ins.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
+
+// ── Message bubble ──────────────────────────────────────────────────────────
 
 function MessageBubble({ message, onSeekTurn }) {
   var isUser = message.role === "user";
@@ -148,25 +186,26 @@ function MessageBubble({ message, onSeekTurn }) {
         }
         return <span key={i}>{part.value}</span>;
       })}
-      {message.instant && (
+      {!isUser && !message.streaming && (
         <span style={{
           display: "block",
           marginTop: 6,
           fontSize: theme.fontSize.xs,
           color: theme.text.ghost,
         }}>
-          instant answer
+          {message.instant ? "quick answer" : "AI answer"}
         </span>
       )}
     </div>
   );
 }
 
-export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek, turns }) {
+// ── Drawer ──────────────────────────────────────────────────────────────────
+
+export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek, turns, qa }) {
   var [input, setInput] = useState("");
   var messagesEndRef = useRef(null);
   var inputRef = useRef(null);
-  var qa = useQA(sessionData);
 
   // Auto-scroll to bottom on new messages
   useEffect(function () {
@@ -316,7 +355,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               justifyContent: "center",
               alignItems: "center",
               textAlign: "center",
-              gap: 8,
+              gap: 12,
             }}>
               <Icon name="message-circle" size={24} style={{ color: theme.text.ghost }} />
               <div style={{
@@ -326,13 +365,28 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               }}>
                 Ask anything about this session
               </div>
-              <SuggestedChips sessionData={sessionData} onAsk={function (q) { qa.ask(q); }} />
+              <QuickInsights sessionData={sessionData} onAsk={function (q) { qa.ask(q); }} />
             </div>
           )}
 
-          {qa.messages.map(function (msg, i) {
-            return <MessageBubble key={i} message={msg} onSeekTurn={handleSeekTurn} />;
+          {qa.messages.map(function (msg) {
+            return <MessageBubble key={msg.id} message={msg} onSeekTurn={handleSeekTurn} />;
           })}
+
+          {qa.isStreaming && qa.streamingStatus && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: theme.fontSize.xs,
+              color: theme.text.ghost,
+              fontFamily: theme.font.mono,
+              padding: "2px 4px",
+            }}>
+              <span style={{ display: "inline-block", animation: "spin 1.2s linear infinite" }}>{"\u2726"}</span>
+              <span>{qa.streamingStatus}</span>
+            </div>
+          )}
 
           {qa.error && (
             <div style={{
@@ -384,7 +438,6 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               onChange={function (e) { setInput(e.target.value); }}
               placeholder="Ask about this session..."
               aria-label="Ask about this session"
-              disabled={qa.isStreaming}
               style={{
                 flex: 1,
                 background: "transparent",
@@ -396,25 +449,47 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                 outline: "none",
               }}
             />
-            <button
-              type="submit"
-              disabled={!input.trim() || qa.isStreaming}
-              aria-label="Send question"
-              style={{
-                background: input.trim() ? theme.accent.primary : "transparent",
-                border: "none",
-                borderRadius: theme.radius.sm,
-                color: input.trim() ? theme.text.primary : theme.text.ghost,
-                cursor: input.trim() ? "pointer" : "default",
-                padding: "4px 6px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Icon name="send" size={12} />
-            </button>
+            {qa.isStreaming ? (
+              <button
+                type="button"
+                onClick={qa.abort}
+                aria-label="Stop generating"
+                style={{
+                  background: theme.semantic.error,
+                  border: "none",
+                  borderRadius: theme.radius.sm,
+                  color: theme.text.primary,
+                  cursor: "pointer",
+                  padding: "4px 6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="square" size={10} />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                aria-label="Send question"
+                style={{
+                  background: input.trim() ? theme.accent.primary : "transparent",
+                  border: "none",
+                  borderRadius: theme.radius.sm,
+                  color: input.trim() ? theme.text.primary : theme.text.ghost,
+                  cursor: input.trim() ? "pointer" : "default",
+                  padding: "4px 6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="send" size={12} />
+              </button>
+            )}
           </form>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
             <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>

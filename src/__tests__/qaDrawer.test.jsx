@@ -8,6 +8,7 @@ import { act } from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createRoot } from "react-dom/client";
 import QADrawer from "../components/QADrawer.jsx";
+import useQA from "../hooks/useQA.js";
 
 var SESSION_DATA = {
   events: [
@@ -35,6 +36,12 @@ var SESSION_DATA = {
 var container;
 var root;
 
+// Wrapper that provides useQA state to QADrawer
+function QADrawerWithState(props) {
+  var qa = useQA(props.sessionData);
+  return <QADrawer {...props} qa={qa} />;
+}
+
 function mount(jsx) {
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -52,14 +59,14 @@ afterEach(function () {
 describe("QADrawer", function () {
   it("renders nothing when closed", function () {
     mount(
-      <QADrawer open={false} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+      <QADrawerWithState open={false} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
     );
     expect(container.innerHTML).toBe("");
   });
 
   it("renders drawer when open", function () {
     mount(
-      <QADrawer open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
     );
     var dialog = document.querySelector("[role='dialog']");
     expect(dialog).toBeTruthy();
@@ -67,32 +74,33 @@ describe("QADrawer", function () {
     expect(input).toBeTruthy();
   });
 
-  it("shows empty state with suggested chips", function () {
+  it("shows empty state with quick insights", function () {
     mount(
-      <QADrawer open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
     );
     expect(document.body.textContent).toContain("Ask anything about this session");
-    expect(document.body.textContent).toContain("What tools were used most?");
-    expect(document.body.textContent).toContain("What errors occurred?");
-    expect(document.body.textContent).toContain("Summarize this session");
+    expect(document.body.textContent).toContain("Quick insights");
+    expect(document.body.textContent).toContain("Summary");
+    expect(document.body.textContent).toContain("Tools");
+    expect(document.body.textContent).toContain("Errors");
   });
 
-  it("submits a question on chip click and shows instant answer", function () {
+  it("submits a question on insight click and shows instant answer", function () {
     mount(
-      <QADrawer open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
     );
-    // Find and click the "What tools were used most?" chip
-    var chips = Array.from(document.querySelectorAll("button"));
-    var toolChip = chips.find(function (b) { return b.textContent === "What tools were used most?"; });
-    expect(toolChip).toBeTruthy();
-    act(function () { toolChip.click(); });
+    // Find and click the "Tools" insight button
+    var buttons = Array.from(document.querySelectorAll("button"));
+    var toolBtn = buttons.find(function (b) { return b.textContent.trim() === "Tools"; });
+    expect(toolBtn).toBeTruthy();
+    act(function () { toolBtn.click(); });
     // Should show an answer containing tool names
     expect(document.body.textContent).toContain("bash");
   });
 
   it("submits a question on form submit", function () {
     mount(
-      <QADrawer open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
     );
     var input = document.querySelector("[aria-label='Ask about this session']");
     act(function () {
@@ -109,7 +117,7 @@ describe("QADrawer", function () {
   it("calls onClose when close button is clicked", function () {
     var onClose = vi.fn();
     mount(
-      <QADrawer open={true} onClose={onClose} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+      <QADrawerWithState open={true} onClose={onClose} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
     );
     var allButtons = document.querySelectorAll("button");
     var closeBtn = null;
@@ -124,7 +132,7 @@ describe("QADrawer", function () {
   it("calls onClose on Escape key", function () {
     var onClose = vi.fn();
     mount(
-      <QADrawer open={true} onClose={onClose} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+      <QADrawerWithState open={true} onClose={onClose} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
     );
     act(function () {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
@@ -134,17 +142,27 @@ describe("QADrawer", function () {
 
   it("shows clear button after asking a question", function () {
     mount(
-      <QADrawer open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
     );
     // No clear button initially
     expect(document.querySelector("[aria-label='Clear conversation']")).toBeNull();
 
-    // Ask a question via chip
-    var chips = Array.from(document.querySelectorAll("button"));
-    var chip = chips.find(function (b) { return b.textContent === "Summarize this session"; });
-    act(function () { chip.click(); });
+    // Ask a question via insight
+    var buttons = Array.from(document.querySelectorAll("button"));
+    var summaryBtn = buttons.find(function (b) { return b.textContent.trim() === "Summary"; });
+    act(function () { summaryBtn.click(); });
 
     // Clear button should appear
     expect(document.querySelector("[aria-label='Clear conversation']")).toBeTruthy();
+  });
+
+  it("shows quick answer badge for instant answers", function () {
+    mount(
+      <QADrawerWithState open={true} onClose={vi.fn()} sessionData={SESSION_DATA} onSeek={vi.fn()} turns={SESSION_DATA.turns} />
+    );
+    var buttons = Array.from(document.querySelectorAll("button"));
+    var toolBtn = buttons.find(function (b) { return b.textContent.trim() === "Tools"; });
+    act(function () { toolBtn.click(); });
+    expect(document.body.textContent).toContain("quick answer");
   });
 });
