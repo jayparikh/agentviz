@@ -1,3 +1,5 @@
+import { getTopTools } from "./autonomyMetrics.js";
+
 /**
  * Q&A Question Classifier
  *
@@ -280,20 +282,6 @@ function truncate(text, maxLen) {
   if (!text) return "";
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen) + "...";
-}
-
-function getTopTools(events, limit) {
-  if (!events) return [];
-  var counts = {};
-  for (var i = 0; i < events.length; i++) {
-    if (events[i].track === "tool_call" && events[i].toolName) {
-      counts[events[i].toolName] = (counts[events[i].toolName] || 0) + 1;
-    }
-  }
-  return Object.keys(counts)
-    .map(function (name) { return { name: name, count: counts[name] }; })
-    .sort(function (a, b) { return b.count - a.count; })
-    .slice(0, limit);
 }
 
 function getErrorSamples(events, limit) {

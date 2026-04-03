@@ -14,7 +14,7 @@ function getEventEnd(event) {
   return (event.t || 0) + Math.max(0, event.duration || 0);
 }
 
-function getTopTools(events) {
+export function getTopTools(events, limit) {
   var counts = {};
 
   (events || []).forEach(function (event) {
@@ -23,13 +23,15 @@ function getTopTools(events) {
     }
   });
 
-  return Object.entries(counts)
+  var sorted = Object.entries(counts)
     .map(function (entry) {
       return { name: entry[0], count: entry[1] };
     })
     .sort(function (left, right) {
       return right.count - left.count;
     });
+
+  return limit ? sorted.slice(0, limit) : sorted;
 }
 
 function getTurnMessages(turns) {

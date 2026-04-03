@@ -107,16 +107,34 @@ describe("VS Code session discovery helpers", function () {
 
 describe("session path restrictions", function () {
   it("allows VS Code chatSessions files", function () {
-    vi.stubEnv("XDG_CONFIG_HOME", "");
-    var homeDir = "/home/tester";
-    var sessionPath = "/home/tester/.config/Code/User/workspaceStorage/ws1/chatSessions/session.json";
+    var homeDir;
+    var sessionPath;
+    if (process.platform === "win32") {
+      homeDir = "C:\\Users\\tester";
+      var appData = join(homeDir, "AppData", "Roaming");
+      vi.stubEnv("APPDATA", appData);
+      sessionPath = join(appData, "Code", "User", "workspaceStorage", "ws1", "chatSessions", "session.json");
+    } else {
+      vi.stubEnv("XDG_CONFIG_HOME", "");
+      homeDir = "/home/tester";
+      sessionPath = "/home/tester/.config/Code/User/workspaceStorage/ws1/chatSessions/session.json";
+    }
     expect(isAllowedSessionPath(sessionPath, homeDir)).toBe(true);
   });
 
   it("rejects non-chatSessions files under VS Code workspaceStorage", function () {
-    vi.stubEnv("XDG_CONFIG_HOME", "");
-    var homeDir = "/home/tester";
-    var sessionPath = "/home/tester/.config/Code/User/workspaceStorage/ws1/workspace.json";
+    var homeDir;
+    var sessionPath;
+    if (process.platform === "win32") {
+      homeDir = "C:\\Users\\tester";
+      var appData = join(homeDir, "AppData", "Roaming");
+      vi.stubEnv("APPDATA", appData);
+      sessionPath = join(appData, "Code", "User", "workspaceStorage", "ws1", "workspace.json");
+    } else {
+      vi.stubEnv("XDG_CONFIG_HOME", "");
+      homeDir = "/home/tester";
+      sessionPath = "/home/tester/.config/Code/User/workspaceStorage/ws1/workspace.json";
+    }
     expect(isAllowedSessionPath(sessionPath, homeDir)).toBe(false);
   });
 
@@ -139,10 +157,19 @@ describe("session path restrictions", function () {
   });
 
   it("rejects traversal attempts via .. segments", function () {
-    vi.stubEnv("XDG_CONFIG_HOME", "");
-    var homeDir = "/home/tester";
-    var sessionPath = "/home/tester/.config/Code/User/workspaceStorage/ws1/chatSessions/../../secrets.json";
-    expect(isAllowedSessionPath(join("/home/tester/.config/Code/User/workspaceStorage", "secrets.json"), homeDir)).toBe(false);
+    var homeDir;
+    var sessionPath;
+    if (process.platform === "win32") {
+      homeDir = "C:\\Users\\tester";
+      var appData = join(homeDir, "AppData", "Roaming");
+      vi.stubEnv("APPDATA", appData);
+      sessionPath = join(appData, "Code", "User", "workspaceStorage", "secrets.json");
+    } else {
+      vi.stubEnv("XDG_CONFIG_HOME", "");
+      homeDir = "/home/tester";
+      sessionPath = join("/home/tester/.config/Code/User/workspaceStorage", "secrets.json");
+    }
+    expect(isAllowedSessionPath(sessionPath, homeDir)).toBe(false);
   });
 
   it("returns false when homeDir is null or empty", function () {

@@ -201,12 +201,19 @@ export function createServer({ sessionFile, distDir }) {
     if (handleAI(pathname, req, res, ctx)) return;
     if (handleSessions(pathname, req, res, ctx)) return;
 
-    // Static file serving
+    // Unmatched API routes return 404 JSON (not SPA HTML)
+    if (pathname.startsWith("/api/")) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found" }));
+      return;
+    }
+
+    // Static file serving -- sandbox resolved path to distDir
     var filePath = pathname === "/" || pathname === "/index.html"
       ? path.join(distDir, "index.html")
-      : path.join(distDir, pathname);
+      : path.resolve(distDir, path.join(".", pathname));
 
-    if (!filePath.startsWith(distDir)) {
+    if (!filePath.startsWith(distDir + path.sep) && filePath !== distDir) {
       res.writeHead(403);
       res.end("Forbidden");
       return;

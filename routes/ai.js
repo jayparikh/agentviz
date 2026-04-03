@@ -39,12 +39,15 @@ export function handle(pathname, req, res, ctx) {
         try {
           var resolved = path.resolve(cwd, filePath);
           if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) return null;
-          var stat = fs.statSync(resolved);
+          // Resolve symlinks to prevent escaping via symlink targets
+          var real = fs.realpathSync(resolved);
+          if (!real.startsWith(cwd + path.sep) && real !== cwd) return null;
+          var stat = fs.statSync(real);
           if (stat.isDirectory()) {
-            var entries = fs.readdirSync(resolved);
+            var entries = fs.readdirSync(real);
             return "Directory listing:\n" + entries.join("\n");
           }
-          return fs.readFileSync(resolved, "utf8");
+          return fs.readFileSync(real, "utf8");
         } catch (e) {
           return null;
         }
