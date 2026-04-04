@@ -484,6 +484,15 @@ Contributions are welcome! Here are some areas where help is appreciated:
 
 Please open an issue to discuss larger changes before submitting a PR.
 
+PRs now use a lightweight review funnel:
+
+- Fill out the PR template with a short summary, reviewer focus, and validation notes.
+- Run `npm run typecheck && npm test && npm run build` before requesting review.
+- If your PR changes user-facing UI, update the four linked artifacts together: `README.md`, `docs/ui-ux-style-guide.md`, `docs/screenshots/`, and the UI itself.
+- Run `npm run pr:guard -- --base main --head HEAD` locally to preview the automated PR digest and policy checks.
+
+The PR guard will flag missing UI sync work and new hardcoded hex colors in component files outside the current approved exceptions.
+
 ## Roadmap
 
 - [ ] Bookmarks and annotations (persisted to localStorage)
