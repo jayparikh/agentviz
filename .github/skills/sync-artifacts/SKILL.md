@@ -91,14 +91,14 @@ diff /tmp/theme-tokens.txt /tmp/guide-tokens.txt
 Screenshots need regeneration if **any visual change** occurred -- component changes, theme token changes, layout changes, new views, or view modifications.
 
 The 8 required screenshots:
-- `landing.svg` -- landing page (before loading a session)
-- `session-hero.svg` -- hero image at top of README (identical to replay-view)
-- `replay-view.svg` -- main replay view
-- `tracks-view.svg` -- tracks (DAW-style) view
-- `waterfall-view.svg` -- waterfall view
-- `graph-view.svg` -- graph (DAG) view
-- `stats-view.svg` -- stats view
-- `coach-view.svg` -- AI coach view
+- `landing.png` -- landing page (before loading a session)
+- `session-hero.png` -- hero image at top of README (identical to replay-view)
+- `replay-view.png` -- main replay view
+- `tracks-view.png` -- tracks (DAW-style) view
+- `waterfall-view.png` -- waterfall view
+- `graph-view.png` -- graph (DAG) view
+- `stats-view.png` -- stats view
+- `coach-view.png` -- AI coach view
 
 ## Step 3: Draft Artifact Updates
 
@@ -149,7 +149,7 @@ npm run dev
 
 **Capture sequence:**
 
-1. **Landing** (`landing.svg`)
+1. **Landing** (`landing.png`)
    - Navigate to `http://127.0.0.1:3000?demo=empty`
    - Wait for page to fully render
    - Capture screenshot
@@ -159,35 +159,35 @@ npm run dev
    - Click "load a demo session"
    - Wait for the session to load and the replay view to render
 
-3. **Replay** (`replay-view.svg`)
+3. **Replay** (`replay-view.png`)
    - Should already be on the Replay tab after loading demo
    - Capture screenshot
 
-4. **Session hero** (`session-hero.svg`)
+4. **Session hero** (`session-hero.png`)
    - Do NOT capture separately -- copy the replay-view PNG
    - They must be byte-identical
 
-5. **Tracks** (`tracks-view.svg`)
+5. **Tracks** (`tracks-view.png`)
    - Click the "Tracks" tab
    - Wait for track lanes to render
    - Capture screenshot
 
-6. **Waterfall** (`waterfall-view.svg`)
+6. **Waterfall** (`waterfall-view.png`)
    - Click the "Waterfall" tab
    - Wait for waterfall rows to render
    - Capture screenshot
 
-7. **Graph** (`graph-view.svg`)
+7. **Graph** (`graph-view.png`)
    - Click the "Graph" tab
    - Wait for ELKjs layout to complete (nodes positioned)
    - Capture screenshot
 
-8. **Stats** (`stats-view.svg`)
+8. **Stats** (`stats-view.png`)
    - Click the "Stats" tab
    - Wait for metrics to render
    - Capture screenshot
 
-9. **Coach** (`coach-view.svg`)
+9. **Coach** (`coach-view.png`)
    - Click the "Coach" tab
    - **Before capturing**, hide the error banner by evaluating:
      ```js
@@ -204,29 +204,23 @@ npm run dev
      ```
    - Capture screenshot
 
-### PNG to SVG conversion
+### Saving screenshots
 
-For each captured PNG, encode as base64 and wrap in SVG:
+Screenshots are saved directly as PNG files to `docs/screenshots/`. No SVG conversion is needed.
 
+**Critical:** Generate `session-hero.png` by copying `replay-view.png`:
 ```bash
-b64=$(base64 -w 0 file.png)
-echo "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"1400\" height=\"860\"><image href=\"data:image/png;base64,${b64}\" width=\"1400\" height=\"860\"/></svg>" > docs/screenshots/file.svg
-```
-
-**Critical:** Generate `session-hero.svg` from the same PNG as `replay-view.svg`:
-```bash
-cp replay-view.png session-hero.png
-# Then encode session-hero.png to SVG using the same command above
+cp docs/screenshots/replay-view.png docs/screenshots/session-hero.png
 ```
 
 ### Validation
 
 ```bash
 # All 8 files exist and are non-empty
-ls -la docs/screenshots/*.svg
+ls -la docs/screenshots/*.png
 
 # Hero and replay are identical
-diff docs/screenshots/session-hero.svg docs/screenshots/replay-view.svg
+diff docs/screenshots/session-hero.png docs/screenshots/replay-view.png
 ```
 
 ## Step 5: Final Validation
