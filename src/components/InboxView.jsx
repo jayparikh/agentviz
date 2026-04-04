@@ -367,6 +367,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               background: theme.bg.base, border: "1px solid " + theme.border.default,
               borderRadius: theme.radius.md, color: theme.text.muted,
               fontSize: theme.fontSize.xs, cursor: refreshing ? "default" : "pointer", flexShrink: 0,
+              opacity: refreshing ? 0.6 : 1,
             }}
           >
             <Icon name="refresh-cw" size={11} style={refreshing ? { animation: "spin 0.6s linear infinite" } : undefined} />

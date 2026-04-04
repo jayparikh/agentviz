@@ -37,7 +37,6 @@ import { buildAutonomyMetrics, buildAutonomySummary } from "./lib/autonomyMetric
 import {
   loadStoredSessionContent,
   persistSessionSnapshot,
-  readSessionLibrary,
   reconcileSessionLibrary,
   SESSION_LIBRARY_KEY,
 } from "./lib/sessionLibrary.js";

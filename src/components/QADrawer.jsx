@@ -217,7 +217,7 @@ function renderParts(parts, onSeekTurn) {
           background: alpha(theme.accent.primary, 0.08),
           borderRadius: theme.radius.sm,
           padding: "1px 5px",
-          fontSize: "0.9em",
+          fontSize: theme.fontSize.sm,
           fontFamily: theme.font.mono,
         }}>
           {part.value}
