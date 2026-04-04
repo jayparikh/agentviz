@@ -113,7 +113,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
     { label: "Turns", value: metadata ? metadata.totalTurns : (turns ? turns.length : 0), color: theme.accent.primary },
     { label: "User Messages", value: userMsgs, color: theme.accent.primary },
     { label: "Tool Calls", value: (trackStats.tool_call || {}).count || 0, color: theme.track.tool_call },
-    { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.ghost },
+    { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.muted },
     { label: "Duration", value: formatDurationLong(totalTime), color: theme.track.context },
   ];
   var autonomySummary = buildAutonomySummary(autonomyMetrics);
@@ -153,7 +153,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
           Session Overview
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
           {cards.map(function (card) {
             return (
               <div key={card.label} style={CARD_STYLE}>
@@ -187,7 +187,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
               {autonomySummary.map(function (item) {
                 return (
                   <MetricCard
@@ -255,28 +255,18 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
           if (estimated > 0) {
             usageCards.push({ label: "Est. Cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: "based on " + modelLabel });
           }
-          if (Object.keys(metadata.models).length > 1) {
-            usageCards.push({
-              label: "All Models",
-              color: theme.text.muted,
-              render: function () {
-                return (
-                  <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, lineHeight: 1.6 }}>
-                    {Object.entries(metadata.models).map(function (entry) {
-                      return entry[0].split("-").slice(0, 3).join("-") + " (" + entry[1] + ")";
-                    }).join(", ")}
-                  </div>
-                );
-              },
-            });
-          }
+          var allModelsText = Object.keys(metadata.models).length > 1
+            ? Object.entries(metadata.models).map(function (entry) {
+                return entry[0].split("-").slice(0, 3).join("-") + " (" + entry[1] + ")";
+              }).join(", ")
+            : null;
 
           return (
           <div>
             <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
               Model &amp; Usage
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(" + Math.min(usageCards.length, 4) + ", minmax(0, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
               {usageCards.map(function (card) {
                 return (
                   <div key={card.label} style={CARD_STYLE}>
@@ -296,6 +286,16 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 );
               })}
             </div>
+            {allModelsText && (
+              <div style={Object.assign({}, CARD_STYLE, { marginTop: 12 })}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+                  All Models
+                </div>
+                <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, lineHeight: 1.6 }}>
+                  {allModelsText}
+                </div>
+              </div>
+            )}
           </div>
           );
         })()}
@@ -311,17 +311,14 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 var stats = entry[1];
                 var agentColor = theme.agentType[name] || theme.agentType.default;
                 return (
-                  <div key={name} style={{
-                    border: "1px solid " + alpha(agentColor, 0.3),
-                    borderRadius: theme.radius.lg,
-                    padding: theme.space.lg + "px " + theme.space.lg + "px",
-                    background: alpha(agentColor, 0.04),
-                  }}>
+                  <div key={name} style={Object.assign({}, CARD_STYLE, {
+                    border: "1px solid " + alpha(agentColor, 0.35),
+                  })}>
                     <div style={{ display: "flex", alignItems: "center", gap: theme.space.sm, marginBottom: theme.space.sm }}>
                       <div style={{ width: 8, height: 8, borderRadius: theme.radius.full, background: agentColor }} />
                       <span style={{ fontSize: theme.fontSize.base, color: agentColor, fontWeight: 600, fontFamily: theme.font.mono }}>{stats.displayName}</span>
                     </div>
-                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, display: "flex", gap: theme.space.lg }}>
+                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, display: "flex", gap: theme.space.lg, flexWrap: "wrap", rowGap: 4 }}>
                       <span>{stats.count} events</span>
                       {stats.totalDuration > 0 && <span>{formatDurationLong(stats.totalDuration)}</span>}
                       {stats.errors > 0 && <span style={{ color: theme.semantic.error }}>{stats.errors} errors</span>}
