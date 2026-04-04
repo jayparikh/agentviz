@@ -148,7 +148,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
 
   return (
     <ResizablePanel initialSplit={0.72} minPx={200} direction="horizontal">
-      <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: theme.space.xl, overflowY: "auto", overflowX: "hidden", padding: theme.space.md + "px 0" }}>
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: theme.space.xl, overflowY: "auto", overflowX: "hidden", padding: theme.space.md + "px " + theme.space.lg + "px " + theme.space.md + "px 0" }}>
         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1 }}>
           Session Overview
         </div>
