@@ -295,15 +295,17 @@ export default function App() {
 
   var openStoredSession = useCallback(function (entry) {
     if (!entry) return;
+    var sessionPath = entry.discoveredPath || entry.path || null;
+    var sessionName = entry.file || entry.summary || entry.filename || "events.jsonl";
 
     function afterLoad(rawText) {
       setView("stats");
-      handleFile(rawText, entry.file);
-      if (entry.discoveredPath) {
+      handleFile(rawText, sessionName);
+      if (sessionPath) {
         setLibraryEntries(function (prev) {
           return prev.map(function (e) {
             if (e.id === entry.id && !e.discoveredPath) {
-              return Object.assign({}, e, { discoveredPath: entry.discoveredPath });
+              return Object.assign({}, e, { discoveredPath: sessionPath });
             }
             return e;
           });
@@ -311,15 +313,15 @@ export default function App() {
       }
     }
 
-    if (entry.isDiscovered && entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () { });
+    if (entry.isDiscovered && sessionPath) {
+      discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(function () { });
       return;
     }
 
     var rawText = loadStoredSessionContent(entry.id);
     if (rawText) { afterLoad(rawText); return; }
-    if (entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () { });
+    if (sessionPath) {
+      discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(function () { });
       return;
     }
   }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);

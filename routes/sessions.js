@@ -144,6 +144,51 @@ export function readVSCodeCustomTitle(filePath, fileSize) {
   return readVSCodeSessionPreview(filePath, fileSize).title;
 }
 
+function truncatePreviewText(text, maxLength) {
+  if (!text) return null;
+  var normalized = String(text).replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return normalized.length > maxLength ? normalized.substring(0, maxLength - 3) + "..." : normalized;
+}
+
+export function readCopilotCliSessionPreview(filePath, fileSize) {
+  var fd = null;
+  try {
+    fd = fs.openSync(filePath, "r");
+    var headSize = Math.min(fileSize, 65536);
+    var headBuf = Buffer.alloc(headSize);
+    fs.readSync(fd, headBuf, 0, headSize, 0);
+
+    var snippet = headBuf.toString("utf8");
+    var lines = snippet.split(/\r?\n/);
+
+    for (var index = 0; index < lines.length; index += 1) {
+      var line = lines[index].trim();
+      if (!line) continue;
+      try {
+        var record = JSON.parse(line);
+        if (record.type !== "user.message" || !record.data) continue;
+        var content = truncatePreviewText(record.data.content || record.data.transformedContent, 120);
+        if (!content) return { title: null, isContinuationSummary: false };
+        return {
+          title: content,
+          isContinuationSummary: content.startsWith("Summarize the following conversation for context continuity."),
+        };
+      } catch (e) {}
+    }
+
+    return { title: null, isContinuationSummary: false };
+  } catch (e) {
+    return { title: null, isContinuationSummary: false };
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch (closeError) {}
+    }
+  }
+}
+
 function isPathInsideRoot(root, targetPath) {
   var relative = path.relative(root, targetPath);
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
@@ -202,6 +247,7 @@ export function handle(pathname, req, res, ctx) {
           var repo = null;
           var branch = null;
           var summary = null;
+          var preview = { title: null, isContinuationSummary: false };
           try {
             var yamlText = fs.readFileSync(path.join(sessionDir, "workspace.yaml"), "utf8");
             var inlineMatch = yamlText.match(/^summary:\s+(?!\|-\s*$)(.+)$/m);
@@ -225,7 +271,12 @@ export function handle(pathname, req, res, ctx) {
 
             if (summary) label = summary;
           } catch (e) {}
-          results.push({ id: "copilot-cli:" + sessionDirName + ":events.jsonl", path: eventsFile, filename: "events.jsonl", project: label, projectDir: sessionDirName, sessionId: sessionDirName, repository: repo, branch: branch, summary: summary, format: "copilot-cli", size: stat.size, mtime: stat.mtime.toISOString() });
+          if (!summary) {
+            preview = readCopilotCliSessionPreview(eventsFile, stat.size);
+            if (preview.isContinuationSummary) return;
+            if (preview.title) label = preview.title;
+          }
+          results.push({ id: "copilot-cli:" + sessionDirName + ":events.jsonl", path: eventsFile, filename: "events.jsonl", file: preview.title || "events.jsonl", project: label, projectDir: sessionDirName, sessionId: sessionDirName, repository: repo, branch: branch, summary: summary || preview.title, format: "copilot-cli", size: stat.size, mtime: stat.mtime.toISOString() });
         } catch (e) {}
       });
     } catch (e) {}
