@@ -14,7 +14,7 @@ Drop a Claude Code, VS Code Copilot Chat, or Copilot CLI session file and explor
 
 <br />
 
-<img src="docs/screenshots/session-hero.svg" alt="AGENTVIZ session views" width="800" />
+<img src="docs/screenshots/session-hero.png" alt="AGENTVIZ session views" width="800" />
 
 *Move between replay, tracks, waterfall, graph, and stats views to inspect the same session from different angles.*
 
@@ -195,7 +195,7 @@ Export is available in two places:
 Drop zone for session files, with a demo session available instantly. When running via the CLI, the inbox is shown here instead -- auto-discovered Claude Code, Copilot CLI, and VS Code Copilot Chat sessions sorted by review priority.
 
 <div align="center">
-<img src="docs/screenshots/landing.svg" alt="Landing View" width="800" />
+<img src="docs/screenshots/landing.png" alt="Landing View" width="800" />
 </div>
 
 ### Replay View
@@ -203,7 +203,7 @@ Drop zone for session files, with a demo session available instantly. When runni
 Chronological event stream with a resizable inspector sidebar. Click any event to see full details plus a payload inspector with readable JSON or text, top-level keys, line and character counts, copy support, and expand or collapse controls. The colorful timeline bar at top shows event density and error locations.
 
 <div align="center">
-<img src="docs/screenshots/replay-view.svg" alt="Replay View" width="800" />
+<img src="docs/screenshots/replay-view.png" alt="Replay View" width="800" />
 </div>
 
 ### Tracks View
@@ -211,7 +211,7 @@ Chronological event stream with a resizable inspector sidebar. Click any event t
 DAW-style multi-track lanes for Reasoning, Tool Calls, Context, and Output. **Solo** isolates one track. **Mute** hides it. See at a glance how your agent's time was spent.
 
 <div align="center">
-<img src="docs/screenshots/tracks-view.svg" alt="Tracks View" width="800" />
+<img src="docs/screenshots/tracks-view.png" alt="Tracks View" width="800" />
 </div>
 
 ### Waterfall View
@@ -219,7 +219,7 @@ DAW-style multi-track lanes for Reasoning, Tool Calls, Context, and Output. **So
 Gantt-style timeline of every tool call, sorted by start time with nesting for overlapping calls. Hover any bar to see duration and timing. Click to open the full inspector, including inline diffs for file edits and readable input or result payload previews.
 
 <div align="center">
-<img src="docs/screenshots/waterfall-view.svg" alt="Waterfall View" width="800" />
+<img src="docs/screenshots/waterfall-view.png" alt="Waterfall View" width="800" />
 </div>
 
 ### Graph View
@@ -227,7 +227,7 @@ Gantt-style timeline of every tool call, sorted by start time with nesting for o
 Interactive directed graph of session turns with expandable tool-call structure. When a turn spawns parallel subagents, the graph automatically forks into side-by-side agent branches and rejoins at a diamond join node, visualizing concurrency without any interaction. Double-click any turn to open its internal tool flow, pan and zoom around the graph, and follow playback as active nodes light up and future nodes fade back.
 
 <div align="center">
-<img src="docs/screenshots/graph-view.svg" alt="Graph View" width="800" />
+<img src="docs/screenshots/graph-view.png" alt="Graph View" width="800" />
 </div>
 
 ### Stats View
@@ -235,7 +235,7 @@ Interactive directed graph of session turns with expandable tool-call structure.
 Aggregate metrics, event distribution bars, tools used ranking, and a per-turn summary. Includes token counts and estimated USD cost per turn for Claude models.
 
 <div align="center">
-<img src="docs/screenshots/stats-view.svg" alt="Stats View" width="800" />
+<img src="docs/screenshots/stats-view.png" alt="Stats View" width="800" />
 </div>
 
 ### Coach View
@@ -243,7 +243,7 @@ Aggregate metrics, event distribution bars, tools used ranking, and a per-turn s
 AI-powered session coaching available directly from any session. The coach reads your autonomy metrics, project config (`.github/copilot-instructions.md`, MCP servers, skills), and session patterns to produce evidence-backed recommendations for prompts, tooling, and workflow. Click **Analyze** to run, then accept or ignore each draft recommendation. Requires the CLI server -- run via `node bin/agentviz.js` or the MCP tool.
 
 <div align="center">
-<img src="docs/screenshots/coach-view.svg" alt="Coach View" width="800" />
+<img src="docs/screenshots/coach-view.png" alt="Coach View" width="800" />
 </div>
 
 ### More Features
@@ -324,6 +324,7 @@ More formats planned -- see [Roadmap](#roadmap).
 ```
 src/
   App.jsx                # Routing shell: file loading, session switching, compare mode
+  main.jsx               # React entry point
   contexts/
     PlaybackContext.jsx  # Playback, search, track filtering, and derived state provider
   hooks/
@@ -347,6 +348,7 @@ src/
     session.ts           # Pure helpers: getSessionTotal, buildFilteredEventEntries
     sessionLibrary.js    # localStorage-backed session library with content persistence
     sessionParsing.ts    # Session parsing utilities and types
+    sessionTypes.ts      # TypeScript type definitions for session data
     autonomyMetrics.js   # Human response time, idle gaps, intervention scoring
     projectConfig.js     # Project config surface detection (CLAUDE.md, .github/, etc.)
     aiCoachAgent.js      # AI Coach powered by @github/copilot-sdk (gpt-4o)
@@ -385,7 +387,7 @@ src/
     FileUploader.jsx     # Drag-and-drop file input with error handling
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
-    app/                 # Shell: AppHeader, AppLandingState, AppLoadingState, CompareShell (lazy-loaded)
+    app/                 # Shell: AppHeader, AppLandingState, AppLoadingState, CompareLandingState, CompareShell (lazy-loaded)
     ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton, KeyboardHint
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
@@ -397,10 +399,6 @@ bin/
 mcp/
   server.js              # MCP server: launch_agentviz and close_agentviz tools
 server.js                # HTTP server shell: static serving, file watcher, route dispatch
-routes/
-  sessions.js            # Session discovery, file serving, SSE streaming
-  ai.js                  # Coach analysis, Q&A, model info (SSE streaming)
-  config.js              # Project config surface detection, file preview, apply
 ```
 
 ### Parser API

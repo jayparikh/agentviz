@@ -34,7 +34,7 @@ Every UI change must update ALL FOUR of these before committing. Never let them 
 ## Screenshots
 The README references 8 screenshot files in `docs/screenshots/`. All must be kept in sync.
 
-**Files:** `landing.svg`, `session-hero.svg`, `replay-view.svg`, `tracks-view.svg`, `waterfall-view.svg`, `graph-view.svg`, `stats-view.svg`, `coach-view.svg`
+**Files:** `landing.png`, `session-hero.png`, `replay-view.png`, `tracks-view.png`, `waterfall-view.png`, `graph-view.png`, `stats-view.png`, `coach-view.png`
 
 **Workflow (using Playwright MCP tools):**
 1. Start dev server: `npm run dev`
@@ -54,14 +54,9 @@ The README references 8 screenshot files in `docs/screenshots/`. All must be kep
      }
    });
    ```
-6. Copy `replay-view.png` → `session-hero.png` (hero reuses replay image)
-7. Encode each PNG as base64 and wrap in SVG:
-   ```bash
-   b64=$(base64 -i file.png)
-   echo "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"1400\" height=\"860\"><image href=\"data:image/png;base64,${b64}\" width=\"1400\" height=\"860\"/></svg>" > file.svg
-   ```
+6. Copy `replay-view.png` to `session-hero.png` (hero reuses replay image)
 
-**Note:** `session-hero.svg` is the hero image at the top of the README. It must always be regenerated alongside `replay-view.svg` — they use the same source image.
+**Note:** `session-hero.png` is the hero image at the top of the README. It must always be regenerated alongside `replay-view.png` -- they use the same source image.
 
 ## MCP vs Dev Server
 The MCP `launch_agentviz` tool serves the **production build** from `dist/` — NOT the dev server. Changes to source code are not reflected in MCP until `npm run build` is run. Always run `npm run build` before testing via MCP, and after any code change that the user will view via `open agentviz`.

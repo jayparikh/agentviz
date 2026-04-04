@@ -71,11 +71,11 @@ One color. Used for: selection, focus rings, primary actions, active tab indicat
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
 | `theme.semantic.success` | `#10d97a` | `#0ea86b` | Positive outcomes, output track, "done" |
-| `theme.semantic.warning` | `#d14d4d` | `#b45309` | Caution, modified files |
-| `theme.semantic.error` | `#ef4444` | `#d32f2f` | Errors, failures |
-| `theme.semantic.errorBg` | `#ef444415` | `#d32f2f14` | Error row/card background |
-| `theme.semantic.errorBorder` | `#ef444430` | `#d32f2f2a` | Error container border |
-| `theme.semantic.errorText` | `#f87171` | `#c53030` | Error text (lighter for readability) |
+| `theme.semantic.warning` | `#eab308` | `#ca8a04` | Caution, modified files |
+| `theme.semantic.error` | `#f43f5e` | `#e11d48` | Errors, failures |
+| `theme.semantic.errorBg` | `#f43f5e15` | `#e11d4814` | Error row/card background |
+| `theme.semantic.errorBorder` | `#f43f5e30` | `#e11d482a` | Error container border |
+| `theme.semantic.errorText` | `#fb7185` | `#be123c` | Error text (lighter for readability) |
 | `theme.semantic.info` | `#6475e8` | `#6475e8` | Informational (same as accent) |
 
 ### Agent Colors
@@ -98,6 +98,7 @@ Balanced luminance so no track visually dominates another.
 | `theme.track.tool_call` | `#3b9eff` | `#2563eb` | Tool invocations |
 | `theme.track.context` | `#a78bfa` | `#8b5cf6` | Context loading |
 | `theme.track.output` | `#10d97a` | `#0ea86b` | Output/results |
+| `theme.track.agent` | `#06b6d4` | `#0891b2` | Agent/subagent events |
 
 ### Data Visualization Scales
 
@@ -582,7 +583,7 @@ The Graph view renders five distinct node types. All node text uses `theme.font.
 
 **Fork/join nodes** appear automatically when a turn contains 2+ concurrent `task` tool calls (parallel subagents). The graph forks into side-by-side agent branches, sorted left-to-right by start time, and rejoins at the diamond join node.
 
-**Agent branch colors** use `AGENT_COLORS` from theme.js (explore = blue, task = green, general-purpose = purple, code-review = amber). The branch header label shows agent display name and duration.
+**Agent branch colors** use `AGENT_COLORS` from theme.js (explore = blue, task = green, general-purpose = purple, code-review = cyan). The branch header label shows agent display name and duration.
 
 **Active state rules:**
 - Turn/tool nodes: glow when `playbackTime >= node.t && playbackTime < node.t + node.duration`
@@ -883,9 +884,9 @@ Two variants exist:
 
 ### Error Cards/Rows
 
-- Background: `theme.semantic.errorBg` (`#ef444415`).
-- Border: `1px solid theme.semantic.errorBorder` (`#ef444430`).
-- Text: `theme.semantic.errorText` (`#f87171`) for the error message itself.
+- Background: `theme.semantic.errorBg` (`#f43f5e15`).
+- Border: `1px solid theme.semantic.errorBorder` (`#f43f5e30`).
+- Text: `theme.semantic.errorText` (`#fb7185`) for the error message itself.
 - Icon: `alert-circle` at 11px in `theme.semantic.error`.
 
 ---

@@ -29,6 +29,9 @@ coverage/
 # Local debug artifacts
 .vitest-targeted-output.txt
 
+# Playwright MCP snapshots
+.playwright-mcp/
+
 # AGENTVIZ runtime artifacts
 agentviz-server.log
 ag.log

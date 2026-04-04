@@ -13,6 +13,8 @@ Session replay visualizer for AI agent workflows. Renders Claude Code, VS Code C
 src/
   App.jsx              # Main orchestrator: file loading, playback, keyboard shortcuts, view routing
   main.jsx             # React entry point
+  contexts/
+    PlaybackContext.jsx  # Playback, search, track filtering, and derived state provider
   hooks/
     usePlayback.js     # Playback state: time, playing, speed, seek, playPause
     useSearch.js       # Debounced search with matchSet/matchedEntries
@@ -73,7 +75,7 @@ src/
     ResizablePanel.jsx # Drag-to-resize split panel utility
     ErrorBoundary.jsx  # React error boundary with resetKey for recovery
     Icon.jsx           # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
-    app/               # Shell components: AppHeader, AppLandingState, AppLoadingState, CompareShell
+    app/               # Shell components: AppHeader, AppLandingState, AppLoadingState, CompareLandingState, CompareShell
     ui/                # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton, KeyboardHint
     waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/

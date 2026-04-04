@@ -160,7 +160,7 @@ If the PR modifies components, views, or user-visible behavior, verify ALL FOUR 
 
 1. **README.md** -- Does the feature description, architecture section, or file tree need updating?
 2. **docs/ui-ux-style-guide.md** -- Does the style guide need new tokens, patterns, or rules?
-3. **docs/screenshots/** -- Do any of the 8 screenshots need regenerating? (`landing.svg`, `session-hero.svg`, `replay-view.svg`, `tracks-view.svg`, `waterfall-view.svg`, `graph-view.svg`, `stats-view.svg`, `coach-view.svg`)
+3. **docs/screenshots/** -- Do any of the 8 screenshots need regenerating? (`landing.png`, `session-hero.png`, `replay-view.png`, `tracks-view.png`, `waterfall-view.png`, `graph-view.png`, `stats-view.png`, `coach-view.png`)
 4. **CLAUDE.md** -- Does the architecture section, file tree, or conventions list need updating?
 
 **Flag if any UI change doesn't touch at least README.md and CLAUDE.md.**
