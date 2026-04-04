@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import { join } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractVSCodeCustomTitle, extractVSCodeSessionId, filterSessionFiles, isAllowedSessionPath, readVSCodeCustomTitle, readVSCodeSessionPreview } from "../../routes/sessions.js";
+import { extractVSCodeCustomTitle, extractVSCodeSessionId, filterSessionFiles, isAllowedSessionPath, readCopilotCliSessionPreview, readVSCodeCustomTitle, readVSCodeSessionPreview } from "../../routes/sessions.js";
 
 function withTempFile(name, content, fn) {
   var tempDir = fs.mkdtempSync(join(os.tmpdir(), "agentviz-routes-"));
@@ -102,6 +102,41 @@ describe("VS Code session discovery helpers", function () {
       // Should return null since the top-level sessionId is after "requests"
       expect(preview.sessionId).toBeNull();
     });
+  });
+});
+
+describe("Copilot CLI session discovery helpers", function () {
+  it("reads the first user message as a preview title", function () {
+    withTempFile(
+      "events.jsonl",
+      [
+        JSON.stringify({ type: "session.start", data: { sessionId: "abc" } }),
+        JSON.stringify({ type: "user.message", data: { content: "Tell me what this project does" } }),
+        JSON.stringify({ type: "assistant.message", data: { content: "It does X" } }),
+      ].join("\n"),
+      function (filePath) {
+        expect(readCopilotCliSessionPreview(filePath, fs.statSync(filePath).size)).toEqual({
+          title: "Tell me what this project does",
+          isContinuationSummary: false,
+        });
+      }
+    );
+  });
+
+  it("detects continuation summary sessions so discovery can skip them", function () {
+    withTempFile(
+      "events.jsonl",
+      [
+        JSON.stringify({ type: "session.start", data: { sessionId: "abc" } }),
+        JSON.stringify({ type: "user.message", data: { content: "Summarize the following conversation for context continuity. Preserve the important details." } }),
+      ].join("\n"),
+      function (filePath) {
+        expect(readCopilotCliSessionPreview(filePath, fs.statSync(filePath).size)).toEqual({
+          title: "Summarize the following conversation for context continuity. Preserve the important details.",
+          isContinuationSummary: true,
+        });
+      }
+    );
   });
 });
 

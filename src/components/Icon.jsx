@@ -40,6 +40,7 @@ import {
   Coins,
   FileEdit,
   Square,
+  RefreshCw,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -84,6 +85,7 @@ var ICON_MAP = {
   coins: Coins,
   "file-edit": FileEdit,
   square: Square,
+  "refresh-cw": RefreshCw,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

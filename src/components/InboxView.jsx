@@ -66,6 +66,18 @@ function formatLabel(entry) {
   return "Claude Code";
 }
 
+function buildEntryTooltip(entry) {
+  if (entry.discoveredPath || entry.path) return entry.discoveredPath || entry.path;
+  // No path stored — reconstruct a likely location from what we know
+  if (entry.format === "copilot-cli" && entry.sessionId) {
+    return "~/.copilot/session-state/" + entry.sessionId + "/events.jsonl";
+  }
+  if (entry.format === "claude-code" && entry.file) {
+    return "~/.claude/projects/.../" + entry.file;
+  }
+  return entry.id || "";
+}
+
 function renderMeta(entry) {
   var parts = [
     formatLabel(entry),
@@ -195,10 +207,11 @@ function CustomSelect({ ariaLabel, value, onChange, options }) {
   );
 }
 
-export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare }) {
+export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare, onRefresh }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [formatFilter, setFormatFilter] = useState("all");
   var [query, setQuery] = useState("");
+  var [refreshing, setRefreshing] = useState(false);
   var searchRef = useRef(null);
 
   useEffect(function () {
@@ -337,6 +350,29 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             }} />
           </label>
         )}
+        {onRefresh && (
+          <button
+            type="button"
+            className="av-btn"
+            title="Rescan session directories"
+            disabled={refreshing}
+            onClick={function () {
+              setRefreshing(true);
+              onRefresh();
+              setTimeout(function () { setRefreshing(false); }, 800);
+            }}
+            style={{
+              display: "flex", alignItems: "center",
+              padding: "4px 8px",
+              background: theme.bg.base, border: "1px solid " + theme.border.default,
+              borderRadius: theme.radius.md, color: theme.text.muted,
+              fontSize: theme.fontSize.xs, cursor: refreshing ? "default" : "pointer", flexShrink: 0,
+              opacity: refreshing ? 0.6 : 1,
+            }}
+          >
+            <Icon name="refresh-cw" size={11} style={refreshing ? { animation: "spin 0.8s linear infinite" } : undefined} />
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -424,6 +460,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
 
         {sortedParsed.map(function (entry) {
           var autonomy = entry.autonomyMetrics || {};
+          var canOpen = Boolean(entry.hasContent || entry.discoveredPath || entry.path);
 
           return (
             <div
@@ -437,7 +474,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             >
               <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}>
+                  <div
+                    title={buildEntryTooltip(entry)}
+                    style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}
+                  >
                     {entry.file}
                   </div>
                   <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginTop: 4, lineHeight: 1.5 }}>
@@ -452,18 +492,18 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
 
                 <button
                   className="av-btn"
-                  disabled={!entry.hasContent && !entry.discoveredPath}
+                  disabled={!canOpen}
                   onClick={function () { onOpenSession(entry); }}
-                  title={!entry.hasContent && !entry.discoveredPath ? "Session content not cached. Import the file again to reload." : ""}
+                  title={!canOpen ? "Session content not cached. Import the file again to reload." : ""}
                   style={{
-                    background: (entry.hasContent || entry.discoveredPath) ? alpha(theme.accent.primary, 0.12) : "transparent",
-                    color: (entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.text.ghost,
-                    border: "1px solid " + ((entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.border.default),
+                    background: canOpen ? alpha(theme.accent.primary, 0.12) : "transparent",
+                    color: canOpen ? theme.accent.primary : theme.text.ghost,
+                    border: "1px solid " + (canOpen ? theme.accent.primary : theme.border.default),
                     borderRadius: theme.radius.md,
                     padding: "6px 10px",
                     fontSize: theme.fontSize.base,
                     fontFamily: theme.font.mono,
-                    cursor: (entry.hasContent || entry.discoveredPath) ? "pointer" : "default",
+                    cursor: canOpen ? "pointer" : "default",
                     flexShrink: 0,
                   }}
                 >
@@ -530,7 +570,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                 >
                   <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
+                      <div
+                        title={buildEntryTooltip(entry)}
+                        style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}
+                      >
                         {entry.file}
                       </div>
                       <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>

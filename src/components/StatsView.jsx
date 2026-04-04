@@ -7,11 +7,18 @@ import ResizablePanel from "./ResizablePanel.jsx";
 import { buildAutonomySummary } from "../lib/autonomyMetrics.js";
 import { useState } from "react";
 
+var CARD_STYLE = {
+  background: theme.bg.surface,
+  borderRadius: theme.radius.xl,
+  padding: "14px 16px",
+  border: "1px solid " + theme.border.default,
+};
+
 function MetricCard({ value, label, tooltip, color }) {
   var [hovered, setHovered] = useState(false);
   return (
     <div
-      style={{ border: "1px solid " + theme.border.default, borderRadius: theme.radius.lg, padding: "12px 14px", background: theme.bg.base, cursor: "default", position: "relative" }}
+      style={Object.assign({}, CARD_STYLE, { cursor: "default", position: "relative" })}
       onMouseEnter={function () { setHovered(true); }}
       onMouseLeave={function () { setHovered(false); }}
     >
@@ -106,7 +113,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
     { label: "Turns", value: metadata ? metadata.totalTurns : (turns ? turns.length : 0), color: theme.accent.primary },
     { label: "User Messages", value: userMsgs, color: theme.accent.primary },
     { label: "Tool Calls", value: (trackStats.tool_call || {}).count || 0, color: theme.track.tool_call },
-    { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.ghost },
+    { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.muted },
     { label: "Duration", value: formatDurationLong(totalTime), color: theme.track.context },
   ];
   var autonomySummary = buildAutonomySummary(autonomyMetrics);
@@ -141,20 +148,15 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
 
   return (
     <ResizablePanel initialSplit={0.72} minPx={200} direction="horizontal">
-      <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: theme.space.xl, overflowY: "auto", overflowX: "hidden", padding: theme.space.md + "px 0" }}>
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: theme.space.xl, overflowY: "auto", overflowX: "hidden", padding: theme.space.md + "px " + theme.space.lg + "px " + theme.space.md + "px 0" }}>
         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1 }}>
           Session Overview
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
           {cards.map(function (card) {
             return (
-              <div key={card.label} style={{
-                background: theme.bg.surface,
-                borderRadius: theme.radius.xl,
-                padding: "14px 16px",
-                border: "1px solid " + theme.border.default,
-              }}>
+              <div key={card.label} style={CARD_STYLE}>
                 <div style={{ fontSize: theme.fontSize.xxl, fontWeight: 700, color: card.color, fontFamily: theme.font.mono }}>
                   {card.value}
                 </div>
@@ -165,20 +167,10 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         </div>
 
         {autonomySummary.length > 0 && (
-          <div style={{
-            background: theme.bg.surface,
-            borderRadius: theme.radius.xl,
-            padding: "14px 16px",
-            border: "1px solid " + theme.border.default,
-          }}>
+          <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1 }}>
-                  Autonomy Metrics
-                </div>
-                <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6 }}>
-                  Get improvement recommendations
-                </div>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1 }}>
+                Autonomy Metrics
               </div>
               {onOpenCoach && (
                 <ToolbarButton
@@ -195,7 +187,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
               {autonomySummary.map(function (item) {
                 return (
                   <MetricCard
@@ -211,115 +203,107 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
           </div>
         )}
 
-        {metadata && metadata.primaryModel && (
-          <div style={{
-            background: theme.bg.surface,
-            borderRadius: theme.radius.xl,
-            padding: "12px 16px",
-            border: "1px solid " + theme.border.default,
-            display: "flex",
-            gap: 20,
-            alignItems: "center",
-          }}>
-            <div>
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                Model
-              </div>
-              <div style={{ fontSize: theme.fontSize.lg, color: theme.track.context, fontFamily: theme.font.mono }}>
-                {metadata.primaryModel}
-              </div>
-            </div>
-            {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
-              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                  Tokens
-                </div>
-                <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
-                  <span style={{ color: theme.accent.primary }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
-                  {" in / "}
-                  <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
-                  {" out"}
-                </div>
-                {metadata.tokenUsage.cacheRead > 0 && (
-                  <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, marginTop: 2 }}>
-                    {metadata.tokenUsage.cacheRead.toLocaleString()} cache read
+        {metadata && metadata.primaryModel && (function () {
+          var hasTokens = metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0;
+          var hasApiCost = metadata.totalCost != null;
+          var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
+          var modelKeys = perModelData ? Object.keys(perModelData) : [];
+          var modelCount = modelKeys.length;
+          var pricedCount = modelKeys.filter(function (k) { return hasModelPricing(k); }).length;
+          var estimated = perModelData
+            ? estimateMultiModelCost(perModelData)
+            : estimateCost(metadata.tokenUsage, metadata.primaryModel);
+          var modelLabel;
+          if (modelCount > 1) {
+            modelLabel = pricedCount < modelCount
+              ? pricedCount + " of " + modelCount + " models"
+              : modelCount + " models";
+          } else if (modelCount === 1) {
+            modelLabel = modelKeys[0].split("-").slice(0, 3).join("-") + " pricing";
+          } else {
+            modelLabel = (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
+          }
+
+          var usageCards = [];
+          usageCards.push({ label: "Model", value: metadata.primaryModel, color: theme.track.context });
+          if (hasTokens) {
+            usageCards.push({
+              label: "Tokens",
+              color: theme.accent.primary,
+              render: function () {
+                return (
+                  <div>
+                    <div style={{ fontSize: theme.fontSize.lg, fontWeight: 700, fontFamily: theme.font.mono }}>
+                      <span style={{ color: theme.accent.primary }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
+                      <span style={{ color: theme.text.muted }}>{" in / "}</span>
+                      <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
+                      <span style={{ color: theme.text.muted }}>{" out"}</span>
+                    </div>
+                    {metadata.tokenUsage.cacheRead > 0 && (
+                      <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, marginTop: 4 }}>
+                        {metadata.tokenUsage.cacheRead.toLocaleString()} cache read
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
-            {(function () {
-              var hasTokens = metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0;
-              var hasApiCost = metadata.totalCost != null;
-              if (!hasTokens && !hasApiCost) return null;
-              // Prefer per-model breakdown from parser (accurate); fall back to event-level aggregation
-              var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
-              var modelKeys = perModelData ? Object.keys(perModelData) : [];
-              var modelCount = modelKeys.length;
-              var pricedCount = modelKeys.filter(function (k) { return hasModelPricing(k); }).length;
-              // Use per-model pricing when available (works for single and multi-model)
-              var estimated = perModelData
-                ? estimateMultiModelCost(perModelData)
-                : estimateCost(metadata.tokenUsage, metadata.primaryModel);
-              var modelLabel;
-              if (modelCount > 1) {
-                modelLabel = pricedCount < modelCount
-                  ? pricedCount + " of " + modelCount + " models"
-                  : modelCount + " models";
-              } else if (modelCount === 1) {
-                modelLabel = modelKeys[0].split("-").slice(0, 3).join("-") + " pricing";
-              } else {
-                modelLabel = (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
-              }
-              return (
-              <>
-              {hasApiCost && (
-              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                  Cost
-                </div>
-                <div style={{ fontSize: theme.fontSize.lg, color: theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
-                  {formatCost(metadata.totalCost)}
-                </div>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2 }}>
-                  reported by API
-                </div>
-              </div>
-              )}
-              {estimated > 0 && (
-              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                  Est. Cost
-                </div>
-                <div style={{ fontSize: theme.fontSize.lg, color: hasApiCost ? theme.text.muted : theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
-                  {formatCost(estimated)}
-                </div>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2 }}>
-                  based on {modelLabel}
-                </div>
-              </div>
-              )}
-              </>
-              );
-            })()}
-            {Object.keys(metadata.models).length > 1 && (
-              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+                );
+              },
+            });
+          }
+          if (hasApiCost) {
+            usageCards.push({ label: "Cost", value: formatCost(metadata.totalCost), color: theme.semantic.success, sub: "reported by API" });
+          }
+          if (estimated > 0) {
+            usageCards.push({ label: "Est. Cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: "based on " + modelLabel });
+          }
+          var allModelsText = Object.keys(metadata.models).length > 1
+            ? Object.entries(metadata.models).map(function (entry) {
+                return entry[0].split("-").slice(0, 3).join("-") + " (" + entry[1] + ")";
+              }).join(", ")
+            : null;
+
+          return (
+          <div>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
+              Model &amp; Usage
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+              {usageCards.map(function (card) {
+                return (
+                  <div key={card.label} style={CARD_STYLE}>
+                    {card.render ? (
+                      <div>
+                        {card.render()}
+                        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>{card.label}</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: theme.fontSize.lg, fontWeight: 700, color: card.color, fontFamily: theme.font.mono }}>{card.value}</div>
+                        {card.sub && <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>{card.sub}</div>}
+                        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: card.sub ? 2 : 4 }}>{card.label}</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {allModelsText && (
+              <div style={Object.assign({}, CARD_STYLE, { marginTop: 12 })}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
                   All Models
                 </div>
-                <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
-                  {Object.entries(metadata.models).map(function (entry) {
-                    return entry[0].split("-").slice(0, 3).join("-") + " (" + entry[1] + ")";
-                  }).join(", ")}
+                <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, lineHeight: 1.6 }}>
+                  {allModelsText}
                 </div>
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {agentEntries.length > 0 && (
-          <div style={{ marginTop: theme.space.md, marginBottom: theme.space.xl }}>
-            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.lg, display: "flex", alignItems: "center", gap: theme.space.sm }}>
-              <Icon name="agent" size={13} /> Subagents ({agentEntries.length})
+          <div>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.lg }}>
+              Subagents ({agentEntries.length})
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: theme.space.md }}>
               {agentEntries.map(function (entry) {
@@ -327,17 +311,14 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 var stats = entry[1];
                 var agentColor = theme.agentType[name] || theme.agentType.default;
                 return (
-                  <div key={name} style={{
-                    border: "1px solid " + alpha(agentColor, 0.3),
-                    borderRadius: theme.radius.lg,
-                    padding: theme.space.lg + "px " + theme.space.lg + "px",
-                    background: alpha(agentColor, 0.04),
-                  }}>
+                  <div key={name} style={Object.assign({}, CARD_STYLE, {
+                    border: "1px solid " + alpha(agentColor, 0.35),
+                  })}>
                     <div style={{ display: "flex", alignItems: "center", gap: theme.space.sm, marginBottom: theme.space.sm }}>
                       <div style={{ width: 8, height: 8, borderRadius: theme.radius.full, background: agentColor }} />
                       <span style={{ fontSize: theme.fontSize.base, color: agentColor, fontWeight: 600, fontFamily: theme.font.mono }}>{stats.displayName}</span>
                     </div>
-                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, display: "flex", gap: theme.space.lg }}>
+                    <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, display: "flex", gap: theme.space.lg, flexWrap: "wrap", rowGap: 4 }}>
                       <span>{stats.count} events</span>
                       {stats.totalDuration > 0 && <span>{formatDurationLong(stats.totalDuration)}</span>}
                       {stats.errors > 0 && <span style={{ color: theme.semantic.error }}>{stats.errors} errors</span>}
@@ -363,9 +344,9 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             if (count === 0) return null;
             var pct = events.length > 0 ? (count / events.length) * 100 : 0;
             return (
-              <div key={key} style={{ marginBottom: 10 }}>
+              <div key={key} style={{ marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: theme.fontSize.base, color: info.color, display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: theme.fontSize.base, color: info.color, display: "flex", alignItems: "center", gap: 4 }}>
                     <Icon name={key} size={13} /> {info.label}
                   </span>
                   <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>{count} ({pct.toFixed(0)}%)</span>
@@ -400,12 +381,12 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               return (
                 <div key={turn.index} style={{
                   display: "flex",
-                  gap: 10,
-                  padding: "6px 10px",
+                  gap: 8,
+                  padding: "8px 12px",
                   borderRadius: theme.radius.lg,
                   background: turn.hasError ? theme.semantic.errorBg : theme.bg.surface,
                   border: "1px solid " + (turn.hasError ? theme.semantic.errorBorder : theme.border.default),
-                  marginBottom: 6,
+                  marginBottom: 8,
                   alignItems: "center",
                 }}>
                   <span style={{ fontSize: theme.fontSize.base, color: theme.text.dim, fontWeight: 600, minWidth: 20, flexShrink: 0 }}>

@@ -13,8 +13,6 @@ import KeyboardHint from "./ui/KeyboardHint.jsx";
 import { classify } from "../lib/qaClassifier.js";
 
 var TURN_REF_RE = /\[Turns?\s*#?\s*(\d+(?:\s*[-,]\s*\d+)*)\]/gi;
-var BOLD_RE = /\*\*(.+?)\*\*/g;
-var INLINE_CODE_RE = /`([^`]+)`/g;
 
 /**
  * Parse markdown-like text into renderable parts.
@@ -132,7 +130,7 @@ function QuickInsights({ sessionData, onAsk }) {
   if (insights.length === 0) return null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <span style={{
         fontSize: theme.fontSize.xs,
         color: theme.text.ghost,
@@ -142,7 +140,7 @@ function QuickInsights({ sessionData, onAsk }) {
       }}>
         Quick insights
       </span>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {insights.map(function (ins) {
           return (
             <button
@@ -153,14 +151,14 @@ function QuickInsights({ sessionData, onAsk }) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 5,
+                gap: 4,
                 background: alpha(theme.accent.primary, 0.06),
                 border: "1px solid " + alpha(theme.accent.primary, 0.12),
                 borderRadius: theme.radius.md,
                 color: theme.text.secondary,
                 fontFamily: theme.font.mono,
                 fontSize: theme.fontSize.sm,
-                padding: "5px 10px",
+                padding: "4px 8px",
                 cursor: "pointer",
                 transition: "background 100ms ease-out",
               }}
@@ -201,7 +199,7 @@ function renderParts(parts, onSeekTurn) {
             borderRadius: theme.radius.full,
             fontFamily: theme.font.mono,
             fontSize: theme.fontSize.sm,
-            padding: "1px 6px",
+            padding: "2px 4px",
             cursor: "pointer",
             fontWeight: 600,
           }}
@@ -216,8 +214,8 @@ function renderParts(parts, onSeekTurn) {
         <code key={i} style={{
           background: alpha(theme.accent.primary, 0.08),
           borderRadius: theme.radius.sm,
-          padding: "1px 5px",
-          fontSize: "0.9em",
+          padding: "2px 4px",
+          fontSize: theme.fontSize.sm,
           fontFamily: theme.font.mono,
         }}>
           {part.value}
@@ -229,8 +227,8 @@ function renderParts(parts, onSeekTurn) {
           background: theme.bg.inset,
           border: "1px solid " + theme.border.default,
           borderRadius: theme.radius.md,
-          padding: "10px 12px",
-          margin: "6px 0",
+          padding: "8px 12px",
+          margin: "8px 0",
           fontSize: theme.fontSize.sm,
           fontFamily: theme.font.mono,
           overflowX: "auto",
@@ -431,7 +429,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                   cursor: "pointer",
                   fontSize: theme.fontSize.sm,
                   fontFamily: theme.font.mono,
-                  padding: "2px 6px",
+                  padding: "2px 8px",
                 }}
               >
                 clear
@@ -495,7 +493,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
             <div style={{
               display: "flex",
               alignItems: "center",
-              gap: 6,
+              gap: 8,
               fontSize: theme.fontSize.xs,
               color: theme.text.ghost,
               fontFamily: theme.font.mono,
@@ -578,7 +576,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                   borderRadius: theme.radius.sm,
                   color: theme.text.primary,
                   cursor: "pointer",
-                  padding: "4px 6px",
+                  padding: "4px 8px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -598,7 +596,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                   borderRadius: theme.radius.sm,
                   color: input.trim() ? theme.text.primary : theme.text.ghost,
                   cursor: input.trim() ? "pointer" : "default",
-                  padding: "4px 6px",
+                  padding: "4px 8px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

@@ -37,7 +37,8 @@ import { buildAutonomyMetrics, buildAutonomySummary } from "./lib/autonomyMetric
 import {
   loadStoredSessionContent,
   persistSessionSnapshot,
-  readSessionLibrary,
+  reconcileSessionLibrary,
+  SESSION_LIBRARY_KEY,
 } from "./lib/sessionLibrary.js";
 import { PlaybackProvider, usePlaybackContext } from "./contexts/PlaybackContext.jsx";
 
@@ -125,7 +126,7 @@ export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
   var [themeModePreference, setThemeModePreference] = usePersistentState("agentviz:theme-mode", readStoredThemePreference);
   var [libraryEntries, setLibraryEntries] = useState(function () {
-    return readSessionLibrary();
+    return reconcileSessionLibrary();
   });
   var [systemThemeMode, setSystemThemeMode] = useState(function () {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "dark";
@@ -147,6 +148,20 @@ export default function App() {
   // Filter discovered to sessions > 5KB (tiny files are Claude internal queue/ops sessions).
   var allSessions = useMemo(function () {
     try {
+      var visibleLibraryEntries = libraryEntries.filter(function (entry) {
+        // Hide Copilot CLI continuation-summary handoff sessions -- these are internal artifacts
+        var primaryPrompt = String(entry && entry.primaryPrompt || "").trim();
+        if (
+          entry
+          && entry.format === "copilot-cli"
+          && primaryPrompt.startsWith("Summarize the following conversation for context continuity.")
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+
       // Build a lookup: discoveredPath/sessionId -> discovered session for path enrichment
       var discoveredByPath = {};
       var discoveredBySessionId = {};
@@ -157,7 +172,7 @@ export default function App() {
       });
 
       // Enrich library entries with discoveredPath if we can match them to a discovered session
-      var enrichedLibrary = libraryEntries.map(function (e) {
+      var enrichedLibrary = visibleLibraryEntries.map(function (e) {
         if (e.discoveredPath) return e; // already has it
         var match = (e.sessionId && discoveredBySessionId[e.sessionId])
           || (e.discoveredPath && discoveredByPath[e.discoveredPath]);
@@ -168,7 +183,7 @@ export default function App() {
       // Only add discovered entries that aren't already in the library
       var discoveredOnly = discovered.sessions.filter(function (s) {
         if (s.size < 5000) return false;
-        return !libraryEntries.some(function (e) {
+        return !visibleLibraryEntries.some(function (e) {
           return e.discoveredPath === s.path || e.sessionId === s.sessionId;
         });
       }).map(function (s) {
@@ -295,15 +310,17 @@ export default function App() {
 
   var openStoredSession = useCallback(function (entry) {
     if (!entry) return;
+    var sessionPath = entry.discoveredPath || entry.path || null;
+    var sessionName = entry.file || entry.summary || entry.filename || "events.jsonl";
 
     function afterLoad(rawText) {
       setView("stats");
-      handleFile(rawText, entry.file);
-      if (entry.discoveredPath) {
+      handleFile(rawText, sessionName);
+      if (sessionPath) {
         setLibraryEntries(function (prev) {
           return prev.map(function (e) {
             if (e.id === entry.id && !e.discoveredPath) {
-              return Object.assign({}, e, { discoveredPath: entry.discoveredPath });
+              return Object.assign({}, e, { discoveredPath: sessionPath });
             }
             return e;
           });
@@ -311,17 +328,25 @@ export default function App() {
       }
     }
 
-    if (entry.isDiscovered && entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () { });
+    if (entry.isDiscovered && sessionPath) {
+      discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(function () { });
       return;
     }
 
     var rawText = loadStoredSessionContent(entry.id);
     if (rawText) { afterLoad(rawText); return; }
-    if (entry.discoveredPath) {
-      discovered.fetchSessionContent(entry.discoveredPath).then(afterLoad).catch(function () { });
+    if (sessionPath) {
+      discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(function () { });
       return;
     }
+
+    // Content was evicted and there's no server path to re-fetch from.
+    // Mark the entry stale so the button disables immediately.
+    setLibraryEntries(function (prev) {
+      return prev.map(function (e) {
+        return e.id === entry.id ? Object.assign({}, e, { hasContent: false }) : e;
+      });
+    });
   }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);
 
   var loadSample = useCallback(function (mode) {
@@ -409,6 +434,18 @@ export default function App() {
         onStartCompare={function () { setCompareLanding(true); }}
         inboxEntries={allSessions}
         onOpenInboxSession={openStoredSession}
+        onRefresh={function () {
+          var reconciled = reconcileSessionLibrary();
+          // Prune dead entries: no content and no path to re-fetch from
+          var pruned = reconciled.filter(function (e) {
+            return e.hasContent || e.discoveredPath || e.path;
+          });
+          if (pruned.length < reconciled.length) {
+            try { localStorage.setItem(SESSION_LIBRARY_KEY, JSON.stringify(pruned)); } catch (e) {}
+          }
+          setLibraryEntries(pruned);
+          discovered.refresh();
+        }}
       />
     );
   }
