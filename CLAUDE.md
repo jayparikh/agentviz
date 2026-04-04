@@ -72,10 +72,14 @@ src/
     SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
     ResizablePanel.jsx # Drag-to-resize split panel utility
     ErrorBoundary.jsx  # React error boundary with resetKey for recovery
-    Icon.jsx           # Lucide icon wrapper
+    Icon.jsx           # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
     app/               # Shell components: AppHeader, AppLandingState, AppLoadingState, CompareShell
-    ui/                # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton
-    waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, TimeAxis
+    ui/                # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton, KeyboardHint
+    waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
+routes/
+  sessions.js        # Session discovery, file serving, SSE streaming
+  ai.js              # Coach analysis, Q&A, model info (SSE streaming)
+  config.js          # Project config surface detection, file preview, apply
 bin/
   agentviz.js          # CLI entry point: finds free port, starts server, opens browser
 mcp/

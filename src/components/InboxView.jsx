@@ -370,7 +370,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               opacity: refreshing ? 0.6 : 1,
             }}
           >
-            <Icon name="refresh-cw" size={11} style={refreshing ? { animation: "spin 0.6s linear infinite" } : undefined} />
+            <Icon name="refresh-cw" size={11} style={refreshing ? { animation: "spin 0.8s linear infinite" } : undefined} />
           </button>
         )}
       </div>

@@ -264,6 +264,8 @@ AI-powered session coaching available directly from any session. The coach reads
 | **Session Comparison** | Load two traces side by side. Scorecard and tool-usage chart with delta badges. |
 | **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
 | **Inbox Auto-discovery** | Automatically finds recent Claude Code, Copilot CLI, and VS Code sessions and ranks them by review priority. |
+| **Inbox Refresh** | Rescan session directories with a one-click refresh button. Reconciles evicted content and prunes dead entries. |
+| **File Path Tooltips** | Hover over inbox session rows to see the full file path or reconstructed session location. |
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
 | **Session Q&A** | Slide-over drawer (`Cmd+Shift+K`) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
@@ -329,7 +331,7 @@ src/
     useSearch.js         # Debounced full-text search with match highlighting
     useKeyboardShortcuts.js  # Centralized keyboard handler
     useSessionLoader.js  # File parsing, live init from /api/file, session reset
-    useQA.js             # Session Q&A state: messages, classifier, SSE streaming
+    useQA.js             # Session Q&A state: messages, classifier, SSE streaming, abort
     useFeatureFlag.js    # localStorage-backed feature flag evaluation
     useLiveStream.js     # SSE EventSource hook with 500ms debounce for live mode
     usePersistentState.js    # localStorage-backed useState with debounced writes
@@ -368,7 +370,7 @@ src/
     TracksView.jsx       # DAW-style multi-track timeline
     WaterfallView.jsx    # Tool execution waterfall with nesting and inspector
     GraphView.jsx        # Interactive turn graph with expandable tool-call nodes (lazy-loaded)
-    StatsView.jsx        # Aggregate metrics and tool ranking
+    StatsView.jsx        # Aggregate metrics, tool ranking, turn summary
     CompareView.jsx      # Side-by-side session comparison (Scorecard + Tools tabs)
     CommandPalette.jsx   # Cmd+K fuzzy search overlay
     Timeline.jsx         # Scrubable playback bar with event markers
@@ -384,10 +386,12 @@ src/
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
     app/                 # Shell: AppHeader, AppLandingState, AppLoadingState, CompareShell (lazy-loaded)
-    ui/
-      KeyboardHint.jsx   # Shared <kbd> badge for overlay and panel shortcut hints
-    ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton
-    waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, TimeAxis
+    ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton, KeyboardHint
+    waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
+routes/
+  sessions.js            # Session discovery, file serving, SSE streaming
+  ai.js                  # Coach analysis, Q&A, model info (SSE streaming)
+  config.js              # Project config surface detection, file preview, apply
 bin/
   agentviz.js            # CLI entry point: finds free port, starts server, opens browser
 mcp/
