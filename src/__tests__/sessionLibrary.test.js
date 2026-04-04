@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseSessionText } from "../lib/sessionParsing";
-import { createSessionStorageId, loadStoredSessionContent, persistSessionSnapshot, readSessionLibrary } from "../lib/sessionLibrary.js";
+import { createSessionStorageId, loadStoredSessionContent, persistSessionSnapshot, readSessionLibrary, reconcileSessionLibrary, SESSION_LIBRARY_KEY } from "../lib/sessionLibrary.js";
 
 var COPILOT_FIXTURE = readFileSync(resolve(process.cwd(), "test-files/test-copilot.jsonl"), "utf8");
 var CLAUDE_FIXTURE = [
@@ -102,10 +102,17 @@ describe("session library persistence", function () {
     var first = persistSessionSnapshot("session-a.jsonl", parsed.result, COPILOT_FIXTURE, storage);
     var second = persistSessionSnapshot("session-b.jsonl", secondResult, alternateFixture, storage);
 
-    expect(first.entry.hasContent).toBe(true);
+    // The new session stored successfully
     expect(second.entry.hasContent).toBe(true);
-    expect(loadStoredSessionContent(first.entry.id, storage)).toBe("");
     expect(loadStoredSessionContent(second.entry.id, storage)).toBe(alternateFixture);
+
+    // The evicted session's content is gone
+    expect(loadStoredSessionContent(first.entry.id, storage)).toBe("");
+
+    // The library index reflects the eviction: hasContent is false for the evicted entry
+    var entries = readSessionLibrary(storage);
+    var evictedEntry = entries.find(function (e) { return e.id === first.entry.id; });
+    expect(evictedEntry.hasContent).toBe(false);
   });
 
   it("preserves discoveredPath when refreshing an existing entry", function () {
@@ -121,5 +128,45 @@ describe("session library persistence", function () {
 
     var second = persistSessionSnapshot("test-copilot.jsonl", parsed.result, COPILOT_FIXTURE, storage);
     expect(second.entry.discoveredPath).toBe("C:\\Users\\tester\\.copilot\\session-state\\abc\\events.jsonl");
+  });
+});
+
+describe("reconcileSessionLibrary", function () {
+  it("corrects stale hasContent flags when content keys are missing", function () {
+    var storage = createMemoryStorage();
+
+    // Simulate a stale library: entry claims hasContent but the content key is gone
+    storage.setItem(SESSION_LIBRARY_KEY, JSON.stringify([
+      { id: "stale-session", file: "stale.jsonl", hasContent: true, updatedAt: "2026-01-01T00:00:00Z" },
+      { id: "healthy-session", file: "healthy.jsonl", hasContent: true, updatedAt: "2026-01-02T00:00:00Z" },
+    ]));
+    // Only the healthy session has actual content
+    storage.setItem("agentviz:session-content:v1:healthy-session", "real content");
+
+    var result = reconcileSessionLibrary(storage);
+
+    expect(result).toHaveLength(2);
+    expect(result.find(function (e) { return e.id === "stale-session"; }).hasContent).toBe(false);
+    expect(result.find(function (e) { return e.id === "healthy-session"; }).hasContent).toBe(true);
+
+    // The fix is persisted to storage
+    var persisted = readSessionLibrary(storage);
+    expect(persisted.find(function (e) { return e.id === "stale-session"; }).hasContent).toBe(false);
+  });
+
+  it("leaves the library unchanged when all flags are accurate", function () {
+    var storage = createMemoryStorage();
+
+    storage.setItem(SESSION_LIBRARY_KEY, JSON.stringify([
+      { id: "a", file: "a.jsonl", hasContent: true, updatedAt: "2026-01-01T00:00:00Z" },
+      { id: "b", file: "b.jsonl", hasContent: false, updatedAt: "2026-01-02T00:00:00Z" },
+    ]));
+    storage.setItem("agentviz:session-content:v1:a", "content for a");
+    var libraryBefore = storage.getItem(SESSION_LIBRARY_KEY);
+
+    reconcileSessionLibrary(storage);
+
+    // No write needed — library string should be identical
+    expect(storage.getItem(SESSION_LIBRARY_KEY)).toBe(libraryBefore);
   });
 });

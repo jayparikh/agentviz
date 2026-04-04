@@ -182,7 +182,39 @@ afterEach(function () {
 });
 
 describe("App browser regressions", function () {
-  it("hides stale generic copilot rows and still opens a discovered session", async function () {
+  it("disables Open button for entries with evicted content", async function () {
+    // Simulate a library entry whose content was evicted: hasContent is true
+    // but the actual content key is missing from localStorage.
+    global.localStorage.setItem("agentviz:session-library:v1", JSON.stringify([
+      {
+        id: "claude-code:evicted-session",
+        file: "evicted-session.jsonl",
+        format: "claude-code",
+        sessionId: "evicted-session",
+        primaryPrompt: "Ship the fix safely",
+        importedAt: "2026-04-04T00:00:00.000Z",
+        updatedAt: "2026-04-04T00:00:00.000Z",
+        hasContent: true, // lies: no content key in localStorage
+      },
+    ]));
+    // Note: no agentviz:session-content:v1:claude-code:evicted-session key set
+
+    var app = await renderApp();
+
+    await waitFor(function () {
+      return findByText(app.container, "evicted-session.jsonl");
+    }, "expected evicted session to appear in inbox");
+
+    // reconcileSessionLibrary should have corrected hasContent on startup,
+    // so the Open button should be disabled
+    var openBtn = findExactButton(app.container, "Open");
+    expect(openBtn).toBeTruthy();
+    expect(openBtn.disabled).toBe(true);
+
+    await app.unmount();
+  });
+
+  it("hides continuation-summary sessions and opens discovered sessions", async function () {
     global.localStorage.setItem("agentviz:session-library:v1", JSON.stringify([
       {
         id: "copilot-cli:stale-continuation",
@@ -190,16 +222,6 @@ describe("App browser regressions", function () {
         format: "copilot-cli",
         sessionId: "stale-continuation",
         primaryPrompt: "Summarize the following conversation for context continuity. Preserve the important details.",
-        importedAt: "2026-04-04T00:00:00.000Z",
-        updatedAt: "2026-04-04T00:00:00.000Z",
-        hasContent: false,
-      },
-      {
-        id: "copilot-cli:stale-generic",
-        file: "events.jsonl",
-        format: "copilot-cli",
-        sessionId: "stale-generic",
-        primaryPrompt: "",
         importedAt: "2026-04-04T00:00:00.000Z",
         updatedAt: "2026-04-04T00:00:00.000Z",
         hasContent: false,
@@ -239,9 +261,12 @@ describe("App browser regressions", function () {
       return findByText(app.container, "Tell me what this project does");
     }, "expected discovered session to appear");
 
-    expect(findByText(app.container, "events.jsonl")).toBeNull();
+    // Continuation-summary session should be hidden
+    var allButtons = Array.from(app.container.querySelectorAll("button"));
+    var openButtons = allButtons.filter(function (b) { return b.textContent.trim() === "Open"; });
+    expect(openButtons).toHaveLength(1);
 
-    await click(findExactButton(app.container, "Open"));
+    await click(openButtons[0]);
     await waitFor(function () {
       return findByText(app.container, "Tell me what this project does");
     }, "expected discovered session to open");

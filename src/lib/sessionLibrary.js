@@ -81,6 +81,24 @@ export function readSessionLibrary(storage) {
   }
 }
 
+export function reconcileSessionLibrary(storage) {
+  var target = getStorage(storage);
+  if (!target) return [];
+
+  var entries = readSessionLibrary(target);
+  var changed = false;
+
+  for (var index = 0; index < entries.length; index += 1) {
+    if (entries[index].hasContent && !target.getItem(getSessionContentKey(entries[index].id))) {
+      entries[index] = Object.assign({}, entries[index], { hasContent: false });
+      changed = true;
+    }
+  }
+
+  if (changed) writeSessionLibrary(entries, target);
+  return entries;
+}
+
 function writeSessionLibrary(entries, storage) {
   var target = getStorage(storage);
   if (!target) return false;
@@ -221,6 +239,17 @@ export function persistSessionSnapshot(fileName, result, rawText, storage) {
     nextEntries.splice(existingIndex, 1, entry);
   } else {
     nextEntries.push(entry);
+  }
+
+  // Reconcile hasContent flags: eviction may have removed content for other
+  // entries, or pre-existing entries may have stale flags from older versions.
+  for (var ri = 0; ri < nextEntries.length; ri += 1) {
+    var re = nextEntries[ri];
+    if (re.id !== entry.id && re.hasContent) {
+      if (!target.getItem(getSessionContentKey(re.id))) {
+        nextEntries[ri] = Object.assign({}, re, { hasContent: false });
+      }
+    }
   }
 
   nextEntries.sort(function (left, right) {

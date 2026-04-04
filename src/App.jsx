@@ -38,6 +38,7 @@ import {
   loadStoredSessionContent,
   persistSessionSnapshot,
   readSessionLibrary,
+  reconcileSessionLibrary,
 } from "./lib/sessionLibrary.js";
 import { PlaybackProvider, usePlaybackContext } from "./contexts/PlaybackContext.jsx";
 
@@ -125,7 +126,7 @@ export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
   var [themeModePreference, setThemeModePreference] = usePersistentState("agentviz:theme-mode", readStoredThemePreference);
   var [libraryEntries, setLibraryEntries] = useState(function () {
-    return readSessionLibrary();
+    return reconcileSessionLibrary();
   });
   var [systemThemeMode, setSystemThemeMode] = useState(function () {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "dark";
@@ -148,22 +149,12 @@ export default function App() {
   var allSessions = useMemo(function () {
     try {
       var visibleLibraryEntries = libraryEntries.filter(function (entry) {
+        // Hide Copilot CLI continuation-summary handoff sessions -- these are internal artifacts
         var primaryPrompt = String(entry && entry.primaryPrompt || "").trim();
         if (
           entry
           && entry.format === "copilot-cli"
           && primaryPrompt.startsWith("Summarize the following conversation for context continuity.")
-        ) {
-          return false;
-        }
-
-        if (
-          entry
-          && entry.format === "copilot-cli"
-          && !entry.hasContent
-          && !entry.discoveredPath
-          && !entry.path
-          && (!entry.file || entry.file === "events.jsonl")
         ) {
           return false;
         }
@@ -348,6 +339,14 @@ export default function App() {
       discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(function () { });
       return;
     }
+
+    // Content was evicted and there's no server path to re-fetch from.
+    // Mark the entry stale so the button disables immediately.
+    setLibraryEntries(function (prev) {
+      return prev.map(function (e) {
+        return e.id === entry.id ? Object.assign({}, e, { hasContent: false }) : e;
+      });
+    });
   }, [handleFile, setView, setLibraryEntries, discovered.fetchSessionContent]);
 
   var loadSample = useCallback(function (mode) {
