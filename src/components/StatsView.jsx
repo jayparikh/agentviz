@@ -7,11 +7,18 @@ import ResizablePanel from "./ResizablePanel.jsx";
 import { buildAutonomySummary } from "../lib/autonomyMetrics.js";
 import { useState } from "react";
 
+var CARD_STYLE = {
+  background: theme.bg.surface,
+  borderRadius: theme.radius.xl,
+  padding: "14px 16px",
+  border: "1px solid " + theme.border.default,
+};
+
 function MetricCard({ value, label, tooltip, color }) {
   var [hovered, setHovered] = useState(false);
   return (
     <div
-      style={{ border: "1px solid " + theme.border.default, borderRadius: theme.radius.lg, padding: "12px 14px", background: theme.bg.base, cursor: "default", position: "relative" }}
+      style={Object.assign({}, CARD_STYLE, { cursor: "default", position: "relative" })}
       onMouseEnter={function () { setHovered(true); }}
       onMouseLeave={function () { setHovered(false); }}
     >
@@ -149,12 +156,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           {cards.map(function (card) {
             return (
-              <div key={card.label} style={{
-                background: theme.bg.surface,
-                borderRadius: theme.radius.xl,
-                padding: "14px 16px",
-                border: "1px solid " + theme.border.default,
-              }}>
+              <div key={card.label} style={CARD_STYLE}>
                 <div style={{ fontSize: theme.fontSize.xxl, fontWeight: 700, color: card.color, fontFamily: theme.font.mono }}>
                   {card.value}
                 </div>
@@ -165,20 +167,10 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         </div>
 
         {autonomySummary.length > 0 && (
-          <div style={{
-            background: theme.bg.surface,
-            borderRadius: theme.radius.xl,
-            padding: "14px 16px",
-            border: "1px solid " + theme.border.default,
-          }}>
+          <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1 }}>
-                  Autonomy Metrics
-                </div>
-                <div style={{ fontSize: theme.fontSize.md, color: theme.text.secondary, marginTop: 6 }}>
-                  Get improvement recommendations
-                </div>
+              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1 }}>
+                Autonomy Metrics
               </div>
               {onOpenCoach && (
                 <ToolbarButton
@@ -195,7 +187,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12 }}>
               {autonomySummary.map(function (item) {
                 return (
                   <MetricCard
@@ -211,115 +203,102 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
           </div>
         )}
 
-        {metadata && metadata.primaryModel && (
-          <div>
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
-            Model &amp; Usage
-          </div>
-          <div style={{
-            background: theme.bg.surface,
-            borderRadius: theme.radius.xl,
-            padding: "12px 16px",
-            border: "1px solid " + theme.border.default,
-            display: "flex",
-            gap: 20,
-            alignItems: "flex-start",
-          }}>
-            <div>
-              <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                Model
-              </div>
-              <div style={{ fontSize: theme.fontSize.lg, color: theme.track.context, fontFamily: theme.font.mono }}>
-                {metadata.primaryModel}
-              </div>
-            </div>
-            {metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0 && (
-              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                  Tokens
-                </div>
-                <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
-                  <span style={{ color: theme.accent.primary }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
-                  {" in / "}
-                  <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
-                  {" out"}
-                </div>
-                {metadata.tokenUsage.cacheRead > 0 && (
-                  <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, marginTop: 2 }}>
-                    {metadata.tokenUsage.cacheRead.toLocaleString()} cache read
+        {metadata && metadata.primaryModel && (function () {
+          var hasTokens = metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0;
+          var hasApiCost = metadata.totalCost != null;
+          var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
+          var modelKeys = perModelData ? Object.keys(perModelData) : [];
+          var modelCount = modelKeys.length;
+          var pricedCount = modelKeys.filter(function (k) { return hasModelPricing(k); }).length;
+          var estimated = perModelData
+            ? estimateMultiModelCost(perModelData)
+            : estimateCost(metadata.tokenUsage, metadata.primaryModel);
+          var modelLabel;
+          if (modelCount > 1) {
+            modelLabel = pricedCount < modelCount
+              ? pricedCount + " of " + modelCount + " models"
+              : modelCount + " models";
+          } else if (modelCount === 1) {
+            modelLabel = modelKeys[0].split("-").slice(0, 3).join("-") + " pricing";
+          } else {
+            modelLabel = (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
+          }
+
+          var usageCards = [];
+          usageCards.push({ label: "Model", value: metadata.primaryModel, color: theme.track.context });
+          if (hasTokens) {
+            usageCards.push({
+              label: "Tokens",
+              color: theme.accent.primary,
+              render: function () {
+                return (
+                  <div>
+                    <div style={{ fontSize: theme.fontSize.lg, fontWeight: 700, fontFamily: theme.font.mono }}>
+                      <span style={{ color: theme.accent.primary }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
+                      <span style={{ color: theme.text.muted }}>{" in / "}</span>
+                      <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
+                      <span style={{ color: theme.text.muted }}>{" out"}</span>
+                    </div>
+                    {metadata.tokenUsage.cacheRead > 0 && (
+                      <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, marginTop: 4 }}>
+                        {metadata.tokenUsage.cacheRead.toLocaleString()} cache read
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
-            {(function () {
-              var hasTokens = metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0;
-              var hasApiCost = metadata.totalCost != null;
-              if (!hasTokens && !hasApiCost) return null;
-              // Prefer per-model breakdown from parser (accurate); fall back to event-level aggregation
-              var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
-              var modelKeys = perModelData ? Object.keys(perModelData) : [];
-              var modelCount = modelKeys.length;
-              var pricedCount = modelKeys.filter(function (k) { return hasModelPricing(k); }).length;
-              // Use per-model pricing when available (works for single and multi-model)
-              var estimated = perModelData
-                ? estimateMultiModelCost(perModelData)
-                : estimateCost(metadata.tokenUsage, metadata.primaryModel);
-              var modelLabel;
-              if (modelCount > 1) {
-                modelLabel = pricedCount < modelCount
-                  ? pricedCount + " of " + modelCount + " models"
-                  : modelCount + " models";
-              } else if (modelCount === 1) {
-                modelLabel = modelKeys[0].split("-").slice(0, 3).join("-") + " pricing";
-              } else {
-                modelLabel = (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
-              }
-              return (
-              <>
-              {hasApiCost && (
-              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                  Cost
-                </div>
-                <div style={{ fontSize: theme.fontSize.lg, color: theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
-                  {formatCost(metadata.totalCost)}
-                </div>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2 }}>
-                  reported by API
-                </div>
-              </div>
-              )}
-              {estimated > 0 && (
-              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                  Est. Cost
-                </div>
-                <div style={{ fontSize: theme.fontSize.lg, color: hasApiCost ? theme.text.muted : theme.semantic.success, fontFamily: theme.font.mono, fontWeight: 600 }}>
-                  {formatCost(estimated)}
-                </div>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2 }}>
-                  based on {modelLabel}
-                </div>
-              </div>
-              )}
-              </>
-              );
-            })()}
-            {Object.keys(metadata.models).length > 1 && (
-              <div style={{ borderLeft: "1px solid " + theme.border.default, paddingLeft: 20 }}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                  All Models
-                </div>
-                <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
-                  {Object.entries(metadata.models).map(function (entry) {
-                    return entry[0].split("-").slice(0, 3).join("-") + " (" + entry[1] + ")";
-                  }).join(", ")}
-                </div>
-              </div>
-            )}
+                );
+              },
+            });
+          }
+          if (hasApiCost) {
+            usageCards.push({ label: "Cost", value: formatCost(metadata.totalCost), color: theme.semantic.success, sub: "reported by API" });
+          }
+          if (estimated > 0) {
+            usageCards.push({ label: "Est. Cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: "based on " + modelLabel });
+          }
+          if (Object.keys(metadata.models).length > 1) {
+            usageCards.push({
+              label: "All Models",
+              color: theme.text.muted,
+              render: function () {
+                return (
+                  <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, lineHeight: 1.6 }}>
+                    {Object.entries(metadata.models).map(function (entry) {
+                      return entry[0].split("-").slice(0, 3).join("-") + " (" + entry[1] + ")";
+                    }).join(", ")}
+                  </div>
+                );
+              },
+            });
+          }
+
+          return (
+          <div>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
+              Model &amp; Usage
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(" + Math.min(usageCards.length, 4) + ", minmax(0, 1fr))", gap: 12 }}>
+              {usageCards.map(function (card) {
+                return (
+                  <div key={card.label} style={CARD_STYLE}>
+                    {card.render ? (
+                      <div>
+                        {card.render()}
+                        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>{card.label}</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: theme.fontSize.lg, fontWeight: 700, color: card.color, fontFamily: theme.font.mono }}>{card.value}</div>
+                        {card.sub && <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>{card.sub}</div>}
+                        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: card.sub ? 2 : 4 }}>{card.label}</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          </div>
-        )}
+          );
+        })()}
 
         {agentEntries.length > 0 && (
           <div>
