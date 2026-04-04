@@ -12,6 +12,7 @@ import url from "url";
 import { handle as handleSessions } from "./routes/sessions.js";
 import { handle as handleAI } from "./routes/ai.js";
 import { handle as handleConfig } from "./routes/config.js";
+import { handle as handleJournal } from "./routes/steering.js";
 
 // ── Model configuration ──────────────────────────────────────────
 function getConfigPath() {
@@ -198,6 +199,7 @@ export function createServer({ sessionFile, distDir }) {
 
     // Dispatch to route modules
     if (handleConfig(pathname, req, res, ctx)) return;
+    if (handleJournal(pathname, req, res, ctx)) return;
     if (handleAI(pathname, req, res, ctx)) return;
     if (handleSessions(pathname, req, res, ctx)) return;
 
