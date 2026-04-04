@@ -39,6 +39,7 @@ import {
   persistSessionSnapshot,
   readSessionLibrary,
   reconcileSessionLibrary,
+  SESSION_LIBRARY_KEY,
 } from "./lib/sessionLibrary.js";
 import { PlaybackProvider, usePlaybackContext } from "./contexts/PlaybackContext.jsx";
 
@@ -435,7 +436,15 @@ export default function App() {
         inboxEntries={allSessions}
         onOpenInboxSession={openStoredSession}
         onRefresh={function () {
-          setLibraryEntries(reconcileSessionLibrary());
+          var reconciled = reconcileSessionLibrary();
+          // Prune dead entries: no content and no path to re-fetch from
+          var pruned = reconciled.filter(function (e) {
+            return e.hasContent || e.discoveredPath || e.path;
+          });
+          if (pruned.length < reconciled.length) {
+            try { localStorage.setItem(SESSION_LIBRARY_KEY, JSON.stringify(pruned)); } catch (e) {}
+          }
+          setLibraryEntries(pruned);
           discovered.refresh();
         }}
       />

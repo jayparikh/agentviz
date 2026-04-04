@@ -211,6 +211,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
   var [sortMode, setSortMode] = useState("most-recent");
   var [formatFilter, setFormatFilter] = useState("all");
   var [query, setQuery] = useState("");
+  var [refreshing, setRefreshing] = useState(false);
   var searchRef = useRef(null);
 
   useEffect(function () {
@@ -354,16 +355,21 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             type="button"
             className="av-btn"
             title="Rescan session directories"
-            onClick={onRefresh}
+            disabled={refreshing}
+            onClick={function () {
+              setRefreshing(true);
+              onRefresh();
+              setTimeout(function () { setRefreshing(false); }, 800);
+            }}
             style={{
               display: "flex", alignItems: "center",
               padding: "5px 8px",
               background: theme.bg.base, border: "1px solid " + theme.border.default,
               borderRadius: theme.radius.md, color: theme.text.muted,
-              fontSize: theme.fontSize.xs, cursor: "pointer", flexShrink: 0,
+              fontSize: theme.fontSize.xs, cursor: refreshing ? "default" : "pointer", flexShrink: 0,
             }}
           >
-            <Icon name="refresh-cw" size={11} />
+            <Icon name="refresh-cw" size={11} style={refreshing ? { animation: "spin 0.6s linear infinite" } : undefined} />
           </button>
         )}
       </div>
