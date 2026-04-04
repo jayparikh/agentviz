@@ -438,7 +438,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             >
               <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}>
+                  <div
+                    title={[entry.discoveredPath || entry.path, entry.id].filter(Boolean).join("\n")}
+                    style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}
+                  >
                     {entry.file}
                   </div>
                   <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginTop: 4, lineHeight: 1.5 }}>
@@ -531,7 +534,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                 >
                   <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}>
+                      <div
+                        title={[entry.discoveredPath || entry.path, entry.id].filter(Boolean).join("\n")}
+                        style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}
+                      >
                         {entry.file}
                       </div>
                       <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>
