@@ -147,6 +147,30 @@ export default function App() {
   // Filter discovered to sessions > 5KB (tiny files are Claude internal queue/ops sessions).
   var allSessions = useMemo(function () {
     try {
+      var visibleLibraryEntries = libraryEntries.filter(function (entry) {
+        var primaryPrompt = String(entry && entry.primaryPrompt || "").trim();
+        if (
+          entry
+          && entry.format === "copilot-cli"
+          && primaryPrompt.startsWith("Summarize the following conversation for context continuity.")
+        ) {
+          return false;
+        }
+
+        if (
+          entry
+          && entry.format === "copilot-cli"
+          && !entry.hasContent
+          && !entry.discoveredPath
+          && !entry.path
+          && (!entry.file || entry.file === "events.jsonl")
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+
       // Build a lookup: discoveredPath/sessionId -> discovered session for path enrichment
       var discoveredByPath = {};
       var discoveredBySessionId = {};
@@ -157,7 +181,7 @@ export default function App() {
       });
 
       // Enrich library entries with discoveredPath if we can match them to a discovered session
-      var enrichedLibrary = libraryEntries.map(function (e) {
+      var enrichedLibrary = visibleLibraryEntries.map(function (e) {
         if (e.discoveredPath) return e; // already has it
         var match = (e.sessionId && discoveredBySessionId[e.sessionId])
           || (e.discoveredPath && discoveredByPath[e.discoveredPath]);
@@ -168,7 +192,7 @@ export default function App() {
       // Only add discovered entries that aren't already in the library
       var discoveredOnly = discovered.sessions.filter(function (s) {
         if (s.size < 5000) return false;
-        return !libraryEntries.some(function (e) {
+        return !visibleLibraryEntries.some(function (e) {
           return e.discoveredPath === s.path || e.sessionId === s.sessionId;
         });
       }).map(function (s) {

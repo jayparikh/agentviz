@@ -190,6 +190,7 @@ export function buildSessionLibraryEntry(fileName, result, rawText, previousEntr
       errorCount: metadata.errorCount || 0,
       autonomyMetrics: autonomyMetrics,
     }),
+    discoveredPath: previousEntry ? (previousEntry.discoveredPath || null) : null,
     importedAt: previousEntry ? previousEntry.importedAt : now,
     updatedAt: now,
     hasContent: Boolean(rawText),

@@ -182,6 +182,73 @@ afterEach(function () {
 });
 
 describe("App browser regressions", function () {
+  it("hides stale generic copilot rows and still opens a discovered session", async function () {
+    global.localStorage.setItem("agentviz:session-library:v1", JSON.stringify([
+      {
+        id: "copilot-cli:stale-continuation",
+        file: "events.jsonl",
+        format: "copilot-cli",
+        sessionId: "stale-continuation",
+        primaryPrompt: "Summarize the following conversation for context continuity. Preserve the important details.",
+        importedAt: "2026-04-04T00:00:00.000Z",
+        updatedAt: "2026-04-04T00:00:00.000Z",
+        hasContent: false,
+      },
+      {
+        id: "copilot-cli:stale-generic",
+        file: "events.jsonl",
+        format: "copilot-cli",
+        sessionId: "stale-generic",
+        primaryPrompt: "",
+        importedAt: "2026-04-04T00:00:00.000Z",
+        updatedAt: "2026-04-04T00:00:00.000Z",
+        hasContent: false,
+      },
+    ]));
+
+    var discoveredPath = "C:\\Users\\jayp\\.copilot\\session-state\\real-session\\events.jsonl";
+    var fetchMock = vi.fn(async function (url) {
+      if (String(url).includes("/api/meta")) {
+        return { ok: false };
+      }
+      if (String(url).includes("/api/sessions")) {
+        return createJsonResponse([
+          {
+            id: "copilot-cli:real-session:events.jsonl",
+            path: discoveredPath,
+            filename: "events.jsonl",
+            file: "Tell me what this project does",
+            summary: "Tell me what this project does",
+            project: "Tell me what this project does",
+            sessionId: "real-session",
+            format: "copilot-cli",
+            size: 12000,
+            mtime: "2026-04-04T00:00:00.000Z",
+          },
+        ]);
+      }
+      if (String(url).includes("/api/session?path=")) {
+        return createTextResponse(FIXTURE_TEXT);
+      }
+      throw new Error("Unexpected fetch: " + url);
+    });
+
+    var app = await renderApp(fetchMock);
+
+    await waitFor(function () {
+      return findByText(app.container, "Tell me what this project does");
+    }, "expected discovered session to appear");
+
+    expect(findByText(app.container, "events.jsonl")).toBeNull();
+
+    await click(findExactButton(app.container, "Open"));
+    await waitFor(function () {
+      return findByText(app.container, "Tell me what this project does");
+    }, "expected discovered session to open");
+
+    await app.unmount();
+  });
+
   it("loads the demo session and keeps compare session B empty", async function () {
     var app = await renderApp();
 

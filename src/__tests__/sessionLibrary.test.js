@@ -107,4 +107,19 @@ describe("session library persistence", function () {
     expect(loadStoredSessionContent(first.entry.id, storage)).toBe("");
     expect(loadStoredSessionContent(second.entry.id, storage)).toBe(alternateFixture);
   });
+
+  it("preserves discoveredPath when refreshing an existing entry", function () {
+    var parsed = parseSessionText(COPILOT_FIXTURE);
+    var storage = createMemoryStorage();
+
+    expect(parsed.result).toBeTruthy();
+
+    var first = persistSessionSnapshot("test-copilot.jsonl", parsed.result, COPILOT_FIXTURE, storage);
+    var entries = readSessionLibrary(storage);
+    entries[0].discoveredPath = "C:\\Users\\tester\\.copilot\\session-state\\abc\\events.jsonl";
+    storage.setItem("agentviz:session-library:v1", JSON.stringify(entries));
+
+    var second = persistSessionSnapshot("test-copilot.jsonl", parsed.result, COPILOT_FIXTURE, storage);
+    expect(second.entry.discoveredPath).toBe("C:\\Users\\tester\\.copilot\\session-state\\abc\\events.jsonl");
+  });
 });

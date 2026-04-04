@@ -424,6 +424,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
 
         {sortedParsed.map(function (entry) {
           var autonomy = entry.autonomyMetrics || {};
+          var canOpen = Boolean(entry.hasContent || entry.discoveredPath || entry.path);
 
           return (
             <div
@@ -452,18 +453,18 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
 
                 <button
                   className="av-btn"
-                  disabled={!entry.hasContent && !entry.discoveredPath}
+                  disabled={!canOpen}
                   onClick={function () { onOpenSession(entry); }}
-                  title={!entry.hasContent && !entry.discoveredPath ? "Session content not cached. Import the file again to reload." : ""}
+                  title={!canOpen ? "Session content not cached. Import the file again to reload." : ""}
                   style={{
-                    background: (entry.hasContent || entry.discoveredPath) ? alpha(theme.accent.primary, 0.12) : "transparent",
-                    color: (entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.text.ghost,
-                    border: "1px solid " + ((entry.hasContent || entry.discoveredPath) ? theme.accent.primary : theme.border.default),
+                    background: canOpen ? alpha(theme.accent.primary, 0.12) : "transparent",
+                    color: canOpen ? theme.accent.primary : theme.text.ghost,
+                    border: "1px solid " + (canOpen ? theme.accent.primary : theme.border.default),
                     borderRadius: theme.radius.md,
                     padding: "6px 10px",
                     fontSize: theme.fontSize.base,
                     fontFamily: theme.font.mono,
-                    cursor: (entry.hasContent || entry.discoveredPath) ? "pointer" : "default",
+                    cursor: canOpen ? "pointer" : "default",
                     flexShrink: 0,
                   }}
                 >
