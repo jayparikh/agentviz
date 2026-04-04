@@ -13,8 +13,6 @@ import KeyboardHint from "./ui/KeyboardHint.jsx";
 import { classify } from "../lib/qaClassifier.js";
 
 var TURN_REF_RE = /\[Turns?\s*#?\s*(\d+(?:\s*[-,]\s*\d+)*)\]/gi;
-var BOLD_RE = /\*\*(.+?)\*\*/g;
-var INLINE_CODE_RE = /`([^`]+)`/g;
 
 /**
  * Parse markdown-like text into renderable parts.
@@ -431,7 +429,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                   cursor: "pointer",
                   fontSize: theme.fontSize.sm,
                   fontFamily: theme.font.mono,
-                  padding: "2px 6px",
+                  padding: "2px 8px",
                 }}
               >
                 clear
