@@ -212,6 +212,10 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         )}
 
         {metadata && metadata.primaryModel && (
+          <div>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
+            Model &amp; Usage
+          </div>
           <div style={{
             background: theme.bg.surface,
             borderRadius: theme.radius.xl,
@@ -219,7 +223,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             border: "1px solid " + theme.border.default,
             display: "flex",
             gap: 20,
-            alignItems: "center",
+            alignItems: "flex-start",
           }}>
             <div>
               <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
@@ -314,12 +318,13 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               </div>
             )}
           </div>
+          </div>
         )}
 
         {agentEntries.length > 0 && (
-          <div style={{ marginTop: theme.space.md, marginBottom: theme.space.xl }}>
-            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.lg, display: "flex", alignItems: "center", gap: theme.space.sm }}>
-              <Icon name="agent" size={13} /> Subagents ({agentEntries.length})
+          <div>
+            <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: theme.space.lg }}>
+              Subagents ({agentEntries.length})
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: theme.space.md }}>
               {agentEntries.map(function (entry) {
