@@ -66,6 +66,18 @@ function formatLabel(entry) {
   return "Claude Code";
 }
 
+function buildEntryTooltip(entry) {
+  if (entry.discoveredPath || entry.path) return entry.discoveredPath || entry.path;
+  // No path stored — reconstruct a likely location from what we know
+  if (entry.format === "copilot-cli" && entry.sessionId) {
+    return "~/.copilot/session-state/" + entry.sessionId + "/events.jsonl";
+  }
+  if (entry.format === "claude-code" && entry.file) {
+    return "~/.claude/projects/.../" + entry.file;
+  }
+  return entry.id || "";
+}
+
 function renderMeta(entry) {
   var parts = [
     formatLabel(entry),
@@ -439,7 +451,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ minWidth: 0 }}>
                   <div
-                    title={[entry.discoveredPath || entry.path, entry.id].filter(Boolean).join("\n")}
+                    title={buildEntryTooltip(entry)}
                     style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}
                   >
                     {entry.file}
@@ -535,7 +547,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                   <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ minWidth: 0 }}>
                       <div
-                        title={[entry.discoveredPath || entry.path, entry.id].filter(Boolean).join("\n")}
+                        title={buildEntryTooltip(entry)}
                         style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}
                       >
                         {entry.file}
