@@ -288,7 +288,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             </div>
             {allModelsText && (
               <div style={Object.assign({}, CARD_STYLE, { marginTop: 12 })}>
-                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+                <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
                   All Models
                 </div>
                 <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, lineHeight: 1.6 }}>
@@ -344,9 +344,9 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             if (count === 0) return null;
             var pct = events.length > 0 ? (count / events.length) * 100 : 0;
             return (
-              <div key={key} style={{ marginBottom: 10 }}>
+              <div key={key} style={{ marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: theme.fontSize.base, color: info.color, display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: theme.fontSize.base, color: info.color, display: "flex", alignItems: "center", gap: 4 }}>
                     <Icon name={key} size={13} /> {info.label}
                   </span>
                   <span style={{ fontSize: theme.fontSize.base, color: theme.text.muted }}>{count} ({pct.toFixed(0)}%)</span>
@@ -381,12 +381,12 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               return (
                 <div key={turn.index} style={{
                   display: "flex",
-                  gap: 10,
-                  padding: "6px 10px",
+                  gap: 8,
+                  padding: "8px 12px",
                   borderRadius: theme.radius.lg,
                   background: turn.hasError ? theme.semantic.errorBg : theme.bg.surface,
                   border: "1px solid " + (turn.hasError ? theme.semantic.errorBorder : theme.border.default),
-                  marginBottom: 6,
+                  marginBottom: 8,
                   alignItems: "center",
                 }}>
                   <span style={{ fontSize: theme.fontSize.base, color: theme.text.dim, fontWeight: 600, minWidth: 20, flexShrink: 0 }}>

@@ -132,7 +132,7 @@ function QuickInsights({ sessionData, onAsk }) {
   if (insights.length === 0) return null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <span style={{
         fontSize: theme.fontSize.xs,
         color: theme.text.ghost,
@@ -142,7 +142,7 @@ function QuickInsights({ sessionData, onAsk }) {
       }}>
         Quick insights
       </span>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {insights.map(function (ins) {
           return (
             <button
@@ -229,8 +229,8 @@ function renderParts(parts, onSeekTurn) {
           background: theme.bg.inset,
           border: "1px solid " + theme.border.default,
           borderRadius: theme.radius.md,
-          padding: "10px 12px",
-          margin: "6px 0",
+          padding: "8px 12px",
+          margin: "8px 0",
           fontSize: theme.fontSize.sm,
           fontFamily: theme.font.mono,
           overflowX: "auto",
@@ -495,7 +495,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
             <div style={{
               display: "flex",
               alignItems: "center",
-              gap: 6,
+              gap: 8,
               fontSize: theme.fontSize.xs,
               color: theme.text.ghost,
               fontFamily: theme.font.mono,
@@ -578,7 +578,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                   borderRadius: theme.radius.sm,
                   color: theme.text.primary,
                   cursor: "pointer",
-                  padding: "4px 6px",
+                  padding: "4px 8px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -598,7 +598,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
                   borderRadius: theme.radius.sm,
                   color: input.trim() ? theme.text.primary : theme.text.ghost,
                   cursor: input.trim() ? "pointer" : "default",
-                  padding: "4px 6px",
+                  padding: "4px 8px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
