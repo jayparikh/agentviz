@@ -1,4 +1,4 @@
-// Shared time/duration formatting helpers used across views.
+// Shared time/duration/text formatting helpers used across views.
 
 // Formats a duration in seconds as a human-readable short string.
 // Used in Waterfall bars and inspector panels.
@@ -26,4 +26,10 @@ export function formatDurationLong(secs) {
   var m = Math.floor(secs / 60);
   var s = Math.round(secs % 60);
   return m > 0 ? m + "m " + (s < 10 ? "0" : "") + s + "s" : s + "s";
+}
+
+// Truncates text to a maximum length, appending "..." when clipped.
+export function truncateText(text, max) {
+  if (!text) return "";
+  return text.length > max ? text.slice(0, max) + "..." : text;
 }

@@ -1,4 +1,5 @@
 import { buildAutonomyMetrics, getNeedsReviewScore, getSessionCost } from "./autonomyMetrics.js";
+import { truncateText } from "./formatTime.js";
 
 export var SESSION_LIBRARY_KEY = "agentviz:session-library:v1";
 var SESSION_CONTENT_PREFIX = "agentviz:session-content:v1:";
@@ -29,11 +30,6 @@ function hashText(text) {
   }
 
   return String(Math.abs(value));
-}
-
-function truncateText(text, max) {
-  if (!text) return "";
-  return text.length > max ? text.substring(0, max) + "..." : text;
 }
 
 function buildPrimaryPrompt(result) {

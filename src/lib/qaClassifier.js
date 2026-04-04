@@ -12,7 +12,7 @@ import { getTopTools } from "./autonomyMetrics.js";
  *   { events, turns, metadata, autonomyMetrics }
  */
 
-import { formatDuration, formatDurationLong } from "./formatTime.js";
+import { formatDuration, formatDurationLong, truncateText } from "./formatTime.js";
 import { getSessionCost } from "./autonomyMetrics.js";
 import { formatCost } from "./pricing.js";
 
@@ -136,7 +136,7 @@ function answerErrors(data) {
   for (var i = 0; i < samples.length; i++) {
     var s = samples[i];
     var turnLabel = s.turnIndex != null ? " [Turn " + s.turnIndex + "]" : "";
-    lines.push("- " + truncate(s.text, 120) + turnLabel);
+    lines.push("- " + truncateText(s.text, 120) + turnLabel);
   }
   if (count > samples.length) {
     lines.push("\n(" + (count - samples.length) + " more not shown)");
@@ -253,7 +253,7 @@ function answerTurnDetail(idx, data) {
 
   var lines = ["[Turn " + idx + "]\n"];
   if (turn.userMessage) {
-    lines.push('User: "' + truncate(turn.userMessage, 200) + '"');
+    lines.push('User: "' + truncateText(turn.userMessage, 200) + '"');
   }
   lines.push("- Events: " + events.length);
   lines.push("- Tool calls: " + toolCalls.length);
@@ -269,7 +269,7 @@ function answerTurnDetail(idx, data) {
   if (errors.length > 0) {
     lines.push("- Errors: " + errors.length);
     errors.slice(0, 3).forEach(function (e) {
-      lines.push("  - " + truncate(e.text, 100));
+      lines.push("  - " + truncateText(e.text, 100));
     });
   }
 
@@ -330,7 +330,7 @@ function answerLongestTurn(data) {
     "Longest turn: [Turn " + longest.index + "] (" + formatDurationLong(secs) + ")\n",
   ];
   if (longest.userMessage) {
-    lines.push('User: "' + truncate(longest.userMessage, 150) + '"');
+    lines.push('User: "' + truncateText(longest.userMessage, 150) + '"');
   }
   lines.push("- Tool calls: " + (longest.toolCount || 0));
   if (longest.hasError) lines.push("- Had errors");
@@ -341,12 +341,6 @@ function answerLongestTurn(data) {
 
 function instant(answer) {
   return { tier: "instant", answer: answer };
-}
-
-function truncate(text, maxLen) {
-  if (!text) return "";
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen) + "...";
 }
 
 var FILE_EDIT_TOOLS = ["edit", "create", "write", "file_edit", "str_replace_editor", "write_to_file", "insert_code_at_cursor"];

@@ -153,14 +153,14 @@ function QuickInsights({ sessionData, onAsk }) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 5,
+                gap: 4,
                 background: alpha(theme.accent.primary, 0.06),
                 border: "1px solid " + alpha(theme.accent.primary, 0.12),
                 borderRadius: theme.radius.md,
                 color: theme.text.secondary,
                 fontFamily: theme.font.mono,
                 fontSize: theme.fontSize.sm,
-                padding: "5px 10px",
+                padding: "4px 8px",
                 cursor: "pointer",
                 transition: "background 100ms ease-out",
               }}
@@ -201,7 +201,7 @@ function renderParts(parts, onSeekTurn) {
             borderRadius: theme.radius.full,
             fontFamily: theme.font.mono,
             fontSize: theme.fontSize.sm,
-            padding: "1px 6px",
+            padding: "2px 4px",
             cursor: "pointer",
             fontWeight: 600,
           }}
@@ -216,7 +216,7 @@ function renderParts(parts, onSeekTurn) {
         <code key={i} style={{
           background: alpha(theme.accent.primary, 0.08),
           borderRadius: theme.radius.sm,
-          padding: "1px 5px",
+          padding: "2px 4px",
           fontSize: theme.fontSize.sm,
           fontFamily: theme.font.mono,
         }}>
