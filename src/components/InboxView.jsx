@@ -207,7 +207,7 @@ function CustomSelect({ ariaLabel, value, onChange, options }) {
   );
 }
 
-export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare }) {
+export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare, onRefresh }) {
   var [sortMode, setSortMode] = useState("most-recent");
   var [formatFilter, setFormatFilter] = useState("all");
   var [query, setQuery] = useState("");
@@ -348,6 +348,23 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               e.target.value = "";
             }} />
           </label>
+        )}
+        {onRefresh && (
+          <button
+            type="button"
+            className="av-btn"
+            title="Rescan session directories"
+            onClick={onRefresh}
+            style={{
+              display: "flex", alignItems: "center",
+              padding: "5px 8px",
+              background: theme.bg.base, border: "1px solid " + theme.border.default,
+              borderRadius: theme.radius.md, color: theme.text.muted,
+              fontSize: theme.fontSize.xs, cursor: "pointer", flexShrink: 0,
+            }}
+          >
+            <Icon name="refresh-cw" size={11} />
+          </button>
         )}
       </div>
 

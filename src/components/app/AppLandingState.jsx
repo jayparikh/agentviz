@@ -76,7 +76,7 @@ function DragOverlay({ onLoad }) {
   );
 }
 
-export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare, inboxEntries, onOpenInboxSession }) {
+export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare, inboxEntries, onOpenInboxSession, onRefresh }) {
   return (
     <ShellFrame
       style={{
@@ -103,6 +103,7 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
           onImport={onLoad}
           onLoadSample={onLoadSample}
           onStartCompare={onStartCompare}
+          onRefresh={onRefresh}
         />
       </div>
 

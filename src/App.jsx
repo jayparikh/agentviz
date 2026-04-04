@@ -434,6 +434,10 @@ export default function App() {
         onStartCompare={function () { setCompareLanding(true); }}
         inboxEntries={allSessions}
         onOpenInboxSession={openStoredSession}
+        onRefresh={function () {
+          setLibraryEntries(reconcileSessionLibrary());
+          discovered.refresh();
+        }}
       />
     );
   }
