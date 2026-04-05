@@ -149,6 +149,9 @@ describe("session path restrictions", function () {
       var appData = join(homeDir, "AppData", "Roaming");
       vi.stubEnv("APPDATA", appData);
       sessionPath = join(appData, "Code", "User", "workspaceStorage", "ws1", "chatSessions", "session.json");
+    } else if (process.platform === "darwin") {
+      homeDir = "/Users/tester";
+      sessionPath = "/Users/tester/Library/Application Support/Code/User/workspaceStorage/ws1/chatSessions/session.json";
     } else {
       vi.stubEnv("XDG_CONFIG_HOME", "");
       homeDir = "/home/tester";
@@ -165,6 +168,9 @@ describe("session path restrictions", function () {
       var appData = join(homeDir, "AppData", "Roaming");
       vi.stubEnv("APPDATA", appData);
       sessionPath = join(appData, "Code", "User", "workspaceStorage", "ws1", "workspace.json");
+    } else if (process.platform === "darwin") {
+      homeDir = "/Users/tester";
+      sessionPath = "/Users/tester/Library/Application Support/Code/User/workspaceStorage/ws1/workspace.json";
     } else {
       vi.stubEnv("XDG_CONFIG_HOME", "");
       homeDir = "/home/tester";
