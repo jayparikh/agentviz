@@ -93,7 +93,7 @@ function SessionCard({ entry, onClick }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        background: hovered ? theme.bg.hover : theme.bg.surface,
+        background: hovered ? theme.bg.hover : (isDiscovered ? theme.bg.base : theme.bg.surface),
         border: "1px solid " + (hovered ? theme.border.strong : theme.border.default),
         borderRadius: theme.radius.lg,
         padding: 0,
@@ -102,7 +102,6 @@ function SessionCard({ entry, onClick }) {
         textAlign: "left",
         transition: "background " + theme.transition.fast + ", border-color " + theme.transition.fast,
         width: "100%",
-        opacity: isDiscovered ? 0.7 : 1,
       }}
     >
       {/* health color bar */}
@@ -111,13 +110,10 @@ function SessionCard({ entry, onClick }) {
       <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
         {/* header row */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-          <div style={{
-            fontSize: theme.fontSize.xs,
-            color: theme.text.muted,
-          }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary }}>
             {metaLine}
           </div>
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, flexShrink: 0 }}>
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, flexShrink: 0 }}>
             {formatRelativeTime(entry.updatedAt || entry.importedAt)}
           </div>
         </div>
@@ -125,7 +121,7 @@ function SessionCard({ entry, onClick }) {
         {/* title / prompt */}
         <div style={{
           fontSize: theme.fontSize.md,
-          color: theme.text.primary,
+          color: isDiscovered ? theme.text.secondary : theme.text.primary,
           fontFamily: theme.font.mono,
           overflow: "hidden",
           display: "-webkit-box",
@@ -138,8 +134,8 @@ function SessionCard({ entry, onClick }) {
 
         {/* metrics row */}
         {isDiscovered ? (
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginTop: "auto" }}>
-            Not yet analyzed
+          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: "auto" }}>
+            Open to analyze
           </div>
         ) : (
           <div style={{
@@ -161,7 +157,7 @@ function SessionCard({ entry, onClick }) {
               </span>
             )}
             {autonomy.autonomyEfficiency != null && (
-              <span style={{ color: theme.text.dim }}>
+              <span style={{ color: theme.text.muted }}>
                 {formatAutonomyEfficiency(autonomy.autonomyEfficiency)} auto
               </span>
             )}
@@ -181,9 +177,10 @@ export default function DashboardView({ entries, onOpenSession }) {
     return (entries || []).filter(function (e) { return !e.isDiscovered; });
   }, [entries]);
 
-  // Aggregate stats from library entries
+  // Aggregate stats — always computed so the bar is always visible
   var stats = useMemo(function () {
-    if (libraryEntries.length === 0) return null;
+    var allEntries = entries || [];
+    if (allEntries.length === 0) return null;
     var totalCost = libraryEntries.reduce(function (s, e) { return s + (e.totalCost || 0); }, 0);
     var withAutonomy = libraryEntries.filter(function (e) {
       return e.autonomyMetrics && e.autonomyMetrics.autonomyEfficiency != null;
@@ -193,11 +190,11 @@ export default function DashboardView({ entries, onOpenSession }) {
       : null;
     var totalErrors = libraryEntries.reduce(function (s, e) { return s + (e.errorCount || 0); }, 0);
     return {
-      total: entries.length,
+      total: allEntries.length,
       analyzed: libraryEntries.length,
-      avgCost: libraryEntries.length > 0 ? totalCost / libraryEntries.length : 0,
+      avgCost: libraryEntries.length > 0 ? totalCost / libraryEntries.length : null,
       avgAutonomy: avgAutonomy,
-      totalErrors: totalErrors,
+      totalErrors: libraryEntries.length > 0 ? totalErrors : null,
     };
   }, [libraryEntries, entries]);
 
@@ -230,11 +227,12 @@ export default function DashboardView({ entries, onOpenSession }) {
           <StatCard
             label="sessions"
             value={stats.total}
-            sub={stats.analyzed < stats.total ? stats.analyzed + " analyzed" : null}
+            sub={stats.analyzed < stats.total ? stats.analyzed + " analyzed, " + (stats.total - stats.analyzed) + " discovered" : null}
           />
           <StatCard
             label="avg cost"
-            value={stats.analyzed > 0 ? formatCost(stats.avgCost) : "--"}
+            value={stats.avgCost != null ? formatCost(stats.avgCost) : "--"}
+            sub={stats.analyzed === 0 ? "open sessions to analyze" : null}
           />
           <StatCard
             label="avg autonomy"
@@ -242,8 +240,7 @@ export default function DashboardView({ entries, onOpenSession }) {
           />
           <StatCard
             label="total errors"
-            value={stats.totalErrors}
-            sub={stats.totalErrors > 0 ? "across " + stats.analyzed + " sessions" : null}
+            value={stats.totalErrors != null ? stats.totalErrors : "--"}
           />
         </div>
       )}
