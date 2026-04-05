@@ -93,11 +93,39 @@ function formatMtime(isoString) {
   return mm + "-" + dd + " " + hh + ":" + min;
 }
 
-export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare, onRefresh }) {
+function filterByTags(entries, activeTags) {
+  if (!activeTags || activeTags.length === 0) return entries;
+  return entries.filter(function (e) {
+    var entryTags = e.tags || [];
+    return activeTags.every(function (tag) {
+      return entryTags.indexOf(tag) !== -1;
+    });
+  });
+}
+
+function collectAllTags(entries) {
+  var tagSet = {};
+  (entries || []).forEach(function (e) {
+    (e.tags || []).forEach(function (t) { tagSet[t] = true; });
+  });
+  return Object.keys(tagSet).sort();
+}
+
+function getInitialTagsFromURL() {
+  var params = new URLSearchParams(window.location.search);
+  var tags = params.getAll("tag");
+  return tags.length > 0 ? tags : [];
+}
+
+// Exported for testing
+export { filterByTags, collectAllTags, getInitialTagsFromURL };
+
+export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare, onRefresh, manifestError }) {
   var [sortMode, setSortMode] = usePersistentState("agentviz:inbox-sort", "most-recent");
   var [formatFilter, setFormatFilter] = usePersistentState("agentviz:inbox-format", "all");
   var [query, setQuery] = useState("");
   var [refreshing, setRefreshing] = useState(false);
+  var [activeTags, setActiveTags] = useState(getInitialTagsFromURL);
   var searchRef = useRef(null);
 
   useEffect(function () {
@@ -109,6 +137,18 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
     document.addEventListener("keydown", onKey);
     return function () { document.removeEventListener("keydown", onKey); };
   }, []);
+
+  var allTags = useMemo(function () {
+    return collectAllTags(entries);
+  }, [entries]);
+
+  function toggleTag(tag) {
+    setActiveTags(function (prev) {
+      var idx = prev.indexOf(tag);
+      if (idx === -1) return prev.concat([tag]);
+      return prev.filter(function (t) { return t !== tag; });
+    });
+  }
 
   var parsedEntries = useMemo(function () {
     return (entries || []).filter(function (e) { return !e.isDiscovered; });
@@ -126,9 +166,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
     if (formatFilter !== "all") {
       filtered = filtered.filter(function (e) { return e.format === formatFilter; });
     }
+    filtered = filterByTags(filtered, activeTags);
     var sorted = sortEntries(filtered, sortMode);
     return sorted;
-  }, [parsedEntries, sortMode, query, formatFilter]);
+  }, [parsedEntries, sortMode, query, formatFilter, activeTags]);
 
   var [showAllDiscovered, setShowAllDiscovered] = useState(false);
 
@@ -137,8 +178,9 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
     if (formatFilter !== "all") {
       filtered = filtered.filter(function (e) { return e.format === formatFilter; });
     }
+    filtered = filterByTags(filtered, activeTags);
     return sortByDate(filtered);
-  }, [discoveredEntries, query, formatFilter]);
+  }, [discoveredEntries, query, formatFilter, activeTags]);
 
   var sortedDiscovered = useMemo(function () {
     if (showAllDiscovered) return filteredDiscovered;
@@ -259,8 +301,78 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
         )}
       </div>
 
+      {allTags.length > 0 && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 12px",
+          borderBottom: "1px solid " + theme.border.default,
+          flexShrink: 0,
+          flexWrap: "wrap",
+          minHeight: 0,
+        }}>
+          <Icon name="tag" size={11} style={{ color: theme.text.ghost, flexShrink: 0 }} />
+          {allTags.map(function (tag) {
+            var isActive = activeTags.indexOf(tag) !== -1;
+            return (
+              <button
+                key={tag}
+                className="av-btn"
+                onClick={function () { toggleTag(tag); }}
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: theme.radius.full,
+                  border: "1px solid " + (isActive ? theme.accent.primary : theme.border.default),
+                  background: isActive ? alpha(theme.accent.primary, 0.12) : "transparent",
+                  color: isActive ? theme.accent.primary : theme.text.muted,
+                  fontSize: theme.fontSize.xs,
+                  fontFamily: theme.font.mono,
+                  cursor: "pointer",
+                  lineHeight: 1.4,
+                }}
+              >
+                {tag}
+              </button>
+            );
+          })}
+          {activeTags.length > 0 && (
+            <button
+              className="av-btn"
+              onClick={function () { setActiveTags([]); }}
+              style={{
+                padding: "2px 6px",
+                borderRadius: theme.radius.full,
+                border: "none",
+                background: "transparent",
+                color: theme.text.ghost,
+                fontSize: theme.fontSize.xs,
+                fontFamily: theme.font.mono,
+                cursor: "pointer",
+              }}
+            >
+              clear
+            </button>
+          )}
+        </div>
+      )}
+
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-        {totalVisible === 0 && (
+        {manifestError && (
+          <div style={{
+            background: theme.semantic.errorBg,
+            border: "1px solid " + theme.semantic.error,
+            borderRadius: theme.radius.xl,
+            padding: "12px 16px",
+            fontSize: theme.fontSize.sm,
+            color: theme.semantic.errorText,
+            fontFamily: theme.font.mono,
+            lineHeight: 1.6,
+          }}>
+            {manifestError}
+          </div>
+        )}
+        {totalVisible === 0 && !manifestError && (
           <div style={{
             border: "1px dashed " + theme.border.strong,
             borderRadius: theme.radius.xl,
@@ -472,6 +584,33 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                           formatMtime(entry.updatedAt || entry.importedAt),
                         ].filter(Boolean).join(" \u00B7 ")}
                       </div>
+                      {entry.tags && entry.tags.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                          {entry.tags.map(function (tag) {
+                            var isActive = activeTags.indexOf(tag) !== -1;
+                            return (
+                              <button
+                                key={tag}
+                                className="av-btn"
+                                onClick={function (e) { e.stopPropagation(); toggleTag(tag); }}
+                                style={{
+                                  padding: "1px 6px",
+                                  borderRadius: theme.radius.full,
+                                  border: "1px solid " + (isActive ? theme.accent.primary : theme.border.default),
+                                  background: isActive ? alpha(theme.accent.primary, 0.12) : alpha(theme.bg.surface, 0.6),
+                                  color: isActive ? theme.accent.primary : theme.text.ghost,
+                                  fontSize: theme.fontSize.xs,
+                                  fontFamily: theme.font.mono,
+                                  cursor: "pointer",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {tag}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     <button
