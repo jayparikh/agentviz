@@ -4,9 +4,11 @@
  * Takes parsed session data (events, turns) and produces an ELKjs-compatible
  * graph structure, then runs layout to get positioned nodes and edges.
  */
-import ELK from "elkjs/lib/elk.bundled.js";
+import ELK from "elkjs/lib/elk-api.js";
 
-var elk = new ELK();
+var elk = new ELK({
+  workerUrl: new URL("elkjs/lib/elk-worker.min.js", import.meta.url),
+});
 
 /**
  * Group tool call entries into concurrency groups based on temporal overlap.
