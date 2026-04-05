@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import { join } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractVSCodeCustomTitle, extractVSCodeSessionId, filterSessionFiles, isAllowedSessionPath, readCopilotCliSessionPreview, readVSCodeCustomTitle, readVSCodeSessionPreview } from "../../routes/sessions.js";
+import { extractVSCodeCustomTitle, extractVSCodeSessionId, clipToLength, filterSessionFiles, isAllowedSessionPath, readCopilotCliSessionPreview, readVSCodeCustomTitle, readVSCodeSessionPreview } from "../../routes/sessions.js";
 
 function withTempFile(name, content, fn) {
   var tempDir = fs.mkdtempSync(join(os.tmpdir(), "agentviz-routes-"));
@@ -249,5 +249,86 @@ describe("extractJSONFieldValue edge cases", function () {
   it("handles snippet with no string value for field", function () {
     expect(extractVSCodeCustomTitle('{"customTitle": 42}')).toBeNull();
     expect(extractVSCodeSessionId('{"sessionId": true}')).toBeNull();
+  });
+});
+
+describe("clipToLength", function () {
+  it("returns null for empty or falsy input", function () {
+    expect(clipToLength("", 10)).toBeNull();
+    expect(clipToLength(null, 10)).toBeNull();
+    expect(clipToLength(undefined, 10)).toBeNull();
+  });
+
+  it("returns null for whitespace-only input", function () {
+    expect(clipToLength("   \n\t  ", 10)).toBeNull();
+  });
+
+  it("normalizes internal whitespace", function () {
+    expect(clipToLength("hello   world\nnewline", 50)).toBe("hello world newline");
+  });
+
+  it("clips text to maxLength including the ellipsis", function () {
+    var result = clipToLength("This is a long sentence that exceeds the limit", 20);
+    expect(result.length).toBe(20);
+    expect(result).toBe("This is a long se...");
+  });
+
+  it("returns text unchanged when within maxLength", function () {
+    expect(clipToLength("short", 10)).toBe("short");
+  });
+
+  it("handles exact boundary length", function () {
+    expect(clipToLength("exact", 5)).toBe("exact");
+    expect(clipToLength("exceed", 5)).toBe("ex...");
+  });
+});
+
+describe("Copilot CLI preview edge cases", function () {
+  it("uses transformedContent when content is missing", function () {
+    withTempFile(
+      "events.jsonl",
+      [
+        JSON.stringify({ type: "session.start", data: { sessionId: "abc" } }),
+        JSON.stringify({ type: "user.message", data: { transformedContent: "Transformed prompt text" } }),
+      ].join("\n"),
+      function (filePath) {
+        expect(readCopilotCliSessionPreview(filePath, fs.statSync(filePath).size)).toEqual({
+          title: "Transformed prompt text",
+          isContinuationSummary: false,
+        });
+      }
+    );
+  });
+
+  it("returns null title for user message with only whitespace", function () {
+    withTempFile(
+      "events.jsonl",
+      [
+        JSON.stringify({ type: "session.start", data: {} }),
+        JSON.stringify({ type: "user.message", data: { content: "   \n  " } }),
+      ].join("\n"),
+      function (filePath) {
+        expect(readCopilotCliSessionPreview(filePath, fs.statSync(filePath).size)).toEqual({
+          title: null,
+          isContinuationSummary: false,
+        });
+      }
+    );
+  });
+
+  it("skips malformed JSON lines and reads valid ones", function () {
+    withTempFile(
+      "events.jsonl",
+      [
+        "not valid json {{{",
+        JSON.stringify({ type: "user.message", data: { content: "Valid message" } }),
+      ].join("\n"),
+      function (filePath) {
+        expect(readCopilotCliSessionPreview(filePath, fs.statSync(filePath).size)).toEqual({
+          title: "Valid message",
+          isContinuationSummary: false,
+        });
+      }
+    );
   });
 });

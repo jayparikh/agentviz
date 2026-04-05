@@ -20,14 +20,14 @@ vi.mock("@github/copilot-sdk", function () {
   };
 });
 
-// Import AFTER mock is in place
+// Import AFTER mock is in place -- resetModules ensures fresh module state per test
 var mod;
 beforeEach(async function () {
+  vi.resetModules();
   mod = await import("../lib/qaAgent.js");
 });
 
 afterEach(function () {
-  // Reset session state between tests
   if (mod && mod.resetQASession) mod.resetQASession();
   vi.clearAllMocks();
 });
@@ -54,13 +54,12 @@ describe("runQAQuery", function () {
   it("streams tokens via onToken callback", async function () {
     var tokens = [];
 
-    // Make session.on fire content.delta then session.idle
     mockSession.on.mockImplementation(function (handler) {
-      setTimeout(function () {
+      queueMicrotask(function () {
         handler({ type: "content.delta", data: { text: "Hello" } });
         handler({ type: "content.delta", data: { text: " world" } });
         handler({ type: "session.idle" });
-      }, 5);
+      });
       return function unsubscribe() {};
     });
     mockSession.send.mockResolvedValue(undefined);
@@ -77,9 +76,9 @@ describe("runQAQuery", function () {
     var statuses = [];
 
     mockSession.on.mockImplementation(function (handler) {
-      setTimeout(function () {
+      queueMicrotask(function () {
         handler({ type: "session.idle" });
-      }, 5);
+      });
       return function unsubscribe() {};
     });
     mockSession.send.mockResolvedValue(undefined);
@@ -95,9 +94,9 @@ describe("runQAQuery", function () {
 
   it("rejects on session error events", async function () {
     mockSession.on.mockImplementation(function (handler) {
-      setTimeout(function () {
+      queueMicrotask(function () {
         handler({ type: "session.error", data: { message: "model overloaded" } });
-      }, 5);
+      });
       return function unsubscribe() {};
     });
     mockSession.send.mockResolvedValue(undefined);
@@ -125,10 +124,10 @@ describe("runQAQuery", function () {
     var tokens = [];
 
     mockSession.on.mockImplementation(function (handler) {
-      setTimeout(function () {
+      queueMicrotask(function () {
         handler({ type: "assistant.message", data: { content: "Full answer here" } });
         handler({ type: "session.idle" });
-      }, 5);
+      });
       return function unsubscribe() {};
     });
     mockSession.send.mockResolvedValue(undefined);
@@ -145,11 +144,11 @@ describe("runQAQuery", function () {
     var tokens = [];
 
     mockSession.on.mockImplementation(function (handler) {
-      setTimeout(function () {
+      queueMicrotask(function () {
         handler({ type: "content.delta", data: { text: "streamed" } });
         handler({ type: "assistant.message", data: { content: "full duplicate" } });
         handler({ type: "session.idle" });
-      }, 5);
+      });
       return function unsubscribe() {};
     });
     mockSession.send.mockResolvedValue(undefined);
@@ -166,9 +165,9 @@ describe("runQAQuery", function () {
     var sentPrompt = null;
 
     mockSession.on.mockImplementation(function (handler) {
-      setTimeout(function () {
+      queueMicrotask(function () {
         handler({ type: "session.idle" });
-      }, 5);
+      });
       return function unsubscribe() {};
     });
     mockSession.send.mockImplementation(function (msg) {

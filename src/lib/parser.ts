@@ -22,12 +22,9 @@
 import type { NormalizedEvent, ParseIssues, ParsedSession, SessionMetadata, SessionTurn, TokenUsage } from "./sessionTypes";
 
 type RawRecord = Record<string, any>;
-type MessageBlock = Record<string, any>;
+import { truncateText as truncate } from "./formatTime.js";
 
-function truncate(value: string | null | undefined, max: number): string {
-  if (!value) return "";
-  return value.length > max ? value.substring(0, max) + "..." : value;
-}
+type MessageBlock = Record<string, any>;
 
 function extractContent(content: unknown): string {
   if (!content) return "";

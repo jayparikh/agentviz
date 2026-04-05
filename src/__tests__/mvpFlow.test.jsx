@@ -9,7 +9,7 @@ import App from "../App.jsx";
 import { parseSessionText } from "../lib/sessionParsing";
 import { persistSessionSnapshot } from "../lib/sessionLibrary.js";
 
-var FIXTURE_TEXT = readFileSync(resolve(process.cwd(), "test-files/test-copilot.jsonl"), "utf8");
+var FIXTURE_TEXT = readFileSync(resolve(process.cwd(), "src/__tests__/fixtures/test-copilot.jsonl"), "utf8");
 
 function createInactiveFetch() {
   return vi.fn(async function () {

@@ -175,6 +175,18 @@ function storeSessionContent(id, rawText, storage, existingEntries) {
   return false;
 }
 
+export function pruneDeadEntries(storage) {
+  var target = getStorage(storage);
+  var reconciled = reconcileSessionLibrary(target);
+  var pruned = reconciled.filter(function (e) {
+    return e.hasContent || e.discoveredPath;
+  });
+  if (pruned.length < reconciled.length) {
+    writeSessionLibrary(pruned, target);
+  }
+  return pruned;
+}
+
 export function buildSessionLibraryEntry(fileName, result, rawText, previousEntry) {
   var metadata = result.metadata || {};
   var autonomyMetrics = buildAutonomyMetrics(result.events, result.turns, metadata);

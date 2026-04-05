@@ -11,9 +11,9 @@ export default function useDiscoveredSessions() {
   var [available, setAvailable] = useState(false); // false when no CLI server
 
   var fetchSessions = useCallback(function () {
-    if (forceEmpty) return;
+    if (forceEmpty) return Promise.resolve();
     setLoading(true);
-    fetch("/api/sessions")
+    return fetch("/api/sessions")
       .then(function (r) {
         if (!r.ok) throw new Error("not ok");
         return r.json();
@@ -39,13 +39,13 @@ export default function useDiscoveredSessions() {
   }, [fetchSessions]);
 
   // Fetches the raw content of a discovered session by path
-  function fetchSessionContent(sessionPath) {
+  var fetchSessionContent = useCallback(function (sessionPath) {
     return fetch("/api/session?path=" + encodeURIComponent(sessionPath))
       .then(function (r) {
         if (!r.ok) throw new Error("fetch failed: " + r.status);
         return r.text();
       });
-  }
+  }, []);
 
   return { sessions: sessions, loading: loading, available: available, fetchSessionContent: fetchSessionContent, refresh: fetchSessions };
 }

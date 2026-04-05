@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseSessionText } from "../lib/sessionParsing";
-import { createSessionStorageId, loadStoredSessionContent, persistSessionSnapshot, readSessionLibrary, reconcileSessionLibrary, SESSION_LIBRARY_KEY } from "../lib/sessionLibrary.js";
+import { createSessionStorageId, loadStoredSessionContent, persistSessionSnapshot, pruneDeadEntries, readSessionLibrary, reconcileSessionLibrary, SESSION_LIBRARY_KEY } from "../lib/sessionLibrary.js";
 
-var COPILOT_FIXTURE = readFileSync(resolve(process.cwd(), "test-files/test-copilot.jsonl"), "utf8");
+var COPILOT_FIXTURE = readFileSync(resolve(process.cwd(), "src/__tests__/fixtures/test-copilot.jsonl"), "utf8");
 var CLAUDE_FIXTURE = [
   "{\"type\":\"user\",\"message\":{\"content\":\"Ship the fix safely\"},\"timestamp\":\"2026-03-01T10:00:00.000Z\"}",
   "{\"type\":\"assistant\",\"message\":{\"model\":\"claude-sonnet-4-5\",\"usage\":{\"input_tokens\":1200,\"output_tokens\":500},\"content\":[{\"type\":\"text\",\"text\":\"I'll inspect the current implementation.\"},{\"type\":\"tool_use\",\"name\":\"bash\",\"input\":{\"command\":\"npm test\"}}]},\"timestamp\":\"2026-03-01T10:00:04.000Z\"}",
@@ -168,5 +168,36 @@ describe("reconcileSessionLibrary", function () {
 
     // No write needed — library string should be identical
     expect(storage.getItem(SESSION_LIBRARY_KEY)).toBe(libraryBefore);
+  });
+});
+
+describe("pruneDeadEntries", function () {
+  it("removes entries with no content and no discoveredPath", function () {
+    var storage = createMemoryStorage();
+    storage.setItem(SESSION_LIBRARY_KEY, JSON.stringify([
+      { id: "alive", file: "a.jsonl", hasContent: true, updatedAt: "2026-01-01T00:00:00Z" },
+      { id: "with-path", file: "b.jsonl", hasContent: false, discoveredPath: "/some/path", updatedAt: "2026-01-02T00:00:00Z" },
+      { id: "dead", file: "c.jsonl", hasContent: false, updatedAt: "2026-01-03T00:00:00Z" },
+    ]));
+    storage.setItem("agentviz:session-content:v1:alive", "content");
+
+    var result = pruneDeadEntries(storage);
+    expect(result).toHaveLength(2);
+    expect(result.map(function (e) { return e.id; })).toEqual(["alive", "with-path"]);
+
+    // Verify the library was written back without the dead entry
+    var persisted = JSON.parse(storage.getItem(SESSION_LIBRARY_KEY));
+    expect(persisted).toHaveLength(2);
+  });
+
+  it("returns all entries when none are dead", function () {
+    var storage = createMemoryStorage();
+    storage.setItem(SESSION_LIBRARY_KEY, JSON.stringify([
+      { id: "a", file: "a.jsonl", hasContent: true, updatedAt: "2026-01-01T00:00:00Z" },
+    ]));
+    storage.setItem("agentviz:session-content:v1:a", "content");
+
+    var result = pruneDeadEntries(storage);
+    expect(result).toHaveLength(1);
   });
 });

@@ -22,7 +22,7 @@ vi.mock("../lib/exportHtml.js", function () {
 
 import App from "../App.jsx";
 
-var FIXTURE_TEXT = readFileSync(resolve(process.cwd(), "test-files/test-copilot.jsonl"), "utf8");
+var FIXTURE_TEXT = readFileSync(resolve(process.cwd(), "src/__tests__/fixtures/test-copilot.jsonl"), "utf8");
 
 function createJsonResponse(payload) {
   return {

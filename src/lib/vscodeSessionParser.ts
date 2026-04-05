@@ -22,10 +22,7 @@ type VSCodeSession = Record<string, any>;
 const MAX_TEXT_LENGTH = 4000;
 const DANGEROUS_KEY_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
 
-function truncate(value: string | null | undefined, max: number): string {
-  if (!value) return "";
-  return value.length > max ? value.substring(0, max) + "..." : value;
-}
+import { truncateText as truncate } from "./formatTime.js";
 
 // ── Format detection ─────────────────────────────────────────────────────────
 

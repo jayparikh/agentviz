@@ -355,6 +355,7 @@ src/
     qaClassifier.js      # Session Q&A instant answer engine (9 patterns + model context)
     qaAgent.js           # Q&A agent powered by @github/copilot-sdk for model fallback
     theme.js             # Design tokens (dark/light/system mode-aware palette)
+    theme.d.ts           # TypeScript declarations for theme.js
     constants.js         # Sample events for demo mode
     replayLayout.js      # Virtualized windowing for large sessions
     commandPalette.js    # Precomputed fuzzy search index

@@ -29,6 +29,7 @@ src/
     useAsyncStatus.js  # Async operation state machine (idle/loading/success/error)
   lib/
     theme.js           # Design token system, TRACK_TYPES, AGENT_COLORS
+    theme.d.ts         # TypeScript declarations for theme.js
     constants.js       # SAMPLE_EVENTS data for demo mode
     parser.ts          # parseClaudeCodeJSONL() - Claude Code JSONL parser
     copilotCliParser.ts # parseCopilotCliJSONL() - Copilot CLI JSONL parser

@@ -144,7 +144,12 @@ export function readVSCodeCustomTitle(filePath, fileSize) {
   return readVSCodeSessionPreview(filePath, fileSize).title;
 }
 
-function truncatePreviewText(text, maxLength) {
+/**
+ * Clips text to fit within maxLength (including "..." suffix).
+ * Normalizes whitespace before truncating. Returns null for empty input.
+ * Differs from formatTime.truncateText which keeps `max` chars then appends "...".
+ */
+export function clipToLength(text, maxLength) {
   if (!text) return null;
   var normalized = String(text).replace(/\s+/g, " ").trim();
   if (!normalized) return null;
@@ -168,7 +173,7 @@ export function readCopilotCliSessionPreview(filePath, fileSize) {
       try {
         var record = JSON.parse(line);
         if (record.type !== "user.message" || !record.data) continue;
-        var content = truncatePreviewText(record.data.content || record.data.transformedContent, 120);
+        var content = clipToLength(record.data.content || record.data.transformedContent, 120);
         if (!content) return { title: null, isContinuationSummary: false };
         return {
           title: content,
