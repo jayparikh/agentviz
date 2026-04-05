@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../../lib/theme.js";
 import InboxView from "../InboxView.jsx";
+import DashboardView from "../DashboardView.jsx";
 import Icon from "../Icon.jsx";
 import BrandWordmark from "../ui/BrandWordmark.jsx";
 import ShellFrame from "../ui/ShellFrame.jsx";
+import usePersistentState from "../../hooks/usePersistentState.js";
 
 // Full-page drag overlay. Attaches listeners to document so it detects drags
 // even when the overlay div itself has pointerEvents:none.
@@ -77,6 +79,8 @@ function DragOverlay({ onLoad }) {
 }
 
 export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare, inboxEntries, onOpenInboxSession, onRefresh }) {
+  var [landingMode, setLandingMode] = usePersistentState("agentviz:landing-mode", "inbox");
+
   return (
     <ShellFrame
       style={{
@@ -96,15 +100,57 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
         </div>
       </div>
 
-      <div style={{ width: "100%", maxWidth: 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <InboxView
-          entries={inboxEntries}
-          onOpenSession={onOpenInboxSession}
-          onImport={onLoad}
-          onLoadSample={onLoadSample}
-          onStartCompare={onStartCompare}
-          onRefresh={onRefresh}
-        />
+      <div style={{ width: "100%", maxWidth: landingMode === "dashboard" ? 1100 : 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* view toggle */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, flexShrink: 0 }}>
+          {[
+            { id: "inbox", icon: "layout-list", label: "List" },
+            { id: "dashboard", icon: "layout-grid", label: "Dashboard" },
+          ].map(function (item) {
+            var active = landingMode === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                title={item.label}
+                onClick={function () { setLandingMode(item.id); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  background: active ? theme.bg.raised : "transparent",
+                  border: "1px solid " + (active ? theme.border.strong : "transparent"),
+                  borderRadius: theme.radius.md,
+                  padding: "4px 8px",
+                  cursor: "pointer",
+                  color: active ? theme.text.primary : theme.text.dim,
+                  fontSize: theme.fontSize.xs,
+                  fontFamily: theme.font.mono,
+                  transition: "color " + theme.transition.fast,
+                }}
+              >
+                <Icon name={item.icon} size={12} />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {landingMode === "dashboard" ? (
+          <DashboardView
+            entries={inboxEntries}
+            onOpenSession={onOpenInboxSession}
+          />
+        ) : (
+          <InboxView
+            entries={inboxEntries}
+            onOpenSession={onOpenInboxSession}
+            onImport={onLoad}
+            onLoadSample={onLoadSample}
+            onStartCompare={onStartCompare}
+            onRefresh={onRefresh}
+          />
+        )}
       </div>
 
       {error && (
