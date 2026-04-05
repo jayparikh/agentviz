@@ -56,5 +56,11 @@ export default defineConfig(function ({ mode }) {
       minify: isDebugBuild ? false : 'esbuild',
       sourcemap: isDebugBuild,
     },
+    test: {
+      alias: {
+        // In Node/Vitest, Worker is unavailable; use the self-contained bundle instead
+        "elkjs/lib/elk-api.js": path.resolve(__dirname, "node_modules/elkjs/lib/elk.bundled.js"),
+      },
+    },
   }
 })
