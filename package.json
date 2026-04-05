@@ -6,7 +6,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jayparikh/agentviz.git"
+    "url": "git+https://github.com/jayparikh/agentviz.git"
   },
   "keywords": [
     "ai",
@@ -20,7 +20,7 @@
     "devtools"
   ],
   "bin": {
-    "agentviz": "./bin/agentviz.js"
+    "agentviz": "bin/agentviz.js"
   },
   "files": [
     "bin",
