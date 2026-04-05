@@ -4,7 +4,7 @@ import { join } from "path";
 import { detectVSCodeChat, parseVSCodeChatJSON } from "../lib/vscodeSessionParser";
 import { detectFormat, parseSession } from "../lib/parseSession";
 
-var FIXTURE = readFileSync(join(__dirname, "../../test-files/test-vscode-chat.json"), "utf8");
+var FIXTURE = readFileSync(join(__dirname, "fixtures/test-vscode-chat.json"), "utf8");
 
 describe("detectVSCodeChat", function () {
   it("detects valid VS Code session JSON", function () {

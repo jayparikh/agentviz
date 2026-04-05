@@ -67,7 +67,7 @@ function formatLabel(entry) {
 }
 
 function buildEntryTooltip(entry) {
-  if (entry.discoveredPath || entry.path) return entry.discoveredPath || entry.path;
+  if (entry.discoveredPath) return entry.discoveredPath;
   // No path stored — reconstruct a likely location from what we know
   if (entry.format === "copilot-cli" && entry.sessionId) {
     return "~/.copilot/session-state/" + entry.sessionId + "/events.jsonl";
@@ -358,8 +358,12 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             disabled={refreshing}
             onClick={function () {
               setRefreshing(true);
-              onRefresh();
-              setTimeout(function () { setRefreshing(false); }, 800);
+              var result = onRefresh();
+              if (result && typeof result.then === "function") {
+                result.finally(function () { setRefreshing(false); });
+              } else {
+                setRefreshing(false);
+              }
             }}
             style={{
               display: "flex", alignItems: "center",
@@ -460,7 +464,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
 
         {sortedParsed.map(function (entry) {
           var autonomy = entry.autonomyMetrics || {};
-          var canOpen = Boolean(entry.hasContent || entry.discoveredPath || entry.path);
+          var canOpen = Boolean(entry.hasContent || entry.discoveredPath);
 
           return (
             <div

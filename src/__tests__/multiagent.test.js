@@ -3,7 +3,7 @@ import { parseCopilotCliJSONL } from "../lib/copilotCliParser";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-var fixture = readFileSync(join(__dirname, "../../test-files/test-multiagent.jsonl"), "utf-8");
+var fixture = readFileSync(join(__dirname, "fixtures/test-multiagent.jsonl"), "utf-8");
 
 describe("multi-agent parser", function () {
   var result = parseCopilotCliJSONL(fixture);

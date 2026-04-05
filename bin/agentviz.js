@@ -127,10 +127,12 @@ findFreePort(DEFAULT_API_PORT, function (err, port) {
     if (!noOpen) { openBrowser(url); }
   });
 
-  process.on("SIGINT", function () {
+  function gracefulShutdown() {
     server.close(function () { process.exit(0); });
-  });
-  process.on("SIGTERM", function () {
-    server.close(function () { process.exit(0); });
-  });
+    // Force exit if graceful shutdown stalls (e.g. npm signal handling)
+    setTimeout(function () { process.exit(0); }, 500).unref();
+  }
+
+  process.on("SIGINT", gracefulShutdown);
+  process.on("SIGTERM", gracefulShutdown);
 });

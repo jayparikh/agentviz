@@ -193,6 +193,20 @@ export function resetQASession() {
 }
 
 /**
+ * Gracefully shut down the QA subsystem: disconnect session and stop the
+ * warm Copilot CLI subprocess. Call on server shutdown to avoid orphan processes.
+ */
+export async function shutdownQA() {
+  resetQASession();
+  var client = _warmClient;
+  _warmClient = null;
+  _warmingPromise = null;
+  if (client) {
+    try { await client.stop(); } catch (e) {}
+  }
+}
+
+/**
  * Format conversation history into a prompt section for follow-up context.
  */
 function formatHistory(history) {

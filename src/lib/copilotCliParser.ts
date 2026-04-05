@@ -39,10 +39,7 @@ type ToolPairs = {
   completes: Record<string, RawRecord>;
 };
 
-function truncate(value: string | null | undefined, max: number): string {
-  if (!value) return "";
-  return value.length > max ? value.substring(0, max) + "..." : value;
-}
+import { truncateText as truncate } from "./formatTime.js";
 
 function parseTimestamp(timestamp: string | null | undefined): number | null {
   if (!timestamp) return null;

@@ -146,6 +146,48 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
     return theme.accent.primary;
   }
 
+  // Pre-compute model usage data for the Model & Usage section
+  var modelUsageData = null;
+  if (metadata && metadata.primaryModel) {
+    var hasTokens = metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0;
+    var hasApiCost = metadata.totalCost != null;
+    var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
+    var modelKeys = perModelData ? Object.keys(perModelData) : [];
+    var modelCount = modelKeys.length;
+    var pricedCount = modelKeys.filter(function (k) { return hasModelPricing(k); }).length;
+    var estimated = perModelData
+      ? estimateMultiModelCost(perModelData)
+      : estimateCost(metadata.tokenUsage, metadata.primaryModel);
+    var modelLabel;
+    if (modelCount > 1) {
+      modelLabel = pricedCount < modelCount
+        ? pricedCount + " of " + modelCount + " models"
+        : modelCount + " models";
+    } else if (modelCount === 1) {
+      modelLabel = modelKeys[0].split("-").slice(0, 3).join("-") + " pricing";
+    } else {
+      modelLabel = (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
+    }
+
+    var usageCards = [];
+    usageCards.push({ label: "Model", value: metadata.primaryModel, color: theme.track.context });
+    if (hasTokens) {
+      usageCards.push({ label: "Tokens", color: theme.accent.primary, isTokenCard: true });
+    }
+    if (hasApiCost) {
+      usageCards.push({ label: "Cost", value: formatCost(metadata.totalCost), color: theme.semantic.success, sub: "reported by API" });
+    }
+    if (estimated > 0) {
+      usageCards.push({ label: "Est. Cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: "based on " + modelLabel });
+    }
+    var allModelsText = Object.keys(metadata.models).length > 1
+      ? Object.entries(metadata.models).map(function (entry) {
+          return entry[0].split("-").slice(0, 3).join("-") + " (" + entry[1] + ")";
+        }).join(", ")
+      : null;
+    modelUsageData = { usageCards: usageCards, allModelsText: allModelsText };
+  }
+
   return (
     <ResizablePanel initialSplit={0.72} minPx={200} direction="horizontal">
       <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: theme.space.xl, overflowY: "auto", overflowX: "hidden", padding: theme.space.md + "px " + theme.space.lg + "px " + theme.space.md + "px 0" }}>
@@ -203,76 +245,28 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
           </div>
         )}
 
-        {metadata && metadata.primaryModel && (function () {
-          var hasTokens = metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0;
-          var hasApiCost = metadata.totalCost != null;
-          var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
-          var modelKeys = perModelData ? Object.keys(perModelData) : [];
-          var modelCount = modelKeys.length;
-          var pricedCount = modelKeys.filter(function (k) { return hasModelPricing(k); }).length;
-          var estimated = perModelData
-            ? estimateMultiModelCost(perModelData)
-            : estimateCost(metadata.tokenUsage, metadata.primaryModel);
-          var modelLabel;
-          if (modelCount > 1) {
-            modelLabel = pricedCount < modelCount
-              ? pricedCount + " of " + modelCount + " models"
-              : modelCount + " models";
-          } else if (modelCount === 1) {
-            modelLabel = modelKeys[0].split("-").slice(0, 3).join("-") + " pricing";
-          } else {
-            modelLabel = (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
-          }
-
-          var usageCards = [];
-          usageCards.push({ label: "Model", value: metadata.primaryModel, color: theme.track.context });
-          if (hasTokens) {
-            usageCards.push({
-              label: "Tokens",
-              color: theme.accent.primary,
-              render: function () {
-                return (
-                  <div>
-                    <div style={{ fontSize: theme.fontSize.lg, fontWeight: 700, fontFamily: theme.font.mono }}>
-                      <span style={{ color: theme.accent.primary }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
-                      <span style={{ color: theme.text.muted }}>{" in / "}</span>
-                      <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
-                      <span style={{ color: theme.text.muted }}>{" out"}</span>
-                    </div>
-                    {metadata.tokenUsage.cacheRead > 0 && (
-                      <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, marginTop: 4 }}>
-                        {metadata.tokenUsage.cacheRead.toLocaleString()} cache read
-                      </div>
-                    )}
-                  </div>
-                );
-              },
-            });
-          }
-          if (hasApiCost) {
-            usageCards.push({ label: "Cost", value: formatCost(metadata.totalCost), color: theme.semantic.success, sub: "reported by API" });
-          }
-          if (estimated > 0) {
-            usageCards.push({ label: "Est. Cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: "based on " + modelLabel });
-          }
-          var allModelsText = Object.keys(metadata.models).length > 1
-            ? Object.entries(metadata.models).map(function (entry) {
-                return entry[0].split("-").slice(0, 3).join("-") + " (" + entry[1] + ")";
-              }).join(", ")
-            : null;
-
-          return (
+        {modelUsageData && (
           <div>
             <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
               Model &amp; Usage
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-              {usageCards.map(function (card) {
+              {modelUsageData.usageCards.map(function (card) {
                 return (
                   <div key={card.label} style={CARD_STYLE}>
-                    {card.render ? (
+                    {card.isTokenCard ? (
                       <div>
-                        {card.render()}
+                        <div style={{ fontSize: theme.fontSize.lg, fontWeight: 700, fontFamily: theme.font.mono }}>
+                          <span style={{ color: theme.accent.primary }}>{metadata.tokenUsage.inputTokens.toLocaleString()}</span>
+                          <span style={{ color: theme.text.muted }}>{" in / "}</span>
+                          <span style={{ color: theme.semantic.success }}>{metadata.tokenUsage.outputTokens.toLocaleString()}</span>
+                          <span style={{ color: theme.text.muted }}>{" out"}</span>
+                        </div>
+                        {metadata.tokenUsage.cacheRead > 0 && (
+                          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, marginTop: 4 }}>
+                            {metadata.tokenUsage.cacheRead.toLocaleString()} cache read
+                          </div>
+                        )}
                         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 4 }}>{card.label}</div>
                       </div>
                     ) : (
@@ -286,19 +280,18 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 );
               })}
             </div>
-            {allModelsText && (
+            {modelUsageData.allModelsText && (
               <div style={Object.assign({}, CARD_STYLE, { marginTop: 12 })}>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
                   All Models
                 </div>
                 <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, lineHeight: 1.6 }}>
-                  {allModelsText}
+                  {modelUsageData.allModelsText}
                 </div>
               </div>
             )}
           </div>
-          );
-        })()}
+        )}
 
         {agentEntries.length > 0 && (
           <div>

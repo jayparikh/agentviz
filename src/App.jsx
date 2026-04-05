@@ -37,8 +37,8 @@ import { buildAutonomyMetrics, buildAutonomySummary } from "./lib/autonomyMetric
 import {
   loadStoredSessionContent,
   persistSessionSnapshot,
+  pruneDeadEntries,
   reconcileSessionLibrary,
-  SESSION_LIBRARY_KEY,
 } from "./lib/sessionLibrary.js";
 import { PlaybackProvider, usePlaybackContext } from "./contexts/PlaybackContext.jsx";
 
@@ -207,7 +207,7 @@ export default function App() {
       return enrichedLibrary.concat(discoveredOnly);
     } catch (e) {
       console.error("[allSessions] merge error:", e);
-      return libraryEntries;
+      return visibleLibraryEntries || libraryEntries;
     }
   }, [libraryEntries, discovered.sessions]);
 
@@ -310,7 +310,7 @@ export default function App() {
 
   var openStoredSession = useCallback(function (entry) {
     if (!entry) return;
-    var sessionPath = entry.discoveredPath || entry.path || null;
+    var sessionPath = entry.discoveredPath || null;
     var sessionName = entry.file || entry.summary || entry.filename || "events.jsonl";
 
     function afterLoad(rawText) {
@@ -435,16 +435,9 @@ export default function App() {
         inboxEntries={allSessions}
         onOpenInboxSession={openStoredSession}
         onRefresh={function () {
-          var reconciled = reconcileSessionLibrary();
-          // Prune dead entries: no content and no path to re-fetch from
-          var pruned = reconciled.filter(function (e) {
-            return e.hasContent || e.discoveredPath || e.path;
-          });
-          if (pruned.length < reconciled.length) {
-            try { localStorage.setItem(SESSION_LIBRARY_KEY, JSON.stringify(pruned)); } catch (e) {}
-          }
+          var pruned = pruneDeadEntries();
           setLibraryEntries(pruned);
-          discovered.refresh();
+          return discovered.refresh();
         }}
       />
     );

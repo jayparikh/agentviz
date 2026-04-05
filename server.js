@@ -12,6 +12,7 @@ import url from "url";
 import { handle as handleSessions } from "./routes/sessions.js";
 import { handle as handleAI } from "./routes/ai.js";
 import { handle as handleConfig } from "./routes/config.js";
+import { shutdownQA } from "./src/lib/qaAgent.js";
 
 // ── Model configuration ──────────────────────────────────────────
 function getConfigPath() {
@@ -235,6 +236,11 @@ export function createServer({ sessionFile, distDir }) {
     watcherClosed = true;
     if (watcher) watcher.close();
     if (pollInterval) clearInterval(pollInterval);
+    for (var client of clients) {
+      try { client.end(); } catch (e) {}
+    }
+    clients.clear();
+    shutdownQA().catch(function () {});
   });
 
   server.on("error", function (err) {
