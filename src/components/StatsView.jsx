@@ -7,18 +7,21 @@ import ResizablePanel from "./ResizablePanel.jsx";
 import { buildAutonomySummary } from "../lib/autonomyMetrics.js";
 import { useState } from "react";
 
-var CARD_STYLE = {
-  background: theme.bg.surface,
-  borderRadius: theme.radius.xl,
-  padding: "14px 16px",
-  border: "1px solid " + theme.border.default,
-};
+function getCardStyle() {
+  return {
+    background: theme.bg.surface,
+    borderRadius: theme.radius.xl,
+    padding: "14px 16px",
+    border: "1px solid " + theme.border.default,
+  };
+}
 
 function MetricCard({ value, label, tooltip, color }) {
   var [hovered, setHovered] = useState(false);
+  var cardStyle = getCardStyle();
   return (
     <div
-      style={Object.assign({}, CARD_STYLE, { cursor: "default", position: "relative" })}
+      style={Object.assign({}, cardStyle, { cursor: "default", position: "relative" })}
       onMouseEnter={function () { setHovered(true); }}
       onMouseLeave={function () { setHovered(false); }}
     >
@@ -53,6 +56,7 @@ function MetricCard({ value, label, tooltip, color }) {
 export default function StatsView({ events, totalTime, metadata, turns, autonomyMetrics, onOpenCoach }) {
   var [showAllTurns, setShowAllTurns] = useState(false);
   var TURNS_PREVIEW = 15;
+  var cardStyle = getCardStyle();
 
   var trackStats = {};
   events.forEach(function (e) {
@@ -198,7 +202,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
           {cards.map(function (card) {
             return (
-              <div key={card.label} style={CARD_STYLE}>
+              <div key={card.label} style={cardStyle}>
                 <div style={{ fontSize: theme.fontSize.xxl, fontWeight: 700, color: card.color, fontFamily: theme.font.mono }}>
                   {card.value}
                 </div>
@@ -253,7 +257,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
               {modelUsageData.usageCards.map(function (card) {
                 return (
-                  <div key={card.label} style={CARD_STYLE}>
+                  <div key={card.label} style={cardStyle}>
                     {card.isTokenCard ? (
                       <div>
                         <div style={{ fontSize: theme.fontSize.lg, fontWeight: 700, fontFamily: theme.font.mono }}>
@@ -281,7 +285,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
               })}
             </div>
             {modelUsageData.allModelsText && (
-              <div style={Object.assign({}, CARD_STYLE, { marginTop: 12 })}>
+              <div style={Object.assign({}, cardStyle, { marginTop: 12 })}>
                 <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
                   All Models
                 </div>
@@ -304,7 +308,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                 var stats = entry[1];
                 var agentColor = theme.agentType[name] || theme.agentType.default;
                 return (
-                  <div key={name} style={Object.assign({}, CARD_STYLE, {
+                  <div key={name} style={Object.assign({}, cardStyle, {
                     border: "1px solid " + alpha(agentColor, 0.35),
                   })}>
                     <div style={{ display: "flex", alignItems: "center", gap: theme.space.sm, marginBottom: theme.space.sm }}>

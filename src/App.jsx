@@ -2,10 +2,8 @@ import React, { useState, useRef, useMemo, useCallback, useEffect } from "react"
 import {
   theme,
   getResolvedThemeMode,
-  getThemeTokensForMode,
   readStoredThemePreference,
-  setSystemThemePreference,
-  setThemePreference,
+  syncThemeState,
 } from "./lib/theme.js";
 import { exportSingleSession, exportComparison } from "./lib/exportHtml.js";
 import usePersistentState from "./hooks/usePersistentState.js";
@@ -259,33 +257,29 @@ export default function App() {
     };
   }, []);
 
-  useEffect(function () {
-    setThemePreference(themeModePreference);
-    setSystemThemePreference(systemThemeMode);
+  var themeTokens = useMemo(function () {
+    return syncThemeState(themeModePreference, systemThemeMode);
   }, [themeModePreference, systemThemeMode]);
-
   var resolvedThemeMode = getResolvedThemeMode(themeModePreference, systemThemeMode);
 
   useEffect(function () {
     if (typeof document === "undefined") return;
 
-    var tokens = getThemeTokensForMode(themeModePreference, systemThemeMode);
-
     document.documentElement.dataset.theme = resolvedThemeMode;
     document.documentElement.dataset.themePreference = themeModePreference;
     document.documentElement.style.colorScheme = resolvedThemeMode;
-    document.documentElement.style.setProperty("--av-bg-base", tokens.bg.base);
-    document.documentElement.style.setProperty("--av-bg-surface", tokens.bg.surface);
-    document.documentElement.style.setProperty("--av-bg-hover", tokens.bg.hover);
-    document.documentElement.style.setProperty("--av-bg-active", tokens.bg.active);
-    document.documentElement.style.setProperty("--av-focus", tokens.border.focus);
-    document.documentElement.style.setProperty("--av-border", tokens.border.default);
-    document.documentElement.style.setProperty("--av-border-strong", tokens.border.strong);
-    document.documentElement.style.setProperty("--av-text-primary", tokens.text.primary);
-    document.documentElement.style.setProperty("--av-text-secondary", tokens.text.secondary);
-    document.body.style.background = tokens.bg.base;
-    document.body.style.color = tokens.text.primary;
-  }, [themeModePreference, systemThemeMode, resolvedThemeMode]);
+    document.documentElement.style.setProperty("--av-bg-base", themeTokens.bg.base);
+    document.documentElement.style.setProperty("--av-bg-surface", themeTokens.bg.surface);
+    document.documentElement.style.setProperty("--av-bg-hover", themeTokens.bg.hover);
+    document.documentElement.style.setProperty("--av-bg-active", themeTokens.bg.active);
+    document.documentElement.style.setProperty("--av-focus", themeTokens.border.focus);
+    document.documentElement.style.setProperty("--av-border", themeTokens.border.default);
+    document.documentElement.style.setProperty("--av-border-strong", themeTokens.border.strong);
+    document.documentElement.style.setProperty("--av-text-primary", themeTokens.text.primary);
+    document.documentElement.style.setProperty("--av-text-secondary", themeTokens.text.secondary);
+    document.body.style.background = themeTokens.bg.base;
+    document.body.style.color = themeTokens.text.primary;
+  }, [themeModePreference, systemThemeMode, resolvedThemeMode, themeTokens]);
 
   var autonomyMetrics = useMemo(function () {
     return buildAutonomyMetrics(session.events, session.turns, session.metadata);

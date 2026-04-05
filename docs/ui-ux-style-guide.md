@@ -605,6 +605,17 @@ gap: 12,
 
 Prefer flexbox for everything else. Grid is reserved for uniform card grids.
 
+**Responsive dashboard stat bars:**
+For landing dashboards or scorecard summaries that must avoid squashed cards, use:
+
+```jsx
+display: "grid",
+gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+gap: 10,
+```
+
+This lets four summary cards reflow cleanly instead of compressing into unreadable columns.
+
 ### Clickable Content Cards
 
 For card grids where each card represents a navigable item (sessions, experiments, etc.):
@@ -615,12 +626,15 @@ For card grids where each card represents a navigable item (sessions, experiment
   background: theme.bg.surface,
   border: "1px solid " + theme.border.default,
   borderRadius: theme.radius.lg,
-  padding: "12px 14px",
+  padding: "12px 14px 12px 18px",
   textAlign: "left",
   cursor: "pointer",
   width: "100%",
+  minHeight: 152,
   transition: theme.transition.fast,
   position: "relative",
+  appearance: "none",
+  WebkitAppearance: "none",
   overflow: "hidden",
 }}>
 ```
@@ -649,9 +663,29 @@ Use a `::before`-style absolute-positioned div for color-coded status:
 **Card content layout:**
 
 - Header row: flex with `justifyContent: space-between` for title + timestamp
+- Primary filename or session title: `theme.text.primary` for analyzed cards, `theme.text.secondary` for discovered-only cards
+- Metadata row: `theme.text.muted` for analyzed cards, `theme.text.ghost` for discovered-only cards
 - Metrics row: flex with `gap: 12` for inline stat chips
-- Summary: single line, truncated with `textOverflow: ellipsis`
+- Summary: secondary text, up to two lines, clamped
 - Use `theme.text.secondary` for labels, `theme.text.primary` for values
+- Use phrasing elements (`span`, `strong`, `small`) inside clickable card buttons. Avoid nested `div` wrappers inside custom-styled `<button>` cards.
+
+**Dashboard session grids:**
+For landing-page session dashboards, use:
+
+```jsx
+display: "grid",
+gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+gridAutoRows: "minmax(152px, auto)",
+gap: 10,
+alignContent: "start",
+alignItems: "start",
+```
+
+This prevents session cards from collapsing in WebKit and keeps dense session libraries readable.
+
+**Landing-mode toolbar parity:**
+If two landing modes expose the same session dataset, they should reuse the same search, dropdown, and refresh treatments. Do not mix native browser selects in one mode with custom floating dropdowns in the other.
 
 **Cards must be `<button>` elements**, not clickable `<div>`. Set `textAlign: "left"` to
 override the button default. This ensures keyboard accessibility.
@@ -667,6 +701,7 @@ dim the partial cards:
 
 - Text truncation: `overflow: hidden; textOverflow: ellipsis; whiteSpace: nowrap`.
 - Always set `minWidth: 0` on flex children that contain truncated text.
+- Scrollable grid panels should also set `minHeight: 0` on the flex child that owns the grid so the card area can shrink without collapsing rows.
 - Virtual scrolling for large lists (ReplayView, WaterfallView) with overscan.
 - `maxWidth: 560px` centered for modal and drop zone content.
 

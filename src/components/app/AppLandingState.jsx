@@ -69,8 +69,8 @@ function DragOverlay({ onLoad }) {
           <div style={{ fontSize: theme.fontSize.xl, color: theme.accent.primary, fontFamily: theme.font.mono }}>
             Drop session file to import
           </div>
-        <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
-          Claude Code, VS Code, and Copilot CLI sessions
+          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted }}>
+            Claude Code, VS Code, and Copilot CLI sessions
           </div>
         </div>
       )}
@@ -100,46 +100,50 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
         </div>
       </div>
 
-      <div style={{ width: "100%", maxWidth: landingMode === "dashboard" ? 1100 : 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ width: "100%", maxWidth: landingMode === "dashboard" ? 1240 : 860, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", gap: 8 }}>
         {/* view toggle */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, flexShrink: 0 }}>
-          {[
-            { id: "inbox", icon: "layout-list", label: "List" },
-            { id: "dashboard", icon: "layout-grid", label: "Dashboard" },
-          ].map(function (item) {
-            var active = landingMode === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                title={item.label}
-                onClick={function () { setLandingMode(item.id); }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  background: active ? theme.bg.raised : "transparent",
-                  border: "1px solid " + (active ? theme.border.strong : "transparent"),
-                  borderRadius: theme.radius.md,
-                  padding: "4px 8px",
-                  cursor: "pointer",
-                  color: active ? theme.text.primary : theme.text.dim,
-                  fontSize: theme.fontSize.xs,
-                  fontFamily: theme.font.mono,
-                  transition: "color " + theme.transition.fast,
-                }}
-              >
-                <Icon name={item.icon} size={12} />
-                {item.label}
-              </button>
-            );
-          })}
+        <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 4, background: theme.bg.surface, border: "1px solid " + theme.border.default, borderRadius: theme.radius.lg, padding: 4 }}>
+            {[
+              { id: "inbox", icon: "layout-list", label: "List" },
+              { id: "dashboard", icon: "layout-grid", label: "Dashboard" },
+            ].map(function (item) {
+              var active = landingMode === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="av-btn"
+                  title={item.label}
+                  aria-pressed={active}
+                  onClick={function () { setLandingMode(item.id); }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: active ? theme.bg.raised : "transparent",
+                    border: "none",
+                    borderRadius: theme.radius.md,
+                    padding: "4px 8px",
+                    color: active ? theme.accent.primary : theme.text.muted,
+                    fontSize: theme.fontSize.xs,
+                    fontFamily: theme.font.mono,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Icon name={item.icon} size={12} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {landingMode === "dashboard" ? (
           <DashboardView
             entries={inboxEntries}
             onOpenSession={onOpenInboxSession}
+            onRefresh={onRefresh}
           />
         ) : (
           <InboxView

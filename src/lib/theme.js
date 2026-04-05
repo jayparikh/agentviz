@@ -256,6 +256,12 @@ export function getThemeTokensForMode(mode, systemMode) {
   return getThemeTokens(mode, systemMode);
 }
 
+export function syncThemeState(mode, systemMode) {
+  setThemePreference(mode);
+  setSystemThemePreference(systemMode);
+  return getThemeTokens(mode, systemMode);
+}
+
 export const THEME_MODES = [
   { id: "system", label: "System", icon: "monitor" },
   { id: "light", label: "Light", icon: "sun" },

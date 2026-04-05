@@ -1,76 +1,99 @@
-import { useMemo, useState } from "react";
-import { theme, alpha } from "../lib/theme.js";
-import { formatDurationLong } from "../lib/formatTime.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { theme } from "../lib/theme.js";
+import { formatRelativeTime } from "../lib/formatTime.js";
 import { formatCost } from "../lib/pricing.js";
-import { formatAutonomyEfficiency, getNeedsReviewScore } from "../lib/autonomyMetrics.js";
+import { formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
+import {
+  LANDING_FORMAT_OPTIONS,
+  LANDING_SORT_OPTIONS,
+  filterLandingEntriesByQuery,
+  formatLandingClientLabel,
+  getLandingEntryDisplayTitle,
+  getLandingEntrySecondaryText,
+  isLandingSearchShortcut,
+  settleLandingRefresh,
+  sortDiscoveredLandingEntries,
+  sortLandingEntries,
+} from "../lib/landingSessions.js";
 import Icon from "./Icon.jsx";
 import usePersistentState from "../hooks/usePersistentState.js";
-
-var SORT_OPTIONS = [
-  { id: "needs-review", label: "Needs review" },
-  { id: "most-recent", label: "Most recent" },
-  { id: "most-expensive", label: "Most expensive" },
-  { id: "most-active", label: "Most active" },
-];
-
-var FORMAT_OPTIONS = [
-  { id: "all", label: "All clients" },
-  { id: "claude-code", label: "Claude Code" },
-  { id: "copilot-cli", label: "Copilot CLI" },
-  { id: "vscode-chat", label: "VS Code" },
-];
+import ToolbarButton from "./ui/ToolbarButton.jsx";
+import ToolbarSelect from "./ui/ToolbarSelect.jsx";
 
 function healthColor(entry) {
   if (entry.isDiscovered || entry.reviewScore == null) return theme.border.strong;
   if (entry.reviewScore > 8) return theme.semantic.error;
-  if (entry.reviewScore > 3) return theme.semantic.warning;
+  if (entry.reviewScore > 3) return theme.accent.primary;
   return theme.semantic.success;
 }
 
-function formatRelativeTime(isoString) {
-  if (!isoString) return "";
-  var diff = Date.now() - new Date(isoString).getTime();
-  var mins = Math.floor(diff / 60000);
-  if (mins < 60) return mins <= 1 ? "just now" : mins + "m ago";
-  var hrs = Math.floor(mins / 60);
-  if (hrs < 24) return hrs + "h ago";
-  var days = Math.floor(hrs / 24);
-  if (days < 30) return days + "d ago";
-  return Math.floor(days / 30) + "mo ago";
+function uniquePush(parts, value) {
+  if (!value) return;
+  if (parts.indexOf(value) !== -1) return;
+  parts.push(value);
 }
 
-function formatLabel(entry) {
-  if (entry.format === "copilot-cli") return "Copilot CLI";
-  if (entry.format === "vscode-chat") return entry.isInsiders ? "VS Code Insiders" : "VS Code";
-  return "Claude Code";
+function getCardSummary(entry, title) {
+  var candidates = [getLandingEntrySecondaryText(entry, title), entry.project, entry.repository];
+  for (var i = 0; i < candidates.length; i += 1) {
+    var candidate = candidates[i];
+    if (!candidate || candidate === title) continue;
+    return candidate;
+  }
+  return null;
 }
 
-function sortEntries(entries, sortMode) {
-  return entries.slice().sort(function (a, b) {
-    if (sortMode === "most-recent") return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-    if (sortMode === "most-expensive") return (b.totalCost || 0) - (a.totalCost || 0);
-    if (sortMode === "most-active") return (b.totalEvents || 0) - (a.totalEvents || 0);
-    return (b.reviewScore || 0) - (a.reviewScore || 0)
-      || String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-  });
+function buildCardMeta(entry, title) {
+  var parts = [];
+  uniquePush(parts, formatLandingClientLabel(entry));
+  if (entry.project && entry.project !== title) uniquePush(parts, entry.project);
+  if (entry.repository && entry.repository !== title) uniquePush(parts, entry.repository);
+  if (entry.branch) uniquePush(parts, "#" + entry.branch);
+  return parts.join(" \u00B7 ");
 }
 
 function StatCard({ label, value, sub }) {
   return (
     <div style={{
-      flex: 1,
-      background: theme.bg.surface,
+      background: theme.bg.base,
       border: "1px solid " + theme.border.default,
       borderRadius: theme.radius.lg,
       padding: "12px 16px",
-      minWidth: 120,
+      minWidth: 0,
     }}>
-      <div style={{ fontSize: theme.fontSize.xxl, fontFamily: theme.font.mono, color: theme.text.primary, lineHeight: 1 }}>
+      <div style={{
+        fontSize: theme.fontSize.xxl,
+        fontFamily: theme.font.mono,
+        color: theme.text.primary,
+        lineHeight: 1,
+      }}>
         {value}
       </div>
-      <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginTop: 4 }}>{label}</div>
-      {sub && <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2 }}>{sub}</div>}
+      <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginTop: 4 }}>
+        {label}
+      </div>
+      {sub && (
+        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: 2, lineHeight: 1.6 }}>
+          {sub}
+        </div>
+      )}
     </div>
+  );
+}
+
+function MetricChip({ label, value, tone }) {
+  return (
+    <span style={{
+      padding: "4px 8px",
+      borderRadius: theme.radius.full,
+      background: theme.bg.base,
+      border: "1px solid " + theme.border.default,
+      fontSize: theme.fontSize.xs,
+      color: theme.text.secondary,
+    }}>
+      <span style={{ color: theme.text.muted }}>{label}: </span>
+      <span style={{ color: tone || theme.text.primary }}>{value}</span>
+    </span>
   );
 }
 
@@ -78,11 +101,17 @@ function SessionCard({ entry, onClick }) {
   var [hovered, setHovered] = useState(false);
   var autonomy = entry.autonomyMetrics || {};
   var isDiscovered = entry.isDiscovered;
-  var color = healthColor(entry);
-
-  var title = entry.primaryPrompt || entry.project || entry.file || entry.filename || "Untitled";
-  var metaLine = [formatLabel(entry), entry.project || entry.repository || null]
-    .filter(Boolean).join(" \u00B7 ");
+  var title = getLandingEntryDisplayTitle(entry);
+  var summary = isDiscovered ? null : getCardSummary(entry, title);
+  var meta = buildCardMeta(entry, title);
+  var updatedLabel = formatRelativeTime(entry.updatedAt || entry.importedAt);
+  var chips = [
+    entry.reviewScore != null ? { label: "Needs review", value: entry.reviewScore.toFixed(1) } : null,
+    autonomy.autonomyEfficiency != null ? { label: "Autonomy", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) } : null,
+    entry.totalCost != null ? { label: "Cost", value: formatCost(entry.totalCost) } : null,
+    { label: "Events", value: String(entry.totalEvents || 0) },
+    entry.errorCount > 0 ? { label: "Errors", value: String(entry.errorCount), tone: theme.semantic.error } : null,
+  ].filter(Boolean);
 
   return (
     <button
@@ -90,261 +119,333 @@ function SessionCard({ entry, onClick }) {
       onClick={onClick}
       onMouseEnter={function () { setHovered(true); }}
       onMouseLeave={function () { setHovered(false); }}
+      onFocus={function () { setHovered(true); }}
+      onBlur={function () { setHovered(false); }}
       style={{
         display: "flex",
         flexDirection: "column",
-        background: hovered ? theme.bg.hover : (isDiscovered ? theme.bg.base : theme.bg.surface),
+        background: hovered ? theme.bg.hover : theme.bg.surface,
         border: "1px solid " + (hovered ? theme.border.strong : theme.border.default),
         borderRadius: theme.radius.lg,
-        padding: 0,
+        padding: "12px 14px 12px 18px",
         overflow: "hidden",
         cursor: "pointer",
         textAlign: "left",
         transition: "background " + theme.transition.fast + ", border-color " + theme.transition.fast,
         width: "100%",
+        minHeight: 152,
+        minWidth: 0,
+        position: "relative",
+        appearance: "none",
+        WebkitAppearance: "none",
       }}
     >
-      {/* health color bar */}
-      <div style={{ height: 3, background: color, flexShrink: 0 }} />
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          borderRadius: "3px 0 0 3px",
+          background: healthColor(entry),
+        }}
+      />
 
-      <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
-        {/* header row */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.secondary }}>
-            {metaLine}
-          </div>
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, flexShrink: 0 }}>
-            {formatRelativeTime(entry.updatedAt || entry.importedAt)}
-          </div>
-        </div>
-
-        {/* title / prompt */}
-        <div style={{
-          fontSize: theme.fontSize.md,
-          color: isDiscovered ? theme.text.secondary : theme.text.primary,
-          fontFamily: theme.font.mono,
-          overflow: "hidden",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          lineHeight: 1.4,
-        }}>
-          {title}
-        </div>
-
-        {/* metrics row */}
-        {isDiscovered ? (
-          <div style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, marginTop: "auto" }}>
-            Open to analyze
-          </div>
-        ) : (
-          <div style={{
-            display: "flex",
-            gap: 12,
-            marginTop: "auto",
-            fontSize: theme.fontSize.xs,
-            color: theme.text.secondary,
+      <span style={{ display: "flex", flex: 1, flexDirection: "column", gap: 6, minWidth: 0 }}>
+        <span style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+          <span style={{
+            fontSize: theme.fontSize.base,
+            color: isDiscovered ? theme.text.secondary : theme.text.primary,
+            fontFamily: theme.font.mono,
+            lineHeight: 1.5,
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}>
-            {entry.duration != null && (
-              <span>{formatDurationLong(entry.duration)}</span>
-            )}
-            {entry.totalCost != null && (
-              <span>{formatCost(entry.totalCost)}</span>
-            )}
-            {entry.errorCount != null && entry.errorCount > 0 && (
-              <span style={{ color: theme.semantic.error }}>
-                {entry.errorCount} {entry.errorCount === 1 ? "error" : "errors"}
-              </span>
-            )}
-            {autonomy.autonomyEfficiency != null && (
-              <span style={{ color: theme.text.muted }}>
-                {formatAutonomyEfficiency(autonomy.autonomyEfficiency)} auto
-              </span>
-            )}
-          </div>
+            {title}
+          </span>
+          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, flexShrink: 0, marginTop: 1 }}>
+            {updatedLabel}
+          </span>
+        </span>
+
+        {meta && (
+          <span style={{
+            fontSize: theme.fontSize.sm,
+            color: isDiscovered ? theme.text.ghost : theme.text.muted,
+            lineHeight: 1.5,
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}>
+            {meta}
+          </span>
         )}
-      </div>
+
+        {summary && (
+          <span style={{
+            fontSize: theme.fontSize.base,
+            color: theme.text.secondary,
+            lineHeight: 1.6,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            minWidth: 0,
+          }}>
+            {summary}
+          </span>
+        )}
+
+        {isDiscovered ? (
+          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginTop: "auto", opacity: 0.8 }}>
+            Not yet analyzed
+          </span>
+        ) : (
+          <span style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: "auto" }}>
+            {chips.map(function (chip) {
+              return <MetricChip key={chip.label} label={chip.label} value={chip.value} tone={chip.tone} />;
+            })}
+          </span>
+        )}
+      </span>
     </button>
   );
 }
 
-export default function DashboardView({ entries, onOpenSession }) {
+export default function DashboardView({ entries, onOpenSession, onRefresh }) {
   var [sortMode, setSortMode] = usePersistentState("agentviz:dashboard-sort", "needs-review");
   var [formatFilter, setFormatFilter] = usePersistentState("agentviz:dashboard-format", "all");
   var [query, setQuery] = useState("");
+  var [refreshing, setRefreshing] = useState(false);
+  var searchRef = useRef(null);
 
-  var libraryEntries = useMemo(function () {
-    return (entries || []).filter(function (e) { return !e.isDiscovered; });
+  useEffect(function () {
+    function onKey(event) {
+      if (!isLandingSearchShortcut(event)) return;
+      event.preventDefault();
+      if (searchRef.current) searchRef.current.focus();
+    }
+    document.addEventListener("keydown", onKey);
+    return function () { document.removeEventListener("keydown", onKey); };
+  }, []);
+
+  var analyzedEntries = useMemo(function () {
+    return (entries || []).filter(function (entry) { return !entry.isDiscovered; });
   }, [entries]);
 
-  // Aggregate stats — always computed so the bar is always visible
   var stats = useMemo(function () {
     var allEntries = entries || [];
     if (allEntries.length === 0) return null;
-    var totalCost = libraryEntries.reduce(function (s, e) { return s + (e.totalCost || 0); }, 0);
-    var withAutonomy = libraryEntries.filter(function (e) {
-      return e.autonomyMetrics && e.autonomyMetrics.autonomyEfficiency != null;
+
+    var totalCost = analyzedEntries.reduce(function (sum, entry) {
+      return sum + (entry.totalCost || 0);
+    }, 0);
+    var withAutonomy = analyzedEntries.filter(function (entry) {
+      return entry.autonomyMetrics && entry.autonomyMetrics.autonomyEfficiency != null;
     });
     var avgAutonomy = withAutonomy.length > 0
-      ? withAutonomy.reduce(function (s, e) { return s + e.autonomyMetrics.autonomyEfficiency; }, 0) / withAutonomy.length
+      ? withAutonomy.reduce(function (sum, entry) { return sum + entry.autonomyMetrics.autonomyEfficiency; }, 0) / withAutonomy.length
       : null;
-    var totalErrors = libraryEntries.reduce(function (s, e) { return s + (e.errorCount || 0); }, 0);
+    var totalErrors = analyzedEntries.reduce(function (sum, entry) {
+      return sum + (entry.errorCount || 0);
+    }, 0);
+
     return {
       total: allEntries.length,
-      analyzed: libraryEntries.length,
-      avgCost: libraryEntries.length > 0 ? totalCost / libraryEntries.length : null,
+      analyzed: analyzedEntries.length,
+      discovered: allEntries.length - analyzedEntries.length,
+      avgCost: analyzedEntries.length > 0 ? totalCost / analyzedEntries.length : null,
       avgAutonomy: avgAutonomy,
-      totalErrors: libraryEntries.length > 0 ? totalErrors : null,
+      totalErrors: analyzedEntries.length > 0 ? totalErrors : null,
     };
-  }, [libraryEntries, entries]);
+  }, [analyzedEntries, entries]);
 
-  var filtered = useMemo(function () {
-    var q = query.trim().toLowerCase();
-    var result = entries || [];
+  var filteredEntries = useMemo(function () {
+    var result = filterLandingEntriesByQuery(entries, query);
+
     if (formatFilter !== "all") {
-      result = result.filter(function (e) { return e.format === formatFilter; });
+      result = result.filter(function (entry) { return entry.format === formatFilter; });
     }
-    if (q) {
-      result = result.filter(function (e) {
-        return (e.primaryPrompt || "").toLowerCase().includes(q)
-          || (e.project || "").toLowerCase().includes(q)
-          || (e.repository || "").toLowerCase().includes(q)
-          || (e.file || "").toLowerCase().includes(q);
-      });
-    }
-    // Discovered-only always go at the end, sort within each group
-    var library = result.filter(function (e) { return !e.isDiscovered; });
-    var discovered = result.filter(function (e) { return e.isDiscovered; });
-    return sortEntries(library, sortMode).concat(sortEntries(discovered, "most-recent"));
+
+    var analyzed = result.filter(function (entry) { return !entry.isDiscovered; });
+    var discovered = result.filter(function (entry) { return entry.isDiscovered; });
+    return sortLandingEntries(analyzed, sortMode).concat(sortDiscoveredLandingEntries(discovered));
   }, [entries, sortMode, formatFilter, query]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: 12 }}>
+    <div style={{
+      flex: 1,
+      minHeight: 0,
+      background: theme.bg.surface,
+      border: "1px solid " + theme.border.default,
+      borderRadius: theme.radius.xxl,
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+    }}>
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        padding: 12,
+        borderBottom: "1px solid " + theme.border.default,
+        flexShrink: 0,
+      }}>
+        {stats && (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 10,
+          }}>
+            <StatCard
+              label="sessions"
+              value={stats.total}
+              sub={stats.discovered > 0 ? stats.analyzed + " analyzed, " + stats.discovered + " discovered" : null}
+            />
+            <StatCard
+              label="avg cost"
+              value={stats.avgCost != null ? formatCost(stats.avgCost) : "--"}
+              sub={stats.analyzed === 0 ? "open sessions to analyze" : null}
+            />
+            <StatCard
+              label="avg autonomy"
+              value={stats.avgAutonomy != null ? formatAutonomyEfficiency(stats.avgAutonomy) : "--"}
+            />
+            <StatCard
+              label="total errors"
+              value={stats.totalErrors != null ? stats.totalErrors : "--"}
+            />
+          </div>
+        )}
 
-      {/* stats bar */}
-      {stats && (
-        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-          <StatCard
-            label="sessions"
-            value={stats.total}
-            sub={stats.analyzed < stats.total ? stats.analyzed + " analyzed, " + (stats.total - stats.analyzed) + " discovered" : null}
+        <div style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          flexWrap: "wrap",
+          position: "relative",
+          zIndex: theme.z.active,
+        }}>
+          <div className="av-search-wrap" style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: theme.bg.base, border: "1px solid " + theme.border.default, borderRadius: theme.radius.md, padding: "4px 8px", transition: "border-color 150ms ease-out" }}>
+            <Icon name="search" size={13} style={{ color: theme.text.dim, flexShrink: 0 }} />
+            <input
+              ref={searchRef}
+              type="text"
+              aria-label="Search sessions"
+              placeholder="Search sessions (/)"
+              className="av-search"
+              value={query}
+              onChange={function (event) { setQuery(event.target.value); }}
+              style={{
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: theme.text.primary,
+                fontSize: theme.fontSize.sm,
+                fontFamily: theme.font.mono,
+                width: "100%",
+              }}
+            />
+            {query && (
+              <button
+                type="button"
+                className="av-btn"
+                aria-label="Clear search"
+                onClick={function () { setQuery(""); }}
+                style={{ background: "transparent", border: "none", color: theme.text.ghost, padding: 0, cursor: "pointer", lineHeight: 1 }}
+              >
+                <Icon name="close" size={11} />
+              </button>
+            )}
+          </div>
+
+          <ToolbarSelect
+            ariaLabel="Filter dashboard sessions by format"
+            value={formatFilter}
+            onChange={function (value) { setFormatFilter(value); }}
+            options={LANDING_FORMAT_OPTIONS}
+            minWidth={140}
+            menuWidth={180}
           />
-          <StatCard
-            label="avg cost"
-            value={stats.avgCost != null ? formatCost(stats.avgCost) : "--"}
-            sub={stats.analyzed === 0 ? "open sessions to analyze" : null}
+
+          <ToolbarSelect
+            ariaLabel="Sort dashboard sessions"
+            value={sortMode}
+            onChange={function (value) { setSortMode(value); }}
+            options={LANDING_SORT_OPTIONS}
+            minWidth={140}
+            menuWidth={180}
           />
-          <StatCard
-            label="avg autonomy"
-            value={stats.avgAutonomy != null ? formatAutonomyEfficiency(stats.avgAutonomy) : "--"}
-          />
-          <StatCard
-            label="total errors"
-            value={stats.totalErrors != null ? stats.totalErrors : "--"}
-          />
+
+          {onRefresh && (
+            <ToolbarButton
+              aria-label="Rescan session directories"
+              disabled={refreshing}
+              onClick={function () {
+                setRefreshing(true);
+                var result = onRefresh();
+                settleLandingRefresh(result, function () {
+                  setRefreshing(false);
+                });
+              }}
+              style={{
+                padding: "4px 8px",
+                background: theme.bg.base,
+                fontSize: theme.fontSize.xs,
+                flexShrink: 0,
+              }}
+            >
+              <Icon name="refresh-cw" size={11} style={refreshing ? { animation: "spin 0.8s linear infinite" } : undefined} />
+            </ToolbarButton>
+          )}
         </div>
-      )}
-
-      {/* filter row */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <Icon name="search" size={11} style={{
-            position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)",
-            color: theme.text.dim, pointerEvents: "none",
-          }} />
-          <input
-            type="text"
-            placeholder="Search sessions..."
-            value={query}
-            onChange={function (e) { setQuery(e.target.value); }}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              background: theme.bg.surface,
-              border: "1px solid " + theme.border.default,
-              borderRadius: theme.radius.md,
-              padding: "5px 10px 5px 28px",
-              fontSize: theme.fontSize.xs,
-              fontFamily: theme.font.mono,
-              color: theme.text.primary,
-              outline: "none",
-            }}
-          />
-        </div>
-
-        <select
-          value={formatFilter}
-          onChange={function (e) { setFormatFilter(e.target.value); }}
-          style={{
-            background: theme.bg.surface,
-            border: "1px solid " + theme.border.default,
-            borderRadius: theme.radius.md,
-            padding: "5px 10px",
-            fontSize: theme.fontSize.xs,
-            fontFamily: theme.font.mono,
-            color: theme.text.secondary,
-            cursor: "pointer",
-            outline: "none",
-          }}
-        >
-          {FORMAT_OPTIONS.map(function (o) {
-            return <option key={o.id} value={o.id}>{o.label}</option>;
-          })}
-        </select>
-
-        <select
-          value={sortMode}
-          onChange={function (e) { setSortMode(e.target.value); }}
-          style={{
-            background: theme.bg.surface,
-            border: "1px solid " + theme.border.default,
-            borderRadius: theme.radius.md,
-            padding: "5px 10px",
-            fontSize: theme.fontSize.xs,
-            fontFamily: theme.font.mono,
-            color: theme.text.secondary,
-            cursor: "pointer",
-            outline: "none",
-          }}
-        >
-          {SORT_OPTIONS.map(function (o) {
-            return <option key={o.id} value={o.id}>{o.label}</option>;
-          })}
-        </select>
       </div>
 
-      {/* card grid */}
-      {filtered.length === 0 ? (
-        <div style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: theme.text.dim,
-          fontSize: theme.fontSize.md,
-        }}>
-          No sessions found
-        </div>
-      ) : (
-        <div style={{
-          flex: 1,
-          overflowY: "auto",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          gap: 10,
-          alignContent: "start",
-        }}>
-          {filtered.map(function (entry) {
-            return (
-              <SessionCard
-                key={entry.id}
-                entry={entry}
-                onClick={function () { onOpenSession(entry); }}
-              />
-            );
-          })}
-        </div>
-      )}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12 }}>
+        {filteredEntries.length === 0 ? (
+          <div style={{
+            border: "1px dashed " + theme.border.strong,
+            borderRadius: theme.radius.xl,
+            padding: "18px 16px",
+            minHeight: 180,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            color: theme.text.dim,
+            fontSize: theme.fontSize.md,
+            fontFamily: theme.font.mono,
+            lineHeight: 1.8,
+            background: theme.bg.base,
+          }}>
+            {query ? "No sessions matching \"" + query + "\"" : "No sessions available yet."}
+          </div>
+        ) : (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gridAutoRows: "minmax(152px, auto)",
+            gap: 10,
+            alignContent: "start",
+            alignItems: "start",
+          }}>
+            {filteredEntries.map(function (entry) {
+              return (
+                <SessionCard
+                  key={entry.id}
+                  entry={entry}
+                  onClick={function () { onOpenSession(entry); }}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

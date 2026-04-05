@@ -3,72 +3,56 @@ import { theme, alpha } from "../lib/theme.js";
 import { formatDurationLong } from "../lib/formatTime.js";
 import { formatCost } from "../lib/pricing.js";
 import { formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
+import {
+  LANDING_FORMAT_OPTIONS,
+  LANDING_SORT_LABELS,
+  formatLandingClientLabel,
+  filterLandingEntriesByQuery,
+  getLandingEntryDisplayTitle,
+  getLandingEntrySecondaryText,
+  isLandingSearchShortcut,
+  settleLandingRefresh,
+  sortDiscoveredLandingEntries,
+  sortLandingEntries,
+  sortLandingEntriesByDate,
+} from "../lib/landingSessions.js";
 import Icon from "./Icon.jsx";
+import ToolbarButton from "./ui/ToolbarButton.jsx";
+import ToolbarSelect from "./ui/ToolbarSelect.jsx";
+import usePersistentState from "../hooks/usePersistentState.js";
 
 var SORT_OPTIONS = [
-  { id: "needs-review", label: "Needs review" },
-  { id: "most-active", label: "Most active" },
-  { id: "most-expensive", label: "Most expensive" },
+  { id: "needs-review", label: LANDING_SORT_LABELS["needs-review"] },
+  { id: "most-active", label: LANDING_SORT_LABELS["most-active"] },
+  { id: "most-expensive", label: LANDING_SORT_LABELS["most-expensive"] },
   { id: "highest-babysitting", label: "Most human response time" },
   { id: "highest-idle", label: "Highest idle" },
-  { id: "most-recent", label: "Most recent" },
-];
-
-var FORMAT_OPTIONS = [
-  { id: "all", label: "All clients" },
-  { id: "claude-code", label: "Claude Code" },
-  { id: "copilot-cli", label: "Copilot CLI" },
-  { id: "vscode-chat", label: "VS Code" },
+  { id: "most-recent", label: LANDING_SORT_LABELS["most-recent"] },
 ];
 
 function sortEntries(entries, sortMode) {
-  var sorted = (entries || []).slice();
-
-  sorted.sort(function (left, right) {
-    if (sortMode === "most-active") {
-      return (right.totalEvents || 0) - (left.totalEvents || 0);
-    }
-
-    if (sortMode === "most-expensive") {
-      return (right.totalCost || 0) - (left.totalCost || 0);
-    }
-
-    if (sortMode === "highest-babysitting") {
+  if (sortMode === "highest-babysitting") {
+    return (entries || []).slice().sort(function (left, right) {
       return ((right.autonomyMetrics || {}).babysittingTime || 0) - ((left.autonomyMetrics || {}).babysittingTime || 0);
-    }
+    });
+  }
 
-    if (sortMode === "highest-idle") {
+  if (sortMode === "highest-idle") {
+    return (entries || []).slice().sort(function (left, right) {
       return ((right.autonomyMetrics || {}).idleTime || 0) - ((left.autonomyMetrics || {}).idleTime || 0);
-    }
+    });
+  }
 
-    if (sortMode === "most-recent") {
-      return String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""));
-    }
-
-    return (right.reviewScore || 0) - (left.reviewScore || 0)
-      || String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""));
-  });
-
-  return sorted;
+  return sortLandingEntries(entries, sortMode);
 }
 
-function sortByDate(entries) {
-  return (entries || []).slice().sort(function (a, b) {
-    return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-  });
-}
-
-function formatLabel(entry) {
-  var format = typeof entry === "string" ? entry : (entry && entry.format);
-  var isInsiders = typeof entry === "object" && entry && entry.isInsiders;
-  if (format === "copilot-cli") return "Copilot CLI";
-  if (format === "vscode-chat") return isInsiders ? "VS Code Insiders" : "VS Code";
-  return "Claude Code";
+  function sortByDate(entries) {
+  return sortDiscoveredLandingEntries(entries);
 }
 
 function buildEntryTooltip(entry) {
   if (entry.discoveredPath) return entry.discoveredPath;
-  // No path stored — reconstruct a likely location from what we know
+  // No path stored; reconstruct a likely location from what we know.
   if (entry.format === "copilot-cli" && entry.sessionId) {
     return "~/.copilot/session-state/" + entry.sessionId + "/events.jsonl";
   }
@@ -80,7 +64,7 @@ function buildEntryTooltip(entry) {
 
 function renderMeta(entry) {
   var parts = [
-    formatLabel(entry),
+    formatLandingClientLabel(entry),
     entry.project || null,
     entry.primaryModel,
     entry.repository,
@@ -109,117 +93,18 @@ function formatMtime(isoString) {
   return mm + "-" + dd + " " + hh + ":" + min;
 }
 
-function filterByQuery(entries, q) {
-  if (!q) return entries || [];
-  return (entries || []).filter(function (e) {
-    return (e.file || "").toLowerCase().includes(q)
-      || (e.project || "").toLowerCase().includes(q)
-      || (e.primaryPrompt || "").toLowerCase().includes(q)
-      || (e.repository || "").toLowerCase().includes(q);
-  });
-}
-
-function CustomSelect({ ariaLabel, value, onChange, options }) {
-  var [open, setOpen] = useState(false);
-  var ref = useRef(null);
-  var selected = options.find(function (o) { return o.id === value; });
-
-  useEffect(function () {
-    if (!open) return;
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return function () { document.removeEventListener("mousedown", handleClick); };
-  }, [open]);
-
-  return (
-    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
-      <button
-        type="button"
-        className="av-btn"
-        aria-label={ariaLabel}
-        onClick={function () { setOpen(function (v) { return !v; }); }}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          background: theme.bg.base,
-          color: theme.text.muted,
-          border: "1px solid " + theme.border.default,
-          borderRadius: theme.radius.md,
-          padding: "5px 10px",
-          fontSize: theme.fontSize.xs,
-          fontFamily: theme.font.mono,
-          cursor: "pointer",
-          minWidth: 120,
-        }}
-      >
-        <span style={{ flex: 1, textAlign: "left" }}>{selected ? selected.label : ""}</span>
-        <Icon name="chevron-down" size={10} style={{ opacity: 0.5 }} />
-      </button>
-      {open && (
-        <div style={{
-          position: "absolute",
-          top: "calc(100% + 4px)",
-          right: 0,
-          background: theme.bg.surface,
-          border: "1px solid " + theme.border.strong,
-          borderRadius: theme.radius.lg,
-          padding: 4,
-          zIndex: theme.z.tooltip,
-          boxShadow: theme.shadow.md,
-          minWidth: 180,
-        }}>
-          {options.map(function (option) {
-            var isActive = option.id === value;
-            return (
-              <button
-                key={option.id}
-                className="av-interactive"
-                onClick={function () { onChange(option.id); setOpen(false); }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  width: "100%",
-                  padding: "5px 10px",
-                  borderRadius: theme.radius.md,
-                  background: isActive ? theme.bg.raised : "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontSize: theme.fontSize.xs,
-                  fontFamily: theme.font.mono,
-                  color: isActive ? theme.accent.primary : theme.text.secondary,
-                }}
-              >
-                <span style={{ width: 12, textAlign: "center", fontSize: theme.fontSize.xs }}>
-                  {isActive ? "\u2713" : ""}
-                </span>
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare, onRefresh }) {
-  var [sortMode, setSortMode] = useState("most-recent");
-  var [formatFilter, setFormatFilter] = useState("all");
+  var [sortMode, setSortMode] = usePersistentState("agentviz:inbox-sort", "most-recent");
+  var [formatFilter, setFormatFilter] = usePersistentState("agentviz:inbox-format", "all");
   var [query, setQuery] = useState("");
   var [refreshing, setRefreshing] = useState(false);
   var searchRef = useRef(null);
 
   useEffect(function () {
     function onKey(e) {
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
-        e.preventDefault();
-        if (searchRef.current) searchRef.current.focus();
-      }
+      if (!isLandingSearchShortcut(e)) return;
+      e.preventDefault();
+      if (searchRef.current) searchRef.current.focus();
     }
     document.addEventListener("keydown", onKey);
     return function () { document.removeEventListener("keydown", onKey); };
@@ -237,8 +122,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
   var discoveredCount = discoveredEntries.length;
 
   var sortedParsed = useMemo(function () {
-    var q = query.trim().toLowerCase();
-    var filtered = filterByQuery(parsedEntries, q);
+    var filtered = filterLandingEntriesByQuery(parsedEntries, query);
     if (formatFilter !== "all") {
       filtered = filtered.filter(function (e) { return e.format === formatFilter; });
     }
@@ -249,8 +133,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
   var [showAllDiscovered, setShowAllDiscovered] = useState(false);
 
   var filteredDiscovered = useMemo(function () {
-    var q = query.trim().toLowerCase();
-    var filtered = filterByQuery(discoveredEntries, q);
+    var filtered = filterLandingEntriesByQuery(discoveredEntries, query);
     if (formatFilter !== "all") {
       filtered = filtered.filter(function (e) { return e.format === formatFilter; });
     }
@@ -284,8 +167,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
         padding: "10px 12px",
         borderBottom: "1px solid " + theme.border.default,
         flexShrink: 0,
+        position: "relative",
+        zIndex: theme.z.active,
       }}>
-        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 2, marginRight: 4, flexShrink: 0 }}>
+        <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, marginRight: 4, flexShrink: 0 }}>
           Inbox
         </div>
         {(analyzedCount > 0 || discoveredCount > 0) && (
@@ -303,6 +188,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             value={query}
             onChange={function (e) { setQuery(e.target.value); }}
             placeholder="Search sessions (/)"
+            aria-label="Search sessions"
             className="av-search"
             style={{
               background: "transparent",
@@ -315,18 +201,18 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             }}
           />
           {query && (
-            <button className="av-btn" aria-label="Clear search" onClick={function () { setQuery(""); }} style={{ background: "transparent", border: "none", color: theme.text.ghost, padding: 0, cursor: "pointer", lineHeight: 1 }}>
+            <button type="button" className="av-btn" aria-label="Clear search" onClick={function () { setQuery(""); }} style={{ background: "transparent", border: "none", color: theme.text.ghost, padding: 0, cursor: "pointer", lineHeight: 1 }}>
               <Icon name="close" size={11} />
             </button>
           )}
         </div>
-        <CustomSelect
+        <ToolbarSelect
           ariaLabel="Filter by format"
           value={formatFilter}
           onChange={function (val) { setFormatFilter(val); }}
-          options={FORMAT_OPTIONS}
+          options={LANDING_FORMAT_OPTIONS}
         />
-        <CustomSelect
+        <ToolbarSelect
           ariaLabel="Sort inbox sessions"
           value={sortMode}
           onChange={function (val) { setSortMode(val); }}
@@ -351,31 +237,25 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           </label>
         )}
         {onRefresh && (
-          <button
-            type="button"
-            className="av-btn"
-            title="Rescan session directories"
+          <ToolbarButton
+            aria-label="Rescan session directories"
             disabled={refreshing}
             onClick={function () {
               setRefreshing(true);
               var result = onRefresh();
-              if (result && typeof result.then === "function") {
-                result.finally(function () { setRefreshing(false); });
-              } else {
+              settleLandingRefresh(result, function () {
                 setRefreshing(false);
-              }
+              });
             }}
             style={{
-              display: "flex", alignItems: "center",
               padding: "4px 8px",
-              background: theme.bg.base, border: "1px solid " + theme.border.default,
-              borderRadius: theme.radius.md, color: theme.text.muted,
-              fontSize: theme.fontSize.xs, cursor: refreshing ? "default" : "pointer", flexShrink: 0,
-              opacity: refreshing ? 0.6 : 1,
+              background: theme.bg.base,
+              fontSize: theme.fontSize.xs,
+              flexShrink: 0,
             }}
           >
             <Icon name="refresh-cw" size={11} style={refreshing ? { animation: "spin 0.8s linear infinite" } : undefined} />
-          </button>
+          </ToolbarButton>
         )}
       </div>
 
@@ -465,6 +345,8 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
         {sortedParsed.map(function (entry) {
           var autonomy = entry.autonomyMetrics || {};
           var canOpen = Boolean(entry.hasContent || entry.discoveredPath);
+          var title = getLandingEntryDisplayTitle(entry);
+          var secondaryText = getLandingEntrySecondaryText(entry, title);
 
           return (
             <div
@@ -479,22 +361,23 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ minWidth: 0 }}>
                   <div
-                    title={buildEntryTooltip(entry)}
-                    style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}
+                     title={buildEntryTooltip(entry)}
+                     style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}
                   >
-                    {entry.file}
+                    {title}
                   </div>
                   <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginTop: 4, lineHeight: 1.5 }}>
                     {renderMeta(entry)}
                   </div>
-                  {entry.primaryPrompt && (
+                  {secondaryText && (
                     <div style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, marginTop: 8, lineHeight: 1.6 }}>
-                      {entry.primaryPrompt}
+                      {secondaryText}
                     </div>
                   )}
                 </div>
 
                 <button
+                  type="button"
                   className="av-btn"
                   disabled={!canOpen}
                   onClick={function () { onOpenSession(entry); }}
@@ -562,6 +445,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             </div>
 
             {sortedDiscovered.map(function (entry) {
+              var title = getLandingEntryDisplayTitle(entry);
               return (
                 <div
                   key={entry.id}
@@ -578,11 +462,11 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                         title={buildEntryTooltip(entry)}
                         style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontFamily: theme.font.mono }}
                       >
-                        {entry.file}
+                        {title}
                       </div>
                       <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>
                         {[
-                          formatLabel(entry),
+                          formatLandingClientLabel(entry),
                           entry.project || null,
                           formatFileSize(entry.size),
                           formatMtime(entry.updatedAt || entry.importedAt),
@@ -591,6 +475,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                     </div>
 
                     <button
+                      type="button"
                       className="av-btn"
                       onClick={function () { onOpenSession(entry); }}
                       style={{
@@ -614,6 +499,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
 
             {!showAllDiscovered && totalFilteredDiscovered > 15 && (
               <button
+                type="button"
                 className="av-btn"
                 onClick={function () { setShowAllDiscovered(true); }}
                 style={{

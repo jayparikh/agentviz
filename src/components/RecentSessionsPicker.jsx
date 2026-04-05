@@ -1,23 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import { formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
+import { formatRelativeTime } from "../lib/formatTime.js";
+import { getLandingEntryDisplayTitle, sortDiscoveredLandingEntries, sortLandingEntriesByDate } from "../lib/landingSessions.js";
 import Icon from "./Icon.jsx";
 import KeyboardHint from "./ui/KeyboardHint.jsx";
-
-function formatRelativeDate(isoString) {
-  if (!isoString) return "";
-  var now = Date.now();
-  var then = new Date(isoString).getTime();
-  var diffMs = now - then;
-  var diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return diffMin + "m ago";
-  var diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return diffHr + "h ago";
-  var diffDays = Math.floor(diffHr / 24);
-  if (diffDays < 7) return diffDays + "d ago";
-  return new Date(isoString).toLocaleDateString();
-}
 
 function getFormatLabel(format) {
   if (format === "copilot-cli") return "Copilot";
@@ -29,21 +16,18 @@ function getFormatColor(format) {
   return theme.accent.primary;
 }
 
-function truncateFilename(file, max) {
-  if (!file) return "session";
-  var name = file.split("/").pop() || file;
-  if (name.length <= max) return name;
-  return name.substring(0, max - 3) + "...";
-}
-
 export default function RecentSessionsPicker({ entries, onOpen, onClose, currentFile }) {
   var [activeIndex, setActiveIndex] = useState(0);
   var listRef = useRef(null);
   var containerRef = useRef(null);
 
   var sorted = (entries || [])
-    .slice()
-    .sort(function (a, b) { return new Date(b.updatedAt || b.importedAt) - new Date(a.updatedAt || a.importedAt); })
+    .reduce(function (groups, entry) {
+      if (entry && entry.isDiscovered) groups.discovered.push(entry);
+      else groups.analyzed.push(entry);
+      return groups;
+    }, { analyzed: [], discovered: [] });
+  sorted = sortLandingEntriesByDate(sorted.analyzed).concat(sortDiscoveredLandingEntries(sorted.discovered))
     .slice(0, 8);
 
   useEffect(function () {
@@ -175,7 +159,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
                       whiteSpace: "nowrap",
                       flex: 1,
                     }}>
-                      {truncateFilename(entry.file, 36)}
+                      {getLandingEntryDisplayTitle(entry)}
                     </span>
                     <span style={{
                       fontSize: theme.fontSize.xs,
@@ -190,7 +174,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
                     <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
-                      {formatRelativeDate(entry.updatedAt || entry.importedAt)}
+                      {formatRelativeTime(entry.updatedAt || entry.importedAt)}
                     </span>
                     {effLabel && (
                       <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>

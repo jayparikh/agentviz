@@ -12,21 +12,29 @@ export const SAMPLE_EVENTS = [
   { t: 19, agent: "assistant", track: "context", text: "Result: Type check passed. No errors.", duration: 1, intensity: 0.5, isError: false, turnIndex: 0 },
   { t: 20, agent: "assistant", track: "tool_call", text: "bash(command: npm test) - Running test suite", toolName: "bash", duration: 2, intensity: 0.9, isError: false, turnIndex: 0 },
   { t: 22, agent: "assistant", track: "output", text: "REST API with JWT auth is ready. 5 files, 380 lines of TypeScript. Run npm run dev to start.", duration: 2, intensity: 0.8, isError: false, turnIndex: 0 },
+  { t: 24, agent: "user", track: "output", text: "Also add role-based authorization and an admin route before we ship it.", duration: 1, intensity: 0.7, isError: false, turnIndex: 1 },
+  { t: 25, agent: "assistant", track: "reasoning", text: "Adding a role guard, wiring an admin-only route, and rerunning a focused smoke test.", duration: 2, intensity: 0.8, isError: false, model: "claude-sonnet-4-20250514", turnIndex: 1 },
+  { t: 27, agent: "assistant", track: "tool_call", text: "write_file(path: src/middleware/role.ts) - Role guard middleware", toolName: "write_file", duration: 2, intensity: 0.9, isError: false, turnIndex: 1 },
+  { t: 29, agent: "assistant", track: "tool_call", text: "write_file(path: src/routes/admin.ts) - Admin-only routes and permissions", toolName: "write_file", duration: 2, intensity: 0.9, isError: false, turnIndex: 1 },
+  { t: 31, agent: "assistant", track: "context", text: "Result: Admin routes are protected behind JWT auth plus role checks.", duration: 1, intensity: 0.5, isError: false, turnIndex: 1 },
+  { t: 32, agent: "assistant", track: "tool_call", text: "bash(command: npm test -- auth-admin) - Focused smoke test", toolName: "bash", duration: 3, intensity: 0.8, isError: false, turnIndex: 1 },
+  { t: 35, agent: "assistant", track: "output", text: "Role-based authorization is in place, admin routes are protected, and the focused auth test passed.", duration: 2, intensity: 0.8, isError: false, turnIndex: 1 },
 ];
 
-export const SAMPLE_TOTAL = 25;
+export const SAMPLE_TOTAL = 38;
 
 export const SAMPLE_TURNS = [
   { index: 0, startTime: 0, endTime: 24, eventIndices: [0,1,2,3,4,5,6,7,8,9,10,11,12], userMessage: "Build a REST API with JWT authentication in Express.js and TypeScript", toolCount: 7, hasError: false },
+  { index: 1, startTime: 24, endTime: 37, eventIndices: [13,14,15,16,17,18,19], userMessage: "Also add role-based authorization and an admin route before we ship it.", toolCount: 3, hasError: false },
 ];
 
 export const SAMPLE_METADATA = {
-  totalEvents: 13,
-  totalTurns: 1,
-  totalToolCalls: 7,
+  totalEvents: 20,
+  totalTurns: 2,
+  totalToolCalls: 10,
   errorCount: 0,
-  duration: 25,
-  models: { "claude-sonnet-4-20250514": 2 },
+  duration: 38,
+  models: { "claude-sonnet-4-20250514": 3 },
   primaryModel: "claude-sonnet-4-20250514",
   tokenUsage: null,
   format: "claude-code",

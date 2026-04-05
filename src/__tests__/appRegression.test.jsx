@@ -274,6 +274,78 @@ describe("App browser regressions", function () {
     await app.unmount();
   });
 
+  it("uses shared landing controls in dashboard mode and rescans sessions", async function () {
+    global.localStorage.setItem("agentviz:landing-mode", "\"dashboard\"");
+    global.localStorage.setItem("agentviz:session-library:v1", JSON.stringify([
+      {
+        id: "claude-code:dashboard-session",
+        file: "dashboard-session.jsonl",
+        format: "claude-code",
+        sessionId: "dashboard-session",
+        primaryPrompt: "Refine the landing dashboard layout",
+        importedAt: "2026-04-04T00:00:00.000Z",
+        updatedAt: "2026-04-04T00:00:00.000Z",
+        reviewScore: 6.2,
+        totalEvents: 24,
+        totalCost: 0.18,
+        errorCount: 1,
+        autonomyMetrics: { autonomyEfficiency: 0.71 },
+        hasContent: true,
+      },
+    ]));
+
+    var fetchMock = vi.fn(async function (url) {
+      if (String(url).includes("/api/meta")) {
+        return { ok: false };
+      }
+      if (String(url).includes("/api/sessions")) {
+        return createJsonResponse([]);
+      }
+      throw new Error("Unexpected fetch: " + url);
+    });
+
+    function getSessionRequestCount() {
+      return fetchMock.mock.calls.filter(function (call) {
+        return String(call[0]).includes("/api/sessions");
+      }).length;
+    }
+
+    var app = await renderApp(fetchMock);
+
+    await waitFor(function () {
+      return findByText(app.container, "dashboard-session.jsonl");
+    }, "expected dashboard session to render");
+
+    expect(app.container.querySelectorAll("select")).toHaveLength(0);
+    var formatButton = findExactButton(app.container, "All clients");
+    expect(formatButton).toBeTruthy();
+    expect(formatButton.getAttribute("aria-haspopup")).toBe("listbox");
+    expect(formatButton.getAttribute("aria-expanded")).toBe("false");
+    expect(findExactButton(app.container, "Needs review")).toBeTruthy();
+    expect(getSessionRequestCount()).toBe(1);
+
+    await click(formatButton);
+    expect(formatButton.getAttribute("aria-expanded")).toBe("true");
+    expect(app.container.querySelector('[role="listbox"]')).toBeTruthy();
+    expect(app.container.querySelectorAll('[role="option"]').length).toBeGreaterThan(0);
+    await act(async function () {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    await waitFor(function () {
+      return formatButton.getAttribute("aria-expanded") === "false";
+    }, "expected escape to close toolbar select");
+
+    var refreshButton = app.container.querySelector('button[aria-label="Rescan session directories"]');
+    expect(refreshButton).toBeTruthy();
+    await click(refreshButton);
+
+    await waitFor(function () {
+      return getSessionRequestCount() === 2;
+    }, "expected dashboard refresh to rescan sessions");
+
+    await app.unmount();
+  });
+
   it("loads the demo session and keeps compare session B empty", async function () {
     var app = await renderApp();
 
@@ -338,6 +410,36 @@ describe("App browser regressions", function () {
     expect(document.documentElement.dataset.theme).toBe("light");
 
     warnSpy.mockRestore();
+    await app.unmount();
+  });
+
+  it("applies theme changes immediately without a reload", async function () {
+    global.localStorage.setItem("agentviz:theme-mode", "dark");
+
+    var app = await renderApp();
+
+    await click(findClickableText(app.container, "load a demo session"));
+    await waitFor(function () {
+      return findByText(app.container, "demo-session.jsonl");
+    }, "expected demo session to load");
+
+    var appShell = app.container.firstElementChild;
+    var initialStyle = appShell.getAttribute("style");
+    expect(initialStyle).toContain("background: rgb(0, 0, 0)");
+
+    await click(app.container.querySelector('button[aria-label="Theme selector"]'));
+    await click(findExactButton(app.container, "Light"));
+
+    await waitFor(function () {
+      var style = appShell.getAttribute("style") || "";
+      return style.includes("background: rgb(246, 247, 251)") ? style : "";
+    }, "expected session shell background to switch to light mode");
+
+    expect(document.documentElement.dataset.themePreference).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(appShell.getAttribute("style")).toContain("background: rgb(246, 247, 251)");
+    expect(appShell.getAttribute("style")).not.toBe(initialStyle);
+
     await app.unmount();
   });
 

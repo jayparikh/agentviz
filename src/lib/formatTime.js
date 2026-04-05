@@ -28,6 +28,21 @@ export function formatDurationLong(secs) {
   return m > 0 ? m + "m " + (s < 10 ? "0" : "") + s + "s" : s + "s";
 }
 
+// Formats an ISO timestamp as relative time for recent session surfaces.
+export function formatRelativeTime(isoString) {
+  if (!isoString) return "";
+  var then = new Date(isoString).getTime();
+  if (isNaN(then)) return "";
+  var diff = Math.max(0, Date.now() - then);
+  var mins = Math.floor(diff / 60000);
+  if (mins < 60) return mins <= 1 ? "just now" : mins + "m ago";
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  var days = Math.floor(hrs / 24);
+  if (days < 30) return days + "d ago";
+  return Math.floor(days / 30) + "mo ago";
+}
+
 // Truncates text to a maximum length, appending "..." when clipped.
 export function truncateText(text, max) {
   if (!text) return "";

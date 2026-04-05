@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, formatTime, formatDurationLong, truncateText } from "../lib/formatTime.js";
+import { formatDuration, formatTime, formatDurationLong, formatRelativeTime, truncateText } from "../lib/formatTime.js";
 
 describe("formatDuration", function () {
   it("returns -- for zero or null", function () {
@@ -71,5 +71,24 @@ describe("truncateText", function () {
 
   it("handles single character limit", function () {
     expect(truncateText("abc", 1)).toBe("a...");
+  });
+});
+
+describe("formatRelativeTime", function () {
+  it("formats recent timestamps into relative labels", function () {
+    var now = Date.now();
+
+    expect(formatRelativeTime(new Date(now - 30 * 1000).toISOString())).toBe("just now");
+    expect(formatRelativeTime(new Date(now - 5 * 60 * 1000).toISOString())).toBe("5m ago");
+    expect(formatRelativeTime(new Date(now - 2 * 60 * 60 * 1000).toISOString())).toBe("2h ago");
+    expect(formatRelativeTime(new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString())).toBe("3d ago");
+  });
+
+  it("returns a month label for older timestamps and blank for invalid input", function () {
+    var now = Date.now();
+
+    expect(formatRelativeTime(new Date(now - 45 * 24 * 60 * 60 * 1000).toISOString())).toBe("1mo ago");
+    expect(formatRelativeTime("not-a-date")).toBe("");
+    expect(formatRelativeTime(null)).toBe("");
   });
 });

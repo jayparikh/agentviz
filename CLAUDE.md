@@ -53,9 +53,11 @@ src/
     exportHtml.js      # Self-contained HTML export for single sessions and comparisons
     dataInspector.js   # Payload summary and preview helpers for inspector panels
     formatTime.js      # Duration and date formatting utilities
+    landingSessions.js # Shared landing browser labels, filters, and format options
     playbackUtils.js   # Playback state helpers
   components/
-    InboxView.jsx      # Session inbox with auto-discovery, sorting, and review priority
+    InboxView.jsx      # Session inbox with auto-discovery, sorting, refresh, and review priority
+    DashboardView.jsx  # Landing dashboard card grid with shared landing controls, aggregate stats, and quick open
     DebriefView.jsx    # AI Coach panel with cached analysis and one-click apply
     FileUploader.jsx   # Drag-and-drop file input with error handling
     Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
@@ -76,8 +78,8 @@ src/
     ResizablePanel.jsx # Drag-to-resize split panel utility
     ErrorBoundary.jsx  # React error boundary with resetKey for recovery
     Icon.jsx           # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
-    app/               # Shell components: AppHeader, AppLandingState, AppLoadingState, CompareLandingState, CompareShell
-    ui/                # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton, KeyboardHint
+    app/               # Shell components: AppHeader, AppLandingState, AppLoadingState, CompareLandingState, CompareShell (AppLandingState switches between inbox and dashboard landing modes)
+    ui/                # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ToolbarSelect, ExportStatusButton, KeyboardHint
     waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
   sessions.js        # Session discovery, file serving, SSE streaming

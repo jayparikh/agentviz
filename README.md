@@ -141,7 +141,7 @@ To stop it, ask: "Close agentviz"
 
 ## Inbox and AI Coach
 
-When running via the CLI, AGENTVIZ automatically discovers recent Claude Code, Copilot CLI, and VS Code Copilot Chat sessions and lists them in an inbox sorted by review priority. Click any session to open it in the visualizer.
+When running via the CLI, AGENTVIZ automatically discovers recent Claude Code, Copilot CLI, and VS Code Copilot Chat sessions and shows them on the landing screen in two interchangeable modes: a row-based inbox sorted by review priority and a dashboard card grid with aggregate stats, filters, refresh, and the same one-click open flow.
 
 Each session also gets an AI Coach analysis powered by the `@github/copilot-sdk` (gpt-4o). The coach reads your actual project config (`.github/copilot-instructions.md`, skills, MCP servers) and produces actionable recommendations for prompts, skills, and tooling setup. Recommendations can be applied directly with one click.
 
@@ -192,7 +192,7 @@ Export is available in two places:
 
 ### Landing View
 
-Drop zone for session files, with a demo session available instantly. When running via the CLI, the inbox is shown here instead -- auto-discovered Claude Code, Copilot CLI, and VS Code Copilot Chat sessions sorted by review priority.
+Drop zone for session files, with a demo session available instantly. When running via the CLI, the landing screen becomes a session browser with a List or Dashboard toggle for auto-discovered Claude Code, Copilot CLI, and VS Code Copilot Chat sessions.
 
 <div align="center">
 <img src="docs/screenshots/landing.png" alt="Landing View" width="800" />
@@ -365,9 +365,11 @@ src/
     pricing.js           # Claude model pricing table and cost estimation
     exportHtml.js        # Self-contained HTML export for single sessions and comparisons
     formatTime.js        # Duration and date formatting utilities
+    landingSessions.js   # Shared landing browser labels, filters, and format options
     playbackUtils.js     # Playback state helpers
   components/
-    InboxView.jsx        # Session inbox with auto-discovery, sorting, and review priority
+    InboxView.jsx        # Session inbox with auto-discovery, sorting, refresh, and review priority
+    DashboardView.jsx    # Landing dashboard card grid with shared landing controls, aggregate stats, and quick open
     DebriefView.jsx      # AI Coach panel with cached analysis (lazy-loaded)
     ReplayView.jsx       # Windowed event stream + inspector sidebar
     TracksView.jsx       # DAW-style multi-track timeline
@@ -388,8 +390,8 @@ src/
     FileUploader.jsx     # Drag-and-drop file input with error handling
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
-    app/                 # Shell: AppHeader, AppLandingState, AppLoadingState, CompareLandingState, CompareShell (lazy-loaded)
-    ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ExportStatusButton, KeyboardHint
+    app/                 # Shell: AppHeader, AppLandingState, AppLoadingState, CompareLandingState, CompareShell (lazy-loaded; AppLandingState switches between inbox and dashboard landing modes)
+    ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ToolbarSelect, ExportStatusButton, KeyboardHint
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
   sessions.js            # Session discovery, file serving, SSE streaming
