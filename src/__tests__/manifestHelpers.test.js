@@ -158,3 +158,97 @@ describe("manifest URL resolution (new URL)", function () {
     expect(new URL(sessionUrl, manifestUrl).href).toBe("https://example.com/data/session.jsonl");
   });
 });
+
+describe("tag propagation after session open", function () {
+  // Simulates the allSessions merge behavior: library entries that were opened
+  // from manifest sessions should retain tags through filtering.
+
+  it("library entry without tags is excluded by filterByTags", function () {
+    // After opening a manifest session, the library entry has no tags.
+    // Tag filtering must correctly exclude it.
+    var libraryEntry = { file: "opened.jsonl", tags: [] };
+    var manifestEntry = { file: "unopened.jsonl", tags: ["nightly", "bugfix"] };
+    var result = filterByTags([libraryEntry, manifestEntry], ["bugfix"]);
+    expect(result).toEqual([manifestEntry]);
+  });
+
+  it("library entry with patched tags is included by filterByTags", function () {
+    // After the afterLoad fix, tags are patched onto the library entry.
+    var patchedEntry = { file: "opened.jsonl", tags: ["nightly", "bugfix"] };
+    var manifestEntry = { file: "unopened.jsonl", tags: ["nightly", "bugfix"] };
+    var result = filterByTags([patchedEntry, manifestEntry], ["bugfix"]);
+    expect(result).toEqual([patchedEntry, manifestEntry]);
+  });
+
+  it("patched tags work with AND logic across multiple active tags", function () {
+    var entries = [
+      { file: "a.jsonl", tags: ["nightly", "bugfix"] },
+      { file: "b.jsonl", tags: ["nightly"] },
+      { file: "c.jsonl", tags: ["bugfix"] },
+    ];
+    var result = filterByTags(entries, ["nightly", "bugfix"]);
+    expect(result.map(function (e) { return e.file; })).toEqual(["a.jsonl"]);
+  });
+});
+
+describe("dedup: enrichedLibrary vs discoveredOnly", function () {
+  // Tests the dedup logic: library entries matched by discoveredPath should
+  // prevent the same manifest session from appearing as a discovered entry.
+
+  function simulateDedup(libraryEntries, discoveredSessions) {
+    // Mirrors the allSessions merge logic in App.jsx
+    var discoveredBySessionId = {};
+    discoveredSessions.forEach(function (s) {
+      if (s.sessionId) discoveredBySessionId[s.sessionId] = s;
+    });
+
+    var enrichedLibrary = libraryEntries.map(function (e) {
+      if (e.discoveredPath) return e;
+      var match = (e.sessionId && discoveredBySessionId[e.sessionId]);
+      if (match) return Object.assign({}, e, { discoveredPath: match.path });
+      return e;
+    });
+
+    var discoveredOnly = discoveredSessions.filter(function (s) {
+      return !enrichedLibrary.some(function (e) {
+        return e.discoveredPath === s.path || (e.sessionId && e.sessionId === s.sessionId);
+      });
+    });
+
+    return { enrichedLibrary: enrichedLibrary, discoveredOnly: discoveredOnly };
+  }
+
+  it("removes discovered session that matches library by discoveredPath", function () {
+    var lib = [{ id: "lib1", discoveredPath: "http://x.com/a.jsonl", tags: ["bugfix"] }];
+    var disc = [{ path: "http://x.com/a.jsonl", tags: ["bugfix"], source: "manifest" }];
+    var result = simulateDedup(lib, disc);
+    expect(result.discoveredOnly).toEqual([]);
+    expect(result.enrichedLibrary.length).toBe(1);
+  });
+
+  it("removes discovered session that matches library by sessionId", function () {
+    var lib = [{ id: "lib1", sessionId: "sess-123" }];
+    var disc = [{ path: "http://x.com/a.jsonl", sessionId: "sess-123", source: "manifest" }];
+    var result = simulateDedup(lib, disc);
+    expect(result.discoveredOnly).toEqual([]);
+    expect(result.enrichedLibrary[0].discoveredPath).toBe("http://x.com/a.jsonl");
+  });
+
+  it("does not match when sessionId is null on both sides", function () {
+    var lib = [{ id: "lib1", sessionId: null, discoveredPath: "http://x.com/other.jsonl" }];
+    var disc = [{ path: "http://x.com/a.jsonl", sessionId: null, source: "manifest" }];
+    var result = simulateDedup(lib, disc);
+    expect(result.discoveredOnly.length).toBe(1);
+  });
+
+  it("keeps unmatched discovered sessions", function () {
+    var lib = [{ id: "lib1", discoveredPath: "http://x.com/a.jsonl" }];
+    var disc = [
+      { path: "http://x.com/a.jsonl", tags: ["nightly"], source: "manifest" },
+      { path: "http://x.com/b.jsonl", tags: ["bugfix"], source: "manifest" },
+    ];
+    var result = simulateDedup(lib, disc);
+    expect(result.discoveredOnly.length).toBe(1);
+    expect(result.discoveredOnly[0].path).toBe("http://x.com/b.jsonl");
+  });
+});

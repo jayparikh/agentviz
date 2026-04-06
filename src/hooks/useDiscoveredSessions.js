@@ -72,7 +72,7 @@ export default function useDiscoveredSessions() {
         setAvailable(false);
         setLoading(false);
       });
-  }, []);
+  }, [forceEmpty, manifestUrl]);
 
   useEffect(function () {
     fetchSessions();
@@ -100,5 +100,13 @@ export default function useDiscoveredSessions() {
       });
   }, []);
 
-  return { sessions: sessions, loading: loading, available: available, manifestError: manifestError, isManifestMode: Boolean(manifestUrl), fetchSessionContent: fetchSessionContent, refresh: fetchSessions };
+  return {
+    sessions: sessions,
+    loading: loading,
+    available: available,
+    manifestError: manifestError,
+    isManifestMode: Boolean(manifestUrl),
+    fetchSessionContent: fetchSessionContent,
+    refresh: fetchSessions,
+  };
 }
