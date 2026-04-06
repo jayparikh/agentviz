@@ -161,12 +161,10 @@ export default function App() {
         return true;
       });
 
-      // Build a lookup: discoveredPath/sessionId -> discovered session for path enrichment
-      var discoveredByPath = {};
+      // Build a lookup: sessionId -> discovered session for path enrichment
       var discoveredBySessionId = {};
       discovered.sessions.forEach(function (s) {
         if (s.source !== "manifest" && s.size < 5000) return;
-        if (s.path) discoveredByPath[s.path] = s;
         if (s.sessionId) discoveredBySessionId[s.sessionId] = s;
       });
 
