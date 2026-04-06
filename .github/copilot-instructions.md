@@ -24,12 +24,13 @@ npm run typecheck    # tsc --noEmit
 - Product name is always AGENTVIZ (all caps, no spaces). Never "AgentViz" or "Agentviz".
 - All UI changes must conform to `docs/ui-ux-style-guide.md`. Review the checklist at the bottom of that file before approving any PR that touches components, styles, or visual behavior.
 
-## Four-Artifact Sync Rule
-Every UI change must update ALL FOUR of these before committing. Never let them drift:
+## Five-Artifact Sync Rule
+Every UI change must update ALL FIVE of these before committing. Never let them drift:
 1. `README.md` — feature descriptions, architecture section, file tree
 2. `docs/ui-ux-style-guide.md` — token values, patterns, rules
-3. `docs/screenshots/` — all 8 screenshots (see Screenshots section below)
-4. Repo memory — store any new conventions with `store_memory`
+3. `docs/color-palette.html` — visual swatch reference; hex values must match `theme.js` and the style guide
+4. `docs/screenshots/` — all 8 screenshots (see Screenshots section below)
+5. Repo memory — store any new conventions with `store_memory`
 
 ## Screenshots
 The README references 8 screenshot files in `docs/screenshots/`. All must be kept in sync.

@@ -1,18 +1,19 @@
 ---
 name: sync-artifacts
-description: Synchronize all four AGENTVIZ artifacts after a UI change -- README, style guide, CLAUDE.md, and screenshots. Detects what drifted, drafts updates, and regenerates screenshots.
+description: Synchronize all five AGENTVIZ artifacts after a UI change -- README, style guide, color-palette.html, CLAUDE.md, and screenshots. Detects what drifted, drafts updates, and regenerates screenshots.
 user-invocable: true
 ---
 
 # AGENTVIZ Artifact Sync
 
-You enforce the **Four-Artifact Sync Rule**: every UI change must update all four artifacts before committing. Your job is to detect what changed, figure out which artifacts drifted, and fix them -- including regenerating screenshots.
+You enforce the **Five-Artifact Sync Rule**: every UI change must update all five artifacts before committing. Your job is to detect what changed, figure out which artifacts drifted, and fix them -- including regenerating screenshots.
 
-The four artifacts:
+The five artifacts:
 1. **README.md** -- feature descriptions, architecture section, file tree
 2. **docs/ui-ux-style-guide.md** -- token values, patterns, rules
-3. **docs/screenshots/** -- all 8 screenshot SVGs
-4. **CLAUDE.md** -- architecture section, conventions, file tree
+3. **docs/color-palette.html** -- visual swatch reference for every color token (dark + light)
+4. **docs/screenshots/** -- all 8 screenshot PNGs
+5. **CLAUDE.md** -- architecture section, conventions, file tree
 
 ## Step 1: Detect What Changed
 
@@ -33,10 +34,10 @@ Categorize the changes:
 
 | Category | Glob | Artifact impact |
 |----------|------|-----------------|
-| Components | `src/components/**/*.jsx` | All four artifacts potentially |
+| Components | `src/components/**/*.jsx` | All five artifacts potentially |
 | Hooks | `src/hooks/**/*.js` | README + CLAUDE.md architecture |
 | Library | `src/lib/**/*.{js,ts}` | README + CLAUDE.md architecture |
-| Theme tokens | `src/lib/theme.js` | Style guide + screenshots |
+| Theme tokens | `src/lib/theme.js` | Style guide + color-palette.html + screenshots |
 | Server/routes | `server.js`, `routes/**` | README + CLAUDE.md architecture |
 | Config | `package.json`, `vite.config.js` | README commands section |
 | Tests | `src/lib/__tests__/**` | None (tests don't affect artifacts) |
@@ -86,7 +87,28 @@ grep -oP "theme\.\w+\.\w+" docs/ui-ux-style-guide.md | sort -u > /tmp/guide-toke
 diff /tmp/theme-tokens.txt /tmp/guide-tokens.txt
 ```
 
-### 2d. docs/screenshots/
+### 2d. docs/color-palette.html
+
+`docs/color-palette.html` is the visual swatch reference -- every color token rendered as a colored box with its hex value, for both dark and light mode. It must stay in sync with the hex values in `src/lib/theme.js`.
+
+Check if:
+- **Any hex values in `color-palette.html` differ from the corresponding values in `theme.js`** -- this is the most common drift source
+- **New tokens added to `theme.js`** that have no swatch row in the palette
+- **Removed tokens** that still appear in the palette
+
+```bash
+# Extract hex values from color-palette.html and compare against theme.js
+grep -oP '#[0-9a-fA-F]{6}' docs/color-palette.html | sort -u > /tmp/palette-hexes.txt
+grep -oP '#[0-9a-fA-F]{6}' src/lib/theme.js | sort -u > /tmp/theme-hexes.txt
+# Values in palette not in theme (stale palette colors):
+comm -23 /tmp/palette-hexes.txt /tmp/theme-hexes.txt
+# Values in theme not in palette (missing palette entries):
+comm -13 /tmp/palette-hexes.txt /tmp/theme-hexes.txt
+```
+
+The style guide and color-palette.html must agree: if a token's hex value appears in the style guide table, the same hex must appear in the corresponding swatch in `color-palette.html`.
+
+### 2e. docs/screenshots/
 
 Screenshots need regeneration if **any visual change** occurred -- component changes, theme token changes, layout changes, new views, or view modifications.
 
@@ -126,6 +148,17 @@ For each artifact that needs updating, make the changes directly. Do not ask for
 - Add new patterns to the appropriate section
 - Add new component conventions
 - Update the review checklist if new rules are needed
+
+### color-palette.html updates
+
+`docs/color-palette.html` is an HTML file with inline hex values as both swatch backgrounds and text labels. When `theme.js` color values change:
+
+- Find every `<div class="swatch" style="background:#XXXXXX">` row for the changed token and update the background hex
+- Update the matching `<div class="hex">#XXXXXX</div>` label in the same row
+- If a token was added, insert a new `<div class="row">` following the pattern of adjacent rows
+- If a token was removed, delete its row
+- Verify the dark-mode and light-mode columns are updated separately (the file has a `.mode.dark` block and a `.mode.light` block)
+- Update the `<div class="banner">` summary at the top if you are documenting a batch of palette changes
 
 ## Step 4: Regenerate Screenshots
 
@@ -238,7 +271,7 @@ npm run typecheck
 npm test
 
 # All 8 screenshots exist and are non-empty
-ls -la docs/screenshots/*.svg
+ls -la docs/screenshots/*.png
 ```
 
 ## Step 6: Report
@@ -259,6 +292,9 @@ Present a summary of everything that was synced:
 
 ### docs/ui-ux-style-guide.md
 - [what was updated, or "No changes needed"]
+
+### docs/color-palette.html
+- [which swatch rows were updated, or "No changes needed"]
 
 ### docs/screenshots/
 - [which screenshots were regenerated, or "No changes needed"]
@@ -290,13 +326,14 @@ Or with a specific focus:
 /sync-artifacts just check, don't fix
 ```
 
-If "just check" is requested, audit all four artifacts but only report drift -- do not make changes.
+If "just check" is requested, audit all five artifacts but only report drift -- do not make changes.
 
 ## Important Principles
 
 - **Always regenerate ALL 8 screenshots**, not just the view that changed. Theme or layout changes ripple.
-- **session-hero.svg must equal replay-view.svg**. This is the most common mistake.
+- **session-hero.png must equal replay-view.png**. This is the most common mistake.
 - **Use `?demo=empty`** for the landing page screenshot. Never capture with personal session data visible.
 - **Match existing style** when updating README/CLAUDE.md. Read the surrounding content before writing.
 - **Don't remove content** from artifacts unless the corresponding code was actually removed.
+- **Keep color-palette.html and the style guide in lockstep**: when a hex value changes in `theme.js`, update both the style guide table and the color-palette.html swatch row in the same commit.
 - **Run the full validation suite** (build + typecheck + test) after making changes.

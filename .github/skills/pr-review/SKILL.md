@@ -38,6 +38,7 @@ Run these passes in order. Each pass focuses on a specific category. For every i
 Read `docs/ui-ux-style-guide.md` and mechanically verify the full review checklist against every changed line:
 
 - [ ] **Colors**: All color values reference `theme.*` tokens. No new hardcoded hex values in components. Known exceptions: `LiveIndicator.jsx` (`#34d399`), `CompareView.jsx` (`#a78bfa`), `index.html` (`--av-*` CSS custom properties). New code must not add to this list.
+- [ ] **Color palette sync**: If `src/lib/theme.js` color values changed, `docs/color-palette.html` must be updated to match. Every hex value in `color-palette.html` must equal the corresponding dark/light value in `theme.js`. `docs/color-palette.html` is the visual swatch reference; `docs/ui-ux-style-guide.md` is the normative text reference -- both must stay in sync with `theme.js`.
 - [ ] **Typography**: Font family uses `theme.font.mono` for all UI. `theme.font.ui` appears only in `BrandWordmark` and nav tab buttons. Font sizes use `theme.fontSize.*`. No magic number font sizes.
 - [ ] **Spacing**: Padding and gaps use values from the 4px grid or `theme.space.*` tokens.
 - [ ] **Borders**: Border colors use `theme.border.*`. Border radius uses `theme.radius.*`.
@@ -60,7 +61,7 @@ Read `docs/ui-ux-style-guide.md` and mechanically verify the full review checkli
 - [ ] **Dropdowns**: Uses `CustomSelect` pattern (dark bg, border, shadow, checkmark). Never native `<select>`.
 - [ ] **Inspector panels**: Follows normalized standard -- `space.lg` padding/gap, `fontSize.xs` headers with `letterSpacing: 1`, `fontSize.sm` body, `bg.raised` cards, `ResizablePanel`.
 
-**How to check:** For each changed line that contains a style property, color value, font size, spacing value, border, shadow, z-index, or transition -- verify it references the correct theme token. Grep for hex codes (`#[0-9a-fA-F]{3,8}`), pixel literals in style objects, and raw font-family strings.
+**How to check:** For each changed line that contains a style property, color value, font size, spacing value, border, shadow, z-index, or transition -- verify it references the correct theme token. Grep for hex codes (`#[0-9a-fA-F]{3,8}`), pixel literals in style objects, and raw font-family strings. When `theme.js` color values changed, grep `docs/color-palette.html` for the old hex values to confirm the palette was updated alongside the style guide.
 
 ---
 
@@ -152,16 +153,17 @@ The AGENTVIZ architecture has clear rules. Verify:
 
 ---
 
-### Pass 6: Four-Artifact Sync
+### Pass 6: Five-Artifact Sync
 
 **Applies to:** any PR that changes UI behavior or adds features.
 
-If the PR modifies components, views, or user-visible behavior, verify ALL FOUR artifacts are updated:
+If the PR modifies components, views, or user-visible behavior, verify ALL FIVE artifacts are updated:
 
 1. **README.md** -- Does the feature description, architecture section, or file tree need updating?
 2. **docs/ui-ux-style-guide.md** -- Does the style guide need new tokens, patterns, or rules?
-3. **docs/screenshots/** -- Do any of the 8 screenshots need regenerating? (`landing.png`, `session-hero.png`, `replay-view.png`, `tracks-view.png`, `waterfall-view.png`, `graph-view.png`, `stats-view.png`, `coach-view.png`)
-4. **CLAUDE.md** -- Does the architecture section, file tree, or conventions list need updating?
+3. **docs/color-palette.html** -- If `theme.js` color values changed, are the swatch rows and hex labels updated to match?
+4. **docs/screenshots/** -- Do any of the 8 screenshots need regenerating? (`landing.png`, `session-hero.png`, `replay-view.png`, `tracks-view.png`, `waterfall-view.png`, `graph-view.png`, `stats-view.png`, `coach-view.png`)
+5. **CLAUDE.md** -- Does the architecture section, file tree, or conventions list need updating?
 
 **Flag if any UI change doesn't touch at least README.md and CLAUDE.md.**
 
