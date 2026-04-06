@@ -111,6 +111,19 @@ function collectAllTags(entries) {
   return Object.keys(tagSet).sort();
 }
 
+// Faceted tags: when tags are active, only show co-occurring tags
+// (tags present in sessions that match ALL selected tags).
+// Always include activeTags so the user can deselect them.
+function computeVisibleTags(entries, activeTags) {
+  var base = activeTags.length > 0 ? filterByTags(entries, activeTags) : entries;
+  var coTags = collectAllTags(base);
+  if (!activeTags || activeTags.length === 0) return coTags;
+  var merged = {};
+  coTags.forEach(function (t) { merged[t] = true; });
+  activeTags.forEach(function (t) { merged[t] = true; });
+  return Object.keys(merged).sort();
+}
+
 function getInitialTagsFromURL() {
   var params = new URLSearchParams(window.location.search);
   var tags = params.getAll("tag");
@@ -118,16 +131,15 @@ function getInitialTagsFromURL() {
 }
 
 // Exported for testing
-export { filterByTags, collectAllTags, getInitialTagsFromURL };
+export { filterByTags, collectAllTags, computeVisibleTags, getInitialTagsFromURL };
 
-export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare, onRefresh, manifestError }) {
+export default function InboxView({ entries, onOpenSession, onImport, onLoadSample, onStartCompare, onRefresh, manifestError, isManifestMode }) {
   var [sortMode, setSortMode] = usePersistentState("agentviz:inbox-sort", "most-recent");
   var [formatFilter, setFormatFilter] = usePersistentState("agentviz:inbox-format", "all");
   var [query, setQuery] = useState("");
   var [refreshing, setRefreshing] = useState(false);
   var [activeTags, setActiveTags] = useState(getInitialTagsFromURL);
   var searchRef = useRef(null);
-  var isManifestMode = Boolean(new URLSearchParams(window.location.search).get("manifest"));
 
   useEffect(function () {
     function onKey(e) {
@@ -139,18 +151,8 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
     return function () { document.removeEventListener("keydown", onKey); };
   }, []);
 
-  // Faceted tags: when tags are active, only show co-occurring tags
-  // (tags present in sessions that match ALL selected tags).
-  // Always include activeTags so the user can deselect them.
   var allTags = useMemo(function () {
-    var base = activeTags.length > 0 ? filterByTags(entries, activeTags) : entries;
-    var coTags = collectAllTags(base);
-    if (activeTags.length === 0) return coTags;
-    // Merge activeTags into visible set (deselect safety)
-    var merged = {};
-    coTags.forEach(function (t) { merged[t] = true; });
-    activeTags.forEach(function (t) { merged[t] = true; });
-    return Object.keys(merged).sort();
+    return computeVisibleTags(entries, activeTags);
   }, [entries, activeTags]);
 
   function toggleTag(tag) {
@@ -322,7 +324,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           flexShrink: 0,
           flexWrap: "wrap",
           minHeight: 0,
-          maxHeight: 96,
+          maxHeight: 96, /* ~3 rows of tag pills */
           overflowY: "auto",
         }}>
           <Icon name="tag" size={11} style={{ color: theme.text.ghost, flexShrink: 0 }} />

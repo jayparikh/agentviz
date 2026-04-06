@@ -78,7 +78,7 @@ function DragOverlay({ onLoad }) {
   );
 }
 
-export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare, inboxEntries, onOpenInboxSession, onRefresh, manifestError }) {
+export default function AppLandingState({ error, onLoad, onLoadSample, onStartCompare, inboxEntries, onOpenInboxSession, onRefresh, manifestError, isManifestMode }) {
   var [landingMode, setLandingMode] = usePersistentState("agentviz:landing-mode", "inbox");
 
   return (
@@ -154,6 +154,7 @@ export default function AppLandingState({ error, onLoad, onLoadSample, onStartCo
             onStartCompare={onStartCompare}
             onRefresh={onRefresh}
             manifestError={manifestError}
+            isManifestMode={isManifestMode}
           />
         )}
       </div>

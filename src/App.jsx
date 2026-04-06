@@ -451,6 +451,7 @@ export default function App() {
           return discovered.refresh();
         }}
         manifestError={discovered.manifestError}
+        isManifestMode={discovered.isManifestMode}
       />
     );
   }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { filterByTags, collectAllTags, getInitialTagsFromURL } from "../components/InboxView.jsx";
+import { filterByTags, collectAllTags, computeVisibleTags, getInitialTagsFromURL } from "../components/InboxView.jsx";
 
 describe("filterByTags", function () {
   var entries = [
@@ -57,18 +57,7 @@ describe("collectAllTags", function () {
   });
 });
 
-describe("faceted tag co-occurrence", function () {
-  // Simulates the InboxView allTags memo logic
-  function computeVisibleTags(entries, activeTags) {
-    var base = activeTags.length > 0 ? filterByTags(entries, activeTags) : entries;
-    var coTags = collectAllTags(base);
-    if (activeTags.length === 0) return coTags;
-    var merged = {};
-    coTags.forEach(function (t) { merged[t] = true; });
-    activeTags.forEach(function (t) { merged[t] = true; });
-    return Object.keys(merged).sort();
-  }
-
+describe("faceted tag co-occurrence (computeVisibleTags)", function () {
   var entries = [
     { file: "a.jsonl", tags: ["nightly", "dotnet", "msbuild"] },
     { file: "b.jsonl", tags: ["nightly", "dotnet"] },
