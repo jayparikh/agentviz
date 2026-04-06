@@ -127,6 +127,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
   var [refreshing, setRefreshing] = useState(false);
   var [activeTags, setActiveTags] = useState(getInitialTagsFromURL);
   var searchRef = useRef(null);
+  var isManifestMode = Boolean(new URLSearchParams(window.location.search).get("manifest"));
 
   useEffect(function () {
     function onKey(e) {
@@ -311,6 +312,8 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           flexShrink: 0,
           flexWrap: "wrap",
           minHeight: 0,
+          maxHeight: 96,
+          overflowY: "auto",
         }}>
           <Icon name="tag" size={11} style={{ color: theme.text.ghost, flexShrink: 0 }} />
           {allTags.map(function (tag) {
@@ -387,7 +390,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               ? "No sessions matching \"" + query + "\""
               : <>Claude Code and Copilot CLI sessions under <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.claude/projects/</span> and <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>~/.copilot/session-state/</span>, plus VS Code Copilot Chat sessions under your <span style={{ fontFamily: theme.font.mono, color: theme.text.secondary }}>workspaceStorage/*/chatSessions/</span> directories, are auto-discovered when running via CLI. You can also drag and drop a session file to import it.</>
             }
-            {!query && (onLoadSample || onStartCompare) && (
+            {!query && !isManifestMode && (onLoadSample || onStartCompare) && (
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 12 }}>
                 {onLoadSample && (
                   <button
