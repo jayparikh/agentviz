@@ -169,20 +169,21 @@ export default function App() {
         if (s.sessionId) discoveredBySessionId[s.sessionId] = s;
       });
 
-      // Enrich library entries with discoveredPath if we can match them to a discovered session
+      // Enrich library entries with discoveredPath from discovered/manifest sessions
       var enrichedLibrary = visibleLibraryEntries.map(function (e) {
         if (e.discoveredPath) return e; // already has it
         var match = (e.sessionId && discoveredBySessionId[e.sessionId])
-          || (e.discoveredPath && discoveredByPath[e.discoveredPath]);
+          || discoveredByPath[e.discoveredPath];
         if (match) return Object.assign({}, e, { discoveredPath: match.path });
         return e;
       });
 
-      // Only add discovered entries that aren't already in the library
+      // Only add discovered entries that aren't already in the library.
+      // Use enrichedLibrary (which has discoveredPath set) for accurate dedup.
       var discoveredOnly = discovered.sessions.filter(function (s) {
         if (s.source !== "manifest" && s.size < 5000) return false;
-        return !visibleLibraryEntries.some(function (e) {
-          return e.discoveredPath === s.path || e.sessionId === s.sessionId;
+        return !enrichedLibrary.some(function (e) {
+          return e.discoveredPath === s.path || (e.sessionId && e.sessionId === s.sessionId);
         });
       }).map(function (s) {
         return {
@@ -312,13 +313,18 @@ export default function App() {
     function afterLoad(rawText) {
       setView("stats");
       handleFile(rawText, sessionName);
-      if (sessionPath) {
+      // Patch discoveredPath and tags onto the persisted library entry so that
+      // tag filtering continues to work after the session is in localStorage.
+      var entryTags = entry.tags && entry.tags.length > 0 ? entry.tags : null;
+      if (sessionPath || entryTags) {
         setLibraryEntries(function (prev) {
           return prev.map(function (e) {
-            if (e.id === entry.id && !e.discoveredPath) {
-              return Object.assign({}, e, { discoveredPath: sessionPath });
-            }
-            return e;
+            if (e.id !== entry.id) return e;
+            var updates = {};
+            if (!e.discoveredPath && sessionPath) updates.discoveredPath = sessionPath;
+            if (entryTags && (!e.tags || e.tags.length === 0)) updates.tags = entryTags;
+            if (Object.keys(updates).length === 0) return e;
+            return Object.assign({}, e, updates);
           });
         });
       }

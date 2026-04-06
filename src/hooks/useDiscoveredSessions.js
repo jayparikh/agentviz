@@ -19,6 +19,9 @@ export default function useDiscoveredSessions() {
     // Static manifest mode: ?manifest=URL skips the backend entirely
     if (manifestUrl) {
       setManifestError(null);
+      // Resolve manifestUrl against current page so relative paths (e.g. "/manifest.json") become absolute,
+      // which is required for new URL(sessionUrl, base) to work correctly.
+      var absoluteManifestUrl = new URL(manifestUrl, window.location.href).href;
       return fetch(manifestUrl)
         .then(function (r) {
           if (!r.ok) throw new Error("manifest fetch failed: HTTP " + r.status);
@@ -30,7 +33,7 @@ export default function useDiscoveredSessions() {
               return s && s.url;
             }).map(function (s) {
               return {
-                path: new URL(s.url, manifestUrl).href,
+                path: new URL(s.url, absoluteManifestUrl).href,
                 file: s.name || s.filename || s.url,
                 filename: s.filename || s.name || s.url,
                 mtime: s.mtime || 0,
