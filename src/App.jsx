@@ -324,20 +324,12 @@ export default function App() {
       }
     }
 
-    // Manifest sessions: fetch directly from resolved URL
-    if (entry.source === "manifest" && entry.discoveredPath) {
-      fetch(entry.discoveredPath).then(function (r) {
-        if (!r.ok) throw new Error("fetch failed: " + r.status);
-        return r.text();
-      }).then(afterLoad).catch(function (err) {
-        console.error("[manifest] failed to load session:", entry.discoveredPath, err);
-      });
-      return;
-    }
-
-    if (entry.isDiscovered && sessionPath) {
-      discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(function (err) {
-        console.error("[discovered] failed to load session:", sessionPath, err);
+    if ((entry.source === "manifest" || entry.isDiscovered) && sessionPath) {
+      var fetchArg = entry.source === "manifest"
+        ? { source: "manifest", path: sessionPath }
+        : sessionPath;
+      discovered.fetchSessionContent(fetchArg).then(afterLoad).catch(function (err) {
+        console.error("[" + (entry.source || "discovered") + "] failed to load session:", sessionPath, err);
       });
       return;
     }
