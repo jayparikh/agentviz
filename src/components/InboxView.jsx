@@ -139,9 +139,19 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
     return function () { document.removeEventListener("keydown", onKey); };
   }, []);
 
+  // Faceted tags: when tags are active, only show co-occurring tags
+  // (tags present in sessions that match ALL selected tags).
+  // Always include activeTags so the user can deselect them.
   var allTags = useMemo(function () {
-    return collectAllTags(entries);
-  }, [entries]);
+    var base = activeTags.length > 0 ? filterByTags(entries, activeTags) : entries;
+    var coTags = collectAllTags(base);
+    if (activeTags.length === 0) return coTags;
+    // Merge activeTags into visible set (deselect safety)
+    var merged = {};
+    coTags.forEach(function (t) { merged[t] = true; });
+    activeTags.forEach(function (t) { merged[t] = true; });
+    return Object.keys(merged).sort();
+  }, [entries, activeTags]);
 
   function toggleTag(tag) {
     setActiveTags(function (prev) {

@@ -57,6 +57,51 @@ describe("collectAllTags", function () {
   });
 });
 
+describe("faceted tag co-occurrence", function () {
+  // Simulates the InboxView allTags memo logic
+  function computeVisibleTags(entries, activeTags) {
+    var base = activeTags.length > 0 ? filterByTags(entries, activeTags) : entries;
+    var coTags = collectAllTags(base);
+    if (activeTags.length === 0) return coTags;
+    var merged = {};
+    coTags.forEach(function (t) { merged[t] = true; });
+    activeTags.forEach(function (t) { merged[t] = true; });
+    return Object.keys(merged).sort();
+  }
+
+  var entries = [
+    { file: "a.jsonl", tags: ["nightly", "dotnet", "msbuild"] },
+    { file: "b.jsonl", tags: ["nightly", "dotnet"] },
+    { file: "c.jsonl", tags: ["dotnet", "aspnet"] },
+    { file: "d.jsonl", tags: ["nuget"] },
+  ];
+
+  it("shows all tags when nothing is selected", function () {
+    expect(computeVisibleTags(entries, [])).toEqual(["aspnet", "dotnet", "msbuild", "nightly", "nuget"]);
+  });
+
+  it("narrows visible tags to co-occurring ones when a tag is selected", function () {
+    // Only sessions with 'nightly' are a and b; their tags are nightly, dotnet, msbuild
+    expect(computeVisibleTags(entries, ["nightly"])).toEqual(["dotnet", "msbuild", "nightly"]);
+  });
+
+  it("further narrows when multiple tags are selected", function () {
+    // Only session a has both nightly+msbuild; its tags are nightly, dotnet, msbuild
+    expect(computeVisibleTags(entries, ["nightly", "msbuild"])).toEqual(["dotnet", "msbuild", "nightly"]);
+  });
+
+  it("keeps active tags visible even when no sessions match (deselect safety)", function () {
+    // No session has both nuget+nightly, but both tags must remain visible
+    expect(computeVisibleTags(entries, ["nuget", "nightly"])).toEqual(["nightly", "nuget"]);
+  });
+
+  it("hides unrelated tags (nuget not shown when filtering by nightly)", function () {
+    var visible = computeVisibleTags(entries, ["nightly"]);
+    expect(visible.indexOf("nuget")).toBe(-1);
+    expect(visible.indexOf("aspnet")).toBe(-1);
+  });
+});
+
 describe("getInitialTagsFromURL", function () {
   var origLocation;
 
