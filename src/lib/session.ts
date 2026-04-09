@@ -28,6 +28,55 @@ export function buildFilteredEventEntries(
   return entries;
 }
 
+export interface EventFilters {
+  hiddenTracks: Record<string, boolean | undefined>;
+  toolNames?: string[];
+  agents?: string[];
+  errorsOnly?: boolean;
+}
+
+export function buildFilteredEventEntriesV2(
+  events: NormalizedEvent[] | null | undefined,
+  filters: EventFilters,
+): EventEntry[] {
+  if (!events) return [];
+
+  const entries: EventEntry[] = [];
+  const hasToolFilter = filters.toolNames && filters.toolNames.length > 0;
+  const hasAgentFilter = filters.agents && filters.agents.length > 0;
+  const toolSet = hasToolFilter ? new Set(filters.toolNames) : null;
+  const agentSet = hasAgentFilter ? new Set(filters.agents) : null;
+
+  for (let i = 0; i < events.length; i += 1) {
+    const ev = events[i];
+    if (filters.hiddenTracks[ev.track]) continue;
+    if (hasToolFilter && ev.track === "tool_call" && !toolSet!.has(ev.toolName || "")) continue;
+    if (hasAgentFilter && !agentSet!.has(ev.agent || "")) continue;
+    if (filters.errorsOnly && !ev.isError) continue;
+    entries.push({ index: i, event: ev });
+  }
+
+  return entries;
+}
+
+export function getUniqueToolNames(events: NormalizedEvent[] | null | undefined): string[] {
+  if (!events) return [];
+  const set = new Set<string>();
+  for (let i = 0; i < events.length; i += 1) {
+    if (events[i].toolName) set.add(events[i].toolName!);
+  }
+  return Array.from(set).sort();
+}
+
+export function getUniqueAgents(events: NormalizedEvent[] | null | undefined): string[] {
+  if (!events) return [];
+  const set = new Set<string>();
+  for (let i = 0; i < events.length; i += 1) {
+    if (events[i].agent) set.add(events[i].agent);
+  }
+  return Array.from(set).sort();
+}
+
 export function buildTurnStartMap(turns: SessionTurn[]): Record<number, SessionTurn> {
   const map: Record<number, SessionTurn> = {};
 
