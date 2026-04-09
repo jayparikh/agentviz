@@ -1,8 +1,15 @@
 /**
  * PlaybackContext -- owns playback, search, track filtering, and derived data.
  *
- * Extracts ~80 lines of hooks/memos/callbacks from App.jsx into a provider
- * that any child component can consume via usePlaybackContext().
+ * Split into three focused contexts so components can subscribe to only the
+ * slice they need, preventing cascade re-renders (e.g. 30fps time ticks no
+ * longer force search/filter consumers to reconcile).
+ *
+ *   PlaybackTimeCtx -- playback object, cycleSpeed, navigation helpers
+ *   FilterCtx       -- trackFilters, filtered entries, turnStartMap, timeMap
+ *   SearchCtx       -- search object
+ *
+ * usePlaybackContext() still returns the combined shape for backward compat.
  */
 
 import React, { createContext, useContext, useMemo, useCallback, useEffect } from "react";
@@ -12,16 +19,33 @@ import usePersistentState from "../hooks/usePersistentState.js";
 import { buildFilteredEventEntries, buildTurnStartMap, buildTimeMap } from "../lib/session";
 import { PLAYBACK_SPEEDS } from "../components/app/constants.js";
 
-var PlaybackCtx = createContext(null);
+var PlaybackTimeCtx = createContext(null);
+var FilterCtx = createContext(null);
+var SearchCtx = createContext(null);
 
 /**
  * @param {{ session, children }} props
  *   session: { events, turns, total, isLive, metadata } from useSessionLoader
  */
 export function PlaybackProvider({ session, children }) {
-  var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
-
+  // ── playback ──────────────────────────────────────────────────────────────
   var playback = usePlayback(session.total, session.isLive);
+
+  // Auto-seek to end when session data changes (live mode or initial load)
+  useEffect(function () {
+    if (session.total > 0) {
+      playback.seek(session.total);
+    }
+  }, [session.total, session.isLive, playback.seek]);
+
+  var cycleSpeed = useCallback(function () {
+    var idx = PLAYBACK_SPEEDS.indexOf(playback.speed);
+    var next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
+    playback.setSpeed(next);
+  }, [playback.speed, playback.setSpeed]);
+
+  // ── filters ───────────────────────────────────────────────────────────────
+  var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
 
   var filteredEventEntries = useMemo(function () {
     return buildFilteredEventEntries(session.events, trackFilters);
@@ -39,18 +63,9 @@ export function PlaybackProvider({ session, children }) {
     return buildTimeMap(session.events);
   }, [session.events]);
 
-  var search = useSearch(filteredEventEntries);
-
   var errorEntries = useMemo(function () {
     return filteredEventEntries.filter(function (entry) { return entry.event.isError; });
   }, [filteredEventEntries]);
-
-  // Auto-seek to end when session data changes (live mode or initial load)
-  useEffect(function () {
-    if (session.total > 0) {
-      playback.seek(session.total);
-    }
-  }, [session.total, session.isLive, playback.seek]);
 
   var toggleTrackFilter = useCallback(function (track) {
     setTrackFilters(function (prev) {
@@ -66,12 +81,28 @@ export function PlaybackProvider({ session, children }) {
 
   var activeFilterCount = Object.keys(trackFilters).length;
 
-  var cycleSpeed = useCallback(function () {
-    var idx = PLAYBACK_SPEEDS.indexOf(playback.speed);
-    var next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
-    playback.setSpeed(next);
-  }, [playback.speed, playback.setSpeed]);
+  var filterValue = useMemo(function () {
+    return {
+      filteredEventEntries: filteredEventEntries,
+      filteredEvents: filteredEvents,
+      turnStartMap: turnStartMap,
+      timeMap: timeMap,
+      errorEntries: errorEntries,
+      trackFilters: trackFilters,
+      activeFilterCount: activeFilterCount,
+      toggleTrackFilter: toggleTrackFilter,
+    };
+  }, [filteredEventEntries, filteredEvents, turnStartMap, timeMap,
+      errorEntries, trackFilters, activeFilterCount, toggleTrackFilter]);
 
+  // ── search ────────────────────────────────────────────────────────────────
+  var search = useSearch(filteredEventEntries);
+
+  var searchValue = useMemo(function () {
+    return { search: search };
+  }, [search]);
+
+  // ── navigation (cross-cutting: needs playback + filter + search) ──────────
   var jumpToEntries = useCallback(function (entries, direction) {
     if (!entries || entries.length === 0) return;
 
@@ -109,35 +140,54 @@ export function PlaybackProvider({ session, children }) {
     setTrackFilters({});
   }, [playback.resetPlayback, search.clearSearch, setTrackFilters]);
 
-  var value = useMemo(function () {
+  // Navigation lives in PlaybackTimeCtx since it depends on playback.time
+  var playbackValue = useMemo(function () {
     return {
       playback: playback,
-      search: search,
-      filteredEventEntries: filteredEventEntries,
-      filteredEvents: filteredEvents,
-      turnStartMap: turnStartMap,
-      timeMap: timeMap,
-      errorEntries: errorEntries,
-      trackFilters: trackFilters,
-      activeFilterCount: activeFilterCount,
-      toggleTrackFilter: toggleTrackFilter,
       cycleSpeed: cycleSpeed,
       jumpToError: jumpToError,
       jumpToMatch: jumpToMatch,
       resetPlaybackState: resetPlaybackState,
     };
-  }, [
-    playback, search, filteredEventEntries, filteredEvents,
-    turnStartMap, timeMap, errorEntries, trackFilters,
-    activeFilterCount, toggleTrackFilter, cycleSpeed,
-    jumpToError, jumpToMatch, resetPlaybackState,
-  ]);
+  }, [playback, cycleSpeed, jumpToError, jumpToMatch, resetPlaybackState]);
 
-  return React.createElement(PlaybackCtx.Provider, { value: value }, children);
+  return React.createElement(PlaybackTimeCtx.Provider, { value: playbackValue },
+    React.createElement(FilterCtx.Provider, { value: filterValue },
+      React.createElement(SearchCtx.Provider, { value: searchValue },
+        children
+      )
+    )
+  );
 }
 
-export function usePlaybackContext() {
-  var ctx = useContext(PlaybackCtx);
-  if (!ctx) throw new Error("usePlaybackContext must be used within PlaybackProvider");
+// ── Granular hooks (subscribe to one slice only) ────────────────────────────
+
+export function usePlaybackTime() {
+  var ctx = useContext(PlaybackTimeCtx);
+  if (!ctx) throw new Error("usePlaybackTime must be used within PlaybackProvider");
   return ctx;
+}
+
+export function useFilterContext() {
+  var ctx = useContext(FilterCtx);
+  if (!ctx) throw new Error("useFilterContext must be used within PlaybackProvider");
+  return ctx;
+}
+
+export function useSearchContext() {
+  var ctx = useContext(SearchCtx);
+  if (!ctx) throw new Error("useSearchContext must be used within PlaybackProvider");
+  return ctx;
+}
+
+// ── Backward-compatible combined hook (composes all three) ──────────────────
+
+export function usePlaybackContext() {
+  var playbackCtx = useContext(PlaybackTimeCtx);
+  var filterCtx = useContext(FilterCtx);
+  var searchCtx = useContext(SearchCtx);
+  if (!playbackCtx || !filterCtx || !searchCtx) {
+    throw new Error("usePlaybackContext must be used within PlaybackProvider");
+  }
+  return Object.assign({}, playbackCtx, filterCtx, searchCtx);
 }
