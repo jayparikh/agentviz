@@ -1,9 +1,10 @@
+import React from "react";
 import { theme } from "../../lib/theme.js";
 import { getWaterfallLeft } from "./constants.js";
 import TimeAxis from "./TimeAxis.jsx";
 import WaterfallRow from "./WaterfallRow.jsx";
 
-export default function WaterfallChart({
+function WaterfallChart({
   scrollRef,
   onScroll,
   layout,
@@ -103,3 +104,5 @@ export default function WaterfallChart({
     </div>
   );
 }
+
+export default React.memo(WaterfallChart);

@@ -1,10 +1,11 @@
+import React from "react";
 import { alpha, theme } from "../../lib/theme.js";
 import Icon from "../Icon.jsx";
 import { formatDuration } from "../../lib/formatTime.js";
 import { getToolColor } from "../../lib/waterfall";
 import { WATERFALL_INDENT_PX, WATERFALL_LABEL_WIDTH, WATERFALL_MIN_BAR_WIDTH_PX } from "./constants.js";
 
-export default function WaterfallRow({
+function WaterfallRow({
   item,
   layoutItem,
   currentTime,
@@ -143,3 +144,5 @@ export default function WaterfallRow({
     </div>
   );
 }
+
+export default React.memo(WaterfallRow);

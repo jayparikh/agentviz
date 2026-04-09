@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { theme } from "../../lib/theme.js";
 import DataInspector from "../DataInspector.jsx";
 import DiffViewer from "../DiffViewer.jsx";
@@ -6,7 +6,7 @@ import { isDiffViewable } from "../../lib/diffUtils.js";
 import { formatDuration, formatTime } from "../../lib/formatTime.js";
 import { getToolColor } from "../../lib/waterfall";
 
-export default function WaterfallInspector({ selectedItem, stats }) {
+function WaterfallInspector({ selectedItem, stats }) {
   var selected = selectedItem ? selectedItem.event : null;
   var [showRaw, setShowRaw] = useState(false);
   var hasDiff = selected && isDiffViewable(selected);
@@ -254,3 +254,5 @@ export default function WaterfallInspector({ selectedItem, stats }) {
     </div>
   );
 }
+
+export default React.memo(WaterfallInspector);

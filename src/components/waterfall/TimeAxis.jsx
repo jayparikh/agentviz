@@ -1,8 +1,9 @@
+import React from "react";
 import { theme } from "../../lib/theme.js";
 import { formatTime } from "../../lib/formatTime.js";
 import { getWaterfallLeft, WATERFALL_TIME_AXIS_HEIGHT } from "./constants.js";
 
-export default function TimeAxis({ totalTime, timeMap }) {
+function TimeAxis({ totalTime, timeMap }) {
   if (totalTime <= 0) return null;
 
   var displayTotal = timeMap && timeMap.hasCompression ? timeMap.displayTotal : totalTime;
@@ -61,3 +62,5 @@ export default function TimeAxis({ totalTime, timeMap }) {
     </div>
   );
 }
+
+export default React.memo(TimeAxis);
