@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { filterEventEntries } from "../lib/playbackUtils.js";
+import SearchIndex from "../lib/searchIndex.js";
 
 var SEARCH_DEBOUNCE_MS = 200;
 
@@ -21,15 +21,16 @@ export default function useSearch(eventEntries) {
     var timeoutId = setTimeout(function () {
       setSearchQuery(normalizeSearchQuery(searchInput));
     }, SEARCH_DEBOUNCE_MS);
-
-    return function () {
-      clearTimeout(timeoutId);
-    };
+    return function () { clearTimeout(timeoutId); };
   }, [searchInput]);
 
+  var index = useMemo(function () {
+    return new SearchIndex(eventEntries || []);
+  }, [eventEntries]);
+
   var matchedEntries = useMemo(function () {
-    return filterEventEntries(eventEntries, searchQuery);
-  }, [eventEntries, searchQuery]);
+    return index.search(searchQuery);
+  }, [index, searchQuery]);
 
   var searchData = useMemo(function () {
     return buildSearchData(matchedEntries, searchQuery);
