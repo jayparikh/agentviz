@@ -15,6 +15,8 @@ import {
   sortDiscoveredLandingEntries,
   sortLandingEntries,
 } from "../lib/landingSessions.js";
+import { computeQualityScore } from "../lib/qualityScore.js";
+import QualityBadge from "./QualityBadge.jsx";
 import Icon from "./Icon.jsx";
 import usePersistentState from "../hooks/usePersistentState.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
@@ -105,6 +107,7 @@ function SessionCard({ entry, onClick }) {
   var summary = isDiscovered ? null : getCardSummary(entry, title);
   var meta = buildCardMeta(entry, title);
   var updatedLabel = formatRelativeTime(entry.updatedAt || entry.importedAt);
+  var quality = isDiscovered ? null : computeQualityScore(entry.stats, entry.autonomyMetrics);
   var chips = [
     entry.reviewScore != null ? { label: "Needs review", value: entry.reviewScore.toFixed(1) } : null,
     autonomy.autonomyEfficiency != null ? { label: "Autonomy", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) } : null,
@@ -164,8 +167,12 @@ function SessionCard({ entry, onClick }) {
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}>
             {title}
+            {quality && <QualityBadge grade={quality.grade} score={quality.score} />}
           </span>
           <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, flexShrink: 0, marginTop: 1 }}>
             {updatedLabel}

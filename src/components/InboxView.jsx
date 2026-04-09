@@ -23,6 +23,8 @@ import {
 import Icon from "./Icon.jsx";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
 import ToolbarSelect from "./ui/ToolbarSelect.jsx";
+import { computeQualityScore, formatScoreTooltip } from "../lib/qualityScore.js";
+import QualityBadge from "./QualityBadge.jsx";
 import usePersistentState from "../hooks/usePersistentState.js";
 
 var SORT_OPTIONS = [
@@ -31,6 +33,7 @@ var SORT_OPTIONS = [
   { id: "most-expensive", label: LANDING_SORT_LABELS["most-expensive"] },
   { id: "highest-babysitting", label: "Most human response time" },
   { id: "highest-idle", label: "Highest idle" },
+  { id: "highest-quality", label: "Highest quality" },
   { id: "most-recent", label: LANDING_SORT_LABELS["most-recent"] },
 ];
 
@@ -44,6 +47,14 @@ function sortEntries(entries, sortMode) {
   if (sortMode === "highest-idle") {
     return (entries || []).slice().sort(function (left, right) {
       return ((right.autonomyMetrics || {}).idleTime || 0) - ((left.autonomyMetrics || {}).idleTime || 0);
+    });
+  }
+
+  if (sortMode === "highest-quality") {
+    return (entries || []).slice().sort(function (left, right) {
+      var leftScore = computeQualityScore(left.stats, left.autonomyMetrics).score;
+      var rightScore = computeQualityScore(right.stats, right.autonomyMetrics).score;
+      return rightScore - leftScore;
     });
   }
 
@@ -438,6 +449,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           var canOpen = Boolean(entry.hasContent || entry.discoveredPath);
           var title = getLandingEntryDisplayTitle(entry);
           var secondaryText = getLandingEntrySecondaryText(entry, title);
+          var quality = computeQualityScore(entry.stats, entry.autonomyMetrics);
 
           return (
             <div
@@ -453,9 +465,10 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                 <div style={{ minWidth: 0 }}>
                   <div
                      title={buildEntryTooltip(entry)}
-                     style={{ fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}
+                     style={{ display: "flex", alignItems: "center", gap: 6, fontSize: theme.fontSize.base, color: theme.text.primary, fontFamily: theme.font.mono }}
                   >
                     {title}
+                    <QualityBadge grade={quality.grade} score={quality.score} />
                   </div>
                   <div style={{ fontSize: theme.fontSize.sm, color: theme.text.muted, marginTop: 4, lineHeight: 1.5 }}>
                     {renderMeta(entry)}
