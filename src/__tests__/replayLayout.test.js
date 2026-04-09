@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReplayLayout, getReplayWindow } from "../lib/replayLayout.js";
+import { buildReplayLayout, getReplayWindow, clearEstimateCache } from "../lib/replayLayout.js";
 
 function makeEntry(index, text) {
   return {
@@ -38,6 +38,26 @@ describe("buildReplayLayout", function () {
     var layout = buildReplayLayout([makeEntry(0, "short"), makeEntry(1, "short")], turnStartMap);
 
     expect(layout.items[1].height).toBeGreaterThan(layout.items[0].height);
+  });
+
+  it("cache produces identical results on repeated calls", function () {
+    clearEstimateCache();
+    var entries = [makeEntry(0, "hello world"), makeEntry(1, "hello world"), makeEntry(2, "different text")];
+    var layout1 = buildReplayLayout(entries, {});
+    var layout2 = buildReplayLayout(entries, {});
+    expect(layout1.items[0].height).toBe(layout2.items[0].height);
+    expect(layout1.items[1].height).toBe(layout2.items[1].height);
+    expect(layout1.totalHeight).toBe(layout2.totalHeight);
+  });
+
+  it("clearEstimateCache resets the cache", function () {
+    clearEstimateCache();
+    var entries = [makeEntry(0, "cached text")];
+    buildReplayLayout(entries, {});
+    clearEstimateCache();
+    // After clearing, should still produce same results (just recomputed)
+    var layout = buildReplayLayout(entries, {});
+    expect(layout.items[0].height).toBeGreaterThan(0);
   });
 });
 

@@ -22,6 +22,24 @@ function estimateTextLines(text) {
   return lines;
 }
 
+var _estimateCache = new Map();
+var MAX_CACHE_SIZE = 50000;
+
+function cachedEstimateTextLines(text) {
+  if (!text) return 1;
+  var cached = _estimateCache.get(text);
+  if (cached !== undefined) return cached;
+  var result = estimateTextLines(text);
+  if (_estimateCache.size < MAX_CACHE_SIZE) {
+    _estimateCache.set(text, result);
+  }
+  return result;
+}
+
+export function clearEstimateCache() {
+  _estimateCache.clear();
+}
+
 export function buildReplayLayout(entries, turnStartMap, measuredHeights) {
   var top = 0;
   var items = [];
@@ -31,7 +49,7 @@ export function buildReplayLayout(entries, turnStartMap, measuredHeights) {
     var entry = entries[i];
     var turn = turnStartMap[entry.index];
     var hasTurnHeader = Boolean(turn && turn.index > 0);
-    var textLines = estimateTextLines(entry.event.text);
+    var textLines = cachedEstimateTextLines(entry.event.text);
     var estimatedHeight = REPLAY_ROW_BASE_HEIGHT
       + ((textLines - 1) * REPLAY_CONTENT_LINE_HEIGHT)
       + (hasTurnHeader ? REPLAY_TURN_HEADER_HEIGHT : 0);
