@@ -366,6 +366,129 @@ function extractEventsFromRecord(raw: RawRecord, syntheticTime: number, issues: 
     }
   }
 
+  // --- Newer Claude Code event format (dot-notation types, data nested under `data`) ---
+  const data = raw.data && typeof raw.data === "object" ? raw.data as RawRecord : null;
+
+  if (raw.type === "user.message" && data) {
+    const content = typeof data.content === "string" ? data.content : extractContent(data.content);
+    if (content) {
+      pushEvent({
+        t: tSeconds,
+        agent: "user",
+        track: "output",
+        text: truncate(content, 300),
+        duration: 1,
+        intensity: 0.6,
+        raw,
+        isError: false,
+      });
+    }
+  }
+
+  if (raw.type === "tool.execution_start" && data) {
+    const toolName = typeof data.toolName === "string" ? data.toolName : "unknown_tool";
+    let toolInput: unknown = data.arguments;
+    if (typeof toolInput === "string") {
+      try { toolInput = JSON.parse(toolInput); } catch { /* keep as string */ }
+    }
+    pushEvent({
+      t: tSeconds,
+      agent: "assistant",
+      track: "tool_call",
+      text: toolName + "(" + formatToolInput(toolInput || {}) + ")",
+      toolName,
+      toolInput,
+      duration: 2,
+      intensity: 0.9,
+      raw,
+      isError: false,
+    });
+  }
+
+  if (raw.type === "tool.execution_complete" && data) {
+    const resultText = typeof data.result === "string" ? data.result : extractContent(data.result);
+    const isSuccess = data.success === "True" || data.success === true;
+    const hasError = !isSuccess || detectError(data, resultText);
+    pushEvent({
+      t: tSeconds,
+      agent: "assistant",
+      track: "context",
+      text: "Result: " + truncate(resultText, 200),
+      duration: 1,
+      intensity: hasError ? 1.0 : 0.5,
+      raw,
+      isError: hasError,
+    });
+  }
+
+  if (raw.type === "assistant.usage" && data) {
+    const inputTokens = data.inputTokens || 0;
+    const outputTokens = data.outputTokens || 0;
+    const cacheRead = data.cacheReadTokens || 0;
+    const cacheWrite = data.cacheWriteTokens || 0;
+    const modelName = typeof data.model === "string" ? data.model : undefined;
+    if (inputTokens + outputTokens > 0) {
+      pushEvent({
+        t: tSeconds,
+        agent: "system",
+        track: "context",
+        text: "Usage: " + inputTokens + " in / " + outputTokens + " out" + (modelName ? " (" + modelName + ")" : ""),
+        duration: 0.1,
+        intensity: 0.3,
+        raw,
+        isError: false,
+        model: modelName,
+        tokenUsage: { inputTokens, outputTokens, cacheRead, cacheWrite },
+      });
+    }
+  }
+
+  if (raw.type === "assistant.message" && data) {
+    const content = typeof data.content === "string" ? data.content : extractContent(data.content);
+    if (content) {
+      pushEvent({
+        t: tSeconds,
+        agent: "assistant",
+        track: "output",
+        text: truncate(content, 300),
+        duration: 2,
+        intensity: 0.7,
+        raw,
+        isError: false,
+      });
+    }
+  }
+
+  if (raw.type === "runner.error" && data) {
+    const message = typeof data.message === "string" ? data.message : extractContent(data.message);
+    if (message) {
+      pushEvent({
+        t: tSeconds,
+        agent: "system",
+        track: "output",
+        text: truncate(message, 300),
+        duration: 1,
+        intensity: 1.0,
+        raw,
+        isError: true,
+      });
+    }
+  }
+
+  if (raw.type === "skill.invoked" && data) {
+    const skillName = typeof data.name === "string" ? data.name : "unknown";
+    pushEvent({
+      t: tSeconds,
+      agent: "assistant",
+      track: "context",
+      text: "Skill invoked: " + skillName,
+      duration: 0.5,
+      intensity: 0.5,
+      raw,
+      isError: false,
+    });
+  }
+
   return events;
 }
 

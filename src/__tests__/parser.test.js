@@ -462,4 +462,109 @@ describe("parseClaudeCodeJSONL", function () {
       expect(result.events.length).toBeGreaterThan(400);
     });
   });
+
+  describe("newer dot-notation Claude Code format", function () {
+    it("parses user.message events", function () {
+      var session = makeSession([
+        { type: "user.message", timestamp: 1775694846300, data: { content: "Hello world" } },
+        { type: "tool.execution_start", timestamp: 1775694846500, data: { toolName: "bash", arguments: '{"command":"echo hi"}' } },
+        { type: "tool.execution_complete", timestamp: 1775694847000, data: { success: "True", result: "hi" } },
+      ]);
+      var result = parseClaudeCodeJSONL(session);
+      expect(result).not.toBeNull();
+      expect(result.events.length).toBe(3);
+      var userEvent = result.events.find(function (e) { return e.agent === "user"; });
+      expect(userEvent).toBeDefined();
+      expect(userEvent.text).toContain("Hello world");
+    });
+
+    it("parses tool.execution_start with JSON string arguments", function () {
+      var session = makeSession([
+        { type: "user.message", timestamp: 1775694846300, data: { content: "Do something" } },
+        { type: "tool.execution_start", timestamp: 1775694846500, data: { toolName: "bash", arguments: '{"command":"ls -la","description":"List files"}' } },
+        { type: "tool.execution_complete", timestamp: 1775694847000, data: { success: "True", result: "total 42" } },
+      ]);
+      var result = parseClaudeCodeJSONL(session);
+      var toolEvent = result.events.find(function (e) { return e.track === "tool_call"; });
+      expect(toolEvent).toBeDefined();
+      expect(toolEvent.toolName).toBe("bash");
+      expect(toolEvent.toolInput).toEqual({ command: "ls -la", description: "List files" });
+    });
+
+    it("parses tool.execution_complete with error results", function () {
+      var session = makeSession([
+        { type: "tool.execution_start", timestamp: 1775694846500, data: { toolName: "bash", arguments: '{"command":"bad"}' } },
+        { type: "tool.execution_complete", timestamp: 1775694847000, data: { success: "False", result: "command not found" } },
+      ]);
+      var result = parseClaudeCodeJSONL(session);
+      var resultEvent = result.events.find(function (e) { return e.track === "context"; });
+      expect(resultEvent).toBeDefined();
+      expect(resultEvent.isError).toBe(true);
+    });
+
+    it("parses assistant.usage with model and token info", function () {
+      var session = makeSession([
+        { type: "user.message", timestamp: 1775694846300, data: { content: "Hi" } },
+        { type: "assistant.usage", timestamp: 1775694851123, data: { inputTokens: 24842, outputTokens: 164, cacheReadTokens: 0, cacheWriteTokens: 0, model: "claude-opus-4.6" } },
+      ]);
+      var result = parseClaudeCodeJSONL(session);
+      var usageEvent = result.events.find(function (e) { return e.tokenUsage; });
+      expect(usageEvent).toBeDefined();
+      expect(usageEvent.model).toBe("claude-opus-4.6");
+      expect(usageEvent.tokenUsage.inputTokens).toBe(24842);
+      expect(usageEvent.tokenUsage.outputTokens).toBe(164);
+    });
+
+    it("parses runner.error events", function () {
+      var session = makeSession([
+        { type: "user.message", timestamp: 1775694846300, data: { content: "Hi" } },
+        { type: "runner.error", timestamp: 1775694964747, data: { message: "System.TimeoutException: Scenario timed out after 120s" } },
+      ]);
+      var result = parseClaudeCodeJSONL(session);
+      var errorEvent = result.events.find(function (e) { return e.isError; });
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent.text).toContain("TimeoutException");
+    });
+
+    it("parses skill.invoked events", function () {
+      var session = makeSession([
+        { type: "user.message", timestamp: 1775694846300, data: { content: "Hi" } },
+        { type: "skill.invoked", timestamp: 1775694851194, data: { name: "csharp-scripts", path: "/skills/csharp-scripts/SKILL.md" } },
+      ]);
+      var result = parseClaudeCodeJSONL(session);
+      var skillEvent = result.events.find(function (e) { return e.text.includes("Skill invoked"); });
+      expect(skillEvent).toBeDefined();
+      expect(skillEvent.text).toContain("csharp-scripts");
+    });
+
+    it("skips empty streaming deltas and session events", function () {
+      var session = makeSession([
+        { type: "session.custom_agents_updated", timestamp: 1775694844767, data: {} },
+        { type: "pending_messages.modified", timestamp: 1775694844772, data: {} },
+        { type: "assistant.streaming_delta", timestamp: 1775694850183, data: {} },
+        { type: "assistant.reasoning_delta", timestamp: 1775694850183, data: {} },
+        { type: "user.message", timestamp: 1775694846300, data: { content: "Hello" } },
+      ]);
+      var result = parseClaudeCodeJSONL(session);
+      expect(result.events.length).toBe(1);
+      expect(result.events[0].agent).toBe("user");
+    });
+
+    it("builds turns and metadata correctly", function () {
+      var session = makeSession([
+        { type: "user.message", timestamp: 1775694846300, data: { content: "Test question" } },
+        { type: "assistant.turn_start", timestamp: 1775694846690, data: {} },
+        { type: "tool.execution_start", timestamp: 1775694851123, data: { toolName: "bash", arguments: '{"command":"echo hello"}' } },
+        { type: "tool.execution_complete", timestamp: 1775694851500, data: { success: "True", result: "hello" } },
+        { type: "assistant.usage", timestamp: 1775694851600, data: { inputTokens: 1000, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0, model: "claude-opus-4.6" } },
+        { type: "assistant.turn_end", timestamp: 1775694851700, data: {} },
+      ]);
+      var result = parseClaudeCodeJSONL(session);
+      expect(result).not.toBeNull();
+      expect(result.turns.length).toBe(1);
+      expect(result.metadata.totalToolCalls).toBe(1);
+      expect(result.metadata.primaryModel).toBe("claude-opus-4.6");
+      expect(result.metadata.tokenUsage.inputTokens).toBe(1000);
+    });
+  });
 });
