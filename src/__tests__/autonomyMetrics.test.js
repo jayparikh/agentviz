@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAutonomyMetrics, formatAutonomyEfficiency, getNeedsReviewScore, getSessionCost } from "../lib/autonomyMetrics.js";
+import { buildAutonomyMetrics, buildAutonomySummary, formatAutonomyEfficiency, getNeedsReviewScore, getSessionCost, getTopTools } from "../lib/autonomyMetrics.js";
 
 describe("autonomy metrics", function () {
   it("treats missing Copilot or VS Code cost data as unknown", function () {
@@ -95,5 +95,60 @@ describe("autonomy metrics", function () {
     expect(metrics.interventionCount).toBe(0);
     expect(metrics.babysittingTime).toBe(45);
     expect(metrics.userFollowUps).toEqual([]);
+  });
+});
+
+describe("getTopTools", function () {
+  it("counts tool calls and returns sorted by frequency", function () {
+    var events = [
+      { track: "tool_call", toolName: "bash" },
+      { track: "tool_call", toolName: "edit" },
+      { track: "tool_call", toolName: "bash" },
+      { track: "tool_call", toolName: "bash" },
+      { track: "tool_call", toolName: "edit" },
+      { track: "reasoning", toolName: null },
+    ];
+    var top = getTopTools(events, 5);
+    expect(top[0]).toEqual({ name: "bash", count: 3 });
+    expect(top[1]).toEqual({ name: "edit", count: 2 });
+  });
+
+  it("respects limit parameter", function () {
+    var events = [
+      { track: "tool_call", toolName: "bash" },
+      { track: "tool_call", toolName: "edit" },
+      { track: "tool_call", toolName: "view" },
+    ];
+    expect(getTopTools(events, 2)).toHaveLength(2);
+  });
+
+  it("handles null/empty events", function () {
+    expect(getTopTools(null, 5)).toEqual([]);
+    expect(getTopTools([], 5)).toEqual([]);
+  });
+});
+
+describe("buildAutonomySummary", function () {
+  it("returns empty array for null metrics", function () {
+    expect(buildAutonomySummary(null)).toEqual([]);
+  });
+
+  it("returns 5 summary items with labels and values", function () {
+    var metrics = {
+      productiveRuntime: 120,
+      babysittingTime: 30,
+      idleTime: 45,
+      interventionCount: 2,
+      autonomyEfficiency: 0.65,
+    };
+    var summary = buildAutonomySummary(metrics);
+    expect(summary).toHaveLength(5);
+    summary.forEach(function (item) {
+      expect(item.label).toBeTruthy();
+      expect(item.value).toBeTruthy();
+      expect(item.tooltip).toBeTruthy();
+    });
+    expect(summary[0].label).toBe("Productive runtime");
+    expect(summary[3].value).toBe("2");
   });
 });

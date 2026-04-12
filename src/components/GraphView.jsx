@@ -6,7 +6,8 @@
  * Nodes animate with playback -- current turn glows, future nodes dim.
  */
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { theme, alpha, TRACK_TYPES } from "../lib/theme.js";
+import { theme, alpha } from "../lib/theme.js";
+import { formatTimeClock } from "../lib/formatTime.js";
 import { buildGraphData, runLayout, mergeLayout, getGraphBounds } from "../lib/graphLayout.js";
 import ResizablePanel from "./ResizablePanel.jsx";
 import Icon from "./Icon.jsx";
@@ -602,7 +603,7 @@ function GraphInspector({ selectedNode }) {
           <div>
             <div style={{ color: theme.text.dim, fontSize: theme.fontSize.xs }}>Time</div>
             <div style={{ color: theme.text.primary, fontSize: theme.fontSize.md }}>
-              {formatTime(selectedNode.startTime)}
+              {formatTimeClock(selectedNode.startTime)}
             </div>
           </div>
         </div>
@@ -787,7 +788,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
         viewBoxRef.current = bounds;
       }
     }).catch(function (err) {
-      console.warn("ELK layout failed:", err);
+      if (import.meta.env.DEV) console.warn("ELK layout failed:", err); // eslint-disable-line no-console
     });
     return function () { cancelled = true; };
   }, [graphData]);
@@ -1114,15 +1115,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
 }
 
 function truncateSVGText(text, maxWidth) {
-  // Approximate: ~6px per character at 10px font
   var maxChars = Math.floor(maxWidth / 6);
   if (text.length <= maxChars) return text;
   return text.slice(0, maxChars - 3) + "...";
-}
-
-function formatTime(seconds) {
-  if (seconds == null || isNaN(seconds)) return "--";
-  var m = Math.floor(seconds / 60);
-  var s = Math.floor(seconds % 60);
-  return m + ":" + (s < 10 ? "0" : "") + s;
 }

@@ -504,7 +504,7 @@ describe("buildConcurrencyGroups", function () {
       { event: { t: 5, duration: 0 }, index: 1 },
     ];
     var groups = buildConcurrencyGroups(tools);
-    // Both start at t=5, end at t=5 — not overlapping (start < end fails)
+    // Both start at t=5, end at t=5 -- not overlapping (start < end fails)
     expect(groups).toHaveLength(2);
   });
 

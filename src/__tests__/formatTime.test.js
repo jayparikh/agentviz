@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, formatTime, formatDurationLong, formatRelativeTime, truncateText } from "../lib/formatTime.js";
+import { formatDuration, formatTime, formatTimeClock, formatDurationLong, formatRelativeTime, truncateText } from "../lib/formatTime.js";
 
 describe("formatDuration", function () {
   it("returns -- for zero or null", function () {
@@ -90,5 +90,24 @@ describe("formatRelativeTime", function () {
     expect(formatRelativeTime(new Date(now - 45 * 24 * 60 * 60 * 1000).toISOString())).toBe("1mo ago");
     expect(formatRelativeTime("not-a-date")).toBe("");
     expect(formatRelativeTime(null)).toBe("");
+  });
+});
+
+describe("formatTimeClock", function () {
+  it("returns -- for null, undefined, and NaN", function () {
+    expect(formatTimeClock(null)).toBe("--");
+    expect(formatTimeClock(undefined)).toBe("--");
+    expect(formatTimeClock(NaN)).toBe("--");
+  });
+
+  it("always uses m:ss format even for sub-minute values", function () {
+    expect(formatTimeClock(0)).toBe("0:00");
+    expect(formatTimeClock(5)).toBe("0:05");
+    expect(formatTimeClock(45)).toBe("0:45");
+  });
+
+  it("formats multi-minute values as m:ss", function () {
+    expect(formatTimeClock(90)).toBe("1:30");
+    expect(formatTimeClock(605)).toBe("10:05");
   });
 });

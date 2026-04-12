@@ -4,6 +4,7 @@ import {
   formatLandingClientLabel,
   getLandingEntryDisplayTitle,
   getLandingEntrySecondaryText,
+  getLandingEntryTimestamp,
   isLowSignalDiscoveredEntry,
   isLandingSearchShortcut,
   settleLandingRefresh,
@@ -179,5 +180,25 @@ describe("settleLandingRefresh", function () {
     });
 
     expect(settled).toBe(1);
+  });
+});
+
+describe("getLandingEntryTimestamp", function () {
+  it("prefers updatedAt over importedAt", function () {
+    expect(getLandingEntryTimestamp({
+      updatedAt: "2026-04-05T00:00:00.000Z",
+      importedAt: "2026-04-01T00:00:00.000Z",
+    })).toBe("2026-04-05T00:00:00.000Z");
+  });
+
+  it("falls back to importedAt when updatedAt is missing", function () {
+    expect(getLandingEntryTimestamp({
+      importedAt: "2026-04-01T00:00:00.000Z",
+    })).toBe("2026-04-01T00:00:00.000Z");
+  });
+
+  it("returns empty string for null entry", function () {
+    expect(getLandingEntryTimestamp(null)).toBe("");
+    expect(getLandingEntryTimestamp({})).toBe("");
   });
 });

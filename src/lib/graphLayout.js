@@ -705,7 +705,7 @@ function buildParallelAgentTurnGraph(turn, turnEvents, toolCalls, options) {
     } else if (toolTime >= joinTime) {
       postJoinTools.push(toolCalls[ui]);
     }
-    // Tools during the fork window that aren't claimed belong nowhere — skip
+    // Tools during the fork window that aren't claimed belong nowhere -- skip
   }
 
   var turnNode = {

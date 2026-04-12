@@ -48,3 +48,12 @@ export function truncateText(text, max) {
   if (!text) return "";
   return text.length > max ? text.slice(0, max) + "..." : text;
 }
+
+// Formats seconds as m:ss clock string. Always uses clock format regardless
+// of magnitude. Returns "--" for null/NaN. Used in GraphView inspector.
+export function formatTimeClock(seconds) {
+  if (seconds == null || isNaN(seconds)) return "--";
+  var m = Math.floor(seconds / 60);
+  var s = Math.floor(seconds % 60);
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}

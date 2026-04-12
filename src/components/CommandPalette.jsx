@@ -105,9 +105,8 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onAct
             if (item.isError || item.hasError) itemColor = theme.semantic.error;
 
             return (
-              <div
+              <button
                 key={i}
-                role="button"
                 tabIndex={0}
                 onClick={function () { runItemAction(item); }}
                 onMouseEnter={function () { setSelectedIdx(i); }}
@@ -116,6 +115,8 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onAct
                   padding: "8px 18px", cursor: "pointer",
                   background: isSelected ? theme.bg.raised : "transparent",
                   transition: "background " + theme.transition.fast,
+                  border: "none", width: "100%", fontFamily: theme.font.mono,
+                  textAlign: "left",
                 }}
               >
                 <span style={{ fontSize: theme.fontSize.base, color: itemColor, width: 16, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -135,7 +136,7 @@ export default function CommandPalette({ events, turns, onSeek, onSetView, onAct
                     {item.time.toFixed(1)}s
                   </span>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>

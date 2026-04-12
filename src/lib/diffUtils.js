@@ -1,5 +1,3 @@
-import { theme, alpha } from "../lib/theme.js";
-
 /**
  * Diff utility functions for detecting and computing diffs
  * from file-editing tool calls (str_replace_editor, edit, create).

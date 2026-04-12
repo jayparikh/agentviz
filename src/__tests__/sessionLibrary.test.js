@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseSessionText } from "../lib/sessionParsing";
-import { createSessionStorageId, loadStoredSessionContent, persistSessionSnapshot, pruneDeadEntries, readSessionLibrary, reconcileSessionLibrary, SESSION_LIBRARY_KEY } from "../lib/sessionLibrary.js";
+import { createSessionStorageId, buildSessionLibraryEntry, loadStoredSessionContent, persistSessionSnapshot, pruneDeadEntries, readSessionLibrary, reconcileSessionLibrary, SESSION_LIBRARY_KEY } from "../lib/sessionLibrary.js";
 
 var COPILOT_FIXTURE = readFileSync(resolve(process.cwd(), "src/__tests__/fixtures/test-copilot.jsonl"), "utf8");
 var CLAUDE_FIXTURE = [
@@ -166,7 +166,7 @@ describe("reconcileSessionLibrary", function () {
 
     reconcileSessionLibrary(storage);
 
-    // No write needed — library string should be identical
+    // No write needed -- library string should be identical
     expect(storage.getItem(SESSION_LIBRARY_KEY)).toBe(libraryBefore);
   });
 });
@@ -199,5 +199,40 @@ describe("pruneDeadEntries", function () {
 
     var result = pruneDeadEntries(storage);
     expect(result).toHaveLength(1);
+  });
+});
+
+describe("buildSessionLibraryEntry", function () {
+  it("builds a complete library entry from parsed session data", function () {
+    var parsed = parseSessionText(CLAUDE_FIXTURE);
+    var entry = buildSessionLibraryEntry("test.jsonl", parsed.result, CLAUDE_FIXTURE, null);
+
+    expect(entry.file).toBe("test.jsonl");
+    expect(entry.format).toBeTruthy();
+    expect(entry.id).toBeTruthy();
+    expect(entry.totalEvents).toBeGreaterThan(0);
+    expect(entry.totalTurns).toBeGreaterThan(0);
+    expect(entry.importedAt).toBeTruthy();
+    expect(entry.updatedAt).toBeTruthy();
+    expect(entry.hasContent).toBe(true);
+    expect(entry.autonomyMetrics).toBeDefined();
+    expect(entry.reviewScore).toBeGreaterThanOrEqual(0);
+    expect(entry.error).toBeUndefined();
+  });
+
+  it("preserves discoveredPath from previous entry", function () {
+    var parsed = parseSessionText(CLAUDE_FIXTURE);
+    var previousEntry = { discoveredPath: "/sessions/old.jsonl", importedAt: "2026-01-01T00:00:00.000Z" };
+    var entry = buildSessionLibraryEntry("test.jsonl", parsed.result, CLAUDE_FIXTURE, previousEntry);
+
+    expect(entry.discoveredPath).toBe("/sessions/old.jsonl");
+    expect(entry.importedAt).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("sets hasContent false when rawText is empty", function () {
+    var parsed = parseSessionText(CLAUDE_FIXTURE);
+    var entry = buildSessionLibraryEntry("test.jsonl", parsed.result, "", null);
+
+    expect(entry.hasContent).toBe(false);
   });
 });

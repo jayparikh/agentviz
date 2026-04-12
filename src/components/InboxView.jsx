@@ -264,13 +264,13 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
         <ToolbarSelect
           ariaLabel="Filter by format"
           value={formatFilter}
-          onChange={function (val) { setFormatFilter(val); }}
+          onChange={function (format) { setFormatFilter(format); }}
           options={LANDING_FORMAT_OPTIONS}
         />
         <ToolbarSelect
           ariaLabel="Sort inbox sessions"
           value={sortMode}
-          onChange={function (val) { setSortMode(val); }}
+          onChange={function (mode) { setSortMode(mode); }}
           options={SORT_OPTIONS}
         />
         {onImport && (

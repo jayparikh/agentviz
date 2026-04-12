@@ -162,10 +162,10 @@ function DiffLine({ line }) {
 export default function DiffViewer({ event }) {
   var [expanded, setExpanded] = useState(false);
 
-  var data = extractDiffData(event);
-  if (!data) return null;
+  var diffData = extractDiffData(event);
+  if (!diffData) return null;
 
-  var hunks = computeDiff(data.oldStr, data.newStr);
+  var hunks = computeDiff(diffData.oldStr, diffData.newStr);
 
   // Count total lines for stats
   var addCount = 0;
@@ -180,8 +180,8 @@ export default function DiffViewer({ event }) {
   }
 
   // For creates with no hunks (empty file), show as all new
-  if (hunks.length === 0 && data.type === "create" && data.newStr) {
-    var newLines = data.newStr.split("\n");
+  if (hunks.length === 0 && diffData.type === "create" && diffData.newStr) {
+    var newLines = diffData.newStr.split("\n");
     hunks = [{
       oldStart: 0,
       oldCount: 0,
@@ -219,8 +219,8 @@ export default function DiffViewer({ event }) {
       background: theme.bg.base,
     }}>
       <DiffHeader
-        filePath={data.filePath}
-        type={data.type}
+        filePath={diffData.filePath}
+        type={diffData.type}
         oldLineCount={delCount}
         newLineCount={addCount}
       />

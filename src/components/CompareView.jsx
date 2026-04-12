@@ -89,13 +89,13 @@ function DeltaBadge({ a, b, lowerIsBetter }) {
   );
 }
 
-var COL = { label: "180px", val: "1fr", delta: "80px" };
+var COL = { label: "180px", content: "1fr", delta: "80px" };
 
 function Row({ label, valA, valB, a, b, lowerIsBetter, indent }) {
   return (
     <div style={{
       display: "grid",
-      gridTemplateColumns: COL.label + " " + COL.val + " " + COL.val + " " + COL.delta,
+      gridTemplateColumns: COL.label + " " + COL.content + " " + COL.content + " " + COL.delta,
       alignItems: "center",
       padding: "8px " + (indent ? "10px 8px 24px" : "10px"),
       borderBottom: "1px solid " + theme.border.subtle,
@@ -141,7 +141,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
       {/* Column headers */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: COL.label + " " + COL.val + " " + COL.val + " " + COL.delta,
+        gridTemplateColumns: COL.label + " " + COL.content + " " + COL.content + " " + COL.delta,
         padding: "8px 10px 10px",
         borderBottom: "1px solid " + theme.border.strong,
         position: "sticky", top: 0,
@@ -194,7 +194,7 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
       {/* Model */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: COL.label + " " + COL.val + " " + COL.val + " " + COL.delta,
+        gridTemplateColumns: COL.label + " " + COL.content + " " + COL.content + " " + COL.delta,
         alignItems: "center",
         padding: "8px 10px",
         borderBottom: "1px solid " + theme.border.subtle,

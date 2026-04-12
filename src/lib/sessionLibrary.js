@@ -4,6 +4,12 @@ import { truncateText } from "./formatTime.js";
 export var SESSION_LIBRARY_KEY = "agentviz:session-library:v1";
 var SESSION_CONTENT_PREFIX = "agentviz:session-content:v1:";
 
+var DEV = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV;
+
+function debugWarn(message, detail) {
+  if (DEV) console.warn(message, detail); // eslint-disable-line no-console
+}
+
 function getStorage(storage) {
   if (storage) return storage;
   if (typeof window === "undefined") return null;
@@ -16,7 +22,7 @@ function safeParse(raw, fallback) {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    console.warn("Could not parse stored session library data", error);
+    debugWarn("Could not parse stored session library data", error);
     return fallback;
   }
 }
@@ -72,7 +78,7 @@ export function readSessionLibrary(storage) {
     var parsed = safeParse(target.getItem(SESSION_LIBRARY_KEY), []);
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    console.warn("Could not read session library", error);
+    debugWarn("Could not read session library", error);
     return [];
   }
 }
@@ -103,7 +109,7 @@ function writeSessionLibrary(entries, storage) {
     target.setItem(SESSION_LIBRARY_KEY, JSON.stringify(entries));
     return true;
   } catch (error) {
-    console.warn("Could not persist session library", error);
+    debugWarn("Could not persist session library", error);
     return false;
   }
 }
@@ -119,7 +125,7 @@ function removeStoredSessionContent(id, storage) {
   try {
     target.removeItem(getSessionContentKey(id));
   } catch (error) {
-    console.warn("Could not remove stored session content", error);
+    debugWarn("Could not remove stored session content", error);
   }
 }
 
@@ -130,7 +136,7 @@ export function loadStoredSessionContent(id, storage) {
   try {
     return target.getItem(getSessionContentKey(id)) || "";
   } catch (error) {
-    console.warn("Could not read stored session content", error);
+    debugWarn("Could not read stored session content", error);
     return "";
   }
 }
@@ -144,7 +150,7 @@ function storeSessionContent(id, rawText, storage, existingEntries) {
     return true;
   } catch (error) {
     if (!(error && error.name === "QuotaExceededError")) {
-      console.warn("Could not persist session content", error);
+      debugWarn("Could not persist session content", error);
       return false;
     }
   }
@@ -165,13 +171,13 @@ function storeSessionContent(id, rawText, storage, existingEntries) {
       return true;
     } catch (retryError) {
       if (!(retryError && retryError.name === "QuotaExceededError")) {
-        console.warn("Could not persist session content", retryError);
+        debugWarn("Could not persist session content", retryError);
         return false;
       }
     }
   }
 
-  console.warn("Could not persist session content because storage quota was exceeded", { id: id });
+  debugWarn("Could not persist session content because storage quota was exceeded", { id: id });
   return false;
 }
 
