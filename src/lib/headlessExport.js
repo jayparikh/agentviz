@@ -149,7 +149,9 @@ function buildSelfContainedHtml(indexHtml, mainScriptSrc, setupScript, bootstrap
   );
   var injection = setupScript + "\n" + bootstrapScript;
   if (withoutModuleScript.includes("</body>")) {
-    return withoutModuleScript.replace("</body>", injection + "\n</body>");
+    return withoutModuleScript.replace("</body>", function () {
+      return injection + "\n</body>";
+    });
   }
   return withoutModuleScript + "\n" + injection + "\n";
 }

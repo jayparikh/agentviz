@@ -96,6 +96,22 @@ describe("headless HTML export", function () {
     expect(html).not.toContain("src=\"./assets/index-main.js\"");
   });
 
+  it("embeds payloads with replacement-string tokens literally", async function () {
+    var fixture = await createFixture();
+    await fs.writeFile(
+      path.join(fixture.root, "data", "sessions", "one.jsonl"),
+      "{\"type\":\"message\",\"content\":\"Regex anchors: ^/$` and match token $&\"}\n"
+    );
+
+    var html = await buildSelfContainedManifestHtml({
+      manifestPath: fixture.manifestPath,
+      distDir: fixture.distDir,
+    });
+
+    expect(html.match(/<!doctype html>/g)).toHaveLength(1);
+    expect(html).toContain("^/$` and match token $\\u0026");
+  });
+
   it("writes a self-contained report file", async function () {
     var fixture = await createFixture();
     var outPath = path.join(fixture.root, "report.html");
