@@ -13,6 +13,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { execFile, spawn } from "child_process";
 import net from "net";
+import { writeSelfContainedManifestHtml } from "../src/lib/headlessExport.js";
 
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var rootDir = path.resolve(__dirname, "..");
@@ -57,6 +58,63 @@ function findLatestSessionFile(dir) {
 var sessionFile = null;
 var noOpen = false;
 var argv = process.argv.slice(2);
+
+if (argv[0] === "export") {
+  await handleExport(argv.slice(1)).catch(function (err) {
+    process.stderr.write("Error: " + (err && err.message ? err.message : String(err)) + "\n");
+    process.exit(1);
+  });
+}
+
+function readOption(args, name) {
+  var index = args.indexOf(name);
+  if (index === -1) return null;
+  var value = args[index + 1];
+  if (!value || value.startsWith("-")) {
+    throw new Error(name + " requires a value");
+  }
+  return value;
+}
+
+function hasFlag(args, name) {
+  return args.indexOf(name) !== -1;
+}
+
+async function handleExport(args) {
+  if (hasFlag(args, "-h") || hasFlag(args, "--help")) {
+    process.stdout.write([
+      "Usage: agentviz export --manifest <path> --out <path>",
+      "",
+      "Generate a self-contained HTML report from an agentviz static manifest.",
+      "",
+      "Options:",
+      "  --manifest <path>  Path to manifest.json with relative session URLs",
+      "  --out <path>       Output HTML file",
+      "  -h, --help         Show this help",
+      "",
+    ].join("\n"));
+    process.exit(0);
+  }
+
+  var manifestPath = readOption(args, "--manifest");
+  var outPath = readOption(args, "--out") || readOption(args, "--output");
+  if (!manifestPath) throw new Error("Missing required option: --manifest <path>");
+  if (!outPath) throw new Error("Missing required option: --out <path>");
+
+  if (!fs.existsSync(path.join(distDir, "index.html"))) {
+    throw new Error("dist/ not found. Run `npm run build` inside the agentviz package first.");
+  }
+
+  await writeSelfContainedManifestHtml({
+    manifestPath: path.resolve(manifestPath),
+    outPath: path.resolve(outPath),
+    distDir: distDir,
+  });
+
+  process.stdout.write("Wrote self-contained AGENTVIZ report to " + path.resolve(outPath) + "\n");
+  process.exit(0);
+}
+
 for (var i = 0; i < argv.length; i++) {
   var arg = argv[i];
   if (arg === "--no-open") { noOpen = true; continue; }
