@@ -139,7 +139,7 @@ export function getInitialTagsFromURL() {
 }
 
 export function getLandingEntryTimestamp(entry) {
-  return String(entry && (entry.updatedAt || entry.importedAt) || "");
+  return String(entry && (entry.updatedAt || entry.importedAt || entry.mtime) || "");
 }
 
 export function isLowSignalDiscoveredEntry(entry) {

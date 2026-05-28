@@ -574,6 +574,17 @@ describe("V2 shell routing", function () {
     expect(tagFiltered.map(function (entry) { return entry.id; })).toEqual(["stored-a", "discovered-c"]);
   });
 
+  it("sorts Find portfolio entries by global recent activity across sources", function () {
+    var entries = makePortfolioEntries();
+    var sorted = getFilteredPortfolioEntries(entries, "", "all", "most-recent");
+
+    expect(sorted.map(function (entry) { return entry.id; })).toEqual([
+      "discovered-c",
+      "stored-a",
+      "stored-b",
+    ]);
+  });
+
   it("renders FindPortfolio with layout toggle and multi-select compare", async function () {
     var onOpenSession = vi.fn();
     var onCompareSelected = vi.fn();

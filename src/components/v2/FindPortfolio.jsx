@@ -13,6 +13,7 @@ import {
   getInitialTagsFromURL,
   getLandingEntryDisplayTitle,
   getLandingEntrySecondaryText,
+  getLandingEntryTimestamp,
   settleLandingRefresh,
   sortDiscoveredLandingEntries,
   sortLandingEntries,
@@ -74,9 +75,21 @@ export function getFilteredPortfolioEntries(entries, query, formatFilter, sortMo
   }
   filtered = filterByTags(filtered, activeTags);
 
+  if (sortMode === "most-recent") {
+    return sortLandingEntries(filtered, sortMode);
+  }
+
   var analyzed = filtered.filter(function (entry) { return !entry.isDiscovered; });
   var discovered = filtered.filter(function (entry) { return entry.isDiscovered; });
   return sortLandingEntries(analyzed, sortMode).concat(sortDiscoveredLandingEntries(discovered));
+}
+
+function buildActivityMeta(entry, timestamp) {
+  var parts = [formatLandingClientLabel(entry)];
+  if (entry.project) parts.push(entry.project);
+  if (entry.branch) parts.push(entry.branch);
+  if (timestamp) parts.push(formatRelativeTime(timestamp));
+  return parts.join(" · ");
 }
 
 function Stat({ label, value, sub }) {
@@ -126,6 +139,7 @@ function PortfolioCard({ entry, layout, selected, onToggleSelected, onOpen }) {
   var isDiscovered = Boolean(entry.isDiscovered);
   var sourcePath = entry.discoveredPath || null;
   var timestamp = getEntryTimestamp(entry);
+  var activityMeta = buildActivityMeta(entry, timestamp);
   var autonomy = entry.autonomyMetrics || {};
   var canOpen = canOpenEntry(entry);
   var metrics = [
@@ -199,14 +213,14 @@ function PortfolioCard({ entry, layout, selected, onToggleSelected, onOpen }) {
             }}>
               {title}
             </span>
-            <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.xs, flexShrink: 0 }}>
-              {timestamp ? formatRelativeTime(timestamp) : "unknown"}
-            </span>
+            {timestamp && (
+              <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.xs, flexShrink: 0 }}>
+                {getLandingEntryTimestamp(entry).slice(0, 10)}
+              </span>
+            )}
           </span>
           <span style={{ color: theme.text.muted, fontSize: theme.fontSize.sm, lineHeight: 1.5 }}>
-            {formatLandingClientLabel(entry)}
-            {entry.project ? " · " + entry.project : ""}
-            {entry.branch ? " · #" + entry.branch : ""}
+            {activityMeta}
           </span>
           {secondary && (
             <span style={{
@@ -271,7 +285,7 @@ export default function FindPortfolio({
   var [refreshing, setRefreshing] = useState(false);
   var [dragActive, setDragActive] = useState(false);
   var [layout, setLayout] = usePersistentState("agentviz:v2:portfolio-layout", "grid");
-  var [sortMode, setSortMode] = usePersistentState("agentviz:v2:portfolio-sort", "needs-review");
+  var [sortMode, setSortMode] = usePersistentState("agentviz:v2:portfolio-sort", "most-recent");
   var [formatFilter, setFormatFilter] = usePersistentState("agentviz:v2:portfolio-format", "all");
   var [activeTags, setActiveTags] = useState(getInitialTagsFromURL);
   var [selectedIds, setSelectedIds] = useState([]);
