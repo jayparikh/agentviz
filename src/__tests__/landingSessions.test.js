@@ -121,6 +121,17 @@ describe("sortLandingEntries", function () {
     expect(sortLandingEntries(importedOnlyEntries, "needs-review").map(function (entry) { return entry.id; })).toEqual(["b", "c", "a"]);
   });
 
+  it("falls back to mtime for discovered entries", function () {
+    var discoveredEntries = [
+      { id: "a", mtime: "2026-04-03T00:00:00.000Z" },
+      { id: "b", mtime: "2026-04-05T00:00:00.000Z" },
+      { id: "c", mtime: "2026-04-04T00:00:00.000Z" },
+    ];
+
+    expect(getLandingEntryTimestamp(discoveredEntries[0])).toBe("2026-04-03T00:00:00.000Z");
+    expect(sortLandingEntries(discoveredEntries, "most-recent").map(function (entry) { return entry.id; })).toEqual(["b", "c", "a"]);
+  });
+
   it("sorts by date helper", function () {
     expect(sortLandingEntriesByDate(entries).map(function (entry) { return entry.id; })).toEqual(["b", "c", "a"]);
   });
