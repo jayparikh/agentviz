@@ -2,8 +2,9 @@
  * Session discovery, file serving, and SSE streaming routes.
  *
  * Handles:
- *   GET /api/sessions -- discover Claude Code, Codex, VS Code, & Copilot CLI sessions
+ *   GET /api/sessions -- discover Claude Code, Codex, VS Code, Copilot CLI, & shared sessions
  *   GET /api/session  -- serve a single session file from HOME
+ *   GET /api/session/shared -- serve a shared session markdown or gist
  *   GET /api/file     -- serve the active watched session file
  *   GET /api/meta     -- return filename & live status
  *   GET /api/stream   -- SSE endpoint for live session updates
@@ -11,6 +12,8 @@
 
 import fs from "fs";
 import path from "path";
+import { enrichSessionResults } from "./sessionStoreReader.js";
+import { findSharedSessionFiles, findSharedSessionGists, parseSharedSessionMarkdown } from "./sharedSessions.js";
 
 function decodeProjectDir(dirName) {
   return (dirName || "").replace(/^-/, "").replace(/-/g, "/");
@@ -501,9 +504,73 @@ export function handle(pathname, req, res, ctx) {
       } catch (e) {}
     });
 
+    // Enrich Copilot CLI sessions with metadata from session-store.db and data.db
+    var storeExtras = [];
+    try {
+      storeExtras = enrichSessionResults(results, homeDir);
+    } catch (e) {}
+    if (storeExtras.length > 0) {
+      results = results.concat(storeExtras);
+    }
+
+    // Discover shared sessions (local markdown + gists)
+    var cwd = process.cwd();
+    try {
+      var sharedFiles = findSharedSessionFiles(cwd);
+      results = results.concat(sharedFiles);
+    } catch (e) {}
+
+    try {
+      var sharedGists = findSharedSessionGists();
+      results = results.concat(sharedGists);
+    } catch (e) {}
+
     results.sort(function (a, b) { return new Date(b.mtime) - new Date(a.mtime); });
     res.writeHead(200);
     res.end(JSON.stringify(results.slice(0, 200)));
+    return true;
+  }
+
+  if (pathname === "/api/session/shared") {
+    res.setHeader("Content-Type", "application/json");
+    if (req.method !== "GET") { res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return true; }
+
+    var sharedPath = ctx.parsed.query.path;
+    var gistId = ctx.parsed.query.gist;
+
+    if (sharedPath) {
+      // Local shared markdown file
+      try {
+        var resolvedShared = fs.realpathSync(path.resolve(sharedPath));
+        if (!resolvedShared.endsWith(".md")) { res.writeHead(400); res.end(JSON.stringify({ error: "Only .md files" })); return true; }
+        var mdText = fs.readFileSync(resolvedShared, "utf8");
+        var parsed = parseSharedSessionMarkdown(mdText);
+        res.writeHead(200);
+        res.end(JSON.stringify({ source: "file", raw: mdText, parsed: parsed }));
+      } catch (e) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: "Not found" }));
+      }
+      return true;
+    }
+
+    if (gistId) {
+      // Download gist content
+      try {
+        var { execFileSync } = require("child_process");
+        var gistOutput = execFileSync("gh", ["gist", "view", gistId, "--raw"], { timeout: 15000, encoding: "utf8" });
+        var parsedGist = parseSharedSessionMarkdown(gistOutput);
+        res.writeHead(200);
+        res.end(JSON.stringify({ source: "gist", raw: gistOutput, parsed: parsedGist }));
+      } catch (e) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: "Gist not found or gh CLI unavailable" }));
+      }
+      return true;
+    }
+
+    res.writeHead(400);
+    res.end(JSON.stringify({ error: "Provide path or gist query param" }));
     return true;
   }
 
