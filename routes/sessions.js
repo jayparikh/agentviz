@@ -335,6 +335,11 @@ function isCodexSessionPath(resolvedSessionPath, homeDir) {
     && /^rollout-.+\.jsonl$/.test(parts[3]);
 }
 
+export function isAllowedSharedPath(resolvedPath, resolvedCwd) {
+  if (!resolvedCwd) return false;
+  return isPathInsideRoot(resolvedCwd, resolvedPath);
+}
+
 export function isAllowedSessionPath(resolvedSessionPath, homeDir) {
   if (!homeDir) return false;
 
@@ -543,6 +548,8 @@ export function handle(pathname, req, res, ctx) {
       try {
         var resolvedShared = fs.realpathSync(path.resolve(sharedPath));
         if (!resolvedShared.endsWith(".md")) { res.writeHead(400); res.end(JSON.stringify({ error: "Only .md files" })); return true; }
+        var resolvedCwdShared = fs.realpathSync(process.cwd());
+        if (!isAllowedSharedPath(resolvedShared, resolvedCwdShared)) { res.writeHead(403); res.end(JSON.stringify({ error: "Forbidden" })); return true; }
         var mdText = fs.readFileSync(resolvedShared, "utf8");
         var parsed = parseSharedSessionMarkdown(mdText);
         res.writeHead(200);

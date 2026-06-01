@@ -88,11 +88,20 @@ export function readSharedSessionPreview(filePath) {
   }
 }
 
+var _gistCache = { results: null, fetchedAt: 0 };
+var GIST_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Discover shared session gists via gh CLI.
- * Returns session entries for gists matching copilot-session-*.
+ * Results are cached for GIST_CACHE_TTL_MS to avoid blocking the event loop
+ * on every /api/sessions poll.
  */
 export function findSharedSessionGists() {
+  var now = Date.now();
+  if (_gistCache.results !== null && now - _gistCache.fetchedAt < GIST_CACHE_TTL_MS) {
+    return _gistCache.results;
+  }
+
   var results = [];
 
   try {
@@ -136,6 +145,7 @@ export function findSharedSessionGists() {
     // gh CLI not available or failed
   }
 
+  _gistCache = { results: results, fetchedAt: Date.now() };
   return results;
 }
 

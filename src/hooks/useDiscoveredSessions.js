@@ -84,7 +84,7 @@ export default function useDiscoveredSessions() {
   }, [fetchSessions]);
 
   // Fetches the raw content of a discovered session.
-  // Accepts either a session object (with .source field) or a plain path string.
+  // Accepts a session entry object (with .source field) or a plain path string.
   var fetchSessionContent = useCallback(function (session) {
     if (session && session.source === "manifest") {
       return fetch(session.path || session).then(function (r) {
@@ -92,6 +92,27 @@ export default function useDiscoveredSessions() {
         return r.text();
       });
     }
+
+    var src = session && typeof session === "object" ? session.source : null;
+
+    if (src === "shared-file") {
+      return fetch("/api/session/shared?path=" + encodeURIComponent(session.path))
+        .then(function (r) {
+          if (!r.ok) throw new Error("fetch failed: " + r.status);
+          return r.json();
+        })
+        .then(function (data) { return data.raw; });
+    }
+
+    if (src === "shared-gist") {
+      return fetch("/api/session/shared?gist=" + encodeURIComponent(session.gistId))
+        .then(function (r) {
+          if (!r.ok) throw new Error("fetch failed: " + r.status);
+          return r.json();
+        })
+        .then(function (data) { return data.raw; });
+    }
+
     var sessionPath = typeof session === "string" ? session : session.path;
     return fetch("/api/session?path=" + encodeURIComponent(sessionPath))
       .then(function (r) {
