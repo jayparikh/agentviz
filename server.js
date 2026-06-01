@@ -22,14 +22,29 @@ function getConfigPath() {
   return path.join(os.homedir(), ".agentviz", "config.json");
 }
 
+var _modelCache = null;
+var _modelCacheTime = 0;
+var MODEL_CACHE_TTL = 30000; // 30 seconds
+
 export function getConfiguredModel() {
   var envModel = process.env.AGENTVIZ_MODEL;
   if (envModel) return envModel;
+
+  var now = Date.now();
+  if (_modelCache !== null && now - _modelCacheTime < MODEL_CACHE_TTL) {
+    return _modelCache.value;
+  }
+
   try {
     var raw = fs.readFileSync(getConfigPath(), "utf8");
     var cfg = JSON.parse(raw);
-    return cfg.model || null;
+    var model = cfg.model || null;
+    _modelCache = { value: model };
+    _modelCacheTime = now;
+    return model;
   } catch (_) {
+    _modelCache = { value: null };
+    _modelCacheTime = now;
     return null;
   }
 }
