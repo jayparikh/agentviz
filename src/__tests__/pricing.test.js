@@ -16,16 +16,22 @@ describe("estimateCost", function () {
     expect(cost).toBeCloseTo(0.56, 2);
   });
 
-  it("prices cache write tokens separately from fresh input", function () {
+  it("prices the Anthropic cache write bucket separately from fresh input", function () {
+    var cost = estimateCost({ inputTokens: 1000000, outputTokens: 0, cacheRead: 400000, cacheWrite: 100000 }, "claude-opus-4");
+    // Fresh: 500K * $5/M = $2.50; cached: 400K * $0.50/M = $0.20; write: 100K * $6.25/M = $0.625
+    expect(cost).toBeCloseTo(3.325, 3);
+  });
+
+  it("bills non-Anthropic cache write tokens at the standard input rate (no surcharge)", function () {
     var cost = estimateCost({ inputTokens: 1000000, outputTokens: 0, cacheRead: 400000, cacheWrite: 100000 }, "gpt-4.1");
-    // Fresh: 500K * $2/M = $1.00; cached: 400K * $2/M * 10% = $0.08; write: 100K * $2/M * 125% = $0.25
-    expect(cost).toBeCloseTo(1.33, 2);
+    // Fresh: 500K * $2/M = $1.00; cached: 400K * $0.20/M = $0.08; write: 100K * $2/M = $0.20 (input rate)
+    expect(cost).toBeCloseTo(1.28, 2);
   });
 
   it("prices Claude Haiku 4 correctly", function () {
     var cost = estimateCost({ inputTokens: 1000000, outputTokens: 100000 }, "claude-haiku-4.5");
-    // 1M * $0.80/M + 100K * $4.00/M = $0.80 + $0.40 = $1.20
-    expect(cost).toBeCloseTo(1.20, 2);
+    // 1M * $1.00/M + 100K * $5.00/M = $1.00 + $0.50 = $1.50
+    expect(cost).toBeCloseTo(1.50, 2);
   });
 
   it("prices Claude Sonnet 4 correctly", function () {
@@ -36,14 +42,21 @@ describe("estimateCost", function () {
 
   it("prices spaced Claude model labels", function () {
     var cost = estimateCost({ inputTokens: 1000000, outputTokens: 100000 }, "Claude Opus 4.6");
-    // 1M * $15.00/M + 100K * $75.00/M = $15.00 + $7.50 = $22.50
-    expect(cost).toBeCloseTo(22.50, 2);
+    // 1M * $5.00/M + 100K * $25.00/M = $5.00 + $2.50 = $7.50
+    expect(cost).toBeCloseTo(7.50, 2);
   });
 
   it("prices GPT 5.x Copilot aliases", function () {
-    var cost = estimateCost({ inputTokens: 1000000, outputTokens: 100000 }, "gpt-5.4");
-    // 1M * $1.25/M + 100K * $10.00/M = $1.25 + $1.00 = $2.25
-    expect(cost).toBeCloseTo(2.25, 2);
+    var cost = estimateCost({ inputTokens: 200000, outputTokens: 100000 }, "gpt-5.4");
+    // Default tier (<= 272K input): 200K * $2.50/M + 100K * $15.00/M = $0.50 + $1.50 = $2.00
+    expect(cost).toBeCloseTo(2.00, 2);
+  });
+
+  it("applies the long-context tier above the input threshold", function () {
+    // GPT-5.4 long context (> 272K input) is $5.00 input / $22.50 output.
+    var cost = estimateCost({ inputTokens: 300000, outputTokens: 10000 }, "gpt-5.4");
+    // 300K * $5/M + 10K * $22.50/M = $1.50 + $0.225 = $1.725
+    expect(cost).toBeCloseTo(1.725, 3);
   });
 });
 
@@ -61,10 +74,10 @@ describe("estimateMultiModelCost", function () {
       "claude-haiku-4.5": { inputTokens: 500000, outputTokens: 50000 },
       "claude-sonnet-4":  { inputTokens: 500000, outputTokens: 50000 },
     });
-    // Haiku: 500K * $0.80/M + 50K * $4.00/M = $0.40 + $0.20 = $0.60
+    // Haiku: 500K * $1.00/M + 50K * $5.00/M = $0.50 + $0.25 = $0.75
     // Sonnet: 500K * $3.00/M + 50K * $15.00/M = $1.50 + $0.75 = $2.25
-    // Total = $2.85
-    expect(cost).toBeCloseTo(2.85, 2);
+    // Total = $3.00
+    expect(cost).toBeCloseTo(3.00, 2);
   });
 
   it("is more accurate than single-model estimate for mixed sessions", function () {
@@ -110,10 +123,37 @@ describe("formatCost", function () {
   });
 });
 
-describe("formatCostValue", function () {
-  it("formats premium request units separately from USD", async function () {
+describe("AI Credits", function () {
+  it("converts nano-AIU to credits and USD", async function () {
     var pricing = await import("../lib/pricing.js");
-    expect(pricing.formatCostValue(3, "premium_requests")).toBe("3 PRU");
+    expect(pricing.nanoAiuToCredits(17118950000)).toBeCloseTo(17.11895, 5);
+    expect(pricing.nanoAiuToCredits(null)).toBeNull();
+    expect(pricing.creditsToUsd(17.11895)).toBeCloseTo(0.171, 3);
+  });
+
+  it("formats credits with their USD equivalent", async function () {
+    var pricing = await import("../lib/pricing.js");
+    expect(pricing.formatCredits(1)).toBe("1 credit");
+    expect(pricing.formatCredits(17.119)).toBe("17.12 credits");
+    expect(pricing.formatCreditsWithUsd(17.119)).toBe("17.12 credits (~$0.171)");
+    expect(pricing.isAiCreditsUnit("ai_credits")).toBe(true);
+    expect(pricing.isAiCreditsUnit("usd")).toBe(false);
+  });
+
+  it("guards against non-finite credit values so the UI never shows NaN", async function () {
+    var pricing = await import("../lib/pricing.js");
+    expect(pricing.nanoAiuToCredits(NaN)).toBeNull();
+    expect(pricing.nanoAiuToCredits(Infinity)).toBeNull();
+    expect(pricing.creditsToUsd(NaN)).toBe(0);
+    expect(pricing.formatCredits(NaN)).toBe("--");
+    expect(pricing.formatCreditsWithUsd(NaN)).toBe("--");
+  });
+});
+
+describe("formatCostValue", function () {
+  it("formats AI credits with a USD equivalent and USD values plainly", async function () {
+    var pricing = await import("../lib/pricing.js");
+    expect(pricing.formatCostValue(17.119, "ai_credits")).toBe("17.12 credits (~$0.171)");
     expect(pricing.formatCostValue(0.5, "usd")).toBe("$0.500");
   });
 });

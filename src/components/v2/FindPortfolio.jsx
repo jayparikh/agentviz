@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { theme, alpha } from "../../lib/theme.js";
 import { formatRelativeTime } from "../../lib/formatTime.js";
-import { formatCostValue, isPremiumRequestUnit } from "../../lib/pricing.js";
+import { formatCostValue, isAiCreditsUnit } from "../../lib/pricing.js";
 import { formatAutonomyEfficiency } from "../../lib/autonomyMetrics.js";
 import {
   LANDING_FORMAT_OPTIONS,
@@ -145,7 +145,7 @@ function PortfolioCard({ entry, layout, selected, onToggleSelected, onOpen }) {
   var metrics = [
     entry.reviewScore != null ? { label: "Review", value: entry.reviewScore.toFixed(1) } : null,
     autonomy.autonomyEfficiency != null ? { label: "Autonomy", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) } : null,
-    entry.totalCost != null ? { label: isPremiumRequestUnit(entry.totalCostUnit) ? "PRU" : "Cost", value: formatCostValue(entry.totalCost, entry.totalCostUnit) } : null,
+    entry.totalCost != null ? { label: isAiCreditsUnit(entry.totalCostUnit) ? "Credits" : "Cost", value: formatCostValue(entry.totalCost, entry.totalCostUnit) } : null,
     entry.errorCount > 0 ? { label: "Errors", value: String(entry.errorCount), tone: theme.semantic.error } : null,
     entry.totalEvents ? { label: "Events", value: String(entry.totalEvents) } : null,
   ].filter(Boolean);
@@ -403,7 +403,7 @@ export default function FindPortfolio({
       }}>
         <Stat label="sessions" value={stats.total} sub={stats.discovered > 0 ? stats.analyzed + " analyzed, " + stats.discovered + " discovered" : null} />
         <Stat label="avg review" value={stats.avgReviewScore != null ? stats.avgReviewScore.toFixed(1) : "--"} />
-        <Stat label={isPremiumRequestUnit(stats.avgCostUnit) ? "avg PRU" : "avg cost"} value={stats.avgCost != null ? formatCostValue(stats.avgCost, stats.avgCostUnit) : "--"} />
+        <Stat label={isAiCreditsUnit(stats.avgCostUnit) ? "avg credits" : "avg cost"} value={stats.avgCost != null ? formatCostValue(stats.avgCost, stats.avgCostUnit) : "--"} />
         <Stat label="errors" value={stats.totalErrors != null ? stats.totalErrors : "--"} />
       </section>
 

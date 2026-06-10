@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { theme } from "../lib/theme.js";
 import { formatRelativeTime } from "../lib/formatTime.js";
-import { formatCostValue, isPremiumRequestUnit } from "../lib/pricing.js";
+import { formatCostValue, isAiCreditsUnit } from "../lib/pricing.js";
 import { formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
 import {
   LANDING_FORMAT_OPTIONS,
@@ -108,7 +108,7 @@ function SessionCard({ entry, onClick }) {
   var chips = [
     entry.reviewScore != null ? { label: "Needs review", value: entry.reviewScore.toFixed(1) } : null,
     autonomy.autonomyEfficiency != null ? { label: "Autonomy", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) } : null,
-    entry.totalCost != null ? { label: isPremiumRequestUnit(entry.totalCostUnit) ? "PRU" : "Cost", value: formatCostValue(entry.totalCost, entry.totalCostUnit) } : null,
+    entry.totalCost != null ? { label: isAiCreditsUnit(entry.totalCostUnit) ? "Credits" : "Cost", value: formatCostValue(entry.totalCost, entry.totalCostUnit) } : null,
     { label: "Events", value: String(entry.totalEvents || 0) },
     entry.errorCount > 0 ? { label: "Errors", value: String(entry.errorCount), tone: theme.semantic.error } : null,
   ].filter(Boolean);
@@ -311,7 +311,7 @@ export default function DashboardView({ entries, onOpenSession, onRefresh }) {
               sub={stats.discovered > 0 ? stats.analyzed + " analyzed, " + stats.discovered + " discovered" : null}
             />
             <StatCard
-              label={isPremiumRequestUnit(stats.avgCostUnit) ? "avg PRU" : "avg cost"}
+              label={isAiCreditsUnit(stats.avgCostUnit) ? "avg credits" : "avg cost"}
               value={stats.avgCost != null ? formatCostValue(stats.avgCost, stats.avgCostUnit) : "--"}
               sub={stats.analyzed === 0 ? "open sessions to analyze" : null}
             />

@@ -117,7 +117,7 @@ function getAnalyzeSummary(session, pb) {
     { label: "Events", value: events.length },
     { label: "Tools", value: metadata.totalToolCalls || events.filter(function (event) { return event.track === "tool_call"; }).length },
     { label: "Tokens", value: metadata.tokenUsage ? formatTokens(metadata.tokenUsage.inputTokens || 0) + " in" : "--" },
-    { label: cost.totals && cost.totals.costUnit === "premium_requests" ? "PRU" : "Cost", value: cost.totals && cost.totals.cost > 0 ? formatCostValue(cost.totals.cost, cost.totals.costUnit) : "--" },
+    { label: cost.totals && cost.totals.costUnit === "ai_credits" ? "Credits" : "Cost", value: cost.totals && cost.totals.cost > 0 ? formatCostValue(cost.totals.cost, cost.totals.costUnit) : "--" },
   ];
 }
 

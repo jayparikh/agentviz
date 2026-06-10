@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import { buildCostAnalysis, formatTokens } from "../lib/costAnalysis.js";
-import { formatCost, formatCostValue, isPremiumRequestUnit } from "../lib/pricing.js";
+import { formatCost, formatCostValue, isAiCreditsUnit } from "../lib/pricing.js";
 
 var SUMMARY_GRID_5_COLUMNS = "1.15fr repeat(4, minmax(150px, 0.6fr))";
 var MAIN_GRID_3_COLUMNS = "minmax(310px, 0.9fr) minmax(360px, 1fr) minmax(360px, 1fr)";
@@ -106,7 +106,6 @@ function CallRow({ call, miss }) {
           <Chip>{formatTokens(call.contextBreakdown.total || call.tokenUsage.inputTokens)} ctx</Chip>
           {miss && <Chip warning>cache miss</Chip>}
           <Chip>{formatCostValue(call.cost, call.costUnit)}</Chip>
-          {isPremiumRequestUnit(call.costUnit) && call.estimatedUsdCost > 0 && <Chip>est {formatCost(call.estimatedUsdCost)}</Chip>}
         </div>
         <div style={{ color: theme.text.muted, fontSize: theme.fontSize.sm, marginTop: theme.space.md, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {tokenParts.join(" · ")}
@@ -125,8 +124,9 @@ function CostBars({ calls, cacheMisses }) {
   var max = maxCallValue(calls, function (call) { return call.freshInputTokens + call.cachedInputTokens + call.cacheWriteTokens; });
   var missByIndex = new Map(cacheMisses.map(function (miss) { return [miss.callIndex, miss]; }));
   var costUnit = calls[0] && calls[0].costUnit;
+  var usesCredits = isAiCreditsUnit(costUnit);
   return (
-    <Panel label={isPremiumRequestUnit(costUnit) ? "Cumulative PRU" : "Cumulative cost"} title={isPremiumRequestUnit(costUnit) ? "Reported premium request usage" : "Billed input/output by call"} aside={<span style={{ color: theme.text.primary, fontSize: theme.fontSize.xs, fontFamily: theme.font.mono, border: "1px solid " + alpha(theme.accent.primary, 0.5), background: alpha(theme.accent.primary, 0.12), borderRadius: theme.radius.md, padding: theme.space.sm + "px " + theme.space.md + "px" }}>{isPremiumRequestUnit(costUnit) ? "PRU" : "$ BILLED"}</span>}>
+    <Panel label={usesCredits ? "Cumulative AI Credits" : "Cumulative cost"} title={usesCredits ? "Reported AI Credit usage" : "Billed input/output by call"} aside={<span style={{ color: theme.text.primary, fontSize: theme.fontSize.xs, fontFamily: theme.font.mono, border: "1px solid " + alpha(theme.accent.primary, 0.5), background: alpha(theme.accent.primary, 0.12), borderRadius: theme.radius.md, padding: theme.space.sm + "px " + theme.space.md + "px" }}>{usesCredits ? "CREDITS" : "$ BILLED"}</span>}>
       <Legend items={[{ label: "fresh", color: theme.accent.primary }, { label: "cached", color: theme.semantic.success }, { label: "cache write", color: theme.track.context }]} />
       <div style={{ padding: theme.space.lg, overflow: "auto" }}>
         {calls.map(function (call) {
@@ -207,7 +207,7 @@ export default function CostView({ events, metadata }) {
   var calls = analysis.calls;
   var totals = analysis.totals;
   var cachePercent = totals.cacheHitRate ? Math.round(totals.cacheHitRate * 100) : 0;
-  var usesPrus = isPremiumRequestUnit(totals.costUnit);
+  var usesCredits = isAiCreditsUnit(totals.costUnit);
   var missByIndex = new Set(analysis.cacheMisses.map(function (miss) { return miss.callIndex; }));
 
   return (
@@ -215,12 +215,11 @@ export default function CostView({ events, metadata }) {
       <div style={{ display: "grid", gridTemplateColumns: SUMMARY_GRID_5_COLUMNS, gap: theme.space.lg }}>
         <SummaryCard label="Cost view" value="Token spend & context buildup" valueSize={theme.fontSize.lg} sub="Full context, net-new tokens, and billed API usage." />
         <SummaryCard
-          label={usesPrus ? "Reported PRU" : "Total spend"}
+          label={usesCredits ? "AI Credits" : "Total spend"}
           value={formatCostValue(totals.cost, totals.costUnit)}
           sub={[
             cachePercent + "% cached input",
-            usesPrus && totals.premiumRequests != null ? totals.premiumRequests + " premium requests" : null,
-            usesPrus && totals.estimatedUsdCost > 0 ? "token estimate " + formatCost(totals.estimatedUsdCost) : null,
+            usesCredits && totals.estimatedUsdCost > 0 ? "token estimate " + formatCost(totals.estimatedUsdCost) : null,
           ].filter(Boolean).join(" · ")}
         />
         <SummaryCard label="Input tokens" value={formatTokens(totals.inputTokens)} sub={[

@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { detectCopilotCli, parseCopilotCliJSONL, parseCopilotCliRecords } from "../lib/copilotCliParser";
 import { detectFormat, parseSession } from "../lib/parseSession";
+import { buildCostAnalysis } from "../lib/costAnalysis";
 
 // Helper to build a minimal Copilot CLI JSONL trace
 function buildTrace(events) {
@@ -101,12 +102,14 @@ var SESSION_SHUTDOWN = {
   data: {
     shutdownType: "routine",
     totalPremiumRequests: 1,
+    totalNanoAiu: 2500000000,
     totalApiDurationMs: 5000,
     sessionStartTime: Date.UTC(2026, 2, 18, 15, 0, 0, 0),
     codeChanges: { linesAdded: 10, linesRemoved: 3, filesModified: ["src/auth.js"] },
     modelMetrics: {
       "claude-opus-4.6": {
         requests: { count: 1, cost: 1 },
+        totalNanoAiu: 1000000000,
         usage: { inputTokens: 5000, outputTokens: 150, cacheReadTokens: 3000, cacheWriteTokens: 0 },
       },
     },
@@ -403,7 +406,7 @@ describe("metadata", function () {
 
   it("extracts shutdown info", function () {
     expect(meta.shutdownType).toBe("routine");
-    expect(meta.premiumRequests).toBe(1);
+    expect(meta.aiCredits).toBeCloseTo(2.5, 6);
     expect(meta.totalApiDurationMs).toBe(5000);
     expect(meta.codeChanges.linesAdded).toBe(10);
     expect(meta.codeChanges.filesModified).toContain("src/auth.js");
@@ -436,9 +439,62 @@ describe("metadata", function () {
     expect(meta.errorCount).toBe(0);
   });
 
-  it("computes total cost", function () {
-    expect(meta.totalCost).toBe(1);
-    expect(meta.totalCostUnit).toBe("premium_requests");
+  it("prefers the session-level totalNanoAiu over the per-model sum", function () {
+    // Session-level (2.5 credits) and per-model (1.0 credit) intentionally differ
+    // so this pins which source is authoritative and guards against double counting.
+    expect(meta.totalCost).toBeCloseTo(2.5, 6);
+    expect(meta.totalCostUnit).toBe("ai_credits");
+    expect(meta.aiCredits).toBeCloseTo(2.5, 6);
+    expect(meta.modelTokenUsage["claude-opus-4.6"].aiCredits).toBeCloseTo(1.0, 6);
+  });
+
+  it("sums per-model totalNanoAiu when the session-level total is absent", function () {
+    var shutdown = JSON.parse(JSON.stringify(SESSION_SHUTDOWN));
+    delete shutdown.data.totalNanoAiu;
+    shutdown.data.modelMetrics["claude-opus-4.6"].totalNanoAiu = 1500000000;
+    shutdown.data.modelMetrics["gpt-5.4"] = {
+      requests: { count: 2, cost: 0 },
+      totalNanoAiu: 2000000000,
+      usage: { inputTokens: 4000, outputTokens: 200, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    };
+    var trace = [SESSION_START, USER_MSG, TURN_START, ASSISTANT_MSG_WITH_REASONING, TOOL_START, TOOL_COMPLETE, TURN_END, shutdown];
+    var parsed = parseCopilotCliJSONL(buildTrace(trace));
+    expect(parsed.metadata.totalCost).toBeCloseTo(3.5, 6);
+    expect(parsed.metadata.totalCostUnit).toBe("ai_credits");
+    expect(parsed.metadata.aiCredits).toBeCloseTo(3.5, 6);
+  });
+
+  it("uses the session-level totalNanoAiu even when modelMetrics is absent", function () {
+    var shutdown = JSON.parse(JSON.stringify(SESSION_SHUTDOWN));
+    delete shutdown.data.modelMetrics;
+    var trace = [SESSION_START, USER_MSG, TURN_START, ASSISTANT_MSG_WITH_REASONING, TOOL_START, TOOL_COMPLETE, TURN_END, shutdown];
+    var parsed = parseCopilotCliJSONL(buildTrace(trace));
+    expect(parsed.metadata.totalCost).toBeCloseTo(2.5, 6);
+    expect(parsed.metadata.totalCostUnit).toBe("ai_credits");
+    expect(parsed.metadata.aiCredits).toBeCloseTo(2.5, 6);
+  });
+
+  it("leaves cost null when no AI credit data is present", function () {
+    var shutdownNoAiu = JSON.parse(JSON.stringify(SESSION_SHUTDOWN));
+    delete shutdownNoAiu.data.totalNanoAiu;
+    delete shutdownNoAiu.data.modelMetrics["claude-opus-4.6"].totalNanoAiu;
+    var trace = [SESSION_START, USER_MSG, TURN_START, ASSISTANT_MSG_WITH_REASONING, TOOL_START, TOOL_COMPLETE, TURN_END, shutdownNoAiu];
+    var parsed = parseCopilotCliJSONL(buildTrace(trace));
+    expect(parsed.metadata.totalCost).toBeNull();
+    expect(parsed.metadata.totalCostUnit).toBeNull();
+    expect(parsed.metadata.aiCredits).toBeNull();
+  });
+
+  it("falls back to a positive token-priced USD estimate when no credits are present", function () {
+    var shutdownNoAiu = JSON.parse(JSON.stringify(SESSION_SHUTDOWN));
+    delete shutdownNoAiu.data.totalNanoAiu;
+    delete shutdownNoAiu.data.modelMetrics["claude-opus-4.6"].totalNanoAiu;
+    var trace = [SESSION_START, USER_MSG, TURN_START, ASSISTANT_MSG_WITH_REASONING, TOOL_START, TOOL_COMPLETE, TURN_END, shutdownNoAiu];
+    var parsed = parseCopilotCliJSONL(buildTrace(trace));
+    var totals = buildCostAnalysis(parsed.events, parsed.metadata).totals;
+    expect(parsed.metadata.totalCost).toBeNull();
+    expect(parsed.metadata.totalCostUnit).toBeNull();
+    expect(totals.estimatedUsdCost).toBeGreaterThan(0);
   });
 
   it("provides per-model token breakdown", function () {

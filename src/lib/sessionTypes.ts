@@ -67,7 +67,8 @@ export interface SessionMetadata {
   customTitle?: string;
   sessionMode?: string;
   totalCost?: number | null;
-  totalCostUnit?: "usd" | "premium_requests" | null;
+  totalCostUnit?: "usd" | "ai_credits" | null;
+  aiCredits?: number | null;
   [key: string]: unknown;
 }
 

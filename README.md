@@ -199,11 +199,10 @@ Side-by-side metrics with delta badges:
 | Metric | Delta color |
 |--------|-------------|
 | Duration | Green = A faster |
-| Cost / PRUs | Green = A cheaper when units match (delta suppressed for cross-agent comparisons since units differ) |
+| Cost / Credits | Green = A cheaper when units match (delta suppressed for cross-agent comparisons since units differ) |
 | Input / Output tokens | Neutral |
 | Cache reads / writes | Neutral (shown only when cache data present) |
 | Cache hit rate | Neutral (shown only when cache data present) |
-| Premium requests (PRU) | Green = A uses fewer (shown only for Copilot sessions) |
 | Tool calls | Neutral |
 | Errors | Green = A has fewer |
 | Turns | Neutral |
@@ -280,7 +279,7 @@ A **Tools &amp; Skills** panel surfaces every skill, instruction file, custom ag
 
 ### Analyze: Cost
 
-Per-call token spend, cache read/write usage, context composition, and cumulative cost for sessions with token usage. Copilot CLI reported request usage is labeled as PRU rather than USD; token-based USD estimates are shown separately when pricing is recognized. Copilot prompt exports include prompt context breakdowns so the view can highlight fresh input spikes, cache misses, tool schema growth, and which parts of the prompt are filling the context window.
+Per-call token spend, cache read/write usage, context composition, and cumulative cost for sessions with token usage. Copilot CLI sessions report usage-based AI Credits, shown with the USD equivalent (1 credit = $0.01); token-based USD estimates are used as a fallback for older logs when pricing is recognized. Copilot prompt exports include prompt context breakdowns so the view can highlight fresh input spikes, cache misses, tool schema growth, and which parts of the prompt are filling the context window.
 
 <div align="center">
 <img src="docs/screenshots/cost-view.png" alt="Cost View" width="800" />
@@ -301,7 +300,7 @@ AI-powered session coaching available directly from any session. Improve combine
 | **Live Streaming** | CLI mode tails a session file via SSE. View updates in real time as events arrive, including newline-delayed JSONL writes from Claude Code. |
 | **Payload Inspector** | Replay and waterfall inspectors show readable JSON or text previews with key summaries, counts, copy, and expand controls. |
 | **Graph View** | Directed turn-flow graph with fork/join DAG for parallel subagents, expandable tool-call nodes, pan/zoom, and playback-aware highlighting. |
-| **Token and Cost Tracking** | Per-turn and per-call token usage with estimated USD cost for Claude and OpenAI/Copilot models, plus reported PRU usage for Copilot CLI logs. |
+| **Token and Cost Tracking** | Per-turn and per-call token usage with estimated USD cost for Claude and OpenAI/Copilot models, plus reported AI Credits (with USD equivalent) for Copilot CLI logs. |
 | **Search** | Full-text search across events, tools, and agents. Matches highlighted in real time. |
 | **Command Palette** | `Cmd+K` fuzzy search to jump to any turn, event, or view instantly. |
 | **Workflow Command Palette** | In the default UI, `Cmd+K` searches workflow zones and flow-aware commands such as failed tool calls, cost analysis, compare, and Q&A. |
