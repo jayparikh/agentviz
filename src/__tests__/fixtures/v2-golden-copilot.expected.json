@@ -11,9 +11,9 @@
     "totalToolCalls": 5,
     "errorCount": 0,
     "duration": 122.51,
-  "totalCost": 3,
-  "totalCostUnit": "premium_requests",
-    "premiumRequests": 3,
+  "totalCost": 4.7,
+  "totalCostUnit": "ai_credits",
+    "aiCredits": 4.7,
     "codeChanges": {
       "linesAdded": 5,
       "linesRemoved": 1,
@@ -67,7 +67,7 @@
     "totalToolCalls": 5,
     "errorCount": 0,
     "duration": 122.51,
-    "cost": 3,
+    "cost": 4.7,
     "autonomyEfficiency": 0.08998988833778905,
     "interventions": 2,
     "topTools": [
@@ -83,7 +83,7 @@
     "cacheRead": 1200,
     "cacheWrite": 800,
     "freshInputTokens": 6200,
-    "cost": 3,
+    "cost": 4.7,
     "cacheHitRate": 0.14634146341463414,
     "peakContext": 8200,
     "callCount": 1
@@ -91,7 +91,7 @@
   "ui": {
     "reviewScoreText": "81",
     "reviewLabelText": "Needs review",
-  "costText": "3 PRU",
+  "costText": "4.7 credits (~$0.047)",
     "autonomyText": "9%",
     "investigateEventText": "Can you add a hello world function to utils.js?",
     "compareTitle": "golden-a.jsonl vs golden-b.jsonl",

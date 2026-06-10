@@ -1,6 +1,6 @@
 import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
-import { estimateCost, estimateMultiModelCost, formatCost, formatSessionCost, getSessionCostLabel, isPremiumRequestUnit, hasModelPricing } from "../lib/pricing.js";
+import { estimateCost, estimateMultiModelCost, formatCost, formatSessionCost, getSessionCostLabel, isAiCreditsUnit, hasModelPricing } from "../lib/pricing.js";
 import { formatDurationLong } from "../lib/formatTime.js";
 import { formatCacheUsageSummary, summarizeTokenUsage } from "../lib/cacheMetrics";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
@@ -482,7 +482,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         label: getSessionCostLabel(metadata),
         value: formatSessionCost(metadata),
         color: theme.semantic.success,
-        sub: isPremiumRequestUnit(metadata.totalCostUnit) ? "reported by Copilot" : "reported by API",
+        sub: isAiCreditsUnit(metadata.totalCostUnit) ? "reported by Copilot" : "reported by API",
       });
     }
     if (estimated > 0) {

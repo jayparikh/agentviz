@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { theme, alpha } from "../lib/theme.js";
-import { formatCostValue, isPremiumRequestUnit } from "../lib/pricing.js";
+import { formatCostValue, isAiCreditsUnit } from "../lib/pricing.js";
 import { formatDurationLong as formatDuration } from "../lib/formatTime.js";
 import { buildAutonomyMetrics, formatAutonomyEfficiency, getSessionCost } from "../lib/autonomyMetrics.js";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
@@ -60,7 +60,6 @@ export function buildMetrics(session) {
     duration: session.total || 0,
     cost: cost,
     costUnit: meta.totalCostUnit || "usd",
-    pru: format !== "claude-code" && meta.premiumRequests != null ? meta.premiumRequests : null,
     inputTokens: hasTokenUsage ? (tu.inputTokens || 0) : null,
     outputTokens: hasTokenUsage ? (tu.outputTokens || 0) : null,
     cacheRead: hasTokenUsage ? (tu.cacheRead || 0) : null,
@@ -128,12 +127,12 @@ function Row({ label, valA, valB, a, b, lowerIsBetter, indent }) {
 
 function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
   var cacheAvailable = (mA.cacheRead || 0) > 0 || (mB.cacheRead || 0) > 0;
-  var crossAgent = mA.format !== mB.format;
-  var hasPRU = mA.pru !== null || mB.pru !== null;
+  // Cost units can differ even within the same format: older Copilot CLI logs
+  // fall back to estimated USD while newer ones report AI Credits. Only compare
+  // when both sides share a unit; otherwise the delta is meaningless.
+  var costUnitsMatch = mA.costUnit === mB.costUnit;
+  var costInvolvesCredits = isAiCreditsUnit(mA.costUnit) || isAiCreditsUnit(mB.costUnit);
 
-  // When comparing different agents (Claude vs Copilot), cost units differ --
-  // Claude uses USD estimates, Copilot uses PRUs or actual API cost.
-  // Suppress the delta badge in that case.
   function costDisplay(m) {
     if (m.cost == null) return "N/A";
     return formatCostValue(m.cost, m.costUnit);
@@ -214,12 +213,12 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
 
       <Row label="Duration"     valA={formatDuration(mA.duration)}    valB={formatDuration(mB.duration)}    a={mA.duration}    b={mB.duration}    lowerIsBetter={true} />
       <Row
-        label={crossAgent || isPremiumRequestUnit(mA.costUnit) || isPremiumRequestUnit(mB.costUnit) ? "Cost / PRUs" : "Effective cost"}
+        label={costInvolvesCredits ? "Cost / Credits" : "Effective cost"}
         valA={costDisplay(mA)}
         valB={costDisplay(mB)}
-        a={crossAgent ? null : mA.cost}
-        b={crossAgent ? null : mB.cost}
-        lowerIsBetter={crossAgent ? null : true}
+        a={costUnitsMatch ? mA.cost : null}
+        b={costUnitsMatch ? mB.cost : null}
+        lowerIsBetter={costUnitsMatch ? true : null}
       />
       <Row label="Input tokens"  valA={fmtMetric(mA.inputTokens)}     valB={fmtMetric(mB.inputTokens)}      a={mA.inputTokens} b={mB.inputTokens} lowerIsBetter={null} />
       {cacheAvailable && (
@@ -230,17 +229,6 @@ function Scorecard({ mA, mB, fileA, fileB, onOpenSessionA, onOpenSessionB }) {
       )}
       {cacheAvailable && (
         <Row label="Cache hit rate" valA={fmtPercent(mA.cacheHitRate)} valB={fmtPercent(mB.cacheHitRate)} a={mA.cacheHitRate} b={mB.cacheHitRate} lowerIsBetter={null} indent />
-      )}
-      {hasPRU && (
-        <Row
-          label="Premium reqs"
-          valA={mA.pru !== null ? fmt(mA.pru) : "N/A"}
-          valB={mB.pru !== null ? fmt(mB.pru) : "N/A"}
-          a={mA.pru}
-          b={mB.pru}
-          lowerIsBetter={true}
-          indent
-        />
       )}
       <Row label="Output tokens" valA={fmtMetric(mA.outputTokens)}    valB={fmtMetric(mB.outputTokens)}     a={mA.outputTokens} b={mB.outputTokens} lowerIsBetter={null} />
       <Row label="Tool calls"    valA={fmt(mA.toolCalls)}              valB={fmt(mB.toolCalls)}              a={mA.toolCalls}   b={mB.toolCalls}   lowerIsBetter={null} />

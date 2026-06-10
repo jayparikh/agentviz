@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildAutonomyMetrics, getTopTools } from "../lib/autonomyMetrics.js";
 import { buildCostAnalysis } from "../lib/costAnalysis.js";
 import { buildCommandPaletteIndex, searchCommandPalette } from "../lib/commandPalette.js";
+import { formatSessionCost } from "../lib/pricing.js";
 import { buildReviewInsights, buildReviewSummary } from "../components/v2/ReviewHub.jsx";
 import { getErrorEventIndexes, getToolNames, loadGoldenSession } from "./v2GoldenHelpers.js";
 
@@ -28,7 +29,8 @@ describe("v2 golden data correctness", function () {
     expect(metadata.duration).toBe(expected.metadata.duration);
     expect(metadata.totalCost).toBe(expected.metadata.totalCost);
     expect(metadata.totalCostUnit).toBe(expected.metadata.totalCostUnit);
-    expect(metadata.premiumRequests).toBe(expected.metadata.premiumRequests);
+    expect(metadata.aiCredits).toBe(expected.metadata.aiCredits);
+    expect(formatSessionCost(metadata)).toBe(expected.ui.costText);
     expect(metadata.codeChanges).toEqual(expected.metadata.codeChanges);
     expect(metadata.tokenUsage).toEqual(expected.metadata.tokenUsage);
   });

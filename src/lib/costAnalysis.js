@@ -275,7 +275,7 @@ export function buildCostAnalysis(events, metadata) {
       cost: totalCost,
       costUnit: totalCostUnit,
       estimatedUsdCost: estimatedUsdCost,
-      premiumRequests: metadata && metadata.premiumRequests != null ? metadata.premiumRequests : null,
+      aiCredits: metadata && metadata.aiCredits != null ? metadata.aiCredits : null,
       cacheHitRate: cacheHitRate,
       peakContext: peakContext,
     },

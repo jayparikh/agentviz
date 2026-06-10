@@ -23,6 +23,7 @@
 
 import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn } from "./sessionTypes";
 import { computeCacheHitRate } from "./cacheMetrics";
+import { nanoAiuToCredits } from "./pricing.js";
 import type { TrackType } from "./theme";
 
 const MAX_TEXT_LENGTH = 4000;
@@ -569,16 +570,17 @@ function buildMetadata(
   let totalCacheReadTokens = 0;
   let totalCacheWriteTokens = 0;
   let totalCost: number | null = null;
-  let totalCostUnit: "premium_requests" | null = null;
-  let modelTokenUsage: Record<string, { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number; cacheHitRate?: number }> | null = null;
+  let totalCostUnit: "ai_credits" | null = null;
+  let aiCredits: number | null = null;
+  let modelTokenUsage: Record<string, { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number; cacheHitRate?: number; aiCredits?: number | null }> | null = null;
 
   if (sessionShutdown && sessionShutdown.modelMetrics) {
     const modelMetrics = sessionShutdown.modelMetrics;
-    totalCost = 0;
     modelTokenUsage = {};
     for (const model of Object.keys(modelMetrics)) {
       const metric = modelMetrics[model];
       const usage = getMetricTokenUsage(metric);
+      const modelCredits = metric && metric.totalNanoAiu != null ? nanoAiuToCredits(metric.totalNanoAiu) : null;
       if (usage) {
         const inputTokens = usage.inputTokens;
         const outputTokens = usage.outputTokens;
@@ -594,13 +596,26 @@ function buildMetadata(
           cacheRead: cacheReadTokens,
           cacheWrite: cacheWriteTokens,
           cacheHitRate: computeCacheHitRate(inputTokens, cacheWriteTokens, cacheReadTokens),
+          aiCredits: modelCredits,
         };
       }
-      if (metric.requests) {
-        totalCost += metric.requests.cost || 0;
-        totalCostUnit = "premium_requests";
+      if (modelCredits != null) {
+        aiCredits = (aiCredits || 0) + modelCredits;
       }
       if (!models[model]) models[model] = metric.requests ? metric.requests.count : 0;
+    }
+  }
+
+  if (sessionShutdown) {
+    // Prefer the session-level credit total when present; otherwise use the
+    // per-model sum accumulated above. Session-level credits are honored even
+    // when a shutdown record omits per-model metrics.
+    if (sessionShutdown.totalNanoAiu != null) {
+      aiCredits = nanoAiuToCredits(sessionShutdown.totalNanoAiu);
+    }
+    if (aiCredits != null) {
+      totalCost = aiCredits;
+      totalCostUnit = "ai_credits";
     }
   }
 
@@ -653,7 +668,7 @@ function buildMetadata(
     gitRoot: context.gitRoot || null,
     shutdownType: sessionShutdown ? sessionShutdown.shutdownType : null,
     codeChanges: sessionShutdown ? sessionShutdown.codeChanges : null,
-    premiumRequests: sessionShutdown ? sessionShutdown.totalPremiumRequests : null,
+    aiCredits,
     totalApiDurationMs: sessionShutdown ? sessionShutdown.totalApiDurationMs : null,
     totalCost,
     totalCostUnit,

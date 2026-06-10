@@ -100,7 +100,7 @@ Some newer Copilot CLI shutdown records also include `tokenDetails` buckets:
 
 These map to fresh input, cache read, cache write, and output respectively. When only `tokenDetails` is available, AGENTVIZ treats normalized input as `input + cache_read + cache_write`.
 
-Copilot CLI `requests.cost` is not treated as USD. AGENTVIZ stores it as reported premium request usage (`totalCostUnit: "premium_requests"`) and renders it as PRU. Token-priced USD estimates are shown separately when model pricing is recognized, because premium request overage pricing depends on the user's GitHub Copilot plan and monthly allowance.
+Copilot CLI sessions report usage-based **AI Credits** via the `totalNanoAiu` field on the `session.shutdown` record (both at `data.totalNanoAiu` and per-model under `data.modelMetrics[model].totalNanoAiu`). AGENTVIZ converts this to credits and stores it as `totalCost` with `totalCostUnit: "ai_credits"`. The conversion is fixed: `1 AI credit = 1 AIU = 1,000,000,000 nano-AIU = $0.01 USD`, so `credits = totalNanoAiu / 1e9` and the USD equivalent is `credits * 0.01`. Older logs that predate `totalNanoAiu` (and the legacy `requests.cost` premium-request field) fall back to the token-priced USD estimate when model pricing is recognized.
 
 ## Copilot prompt export JSON
 
@@ -176,4 +176,4 @@ The Cost view uses compact labels:
 
 If a source does not report cache writes, the UI omits the `write` segment.
 
-For Copilot CLI sessions, reported premium request usage is labeled as PRU rather than `$`. For example, a shutdown record with `requests.cost: 3` and `totalPremiumRequests: 3` is displayed as `3 PRU`, with any token-based USD estimate shown as a separate estimate.
+For Copilot CLI sessions, reported usage is labeled as **AI Credits** with the USD equivalent shown alongside. For example, a shutdown record with `totalNanoAiu: 4700000000` is displayed as `4.7 credits (~$0.047)`. Older logs without `totalNanoAiu` fall back to a token-based USD estimate when pricing is recognized.

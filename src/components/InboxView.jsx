@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { theme, alpha } from "../lib/theme.js";
 import { formatDurationLong } from "../lib/formatTime.js";
-import { formatCostValue, isPremiumRequestUnit } from "../lib/pricing.js";
+import { formatCostValue, isAiCreditsUnit } from "../lib/pricing.js";
 import { formatAutonomyEfficiency } from "../lib/autonomyMetrics.js";
 import {
   LANDING_FORMAT_OPTIONS,
@@ -495,7 +495,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                   { label: "Autonomy", value: formatAutonomyEfficiency(autonomy.autonomyEfficiency) },
                   { label: "Human response", value: formatDurationLong(autonomy.babysittingTime) },
                   { label: "Idle", value: formatDurationLong(autonomy.idleTime) },
-                  { label: isPremiumRequestUnit(entry.totalCostUnit) ? "PRU" : "Cost", value: entry.totalCost != null ? formatCostValue(entry.totalCost, entry.totalCostUnit) : "--" },
+                  { label: isAiCreditsUnit(entry.totalCostUnit) ? "Credits" : "Cost", value: entry.totalCost != null ? formatCostValue(entry.totalCost, entry.totalCostUnit) : "--" },
                   { label: "Events", value: String(entry.totalEvents || 0) },
                 ].map(function (chip) {
                   return (
