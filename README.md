@@ -57,6 +57,16 @@ npx agentviz ~/.claude/projects/my-project/
 
 The browser opens with a pulsing **LIVE** badge. As Claude Code writes new events to the session file, they stream into the view in real time via SSE, including records that are written incrementally before the trailing newline lands.
 
+### CLI (self-contained manifest export)
+
+Generate a single HTML file from a static manifest and its local session files:
+
+```bash
+npx agentviz export --manifest ./data/manifest.json --out ./agentviz-report.html
+```
+
+The output embeds the AGENTVIZ app, the manifest, and all referenced JSONL sessions. It can be opened directly from disk without running a local web server. Manifest session URLs must be local paths relative to the manifest file; remote URLs are rejected because they cannot be embedded.
+
 ### Finding your session files
 
 ```bash
@@ -407,6 +417,12 @@ The manifest lists sessions with display names, relative URLs, and freeform tags
 
 Session URLs are resolved relative to the manifest location. Tags appear as filter chips in the inbox (AND logic). Pre-apply filters with `&tag=X` query params.
 
+To package a static manifest deployment as one shareable file instead of hosting the manifest and JSONL files, run:
+
+```bash
+npx agentviz export --manifest ./data/manifest.json --out ./agentviz-report.html
+```
+
 ## Architecture
 
 ```
@@ -465,6 +481,7 @@ src/
     pricing.js           # Claude and OpenAI/Copilot model pricing table and cost estimation
     pricing.d.ts         # TypeScript declarations for pricing.js
     exportHtml.js        # Self-contained HTML export for single sessions and comparisons
+    headlessExport.js    # CLI/headless self-contained HTML export for static manifests
     formatTime.d.ts      # TypeScript declarations for formatTime.js
     formatTime.js        # Duration and date formatting utilities
     landingSessions.js   # Shared landing browser labels, filters, and format options
