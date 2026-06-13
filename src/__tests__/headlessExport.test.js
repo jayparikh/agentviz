@@ -153,7 +153,12 @@ describe("headless HTML export", function () {
           "--out",
           outPath,
         ],
-        { cwd: repoRoot },
+        {
+          cwd: repoRoot,
+          env: Object.assign({}, process.env, {
+            AGENTVIZ_EXPORT_DIST_DIR: fixture.distDir,
+          }),
+        },
         function (error, stdout, stderr) {
           if (error) {
             error.message += "\nstdout:\n" + stdout + "\nstderr:\n" + stderr;

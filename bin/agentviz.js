@@ -101,14 +101,15 @@ async function handleExport(args) {
   if (!manifestPath) throw new Error("Missing required option: --manifest <path>");
   if (!outPath) throw new Error("Missing required option: --out <path>");
 
-  if (!fs.existsSync(path.join(distDir, "index.html"))) {
+  var exportDistDir = process.env.AGENTVIZ_EXPORT_DIST_DIR || distDir;
+  if (!fs.existsSync(path.join(exportDistDir, "index.html"))) {
     throw new Error("dist/ not found. Run `npm run build` inside the agentviz package first.");
   }
 
   await writeSelfContainedManifestHtml({
     manifestPath: path.resolve(manifestPath),
     outPath: path.resolve(outPath),
-    distDir: distDir,
+    distDir: exportDistDir,
   });
 
   process.stdout.write("Wrote self-contained AGENTVIZ report to " + path.resolve(outPath) + "\n");
