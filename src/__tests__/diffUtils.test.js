@@ -330,4 +330,53 @@ describe("computeDiff", function () {
     expect(del.length).toBe(1);
     expect(del[0].text).toBe("b");
   });
+
+  // Regression: the Myers backtracking guards were swapped, which dropped the
+  // single context/equal line immediately following an edit. These lock in that
+  // surrounding context survives on every edit shape.
+
+  it("keeps the context line immediately after a deletion (regression)", function () {
+    var hunks = computeDiff("a\nb\nc", "a\nc");
+    var ctxText = hunks[0].lines
+      .filter(function (l) { return l.type === "context"; })
+      .map(function (l) { return l.text; });
+    expect(ctxText).toContain("a");
+    expect(ctxText).toContain("c");
+  });
+
+  it("keeps the context line immediately after an insertion (regression)", function () {
+    var hunks = computeDiff("a\nb", "c\na\nb");
+    var ctxText = hunks[0].lines
+      .filter(function (l) { return l.type === "context"; })
+      .map(function (l) { return l.text; });
+    expect(ctxText).toContain("a");
+    expect(ctxText).toContain("b");
+  });
+
+  it("keeps the context line directly below a mid-file edit (regression)", function () {
+    var old = "l1\nl2\nl3\nl4\nl5";
+    var neu = "l1\nl2\nL3\nl4\nl5";
+    var hunks = computeDiff(old, neu);
+    var ctxText = hunks[0].lines
+      .filter(function (l) { return l.type === "context"; })
+      .map(function (l) { return l.text; });
+    expect(ctxText).toContain("l4");
+    expect(ctxText).toContain("l5");
+  });
+
+  it("reconstructs both sides without dropping lines (regression)", function () {
+    var old = "a\nb\nc\nd";
+    var neu = "a\nx\nc\nd";
+    var hunks = computeDiff(old, neu);
+    var all = [];
+    for (var h = 0; h < hunks.length; h++) all = all.concat(hunks[h].lines);
+    var oldSide = all
+      .filter(function (l) { return l.type === "context" || l.type === "delete"; })
+      .map(function (l) { return l.text; });
+    var newSide = all
+      .filter(function (l) { return l.type === "context" || l.type === "insert"; })
+      .map(function (l) { return l.text; });
+    expect(oldSide).toEqual(["a", "b", "c", "d"]);
+    expect(newSide).toEqual(["a", "x", "c", "d"]);
+  });
 });

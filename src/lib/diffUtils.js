@@ -233,8 +233,11 @@ function myersDiff(oldLines, newLines) {
     var prevX = V[prevK + MAX];
     var prevY = prevX - prevK;
 
-    // Diagonal (equal) moves from entry point to current (x, y)
-    while (x > prevX + (prevK > k ? 1 : 0) && y > prevY + (prevK < k ? 1 : 0)) {
+    // Replay the diagonal (equal) run that precedes this step back to its entry
+    // point. The non-diagonal move consumes one step on a single axis: a deletion
+    // (prevK < k) advanced x, an insertion (prevK > k) advanced y. Offset that axis
+    // by 1 so the equal run stops at the snake's start and no context line is lost.
+    while (x > prevX + (prevK < k ? 1 : 0) && y > prevY + (prevK > k ? 1 : 0)) {
       x--;
       y--;
       operations.push({ type: "equal", oldIdx: x, newIdx: y });
