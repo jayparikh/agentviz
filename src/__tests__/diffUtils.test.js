@@ -379,4 +379,27 @@ describe("computeDiff", function () {
     expect(oldSide).toEqual(["a", "b", "c", "d"]);
     expect(newSide).toEqual(["a", "x", "c", "d"]);
   });
+
+  it("reconstructs both sides across multiple edit shapes (regression)", function () {
+    // Each tuple is [old, new]: adjacent edits, separated edits, and a replaced block.
+    var cases = [
+      ["a\nb\nc\nd\ne", "a\nX\nY\nd\ne"],
+      ["a\nb\nc\nd\ne\nf", "a\nb\nC\nd\ne\nF"],
+      ["a\nb\nc", "x\na\nb\nc\ny"],
+      ["one\ntwo\nthree\nfour", "one\nfour"],
+    ];
+    cases.forEach(function (pair) {
+      var hunks = computeDiff(pair[0], pair[1]);
+      var all = [];
+      for (var h = 0; h < hunks.length; h++) all = all.concat(hunks[h].lines);
+      var oldSide = all
+        .filter(function (l) { return l.type === "context" || l.type === "delete"; })
+        .map(function (l) { return l.text; });
+      var newSide = all
+        .filter(function (l) { return l.type === "context" || l.type === "insert"; })
+        .map(function (l) { return l.text; });
+      expect(oldSide).toEqual(pair[0].split("\n"));
+      expect(newSide).toEqual(pair[1].split("\n"));
+    });
+  });
 });
