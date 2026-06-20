@@ -13,6 +13,7 @@
  */
 
 import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn } from "./sessionTypes";
+import { getSessionTotal } from "./session";
 import type { TrackType } from "./theme";
 
 type ResponsePart = Record<string, any>;
@@ -254,21 +255,23 @@ function mapResponsePart(
       if (d && d > 0) duration = d / 1000;
     }
 
-    // Build toolInput from available data
+    // Keep arguments/input separate from observed result content.
     let toolInput: unknown = undefined;
+    let toolOutput: unknown = undefined;
     if (part.toolSpecificData && part.toolSpecificData.kind === "terminal") {
       toolInput = {
         command: part.toolSpecificData.commandLine && part.toolSpecificData.commandLine.original,
-        output: part.toolSpecificData.terminalCommandOutput && part.toolSpecificData.terminalCommandOutput.text,
       };
+      toolOutput = part.toolSpecificData.terminalCommandOutput && part.toolSpecificData.terminalCommandOutput.text;
     } else if (part.resultDetails && part.resultDetails.length > 0) {
       const details = part.resultDetails.map(function (d: any) { return d && d.value; }).filter(Boolean).join("\n");
-      if (details) toolInput = { result: details };
+      if (details) toolOutput = details;
     }
 
     return makeEvent(eventTime, "assistant", "tool_call", text, duration, 0.9, part, {
       toolName,
       toolInput,
+      toolOutput: toolOutput || null,
       toolCallId: part.toolCallId || null,
       isError: hasError,
       model,
@@ -355,7 +358,9 @@ function buildTimeline(session: VSCodeSession): {
     // User message event
     const userText = (req.message && req.message.text) || "";
     if (userText) {
-      events.push(makeEvent(turnStartSec, "user", "output", userText, 0.5, 0.9, req));
+      events.push(makeEvent(turnStartSec, "user", "output", userText, 0.5, 0.9, req, {
+        turnIndex: ri,
+      }));
     }
 
     // Map response parts with estimated timestamps
@@ -462,9 +467,7 @@ function buildMetadata(
     if (ev.track === "tool_call") toolCalls++;
   }
 
-  const duration = events.length > 0
-    ? events[events.length - 1].t + events[events.length - 1].duration - events[0].t
-    : 0;
+  const duration = getSessionTotal(events);
 
   const modelEntries = Object.entries(models).sort(function (a, b) { return b[1] - a[1]; });
 

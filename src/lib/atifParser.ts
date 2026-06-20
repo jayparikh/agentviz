@@ -22,6 +22,7 @@
 
 import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn, TokenUsage } from "./sessionTypes";
 import { computeCacheHitRate } from "./cacheMetrics";
+import { getSessionTotal } from "./session";
 import { truncateText as truncate } from "./formatTime.js";
 import type { TrackType } from "./theme";
 
@@ -575,10 +576,15 @@ export function parseAtifJSON(text: string): ParsedSession | null {
   for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
     const event = events[eventIndex];
     let assignedTurn: SessionTurn | null = null;
-    for (let turnIndex = turns.length - 1; turnIndex >= 0; turnIndex -= 1) {
-      if (event.t >= turns[turnIndex].startTime) {
-        assignedTurn = turns[turnIndex];
-        break;
+    const explicitTurnIndex = typeof event.turnIndex === "number" ? event.turnIndex : -1;
+    if (explicitTurnIndex >= 0 && explicitTurnIndex < turns.length) {
+      assignedTurn = turns[explicitTurnIndex];
+    } else {
+      for (let turnIndex = turns.length - 1; turnIndex >= 0; turnIndex -= 1) {
+        if (event.t >= turns[turnIndex].startTime) {
+          assignedTurn = turns[turnIndex];
+          break;
+        }
       }
     }
     if (!assignedTurn) assignedTurn = turns[0];
@@ -609,30 +615,36 @@ export function parseAtifJSON(text: string): ParsedSession | null {
     if (event.model) models[event.model] = (models[event.model] || 0) + 1;
   }
 
-  // Token usage from final_metrics if present, otherwise sum per-step metrics.
+  // Token usage prefers final_metrics field by field, falling back to per-step metrics for omitted totals.
   const finalMetrics = trajectory.final_metrics;
+  let stepInput = 0;
+  let stepOutput = 0;
+  let stepCacheRead = 0;
+  for (let index = 0; index < steps.length; index += 1) {
+    const metrics = steps[index].metrics;
+    if (!metrics) continue;
+    stepInput += metrics.prompt_tokens || 0;
+    stepOutput += metrics.completion_tokens || 0;
+    stepCacheRead += metrics.cached_tokens || 0;
+  }
+
   let totalInput = 0;
   let totalOutput = 0;
   let totalCacheRead = 0;
   let totalCostUsd = 0;
   let anyCost = false;
   if (finalMetrics) {
-    totalInput = finalMetrics.total_prompt_tokens || 0;
-    totalOutput = finalMetrics.total_completion_tokens || 0;
-    totalCacheRead = finalMetrics.total_cached_tokens || 0;
+    totalInput = typeof finalMetrics.total_prompt_tokens === "number" ? finalMetrics.total_prompt_tokens : stepInput;
+    totalOutput = typeof finalMetrics.total_completion_tokens === "number" ? finalMetrics.total_completion_tokens : stepOutput;
+    totalCacheRead = typeof finalMetrics.total_cached_tokens === "number" ? finalMetrics.total_cached_tokens : stepCacheRead;
     if (typeof finalMetrics.total_cost_usd === "number") {
       totalCostUsd = finalMetrics.total_cost_usd;
       anyCost = true;
     }
-  }
-  if (totalInput + totalOutput + totalCacheRead === 0) {
-    for (let index = 0; index < steps.length; index += 1) {
-      const metrics = steps[index].metrics;
-      if (!metrics) continue;
-      totalInput += metrics.prompt_tokens || 0;
-      totalOutput += metrics.completion_tokens || 0;
-      totalCacheRead += metrics.cached_tokens || 0;
-    }
+  } else {
+    totalInput = stepInput;
+    totalOutput = stepOutput;
+    totalCacheRead = stepCacheRead;
   }
   if (!anyCost) {
     for (let index = 0; index < steps.length; index += 1) {
@@ -680,9 +692,7 @@ export function parseAtifJSON(text: string): ParsedSession | null {
     }
     : null;
 
-  const duration = events.length > 0
-    ? events[events.length - 1].t + events[events.length - 1].duration
-    : 0;
+  const duration = getSessionTotal(events);
 
   const primaryModel = trajectory.agent.model_name || (Object.keys(models)[0] ?? null);
 

@@ -225,6 +225,21 @@ describe("parseAtifJSON -- recent regressions (turn segmentation, message durati
     expect(userEvents[0].turnIndex).not.toBe(agentEvents[0].turnIndex);
   });
 
+  it("preserves per-step turn indices when steps share a timestamp", function () {
+    const text = makeAtif([
+      { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "first" },
+      { step_id: 2, timestamp: "2026-04-18T05:48:00.000Z", source: "agent", message: "second" },
+      { step_id: 3, timestamp: "2026-04-18T05:48:00.000Z", source: "agent", message: "third" },
+    ]);
+
+    const session = parseAtifJSON(text);
+    expect(session).not.toBeNull();
+    expect(session.events.map(function (event) { return event.turnIndex; })).toEqual([0, 1, 2]);
+    for (let index = 0; index < session.turns.length; index += 1) {
+      expect(session.turns[index].eventIndices).toEqual([index]);
+    }
+  });
+
   it("caps message duration to the step's wall-clock gap so the bar does not bleed into the next step", function () {
     const text = makeAtif([
       { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "go" },
@@ -344,6 +359,30 @@ describe("parseAtifJSON -- recent regressions (turn segmentation, message durati
     expect(session.metadata.totalCost).toBeCloseTo(1.23, 5);
   });
 
+  it("falls back to step token metrics for omitted final_metrics fields", function () {
+    const text = JSON.stringify({
+      schema_version: "ATIF-v1.6",
+      session_id: "partial-final-metrics",
+      agent: { name: "test", version: "1.0", model_name: "m" },
+      steps: [
+        { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "go" },
+        {
+          step_id: 2,
+          timestamp: "2026-04-18T05:48:05.000Z",
+          source: "agent",
+          message: "a",
+          metrics: { prompt_tokens: 100, completion_tokens: 20, cached_tokens: 5 },
+        },
+      ],
+      final_metrics: { total_prompt_tokens: 999 },
+    });
+
+    const session = parseAtifJSON(text);
+    expect(session.metadata.tokenUsage.inputTokens).toBe(999);
+    expect(session.metadata.tokenUsage.outputTokens).toBe(20);
+    expect(session.metadata.tokenUsage.cacheRead).toBe(5);
+  });
+
   it("emits metadata.modelTokenUsage per model so StatsView can compute per-model cost", function () {
     const text = JSON.stringify({
       schema_version: "ATIF-v1.6",
@@ -389,6 +428,23 @@ describe("parseAtifJSON -- recent regressions (turn segmentation, message durati
     const callB = toolEvents.find(function (e) { return e.toolCallId === "call_b"; });
     expect(callA.toolOutput).toBe("file1.txt\nfile2.txt");
     expect(callB.toolOutput).toBe("/tmp");
+  });
+
+  it("uses the latest event end for metadata duration", function () {
+    const text = makeAtif([
+      { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "go" },
+      {
+        step_id: 2,
+        timestamp: "2026-04-18T05:48:05.000Z",
+        source: "agent",
+        message: "",
+        tool_calls: [{ tool_call_id: "long", function_name: "bash", arguments: {}, duration_ms: 5000 }],
+      },
+      { step_id: 3, timestamp: "2026-04-18T05:48:06.000Z", source: "agent", message: "done" },
+    ]);
+
+    const session = parseAtifJSON(text);
+    expect(session.metadata.duration).toBe(10);
   });
 
   it("reads subagent_trajectory_ref from observation results (per ATIF v1.6 spec) as a list", function () {

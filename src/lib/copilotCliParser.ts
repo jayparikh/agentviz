@@ -23,6 +23,7 @@
 
 import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn } from "./sessionTypes";
 import { computeCacheHitRate } from "./cacheMetrics";
+import { getSessionTotal } from "./session";
 import { nanoAiuToCredits } from "./pricing.js";
 import type { TrackType } from "./theme";
 
@@ -193,8 +194,13 @@ function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, to
     }
 
     if (type === "tool.execution_start") {
-      if (seenToolStarts[data.toolCallId]) continue;
-      seenToolStarts[data.toolCallId] = true;
+      const toolCallId = typeof data.toolCallId === "string" && data.toolCallId.length > 0
+        ? data.toolCallId
+        : null;
+      if (toolCallId) {
+        if (seenToolStarts[toolCallId]) continue;
+        seenToolStarts[toolCallId] = true;
+      }
       emitToolCall(events, t, timestamp, data, record, toolPairs, taskToolMap, subagentLifecycle);
       continue;
     }
@@ -624,9 +630,7 @@ function buildMetadata(
   });
   const primaryModel = modelEntries.length > 0 ? modelEntries[0][0] : null;
 
-  const duration = events.length > 0
-    ? events[events.length - 1].t + events[events.length - 1].duration
-    : 0;
+  const duration = getSessionTotal(events);
 
   const warnings: string[] = [];
   if (malformedLines > 0) warnings.push(malformedLines + " malformed line(s) skipped");

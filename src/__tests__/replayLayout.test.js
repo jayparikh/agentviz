@@ -31,6 +31,7 @@ describe("buildReplayLayout", function () {
     var turnStartMap = {
       1: {
         index: 1,
+        eventIndices: [1],
         toolCount: 0,
         hasError: false,
       },
@@ -38,6 +39,22 @@ describe("buildReplayLayout", function () {
     var layout = buildReplayLayout([makeEntry(0, "short"), makeEntry(1, "short")], turnStartMap);
 
     expect(layout.items[1].height).toBeGreaterThan(layout.items[0].height);
+  });
+
+  it("adds turn header to the first visible event when the turn start is hidden", function () {
+    var turnStartMap = {
+      1: {
+        index: 1,
+        eventIndices: [1, 2],
+        toolCount: 0,
+        hasError: false,
+      },
+    };
+    var layout = buildReplayLayout([makeEntry(2, "visible")], turnStartMap);
+    var withoutTurn = buildReplayLayout([makeEntry(2, "visible")], {});
+
+    expect(layout.items[0].turn.index).toBe(1);
+    expect(layout.items[0].height).toBeGreaterThan(withoutTurn.items[0].height);
   });
 
   it("cache produces identical results on repeated calls", function () {

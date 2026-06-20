@@ -104,6 +104,24 @@ describe("autonomy metrics", function () {
     expect(metrics.babysittingTime).toBe(45);
     expect(metrics.userFollowUps).toEqual([]);
   });
+
+  it("does not report idle gaps inside overlapping long-running events", function () {
+    var events = [
+      { t: 0, duration: 100, agent: "assistant", track: "tool_call", text: "long bash", toolName: "bash" },
+      { t: 10, duration: 5, agent: "assistant", track: "output", text: "short update" },
+      { t: 45, duration: 5, agent: "assistant", track: "output", text: "still working" },
+    ];
+    var metrics = buildAutonomyMetrics(events, [], {
+      duration: 100,
+      totalTurns: 0,
+      totalToolCalls: 1,
+      errorCount: 0,
+      format: "claude-code",
+    });
+
+    expect(metrics.idleTime).toBe(0);
+    expect(metrics.idleGaps).toEqual([]);
+  });
 });
 
 describe("getTopTools", function () {

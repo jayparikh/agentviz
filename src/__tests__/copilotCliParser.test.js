@@ -155,6 +155,62 @@ describe("detectCopilotCli", function () {
   });
 });
 
+describe("parseCopilotCliRecords tool starts", function () {
+  it("keeps multiple id-less tool start events", function () {
+    var records = [
+      SESSION_START,
+      {
+        type: "tool.execution_start",
+        data: { toolName: "bash", arguments: { command: "pwd" } },
+        id: "evt-idless-1",
+        timestamp: ts(1000),
+        parentId: "evt-1",
+      },
+      {
+        type: "tool.execution_start",
+        data: { toolName: "view", arguments: { path: "/tmp/file" } },
+        id: "evt-idless-2",
+        timestamp: ts(2000),
+        parentId: "evt-idless-1",
+      },
+    ];
+
+    var result = parseCopilotCliRecords(records);
+    var toolEvents = result.events.filter(function (event) { return event.track === "tool_call"; });
+    expect(toolEvents.map(function (event) { return event.toolName; })).toEqual(["bash", "view"]);
+  });
+
+  it("uses the latest event end for metadata duration", function () {
+    var records = [
+      SESSION_START,
+      {
+        type: "tool.execution_start",
+        data: { toolCallId: "tc-long", toolName: "bash", arguments: { command: "sleep 10" } },
+        id: "evt-duration-start",
+        timestamp: ts(1000),
+        parentId: "evt-1",
+      },
+      {
+        type: "assistant.message",
+        data: { content: "still working" },
+        id: "evt-duration-message",
+        timestamp: ts(2000),
+        parentId: "evt-duration-start",
+      },
+      {
+        type: "tool.execution_complete",
+        data: { toolCallId: "tc-long", success: true, result: { content: "done" } },
+        id: "evt-duration-complete",
+        timestamp: ts(11000),
+        parentId: "evt-duration-start",
+      },
+    ];
+
+    var result = parseCopilotCliRecords(records);
+    expect(result.metadata.duration).toBe(11);
+  });
+});
+
 // ---- Auto-detect router ----
 
 describe("detectFormat", function () {

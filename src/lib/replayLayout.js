@@ -44,10 +44,29 @@ export function buildReplayLayout(entries, turnStartMap, measuredHeights) {
   var top = 0;
   var items = [];
   var measured = measuredHeights || {};
+  var entryIndexes = {};
+  var visibleTurnStartMap = {};
+
+  for (var entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
+    entryIndexes[entries[entryIndex].index] = true;
+  }
+
+  var map = turnStartMap || {};
+  Object.keys(map).forEach(function (key) {
+    var turn = map[key];
+    var eventIndices = turn && Array.isArray(turn.eventIndices) ? turn.eventIndices : [Number(key)];
+    for (var eventIndex = 0; eventIndex < eventIndices.length; eventIndex += 1) {
+      var index = eventIndices[eventIndex];
+      if (entryIndexes[index]) {
+        visibleTurnStartMap[index] = turn;
+        break;
+      }
+    }
+  });
 
   for (var i = 0; i < entries.length; i++) {
     var entry = entries[i];
-    var turn = turnStartMap[entry.index];
+    var turn = visibleTurnStartMap[entry.index];
     var hasTurnHeader = Boolean(turn && turn.index > 0);
     var textLines = cachedEstimateTextLines(entry.event.text);
     var estimatedHeight = REPLAY_ROW_BASE_HEIGHT

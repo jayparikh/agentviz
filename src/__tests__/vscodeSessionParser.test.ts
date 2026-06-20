@@ -119,6 +119,11 @@ describe("event mapping", function () {
     expect(userEvents.length).toBe(3);
   });
 
+  it("assigns user message events to their request turns", function () {
+    var userEvents = events.filter(function (e) { return e.agent === "user"; });
+    expect(userEvents.map(function (e) { return e.turnIndex; })).toEqual([0, 1, 2]);
+  });
+
   it("includes thinking/reasoning events", function () {
     var reasoning = events.filter(function (e) { return e.track === "reasoning"; });
     expect(reasoning.length).toBeGreaterThanOrEqual(2);
@@ -154,6 +159,15 @@ describe("event mapping", function () {
       return e.toolName === "run_in_terminal" && e.isError;
     });
     expect(termErrors.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("stores terminal result content on toolOutput", function () {
+    var terminal = events.find(function (e) {
+      return e.toolName === "run_in_terminal" && e.text === "npm test";
+    });
+    expect(terminal).toBeDefined();
+    expect(terminal.toolInput).toEqual({ command: "npm test" });
+    expect(terminal.toolOutput).toContain("Cannot find module './jwt'");
   });
 
   it("detects user-rejected tool call as error", function () {
@@ -383,6 +397,36 @@ describe("edge cases", function () {
     var result = parseVSCodeChatJSON(JSON.stringify(session));
     expect(result).not.toBeNull();
     expect(result.events.length).toBeGreaterThan(0);
+  });
+
+  it("uses the latest event end for metadata duration", function () {
+    var result = parseVSCodeChatSession({
+      version: 3,
+      sessionId: "duration-test",
+      creationDate: 0,
+      requests: [
+        {
+          requestId: "req-1",
+          timestamp: 1000,
+          message: { text: "run tests" },
+          result: { timings: { totalElapsed: 5000 } },
+          response: [
+            {
+              kind: "toolInvocationSerialized",
+              toolId: "run_in_terminal",
+              toolSpecificData: {
+                kind: "terminal",
+                commandLine: { original: "npm test" },
+                terminalCommandState: { timestamp: 1000, duration: 15000 },
+              },
+            },
+            { value: "done" },
+          ],
+        },
+      ],
+    });
+
+    expect(result?.metadata.duration).toBeCloseTo(15.1, 5);
   });
 
   it("handles ask-mode session (no tool calls)", function () {

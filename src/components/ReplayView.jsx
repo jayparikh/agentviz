@@ -445,7 +445,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
             var isNew = item.visibleIndex >= prevCount.current - 1;
             var turnHeader = null;
 
-            if (item.turn && item.turn.index > 0 && ev.agent === "user") {
+            if (item.turn && item.turn.index > 0) {
               turnHeader = (
                 <div style={{
                   padding: "8px 12px 4px",
