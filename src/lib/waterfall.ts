@@ -141,7 +141,7 @@ export function getWaterfallStats(items: WaterfallItem[] | null | undefined): Wa
   let longestDuration = -1;
   let longestTool: string | null = null;
   const toolFrequency: Record<string, number> = {};
-  const timeline: Array<{ time: number; delta: number }> = [];
+  const timeline: Record<string, { time: number; starts: number; ends: number; instants: number }> = {};
 
   for (let i = 0; i < items.length; i += 1) {
     const item = items[i];
@@ -156,19 +156,31 @@ export function getWaterfallStats(items: WaterfallItem[] | null | undefined): Wa
     const toolName = event.toolName || "unknown";
     toolFrequency[toolName] = (toolFrequency[toolName] || 0) + 1;
 
-    timeline.push({ time: event.t, delta: 1 });
-    timeline.push({ time: event.t + event.duration, delta: -1 });
+    const startTime = event.t;
+    const duration = Math.max(0, event.duration);
+    const endTime = startTime + duration;
+    if (!timeline[startTime]) timeline[startTime] = { time: startTime, starts: 0, ends: 0, instants: 0 };
+    if (duration === 0) {
+      timeline[startTime].instants += 1;
+    } else {
+      timeline[startTime].starts += 1;
+      if (!timeline[endTime]) timeline[endTime] = { time: endTime, starts: 0, ends: 0, instants: 0 };
+      timeline[endTime].ends += 1;
+    }
   }
 
-  timeline.sort(function (a, b) {
-    return a.time !== b.time ? a.time - b.time : b.delta - a.delta;
+  const timelinePoints = Object.values(timeline).sort(function (a, b) {
+    return a.time - b.time;
   });
 
   let concurrent = 0;
   let maxConcurrency = 0;
-  for (let i = 0; i < timeline.length; i += 1) {
-    concurrent += timeline[i].delta;
-    if (concurrent > maxConcurrency) maxConcurrency = concurrent;
+  for (let i = 0; i < timelinePoints.length; i += 1) {
+    const point = timelinePoints[i];
+    concurrent -= point.ends;
+    const atTime = concurrent + point.starts + point.instants;
+    if (atTime > maxConcurrency) maxConcurrency = atTime;
+    concurrent += point.starts;
   }
 
   return {

@@ -200,6 +200,16 @@ describe("getWaterfallStats", function () {
     expect(stats.maxConcurrency).toBe(1);
   });
 
+  it("does not count back-to-back non-zero calls as concurrent", function () {
+    var items = [
+      { event: makeEvent({ t: 0, duration: 1 }), depth: 0 },
+      { event: makeEvent({ t: 1, duration: 1 }), depth: 0 },
+    ];
+
+    var stats = getWaterfallStats(items);
+    expect(stats.maxConcurrency).toBe(1);
+  });
+
   it("reports max depth", function () {
     var items = [
       { event: makeEvent({ t: 0 }), depth: 0 },
