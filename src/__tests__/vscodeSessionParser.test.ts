@@ -399,6 +399,36 @@ describe("edge cases", function () {
     expect(result.events.length).toBeGreaterThan(0);
   });
 
+  it("uses the latest event end for metadata duration", function () {
+    var result = parseVSCodeChatSession({
+      version: 3,
+      sessionId: "duration-test",
+      creationDate: 0,
+      requests: [
+        {
+          requestId: "req-1",
+          timestamp: 1000,
+          message: { text: "run tests" },
+          result: { timings: { totalElapsed: 5000 } },
+          response: [
+            {
+              kind: "toolInvocationSerialized",
+              toolId: "run_in_terminal",
+              toolSpecificData: {
+                kind: "terminal",
+                commandLine: { original: "npm test" },
+                terminalCommandState: { timestamp: 1000, duration: 15000 },
+              },
+            },
+            { value: "done" },
+          ],
+        },
+      ],
+    });
+
+    expect(result?.metadata.duration).toBeCloseTo(15.1, 5);
+  });
+
   it("handles ask-mode session (no tool calls)", function () {
     var session = {
       version: 3,

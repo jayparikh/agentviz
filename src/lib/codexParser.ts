@@ -9,6 +9,7 @@
 
 import { computeCacheHitRate } from "./cacheMetrics";
 import { truncateText as truncate } from "./formatTime.js";
+import { getSessionTotal } from "./session";
 import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn, TokenUsage } from "./sessionTypes";
 import type { TrackType } from "./theme";
 
@@ -582,7 +583,7 @@ function buildMetadata(records: RawRecord[], events: NormalizedEvent[], turns: S
     totalTurns: turns.length,
     totalToolCalls: events.filter(function (event) { return event.track === "tool_call"; }).length,
     errorCount: events.filter(function (event) { return event.isError; }).length,
-    duration: events.length > 0 ? events[events.length - 1].t + events[events.length - 1].duration : 0,
+    duration: getSessionTotal(events),
     models,
     primaryModel: modelEntries.length > 0 ? modelEntries[0][0] : null,
     tokenUsage,

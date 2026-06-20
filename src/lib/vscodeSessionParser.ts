@@ -13,6 +13,7 @@
  */
 
 import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn } from "./sessionTypes";
+import { getSessionTotal } from "./session";
 import type { TrackType } from "./theme";
 
 type ResponsePart = Record<string, any>;
@@ -466,9 +467,7 @@ function buildMetadata(
     if (ev.track === "tool_call") toolCalls++;
   }
 
-  const duration = events.length > 0
-    ? events[events.length - 1].t + events[events.length - 1].duration - events[0].t
-    : 0;
+  const duration = getSessionTotal(events);
 
   const modelEntries = Object.entries(models).sort(function (a, b) { return b[1] - a[1]; });
 

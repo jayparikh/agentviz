@@ -155,6 +155,18 @@ describe("parseClaudeCodeJSONL", function () {
       expect(typeof result.metadata).toBe("object");
     });
 
+    it("uses the latest event end for metadata duration", function () {
+      var longText = Array(1501).join("x");
+      var result = parseClaudeCodeJSONL(makeSession([
+        NO_TS_USER,
+        { type: "assistant", message: { content: [{ type: "text", text: longText }] } },
+        NO_TS_ASSISTANT,
+      ]));
+
+      expect(result).not.toBeNull();
+      expect(result.metadata.duration).toBe(4);
+    });
+
     it("skips malformed lines without crashing", function () {
       var text = makeLine(USER_MSG) + "\n{broken json\n" + makeLine(ASSISTANT_TEXT);
       var result = parseClaudeCodeJSONL(text);

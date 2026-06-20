@@ -21,6 +21,7 @@
 
 import type { NormalizedEvent, ParseIssues, ParsedSession, SessionMetadata, SessionTurn, TokenUsage } from "./sessionTypes";
 import { computeCacheHitRate } from "./cacheMetrics";
+import { getSessionTotal } from "./session";
 
 type RawRecord = Record<string, any>;
 import { truncateText as truncate } from "./formatTime.js";
@@ -626,9 +627,7 @@ function buildMetadata(events: NormalizedEvent[], turns: SessionTurn[], issues: 
     if (event.track === "tool_call") toolCalls += 1;
   }
 
-  const duration = events.length > 0
-    ? events[events.length - 1].t + events[events.length - 1].duration - events[0].t
-    : 0;
+  const duration = getSessionTotal(events);
 
   const modelEntries = Object.entries(models).sort(function (left, right) {
     return right[1] - left[1];

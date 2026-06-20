@@ -406,6 +406,23 @@ describe("parseAtifJSON -- recent regressions (turn segmentation, message durati
     expect(callB.toolOutput).toBe("/tmp");
   });
 
+  it("uses the latest event end for metadata duration", function () {
+    const text = makeAtif([
+      { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "go" },
+      {
+        step_id: 2,
+        timestamp: "2026-04-18T05:48:05.000Z",
+        source: "agent",
+        message: "",
+        tool_calls: [{ tool_call_id: "long", function_name: "bash", arguments: {}, duration_ms: 5000 }],
+      },
+      { step_id: 3, timestamp: "2026-04-18T05:48:06.000Z", source: "agent", message: "done" },
+    ]);
+
+    const session = parseAtifJSON(text);
+    expect(session.metadata.duration).toBe(10);
+  });
+
   it("reads subagent_trajectory_ref from observation results (per ATIF v1.6 spec) as a list", function () {
     const text = makeAtif([
       { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "go" },

@@ -22,6 +22,7 @@
 
 import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn, TokenUsage } from "./sessionTypes";
 import { computeCacheHitRate } from "./cacheMetrics";
+import { getSessionTotal } from "./session";
 import { truncateText as truncate } from "./formatTime.js";
 import type { TrackType } from "./theme";
 
@@ -685,9 +686,7 @@ export function parseAtifJSON(text: string): ParsedSession | null {
     }
     : null;
 
-  const duration = events.length > 0
-    ? events[events.length - 1].t + events[events.length - 1].duration
-    : 0;
+  const duration = getSessionTotal(events);
 
   const primaryModel = trajectory.agent.model_name || (Object.keys(models)[0] ?? null);
 

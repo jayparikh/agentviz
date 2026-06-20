@@ -103,6 +103,17 @@ describe("parseCodexJSONL", function () {
     expect(result?.metadata.errorCount).toBe(0);
   });
 
+  it("uses the latest event end for metadata duration", function () {
+    const text = [
+      line({ type: "session_meta", timestamp: "2026-05-25T12:00:00.000Z", payload: { id: "synthetic", originator: "codex-tui", source: "synthetic", model_provider: "openai" } }),
+      line({ type: "response_item", timestamp: "2026-05-25T12:00:01.000Z", payload: { type: "function_call", call_id: "call-long", name: "read_file", arguments: "{\"path\":\"/workspace/demo/file.txt\"}" } }),
+      line({ type: "response_item", timestamp: "2026-05-25T12:00:01.100Z", payload: { type: "function_call_output", call_id: "call-long", output: "ok" } }),
+    ].join("\n");
+
+    const result = parseCodexJSONL(text);
+    expect(result?.metadata.duration).toBeCloseTo(0.5, 5);
+  });
+
   it("reindexes turns after dropping empty lifecycle turns", function () {
     const text = [
       line({ type: "session_meta", timestamp: "2026-05-25T12:00:00.000Z", payload: { id: "synthetic", originator: "codex-tui", source: "synthetic", model_provider: "openai" } }),
