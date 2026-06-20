@@ -193,8 +193,13 @@ function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, to
     }
 
     if (type === "tool.execution_start") {
-      if (seenToolStarts[data.toolCallId]) continue;
-      seenToolStarts[data.toolCallId] = true;
+      const toolCallId = typeof data.toolCallId === "string" && data.toolCallId.length > 0
+        ? data.toolCallId
+        : null;
+      if (toolCallId) {
+        if (seenToolStarts[toolCallId]) continue;
+        seenToolStarts[toolCallId] = true;
+      }
       emitToolCall(events, t, timestamp, data, record, toolPairs, taskToolMap, subagentLifecycle);
       continue;
     }
