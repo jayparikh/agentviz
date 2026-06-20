@@ -355,7 +355,9 @@ function buildTimeline(session: VSCodeSession): {
     // User message event
     const userText = (req.message && req.message.text) || "";
     if (userText) {
-      events.push(makeEvent(turnStartSec, "user", "output", userText, 0.5, 0.9, req));
+      events.push(makeEvent(turnStartSec, "user", "output", userText, 0.5, 0.9, req, {
+        turnIndex: ri,
+      }));
     }
 
     // Map response parts with estimated timestamps

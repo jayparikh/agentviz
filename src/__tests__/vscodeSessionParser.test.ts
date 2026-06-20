@@ -119,6 +119,11 @@ describe("event mapping", function () {
     expect(userEvents.length).toBe(3);
   });
 
+  it("assigns user message events to their request turns", function () {
+    var userEvents = events.filter(function (e) { return e.agent === "user"; });
+    expect(userEvents.map(function (e) { return e.turnIndex; })).toEqual([0, 1, 2]);
+  });
+
   it("includes thinking/reasoning events", function () {
     var reasoning = events.filter(function (e) { return e.track === "reasoning"; });
     expect(reasoning.length).toBeGreaterThanOrEqual(2);
