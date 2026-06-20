@@ -359,6 +359,30 @@ describe("parseAtifJSON -- recent regressions (turn segmentation, message durati
     expect(session.metadata.totalCost).toBeCloseTo(1.23, 5);
   });
 
+  it("falls back to step token metrics for omitted final_metrics fields", function () {
+    const text = JSON.stringify({
+      schema_version: "ATIF-v1.6",
+      session_id: "partial-final-metrics",
+      agent: { name: "test", version: "1.0", model_name: "m" },
+      steps: [
+        { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "go" },
+        {
+          step_id: 2,
+          timestamp: "2026-04-18T05:48:05.000Z",
+          source: "agent",
+          message: "a",
+          metrics: { prompt_tokens: 100, completion_tokens: 20, cached_tokens: 5 },
+        },
+      ],
+      final_metrics: { total_prompt_tokens: 999 },
+    });
+
+    const session = parseAtifJSON(text);
+    expect(session.metadata.tokenUsage.inputTokens).toBe(999);
+    expect(session.metadata.tokenUsage.outputTokens).toBe(20);
+    expect(session.metadata.tokenUsage.cacheRead).toBe(5);
+  });
+
   it("emits metadata.modelTokenUsage per model so StatsView can compute per-model cost", function () {
     const text = JSON.stringify({
       schema_version: "ATIF-v1.6",
