@@ -161,6 +161,15 @@ describe("event mapping", function () {
     expect(termErrors.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("stores terminal result content on toolOutput", function () {
+    var terminal = events.find(function (e) {
+      return e.toolName === "run_in_terminal" && e.text === "npm test";
+    });
+    expect(terminal).toBeDefined();
+    expect(terminal.toolInput).toEqual({ command: "npm test" });
+    expect(terminal.toolOutput).toContain("Cannot find module './jwt'");
+  });
+
   it("detects user-rejected tool call as error", function () {
     var rejected = events.filter(function (e) {
       return e.toolName === "replaceString" && e.isError;

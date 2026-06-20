@@ -254,21 +254,23 @@ function mapResponsePart(
       if (d && d > 0) duration = d / 1000;
     }
 
-    // Build toolInput from available data
+    // Keep arguments/input separate from observed result content.
     let toolInput: unknown = undefined;
+    let toolOutput: unknown = undefined;
     if (part.toolSpecificData && part.toolSpecificData.kind === "terminal") {
       toolInput = {
         command: part.toolSpecificData.commandLine && part.toolSpecificData.commandLine.original,
-        output: part.toolSpecificData.terminalCommandOutput && part.toolSpecificData.terminalCommandOutput.text,
       };
+      toolOutput = part.toolSpecificData.terminalCommandOutput && part.toolSpecificData.terminalCommandOutput.text;
     } else if (part.resultDetails && part.resultDetails.length > 0) {
       const details = part.resultDetails.map(function (d: any) { return d && d.value; }).filter(Boolean).join("\n");
-      if (details) toolInput = { result: details };
+      if (details) toolOutput = details;
     }
 
     return makeEvent(eventTime, "assistant", "tool_call", text, duration, 0.9, part, {
       toolName,
       toolInput,
+      toolOutput: toolOutput || null,
       toolCallId: part.toolCallId || null,
       isError: hasError,
       model,
