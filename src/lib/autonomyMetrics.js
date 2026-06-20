@@ -68,32 +68,35 @@ export function buildAutonomyMetrics(events, turns, metadata) {
   var idleGaps = [];
   var babysittingGaps = [];
 
-  for (var index = 0; index < safeEvents.length - 1; index += 1) {
-    var current = safeEvents[index];
-    var next = safeEvents[index + 1];
-    var gap = Math.max(0, (next.t || 0) - getEventEnd(current));
+  var runningEnd = safeEvents.length > 0 ? getEventEnd(safeEvents[0]) : 0;
+  var latestEndEvent = safeEvents.length > 0 ? safeEvents[0] : null;
 
-    if (gap < SIGNIFICANT_GAP_SECONDS) continue;
+  for (var index = 1; index < safeEvents.length; index += 1) {
+    var next = safeEvents[index];
+    var gap = Math.max(0, (next.t || 0) - runningEnd);
 
-    if (next.agent === "user" && current.agent !== "user") {
+    if (gap >= SIGNIFICANT_GAP_SECONDS && next.agent === "user" && latestEndEvent && latestEndEvent.agent !== "user") {
       var estimatedGap = Math.min(gap, MAX_BABYSITTING_GAP_SECONDS);
       babysittingTime += estimatedGap;
       babysittingGaps.push({
         duration: estimatedGap,
         rawDuration: gap,
-        before: current.text || "",
+        before: latestEndEvent.text || "",
         after: next.text || "",
       });
-      continue;
-    }
-
-    if (gap >= LONG_IDLE_GAP_SECONDS) {
+    } else if (gap >= LONG_IDLE_GAP_SECONDS) {
       idleTime += gap;
       idleGaps.push({
         duration: gap,
-        before: current.text || "",
+        before: latestEndEvent ? latestEndEvent.text || "" : "",
         after: next.text || "",
       });
+    }
+
+    var gapNextEnd = getEventEnd(next);
+    if (gapNextEnd > runningEnd) {
+      runningEnd = gapNextEnd;
+      latestEndEvent = next;
     }
   }
 
