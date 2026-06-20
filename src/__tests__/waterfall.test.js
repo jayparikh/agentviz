@@ -153,6 +153,16 @@ describe("getWaterfallStats", function () {
     expect(stats.longestTool).toBe(null);
   });
 
+  it("counts zero-duration tool calls as concurrent and longest", function () {
+    var items = buildWaterfallItems([
+      makeEvent({ t: 1, duration: 0, toolName: "instant" }),
+    ]);
+
+    var stats = getWaterfallStats(items);
+    expect(stats.maxConcurrency).toBe(1);
+    expect(stats.longestTool).toBe("instant");
+  });
+
   it("computes correct totals", function () {
     var items = [
       { event: makeEvent({ t: 0, duration: 2, toolName: "bash" }), depth: 0 },

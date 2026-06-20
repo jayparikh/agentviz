@@ -138,7 +138,7 @@ export function getWaterfallStats(items: WaterfallItem[] | null | undefined): Wa
   }
 
   let maxDepth = 0;
-  let longestDuration = 0;
+  let longestDuration = -1;
   let longestTool: string | null = null;
   const toolFrequency: Record<string, number> = {};
   const timeline: Array<{ time: number; delta: number }> = [];
@@ -161,7 +161,7 @@ export function getWaterfallStats(items: WaterfallItem[] | null | undefined): Wa
   }
 
   timeline.sort(function (a, b) {
-    return a.time !== b.time ? a.time - b.time : a.delta - b.delta;
+    return a.time !== b.time ? a.time - b.time : b.delta - a.delta;
   });
 
   let concurrent = 0;
