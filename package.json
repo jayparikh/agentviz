@@ -1,6 +1,6 @@
 {
   "name": "agentviz",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Session replay visualizer for AI agent workflows (Claude Code, VS Code, Copilot CLI)",
   "license": "MIT",
   "type": "module",
