@@ -225,6 +225,21 @@ describe("parseAtifJSON -- recent regressions (turn segmentation, message durati
     expect(userEvents[0].turnIndex).not.toBe(agentEvents[0].turnIndex);
   });
 
+  it("preserves per-step turn indices when steps share a timestamp", function () {
+    const text = makeAtif([
+      { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "first" },
+      { step_id: 2, timestamp: "2026-04-18T05:48:00.000Z", source: "agent", message: "second" },
+      { step_id: 3, timestamp: "2026-04-18T05:48:00.000Z", source: "agent", message: "third" },
+    ]);
+
+    const session = parseAtifJSON(text);
+    expect(session).not.toBeNull();
+    expect(session.events.map(function (event) { return event.turnIndex; })).toEqual([0, 1, 2]);
+    for (let index = 0; index < session.turns.length; index += 1) {
+      expect(session.turns[index].eventIndices).toEqual([index]);
+    }
+  });
+
   it("caps message duration to the step's wall-clock gap so the bar does not bleed into the next step", function () {
     const text = makeAtif([
       { step_id: 1, timestamp: "2026-04-18T05:48:00.000Z", source: "user", message: "go" },

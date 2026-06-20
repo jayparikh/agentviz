@@ -575,10 +575,15 @@ export function parseAtifJSON(text: string): ParsedSession | null {
   for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
     const event = events[eventIndex];
     let assignedTurn: SessionTurn | null = null;
-    for (let turnIndex = turns.length - 1; turnIndex >= 0; turnIndex -= 1) {
-      if (event.t >= turns[turnIndex].startTime) {
-        assignedTurn = turns[turnIndex];
-        break;
+    const explicitTurnIndex = typeof event.turnIndex === "number" ? event.turnIndex : -1;
+    if (explicitTurnIndex >= 0 && explicitTurnIndex < turns.length) {
+      assignedTurn = turns[explicitTurnIndex];
+    } else {
+      for (let turnIndex = turns.length - 1; turnIndex >= 0; turnIndex -= 1) {
+        if (event.t >= turns[turnIndex].startTime) {
+          assignedTurn = turns[turnIndex];
+          break;
+        }
       }
     }
     if (!assignedTurn) assignedTurn = turns[0];
