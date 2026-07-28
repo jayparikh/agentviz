@@ -13,7 +13,7 @@
         "errorCount": 0,
         "tokenUsage": {
           "inputTokens": 1000,
-          "outputTokens": 150,
+          "outputTokens": 120,
           "cacheRead": 250,
           "cacheWrite": 0
         }
@@ -33,7 +33,7 @@
       },
       "cost": {
         "inputTokens": 1000,
-        "outputTokens": 150,
+        "outputTokens": 120,
         "cacheRead": 250,
         "cacheWrite": 0,
         "freshInputTokens": 750,

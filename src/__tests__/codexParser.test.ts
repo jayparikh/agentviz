@@ -59,10 +59,23 @@ describe("parseCodexJSONL", function () {
     expect(result?.metadata.tokenUsage).toMatchObject({
       inputTokens: 1000,
       cacheRead: 250,
-      outputTokens: 150,
+      outputTokens: 120,
       cacheWrite: 0,
     });
     expect(result?.metadata.warnings).toContain("Codex token usage is based on cumulative token_count totals");
+  });
+
+  it("does not double-count reasoning tokens (they are a subset of output_tokens)", function () {
+    const text = [
+      line({ type: "session_meta", timestamp: "2026-05-25T12:00:00.000Z", payload: { id: "synthetic", originator: "codex-tui", source: "synthetic", model_provider: "openai" } }),
+      line({ type: "response_item", timestamp: "2026-05-25T12:00:01.000Z", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] } }),
+      line({ type: "event_msg", timestamp: "2026-05-25T12:00:02.000Z", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 500, cached_input_tokens: 0, output_tokens: 200, reasoning_output_tokens: 80, total_tokens: 700 } } } }),
+    ].join("\n");
+
+    const result = parseCodexJSONL(text);
+    // output_tokens (200) already includes the 80 reasoning tokens; the old code
+    // added them again and over-reported 280.
+    expect(result?.metadata.tokenUsage?.outputTokens).toBe(200);
   });
 
   it("pairs function call output with the matching tool call", function () {

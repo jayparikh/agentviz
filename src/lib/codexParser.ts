@@ -550,7 +550,10 @@ function getLastTokenUsage(records: RawRecord[], warnings: string[]): TokenUsage
   if (!lastUsage) return null;
   const inputTokens = numberValue(lastUsage.input_tokens);
   const cacheRead = numberValue(lastUsage.cached_input_tokens);
-  const outputTokens = numberValue(lastUsage.output_tokens) + numberValue(lastUsage.reasoning_output_tokens);
+  // Codex reports reasoning_output_tokens as a subset of output_tokens, not an
+  // addition to it: its TokenUsage.blended_total sums only output_tokens, and the
+  // CLI prints "output=N (reasoning M)". Adding the two double-counts reasoning.
+  const outputTokens = numberValue(lastUsage.output_tokens);
   const usage = {
     inputTokens,
     outputTokens,
