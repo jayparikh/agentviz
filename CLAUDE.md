@@ -153,6 +153,7 @@ Run `npx playwright install chromium` once before the first browser test run.
 - UI/UX design system: see docs/ui-ux-style-guide.md -- all UI changes must conform to it
 - Cache usage summaries omit the cache-write segment when `cacheWrite` is zero
 - The default UI is the v2 workflow shell. Classic UI remains available through the `agentviz:v2:enabled` preference and header toggle.
+- Shared session actions must remain available in both shells; single-session HTML export uses `ExportStatusButton` in the v2 and Classic headers.
 
 ## Planned features
 - Bookmarks and annotations (persisted to localStorage)

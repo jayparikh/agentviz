@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { THEME_MODES, alpha, theme } from "../../lib/theme.js";
 import BrandWordmark from "../ui/BrandWordmark.jsx";
+import ExportStatusButton from "../ui/ExportStatusButton.jsx";
 import Icon from "../Icon.jsx";
 import ToolbarButton from "../ui/ToolbarButton.jsx";
 
@@ -19,7 +20,18 @@ function copyText(value) {
   navigator.clipboard.writeText(value).catch(function () {});
 }
 
-export default function V2Header({ session, activeZone, currentThemeMode, onSetThemeMode, onOpenCommandPalette, onExitV2, compact }) {
+export default function V2Header({
+  session,
+  activeZone,
+  currentThemeMode,
+  onSetThemeMode,
+  onOpenCommandPalette,
+  onExportSession,
+  exportSessionState,
+  exportSessionError,
+  onExitV2,
+  compact,
+}) {
   var [showThemeMenu, setShowThemeMenu] = useState(false);
   var themeMenuRef = useRef(null);
   var status = getStatus(session);
@@ -140,6 +152,14 @@ export default function V2Header({ session, activeZone, currentThemeMode, onSetT
         </div>
         )}
       </div>
+
+      {onExportSession && (
+        <ExportStatusButton
+          state={exportSessionState}
+          error={exportSessionError}
+          onClick={onExportSession}
+        />
+      )}
 
       <ToolbarButton
         icon="command"
