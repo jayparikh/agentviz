@@ -1186,6 +1186,10 @@ import KeyboardHint from "./ui/KeyboardHint.jsx";
 
 When building new UI, check if an existing primitive fits before creating a new component.
 
+Shared session actions must stay available across both application shells. In particular, the
+default workflow header and Classic UI header both use `ExportStatusButton` for single-session
+HTML export, while comparison headers use the same primitive for comparison export.
+
 ### Landing-State vs Session-State Views
 
 Views fall into two categories:

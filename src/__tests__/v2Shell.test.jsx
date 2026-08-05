@@ -303,6 +303,7 @@ describe("V2 shell routing", function () {
 
   it("renders compact session status in V2Header", async function () {
     var onOpenCommandPalette = vi.fn();
+    var onExportSession = vi.fn();
     var onSetThemeMode = vi.fn();
     var session = {
       file: "demo-session.jsonl",
@@ -318,6 +319,8 @@ describe("V2 shell routing", function () {
         currentThemeMode="dark"
         onSetThemeMode={onSetThemeMode}
         onOpenCommandPalette={onOpenCommandPalette}
+        onExportSession={onExportSession}
+        exportSessionState="idle"
       />,
     );
 
@@ -325,6 +328,11 @@ describe("V2 shell routing", function () {
     expect(app.container.querySelector('button[aria-label="Copy session source path"]').title).toBe("C:\\Users\\jayp\\sessions\\demo-session.jsonl");
     expect(findExactText(app.container, "Ready")).toBeTruthy();
     expect(findExactText(app.container, "Review · 1 events")).toBeTruthy();
+
+    await act(async function () {
+      findExactButton(app.container, "Export").click();
+    });
+    expect(onExportSession).toHaveBeenCalledTimes(1);
 
     await act(async function () {
       findExactButton(app.container, "Cmd+K").click();

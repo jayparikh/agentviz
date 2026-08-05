@@ -224,11 +224,11 @@ Horizontal bar chart showing tool call counts for both sessions on the same axis
 
 ### Export
 
-Click **Export** in any header to download a single self-contained `.html` file. Share it with anyone -- no server required. Opening it reproduces the full session or comparison view exactly as you see it.
+Click **Export** in the default workflow header, Classic UI header, or comparison header to download a single self-contained `.html` file. Share it with anyone -- no server required. Opening it reproduces the full session or comparison view exactly as you see it.
 
 Export is available in two places:
 
-- **Single session header** -- exports the current session
+- **Single session header** -- exports the current session from either the default workflow UI or Classic UI
 - **Comparison header** -- exports both sessions and the full comparison view
 
 > Export requires the production build (`npm run build`). It is not available in the Vite dev server.

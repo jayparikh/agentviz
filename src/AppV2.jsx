@@ -484,6 +484,9 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
   var commandItems = useMemo(function () {
     return buildV2CommandItems(sessionState.session, activeZone);
   }, [sessionState.session, activeZone]);
+  var hasExportableSession = Boolean(
+    sessionState.session.getRawText && sessionState.session.getRawText(),
+  );
 
   useEffect(function () {
     if (sessionState.session.isLive) {
@@ -531,6 +534,9 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
         currentThemeMode={currentThemeMode}
         onSetThemeMode={onSetThemeMode}
         onOpenCommandPalette={function () { setShowPalettePlaceholder(true); }}
+        onExportSession={hasExportableSession ? sessionState.handleExportSession : null}
+        exportSessionState={sessionState.sessionExport.state}
+        exportSessionError={sessionState.sessionExport.error}
         onExitV2={onExitV2}
         compact={breakpoint.isCompact}
       />
