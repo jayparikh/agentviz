@@ -88,6 +88,8 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
                 var primary = entries[0][0].split("-").slice(0, 3).join("-");
                 return ["Models", primary + " +" + (entries.length - 1) + " more", theme.track.context];
               })(),
+              metadata.reasoningEfforts && metadata.reasoningEfforts.length > 0
+                ? ["Reasoning", metadata.reasoningEfforts.join(", "), theme.track.reasoning] : null,
               metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0
                 ? ["Tokens", (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens).toLocaleString(), theme.accent.primary] : null,
               (function () {
@@ -176,6 +178,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
                 ["Turn", (selected.turnIndex || 0) + 1],
                 selected.toolName ? ["Tool", selected.toolName] : null,
                 selected.model ? ["Model", selected.model] : null,
+                selected.reasoningEffort ? ["Reasoning", selected.reasoningEffort] : null,
               ].filter(Boolean).map(function (pair) {
                 return (
                   <div key={pair[0]} style={{

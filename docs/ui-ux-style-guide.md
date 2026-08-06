@@ -212,6 +212,8 @@ and the view-switcher tab buttons in `AppHeader`. Using it elsewhere is a violat
 }
 ```
 
+**Reasoning effort metadata** -- Copilot CLI traces show explicit `reasoningEffort` values as ordinary inspector metadata. List every observed session value in first-seen order, use `theme.track.reasoning` for the values, preserve unknown values verbatim, and never infer effort from reasoning content, duration, or token usage. Selected events show only the effort effective at that timestamp.
+
 **Brand wordmark** -- UI font, tight tracking, accent dot:
 
 ```jsx

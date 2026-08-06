@@ -24,7 +24,7 @@ Drop a Claude Code, Codex, VS Code Copilot Chat, Copilot CLI, Copilot prompt exp
 
 ## Why AGENTVIZ?
 
-AI coding agents (Claude Code, Codex, VS Code Copilot Chat, Copilot CLI, ATIF / Harbor, etc.) generate dense session logs, but reading raw JSONL is painful. AGENTVIZ turns those logs into something you can actually explore:
+AI coding agents (Claude Code, Codex, VS Code Copilot Chat, Copilot CLI, ATIF / Harbor, etc.) generate dense session logs, but reading raw JSONL is painful. AGENTVIZ turns those logs into something you can actually explore. Copilot CLI replays also surface the effective reasoning effort and any mid-session changes:
 
 - **Replay** sessions like a video, stepping through each tool call and reasoning step
 - **Trace** decision flow in a graph view with expandable turn and tool-call structure
