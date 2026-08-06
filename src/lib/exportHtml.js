@@ -51,7 +51,62 @@ function escapeHtmlAttr(str) {
   return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-async function fetchBundleText() {
+function bytesToDataUrl(bytes, mimeType) {
+  var binary = "";
+  var chunkSize = 0x8000;
+  for (var i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return "data:" + mimeType + ";base64," + btoa(binary);
+}
+
+function textToDataUrl(text, mimeType) {
+  return bytesToDataUrl(new TextEncoder().encode(text), mimeType);
+}
+
+function findModuleSpecifiers(source) {
+  var specifiers = [];
+  var pattern = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)(["'])([^"']+)\1/g;
+  var match;
+  while ((match = pattern.exec(source)) !== null) {
+    specifiers.push(match[2]);
+  }
+  return specifiers;
+}
+
+function findAssetSpecifiers(source) {
+  var specifiers = [];
+  var pattern = /new URL\(\s*(["'])([^"'\\\s+]+)\1\s*,\s*import\.meta\.url\s*\)/g;
+  var match;
+  while ((match = pattern.exec(source)) !== null) {
+    specifiers.push(match[2]);
+  }
+  return specifiers;
+}
+
+function rewriteModuleSpecifiers(source, moduleUrl) {
+  return source.replace(
+    /(\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)(["'])([^"']+)\2/g,
+    function (full, prefix, quote, specifier) {
+      if (!specifier.startsWith(".")) return full;
+      return prefix + quote + new URL(specifier, moduleUrl).href + quote;
+    }
+  );
+}
+
+function rewriteAssetSpecifiers(source, moduleUrl, assetDataUrls) {
+  return source.replace(
+    /new URL\(\s*(["'])([^"'\\\s+]+)\1\s*,\s*import\.meta\.url\s*\)/g,
+    function (full, quote, specifier) {
+      var assetUrl = new URL(specifier, moduleUrl).href;
+      var dataUrl = assetDataUrls[assetUrl];
+      if (!dataUrl) return full;
+      return "new URL(" + quote + dataUrl + quote + ",import.meta.url)";
+    }
+  );
+}
+
+async function fetchBundleGraph() {
   var scriptEl = document.querySelector('script[type="module"][src*="/assets/index-"]');
   if (!scriptEl) {
     throw new Error(
@@ -59,14 +114,62 @@ async function fetchBundleText() {
       "`node bin/agentviz.js` or `node server.js` (not the Vite dev server)."
     );
   }
-  var resp = await fetch(scriptEl.src);
-  if (!resp.ok) throw new Error("Failed to fetch bundle: HTTP " + resp.status);
-  return resp.text();
+
+  var entryUrl = scriptEl.src;
+  var moduleSources = {};
+  var assetDataUrls = {};
+  var pendingModules = {};
+  var pendingAssets = {};
+
+  async function fetchAsset(assetUrl) {
+    if (assetDataUrls[assetUrl]) return;
+    if (pendingAssets[assetUrl]) return pendingAssets[assetUrl];
+
+    pendingAssets[assetUrl] = fetch(assetUrl).then(async function (resp) {
+      if (!resp.ok) throw new Error("Failed to fetch export asset: HTTP " + resp.status);
+      var mimeType = resp.headers.get("Content-Type") || "application/octet-stream";
+      var buffer = await resp.arrayBuffer();
+      assetDataUrls[assetUrl] = bytesToDataUrl(new Uint8Array(buffer), mimeType);
+    });
+    return pendingAssets[assetUrl];
+  }
+
+  async function fetchModule(moduleUrl) {
+    if (moduleSources[moduleUrl]) return;
+    if (pendingModules[moduleUrl]) return pendingModules[moduleUrl];
+
+    pendingModules[moduleUrl] = fetch(moduleUrl).then(async function (resp) {
+      if (!resp.ok) throw new Error("Failed to fetch export bundle: HTTP " + resp.status);
+      var source = await resp.text();
+      moduleSources[moduleUrl] = source;
+
+      var moduleUrls = findModuleSpecifiers(source)
+        .filter(function (specifier) { return specifier.startsWith("."); })
+        .map(function (specifier) { return new URL(specifier, moduleUrl).href; });
+      var assetUrls = findAssetSpecifiers(source)
+        .map(function (specifier) { return new URL(specifier, moduleUrl).href; });
+
+      await Promise.all(
+        moduleUrls.map(fetchModule).concat(assetUrls.map(fetchAsset))
+      );
+    });
+    return pendingModules[moduleUrl];
+  }
+
+  await fetchModule(entryUrl);
+
+  var imports = {};
+  Object.keys(moduleSources).forEach(function (moduleUrl) {
+    var source = rewriteModuleSpecifiers(moduleSources[moduleUrl], moduleUrl);
+    source = rewriteAssetSpecifiers(source, moduleUrl, assetDataUrls);
+    imports[moduleUrl] = textToDataUrl(source, "text/javascript");
+  });
+
+  return { entryUrl: entryUrl, imports: imports };
 }
 
-function buildHtml(title, setupScript, bundleText) {
-  // The <\/script> split trick prevents the HTML parser from ending the
-  // outer script block early if bundleText itself contains </script>.
+function buildHtml(title, setupScript, bundleGraph) {
+  var importMap = jsonSafe({ imports: bundleGraph.imports });
   return "<!DOCTYPE html>\n" +
     '<html lang="en">\n' +
     "<head>\n" +
@@ -81,9 +184,8 @@ function buildHtml(title, setupScript, bundleText) {
     "<body>\n" +
     '  <div id="root"></div>\n' +
     (setupScript ? "  " + setupScript + "\n" : "") +
-    '  <script type="module">\n' +
-    bundleText + "\n" +
-    "  </" + "script>\n" +
+    '  <script type="importmap">' + importMap + "</" + "script>\n" +
+    '  <script type="module">import(' + jsonSafe(bundleGraph.entryUrl) + ");</" + "script>\n" +
     "</body>\n" +
     "</html>";
 }
@@ -103,7 +205,7 @@ function downloadHtml(html, filename) {
 // Export a single session as a self-contained HTML file.
 // rawText: the full JSONL content; filename: original file name.
 export async function exportSingleSession(rawText, filename) {
-  var bundleText = await fetchBundleText();
+  var bundleGraph = await fetchBundleGraph();
 
   var metaPayload = jsonSafe({ filename: filename, live: false });
   var rawTextPayload = jsonSafe(rawText);
@@ -113,6 +215,7 @@ export async function exportSingleSession(rawText, filename) {
   var setupScript =
     "<script>\n" +
     "(function() {\n" +
+    "  window.__AGENTVIZ_STANDALONE__ = true;\n" +
     "  var _orig = window.fetch;\n" +
     "  var _meta = " + metaPayload + ";\n" +
     "  var _text = " + rawTextPayload + ";\n" +
@@ -130,17 +233,17 @@ export async function exportSingleSession(rawText, filename) {
     "</" + "script>";
 
   var exportName = filename.replace(/\.jsonl$/, "") + "-agentviz.html";
-  downloadHtml(buildHtml("AGENTVIZ - " + filename, setupScript, bundleText), exportName);
+  downloadHtml(buildHtml("AGENTVIZ - " + filename, setupScript, bundleGraph), exportName);
 }
 
 // Export a side-by-side comparison as a self-contained HTML file.
 export async function exportComparison(rawTextA, filenameA, rawTextB, filenameB) {
-  var bundleText = await fetchBundleText();
+  var bundleGraph = await fetchBundleGraph();
 
   var comparePayload = jsonSafe({ a: { name: filenameA, text: rawTextA }, b: { name: filenameB, text: rawTextB } });
 
   var setupScript =
-    "<script>window.__AGENTVIZ_COMPARE__ = " + comparePayload + ";</" + "script>";
+    "<script>window.__AGENTVIZ_STANDALONE__ = true; window.__AGENTVIZ_COMPARE__ = " + comparePayload + ";</" + "script>";
 
-  downloadHtml(buildHtml("AGENTVIZ - Comparison", setupScript, bundleText), "comparison-agentviz.html");
+  downloadHtml(buildHtml("AGENTVIZ - Comparison", setupScript, bundleGraph), "comparison-agentviz.html");
 }

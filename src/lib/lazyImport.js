@@ -17,6 +17,7 @@ export default function lazyImport(loader) {
   return loader().catch(function (error) {
     if (!isStaleChunkError(error)) throw error;
     if (typeof window === "undefined" || typeof sessionStorage === "undefined") throw error;
+    if (window.__AGENTVIZ_STANDALONE__ || window.location.protocol === "file:") throw error;
     if (sessionStorage.getItem(RELOAD_KEY)) throw error;
     sessionStorage.setItem(RELOAD_KEY, "1");
     window.location.reload();
