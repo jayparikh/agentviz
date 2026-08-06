@@ -111,7 +111,7 @@ server.js              # HTTP server: serves dist/ SPA + SSE /api/stream file ta
 
 Normalized event (output of parser, consumed by all views):
 ```
-{ t, agent, track, text, duration, intensity, toolName?, toolInput?, toolOutput?, toolCallId?, parentToolCallId?, agentName?, agentDisplayName?, raw, turnIndex, isError, model?, tokenUsage? }
+{ t, agent, track, text, duration, intensity, toolName?, toolInput?, toolOutput?, toolCallId?, parentToolCallId?, agentName?, agentDisplayName?, raw, turnIndex, isError, model?, reasoningEffort?, tokenUsage? }
 ```
 
 Turn (groups events by user-initiated conversation rounds):
@@ -121,7 +121,7 @@ Turn (groups events by user-initiated conversation rounds):
 
 Session metadata (aggregate stats):
 ```
-{ totalEvents, totalTurns, totalToolCalls, errorCount, duration, models, primaryModel, tokenUsage, totalCost? }
+{ totalEvents, totalTurns, totalToolCalls, errorCount, duration, models, primaryModel, reasoningEffort?, reasoningEfforts?, tokenUsage, totalCost? }
 ```
 
 Parser returns: `{ events, turns, metadata }` or null
@@ -152,6 +152,7 @@ Run `npx playwright install chromium` once before the first browser test run.
 - Product name is always AGENTVIZ (all caps, no spaces)
 - UI/UX design system: see docs/ui-ux-style-guide.md -- all UI changes must conform to it
 - Cache usage summaries omit the cache-write segment when `cacheWrite` is zero
+- Copilot CLI Session Info lists every explicit reasoning effort in first-seen order; selected events show the effective value, and effort is never inferred from reasoning text or token usage
 - The default UI is the v2 workflow shell. Classic UI remains available through the `agentviz:v2:enabled` preference and header toggle.
 - Shared session actions must remain available in both shells; single-session HTML export uses `ExportStatusButton` in the v2 and Classic headers.
 

@@ -28,6 +28,7 @@ export interface NormalizedEvent {
   turnIndex?: number;
   isError: boolean;
   model?: string | null;
+  reasoningEffort?: string | null;
   tokenUsage?: TokenUsage | null;
   toolCallId?: string | null;
   parentToolCallId?: string | null;
@@ -60,6 +61,8 @@ export interface SessionMetadata {
   duration: number;
   models: Record<string, number>;
   primaryModel: string | null;
+  reasoningEffort?: string | null;
+  reasoningEfforts?: string[];
   tokenUsage?: TokenUsage | null;
   warnings?: string[];
   parseIssues?: ParseIssues;

@@ -678,6 +678,113 @@ describe("additional event types", function () {
     expect(modelEvents[0].text).toContain("claude-opus-4.6");
   });
 
+  it("tracks reasoning effort across model changes", function () {
+    var start = Object.assign({}, SESSION_START, {
+      data: Object.assign({}, SESSION_START.data, { reasoningEffort: "medium" }),
+    });
+    var change = {
+      type: "session.model_change",
+      data: {
+        previousModel: "claude-opus-4.6",
+        newModel: "claude-opus-4.6",
+        previousReasoningEffort: "medium",
+        reasoningEffort: "high",
+      },
+      id: "evt-effort",
+      timestamp: ts(2500),
+      parentId: null,
+    };
+    var beforeChange = Object.assign({}, ASSISTANT_MSG_WITH_REASONING, { timestamp: ts(2000) });
+    var afterChange = Object.assign({}, ASSISTANT_MSG_WITH_REASONING, {
+      id: "evt-after-effort",
+      timestamp: ts(3000),
+    });
+
+    var result = parseCopilotCliJSONL(buildTrace([
+      start,
+      USER_MSG,
+      TURN_START,
+      beforeChange,
+      change,
+      afterChange,
+      TURN_END,
+      SESSION_SHUTDOWN,
+    ]));
+
+    var beforeEvent = result.events.find(function (event) { return event.raw.id === beforeChange.id; });
+    var afterEvent = result.events.find(function (event) { return event.raw.id === afterChange.id; });
+    var changeEvent = result.events.find(function (event) { return event.raw.id === change.id; });
+    expect(beforeEvent.reasoningEffort).toBe("medium");
+    expect(afterEvent.reasoningEffort).toBe("high");
+    expect(changeEvent.reasoningEffort).toBe("high");
+    expect(changeEvent.text).toContain("Reasoning effort: medium \u2192 high");
+    expect(result.metadata.reasoningEffort).toBe("high");
+    expect(result.metadata.reasoningEfforts).toEqual(["medium", "high"]);
+
+    var returnToMedium = Object.assign({}, change, {
+      id: "evt-effort-return",
+      timestamp: ts(3200),
+      data: Object.assign({}, change.data, {
+        previousReasoningEffort: "high",
+        reasoningEffort: "medium",
+      }),
+    });
+    var repeatedResult = parseCopilotCliJSONL(buildTrace([
+      start,
+      USER_MSG,
+      TURN_START,
+      beforeChange,
+      change,
+      afterChange,
+      returnToMedium,
+      TURN_END,
+      SESSION_SHUTDOWN,
+    ]));
+    expect(repeatedResult.metadata.reasoningEffort).toBe("medium");
+    expect(repeatedResult.metadata.reasoningEfforts).toEqual(["medium", "high"]);
+  });
+
+  it("applies resumed reasoning effort from the resume timestamp", function () {
+    var start = Object.assign({}, SESSION_START, {
+      data: Object.assign({}, SESSION_START.data, { reasoningEffort: "medium" }),
+    });
+    var resume = {
+      type: "session.resume",
+      data: {
+        copilotVersion: "1.0.7",
+        resumeTime: ts(2500),
+        reasoningEffort: "none",
+        context: { cwd: "/home/user/project" },
+      },
+      id: "evt-effort-resume",
+      timestamp: ts(2500),
+      parentId: null,
+    };
+    var beforeResume = Object.assign({}, ASSISTANT_MSG_WITH_REASONING, { timestamp: ts(2000) });
+    var afterResume = Object.assign({}, ASSISTANT_MSG_WITH_REASONING, {
+      id: "evt-after-resume",
+      timestamp: ts(3000),
+    });
+
+    var result = parseCopilotCliJSONL(buildTrace([
+      start,
+      USER_MSG,
+      TURN_START,
+      beforeResume,
+      resume,
+      afterResume,
+      TURN_END,
+      SESSION_SHUTDOWN,
+    ]));
+
+    var beforeEvent = result.events.find(function (event) { return event.raw.id === beforeResume.id; });
+    var afterEvent = result.events.find(function (event) { return event.raw.id === afterResume.id; });
+    expect(beforeEvent.reasoningEffort).toBe("medium");
+    expect(afterEvent.reasoningEffort).toBe("none");
+    expect(result.metadata.reasoningEffort).toBe("none");
+    expect(result.metadata.reasoningEfforts).toEqual(["medium", "none"]);
+  });
+
   it("handles session.compaction_complete", function () {
     var compact = {
       type: "session.compaction_complete",

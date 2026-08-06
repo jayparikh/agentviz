@@ -109,6 +109,91 @@ function makeEvent(
   return event;
 }
 
+function getReasoningEffort(data: Record<string, any> | null | undefined, key = "reasoningEffort"): string | null {
+  const value = data && data[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getReasoningEffortHistory(records: RawRecord[]): string[] {
+  const efforts: string[] = [];
+
+  function add(value: string | null): void {
+    if (value && !efforts.includes(value)) efforts.push(value);
+  }
+
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    const data = record.data || {};
+    if (record.type === "session.start" || record.type === "session.resume") {
+      add(getReasoningEffort(data));
+    } else if (record.type === "session.model_change") {
+      add(getReasoningEffort(data, "previousReasoningEffort"));
+      add(getReasoningEffort(data));
+    }
+  }
+
+  return efforts;
+}
+
+function getCurrentReasoningEffort(records: RawRecord[]): string | null {
+  let effort: string | null = null;
+
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    if (record.type === "session.start" || record.type === "session.resume" || record.type === "session.model_change") {
+      effort = getReasoningEffort(record.data) || effort;
+    }
+  }
+
+  return effort;
+}
+
+function attachReasoningEffort(events: NormalizedEvent[], records: RawRecord[], sessionStartSec: number): void {
+  const changes: Array<{ t: number; effort: string }> = [];
+  let hasInitialEffort = false;
+
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    const data = record.data || {};
+    if (record.type === "session.start" || record.type === "session.resume") {
+      const effort = getReasoningEffort(data);
+      const timestamp = parseTimestamp(
+        record.type === "session.start" ? data.startTime || record.timestamp : data.resumeTime || record.timestamp,
+      );
+      if (effort && timestamp !== null) {
+        changes.push({ t: Math.max(timestamp - sessionStartSec, 0), effort });
+        hasInitialEffort = true;
+      }
+      continue;
+    }
+    if (record.type !== "session.model_change") continue;
+
+    const previousEffort = getReasoningEffort(data, "previousReasoningEffort");
+    if (!hasInitialEffort && previousEffort) {
+      changes.push({ t: 0, effort: previousEffort });
+      hasInitialEffort = true;
+    }
+    const effort = getReasoningEffort(data);
+    const timestamp = parseTimestamp(record.timestamp);
+    if (effort && timestamp !== null) {
+      changes.push({ t: Math.max(timestamp - sessionStartSec, 0), effort });
+    }
+  }
+
+  changes.sort(function (left, right) { return left.t - right.t; });
+  let currentEffort: string | null = null;
+  let changeIndex = 0;
+
+  for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
+    const event = events[eventIndex];
+    while (changeIndex < changes.length && changes[changeIndex].t <= event.t) {
+      currentEffort = changes[changeIndex].effort;
+      changeIndex += 1;
+    }
+    if (currentEffort) event.reasoningEffort = currentEffort;
+  }
+}
+
 function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, toolPairs: ToolPairs): NormalizedEvent[] {
   const events: NormalizedEvent[] = [];
   const seenToolStarts: Record<string, boolean> = {};
@@ -266,7 +351,13 @@ function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, to
     }
 
     if (type === "session.model_change") {
-      const message = "Model: " + (data.previousModel || "?") + " \u2192 " + (data.newModel || "?");
+      const details = ["Model: " + (data.previousModel || "?") + " \u2192 " + (data.newModel || "?")];
+      const previousEffort = getReasoningEffort(data, "previousReasoningEffort");
+      const nextEffort = getReasoningEffort(data);
+      if (previousEffort || nextEffort) {
+        details.push("Reasoning effort: " + (previousEffort || "?") + " \u2192 " + (nextEffort || "?"));
+      }
+      const message = details.join(" | ");
       events.push(makeEvent(t, "system", "context", message, 0.2, 0.3, record));
       continue;
     }
@@ -310,6 +401,7 @@ function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, to
   events.sort(function (left, right) {
     return left.t - right.t || 0;
   });
+  attachReasoningEffort(events, records, sessionStartSec);
 
   return events;
 }
@@ -629,6 +721,8 @@ function buildMetadata(
     return (right[1] || 0) - (left[1] || 0);
   });
   const primaryModel = modelEntries.length > 0 ? modelEntries[0][0] : null;
+  const reasoningEfforts = getReasoningEffortHistory(records);
+  const reasoningEffort = getCurrentReasoningEffort(records);
 
   const duration = getSessionTotal(events);
 
@@ -650,6 +744,8 @@ function buildMetadata(
     duration,
     models,
     primaryModel,
+    reasoningEffort,
+    reasoningEfforts,
     tokenUsage: totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheWriteTokens > 0
       ? {
         inputTokens: totalInputTokens,
