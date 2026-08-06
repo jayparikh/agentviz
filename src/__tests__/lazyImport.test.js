@@ -3,11 +3,14 @@ import lazyImport, { clearChunkReloadFlag } from "../lib/lazyImport.js";
 
 var RELOAD_KEY = "agentviz:chunk-reload";
 
-function installBrowserStubs(initialValue) {
+function installBrowserStubs(initialValue, options) {
   var store = {};
   if (initialValue != null) store[RELOAD_KEY] = initialValue;
   var reload = vi.fn();
-  vi.stubGlobal("window", { location: { reload: reload } });
+  vi.stubGlobal("window", {
+    __AGENTVIZ_STANDALONE__: options && options.standalone,
+    location: { reload: reload, protocol: options && options.protocol || "https:" },
+  });
   vi.stubGlobal("sessionStorage", {
     getItem: vi.fn(function (key) { return store[key] || null; }),
     setItem: vi.fn(function (key, value) { store[key] = value; }),
@@ -48,6 +51,16 @@ describe("lazyImport", function () {
     var error = new Error("ChunkLoadError");
 
     await expect(lazyImport(function () { return Promise.reject(error); })).rejects.toThrow("ChunkLoadError");
+    expect(stubs.reload).not.toHaveBeenCalled();
+  });
+
+  it("does not reload standalone file exports for missing chunks", async function () {
+    var stubs = installBrowserStubs(null, { standalone: true, protocol: "file:" });
+    var error = new Error("Failed to fetch dynamically imported module");
+
+    await expect(lazyImport(function () { return Promise.reject(error); })).rejects.toThrow(
+      "Failed to fetch dynamically imported module"
+    );
     expect(stubs.reload).not.toHaveBeenCalled();
   });
 
