@@ -12,11 +12,11 @@
  * usePlaybackContext() still returns the combined shape for backward compat.
  */
 
-import React, { createContext, useContext, useMemo, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useMemo, useCallback, useEffect, useState } from "react";
 import usePlayback from "../hooks/usePlayback.js";
 import useSearch from "../hooks/useSearch.js";
 import usePersistentState from "../hooks/usePersistentState.js";
-import { buildFilteredEventEntries, buildTurnStartMap, buildTimeMap } from "../lib/session";
+import { buildFilteredEventEntriesV2, getUniqueToolNames, getUniqueAgents, buildTurnStartMap, buildTimeMap } from "../lib/session";
 import { PLAYBACK_SPEEDS } from "../components/app/constants.js";
 
 var PlaybackTimeCtx = createContext(null);
@@ -28,7 +28,7 @@ var SearchCtx = createContext(null);
  *   session: { events, turns, total, isLive, metadata } from useSessionLoader
  */
 export function PlaybackProvider({ session, children }) {
-  // ── playback ──────────────────────────────────────────────────────────────
+  // -- playback --
   var playback = usePlayback(session.total, session.isLive);
 
   // Auto-seek to end when session data changes (live mode or initial load)
@@ -44,12 +44,28 @@ export function PlaybackProvider({ session, children }) {
     playback.setSpeed(next);
   }, [playback.speed, playback.setSpeed]);
 
-  // ── filters ───────────────────────────────────────────────────────────────
+  // -- filters --
   var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
+  var [toolNameFilter, setToolNameFilter] = useState([]);
+  var [agentFilter, setAgentFilter] = useState([]);
+  var [errorsOnly, setErrorsOnly] = useState(false);
 
   var filteredEventEntries = useMemo(function () {
-    return buildFilteredEventEntries(session.events, trackFilters);
-  }, [session.events, trackFilters]);
+    return buildFilteredEventEntriesV2(session.events, {
+      hiddenTracks: trackFilters,
+      toolNames: toolNameFilter.length > 0 ? toolNameFilter : undefined,
+      agents: agentFilter.length > 0 ? agentFilter : undefined,
+      errorsOnly: errorsOnly,
+    });
+  }, [session.events, trackFilters, toolNameFilter, agentFilter, errorsOnly]);
+
+  var uniqueToolNames = useMemo(function () {
+    return getUniqueToolNames(session.events);
+  }, [session.events]);
+
+  var uniqueAgents = useMemo(function () {
+    return getUniqueAgents(session.events);
+  }, [session.events]);
 
   var filteredEvents = useMemo(function () {
     return filteredEventEntries.map(function (entry) { return entry.event; });
@@ -79,7 +95,8 @@ export function PlaybackProvider({ session, children }) {
     });
   }, [setTrackFilters]);
 
-  var activeFilterCount = Object.keys(trackFilters).length;
+  var advancedFilterCount = toolNameFilter.length + agentFilter.length + (errorsOnly ? 1 : 0);
+  var activeFilterCount = Object.keys(trackFilters).length + advancedFilterCount;
 
   var filterValue = useMemo(function () {
     return {
@@ -90,19 +107,30 @@ export function PlaybackProvider({ session, children }) {
       errorEntries: errorEntries,
       trackFilters: trackFilters,
       activeFilterCount: activeFilterCount,
+      advancedFilterCount: advancedFilterCount,
       toggleTrackFilter: toggleTrackFilter,
+      toolNameFilter: toolNameFilter,
+      setToolNameFilter: setToolNameFilter,
+      agentFilter: agentFilter,
+      setAgentFilter: setAgentFilter,
+      errorsOnly: errorsOnly,
+      setErrorsOnly: setErrorsOnly,
+      uniqueToolNames: uniqueToolNames,
+      uniqueAgents: uniqueAgents,
     };
   }, [filteredEventEntries, filteredEvents, turnStartMap, timeMap,
-      errorEntries, trackFilters, activeFilterCount, toggleTrackFilter]);
+      errorEntries, trackFilters, activeFilterCount, advancedFilterCount,
+      toggleTrackFilter, toolNameFilter, agentFilter, errorsOnly,
+      uniqueToolNames, uniqueAgents]);
 
-  // ── search ────────────────────────────────────────────────────────────────
+  // -- search --
   var search = useSearch(filteredEventEntries);
 
   var searchValue = useMemo(function () {
     return { search: search };
   }, [search]);
 
-  // ── navigation (cross-cutting: needs playback + filter + search) ──────────
+  // -- navigation (cross-cutting: needs playback + filter + search) --
   var jumpToEntries = useCallback(function (entries, direction) {
     if (!entries || entries.length === 0) return;
 
@@ -138,6 +166,9 @@ export function PlaybackProvider({ session, children }) {
     playback.resetPlayback(0);
     search.clearSearch();
     setTrackFilters({});
+    setToolNameFilter([]);
+    setAgentFilter([]);
+    setErrorsOnly(false);
   }, [playback.resetPlayback, search.clearSearch, setTrackFilters]);
 
   // Navigation lives in PlaybackTimeCtx since it depends on playback.time
@@ -160,7 +191,7 @@ export function PlaybackProvider({ session, children }) {
   );
 }
 
-// ── Granular hooks (subscribe to one slice only) ────────────────────────────
+// -- Granular hooks (subscribe to one slice only) --
 
 export function usePlaybackTime() {
   var ctx = useContext(PlaybackTimeCtx);
@@ -180,7 +211,7 @@ export function useSearchContext() {
   return ctx;
 }
 
-// ── Backward-compatible combined hook (composes all three) ──────────────────
+// -- Backward-compatible combined hook (composes all three) --
 
 export function usePlaybackContext() {
   var playbackCtx = useContext(PlaybackTimeCtx);

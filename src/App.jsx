@@ -18,6 +18,7 @@ var CostView = React.lazy(function () { return lazyImport(function () { return i
 import CommandPalette from "./components/CommandPalette.jsx";
 import ShortcutsModal from "./components/ShortcutsModal.jsx";
 import AppHeader from "./components/app/AppHeader.jsx";
+import FilterBar from "./components/FilterBar.jsx";
 import AppLandingState from "./components/app/AppLandingState.jsx";
 import AppLoadingState from "./components/app/AppLoadingState.jsx";
 import CompareLandingState from "./components/app/CompareLandingState.jsx";
@@ -362,6 +363,32 @@ function AppSessionView({
   }, [session.events, session.turns, session.metadata, autonomyMetrics]);
   var qa = useQA(qaSessionData);
 
+  var toggleToolName = useCallback(function (name) {
+    pb.setToolNameFilter(function (prev) {
+      return prev.indexOf(name) !== -1
+        ? prev.filter(function (n) { return n !== name; })
+        : prev.concat(name);
+    });
+  }, [pb.setToolNameFilter]);
+
+  var toggleAgent = useCallback(function (name) {
+    pb.setAgentFilter(function (prev) {
+      return prev.indexOf(name) !== -1
+        ? prev.filter(function (n) { return n !== name; })
+        : prev.concat(name);
+    });
+  }, [pb.setAgentFilter]);
+
+  var toggleErrorsOnly = useCallback(function () {
+    pb.setErrorsOnly(function (prev) { return !prev; });
+  }, [pb.setErrorsOnly]);
+
+  var clearAdvancedFilters = useCallback(function () {
+    pb.setToolNameFilter([]);
+    pb.setAgentFilter([]);
+    pb.setErrorsOnly(false);
+  }, [pb.setToolNameFilter, pb.setAgentFilter, pb.setErrorsOnly]);
+
   useEffect(function () {
     if (!showFilters) return;
 
@@ -483,6 +510,21 @@ function AppSessionView({
         currentFile={session.file}
         onTryV2={onTryV2}
       />
+
+      {(showFilters || pb.advancedFilterCount > 0) && (
+        <FilterBar
+          toolNameFilter={pb.toolNameFilter}
+          onToggleToolName={toggleToolName}
+          agentFilter={pb.agentFilter}
+          onToggleAgent={toggleAgent}
+          errorsOnly={pb.errorsOnly}
+          onToggleErrorsOnly={toggleErrorsOnly}
+          uniqueToolNames={pb.uniqueToolNames}
+          uniqueAgents={pb.uniqueAgents}
+          onClearAll={clearAdvancedFilters}
+          activeCount={pb.advancedFilterCount}
+        />
+      )}
 
       <div style={{ padding: "8px 20px 0", flexShrink: 0 }}>
         <Timeline
