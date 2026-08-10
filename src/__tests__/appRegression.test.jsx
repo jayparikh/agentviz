@@ -454,14 +454,15 @@ describe("App browser regressions", function () {
       return getSearchCount(app.container);
     }, "expected search count to appear")).toBe("1");
 
-    await click(findButtonByTitle(app.container, "Filter tracks"));
+    await click(findButtonByTitle(app.container, "Filter events"));
     await waitFor(function () {
       return findClickableText(app.container, "Tool Calls");
     }, "expected filter popover to open");
+    expect(findClickableText(app.container, "User only")).toBeTruthy();
 
     await click(findClickableText(app.container, "Tool Calls"));
     await waitFor(function () {
-      return findButtonByTitle(app.container, "Filter tracks");
+      return findButtonByTitle(app.container, "Filter events");
     }, "expected hidden filter count to update");
 
     await app.unmount();

@@ -36,6 +36,12 @@ export default function useSearch(eventEntries) {
     return buildSearchData(matchedEntries, searchQuery);
   }, [matchedEntries, searchQuery]);
 
+  var submitSearch = useCallback(function () {
+    var nextQuery = normalizeSearchQuery(searchInput);
+    setSearchQuery(nextQuery);
+    return index.search(nextQuery);
+  }, [index, searchInput]);
+
   var clearSearch = useCallback(function () {
     setSearchInput("");
     setSearchQuery("");
@@ -48,6 +54,7 @@ export default function useSearch(eventEntries) {
     searchResults: searchData.results,
     matchSet: searchData.matchSet,
     matchedEntries: matchedEntries,
+    submitSearch: submitSearch,
     clearSearch: clearSearch,
   };
 }

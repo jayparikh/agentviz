@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { TRACK_TYPES, alpha, theme } from "../../lib/theme.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AGENT_COLORS, TRACK_TYPES, alpha, theme } from "../../lib/theme.js";
 import { usePlaybackContext } from "../../contexts/PlaybackContext.jsx";
 import ReplayView from "../ReplayView.jsx";
 import ToolbarButton from "../ui/ToolbarButton.jsx";
@@ -87,20 +87,47 @@ function buildEntryActions(entry, onNavigate) {
 export default function InvestigateView({ session, targetEventIndex, onNavigate }) {
   var pb = usePlaybackContext();
   var [errorsOnly, setErrorsOnly] = useState(false);
+  var handledTargetRef = useRef({ session: null, eventIndex: null });
   var visibleEntries = useMemo(function () {
     return errorsOnly
       ? pb.filteredEventEntries.filter(function (entry) { return entry.event.isError; })
       : pb.filteredEventEntries;
   }, [errorsOnly, pb.filteredEventEntries]);
+  var visibleMatches = useMemo(function () {
+    return errorsOnly
+      ? pb.search.matchedEntries.filter(function (entry) { return entry.event.isError; })
+      : pb.search.matchedEntries;
+  }, [errorsOnly, pb.search.matchedEntries]);
+  var visibleMatchSet = useMemo(function () {
+    if (!pb.search.searchQuery) return null;
+    return new Set(visibleMatches.map(function (entry) { return entry.index; }));
+  }, [pb.search.searchQuery, visibleMatches]);
   var errorCount = pb.errorEntries.length;
+
+  var jumpToVisibleMatch = useCallback(function (direction) {
+    var matches = pb.search.submitSearch();
+    if (errorsOnly) {
+      matches = matches.filter(function (entry) { return entry.event.isError; });
+    }
+    pb.jumpToEntries(matches, direction);
+  }, [errorsOnly, pb.jumpToEntries, pb.search.submitSearch]);
 
   useEffect(function () {
     if (targetEventIndex == null || !session || !session.events) return;
+    if (handledTargetRef.current.session === session
+      && handledTargetRef.current.eventIndex === targetEventIndex) return;
+    handledTargetRef.current = { session: session, eventIndex: targetEventIndex };
     var event = session.events[targetEventIndex];
+    if (event && pb.agentFilter && event.agent !== pb.agentFilter) {
+      pb.clearAgentFilter();
+    }
+    if (event && pb.trackFilters[event.track]) {
+      pb.clearTrackFilter(event.track);
+    }
     if (event && pb.playback && pb.playback.seek) {
       pb.playback.seek(event.t);
     }
-  }, [targetEventIndex, session, pb.playback.seek]);
+  }, [targetEventIndex, session, pb.agentFilter, pb.clearAgentFilter, pb.trackFilters, pb.clearTrackFilter, pb.playback.seek]);
 
   return (
     <main style={{
@@ -155,6 +182,16 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
             placeholder="Search evidence"
             value={pb.search.searchInput}
             onChange={function (event) { pb.search.setSearchInput(event.target.value); }}
+            onKeyDown={function (event) {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                jumpToVisibleMatch(event.shiftKey ? "prev" : "next");
+              }
+              if (event.key === "Escape") {
+                event.currentTarget.blur();
+                pb.search.clearSearch();
+              }
+            }}
             style={{
               border: "none",
               outline: "none",
@@ -167,6 +204,26 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
             }}
           />
         </div>
+
+        <button
+          type="button"
+          className="av-btn"
+          aria-pressed={pb.agentFilter === "user"}
+          onClick={function () { pb.toggleAgentFilter("user"); }}
+          style={{
+            border: "1px solid " + (pb.agentFilter === "user" ? AGENT_COLORS.user : theme.border.default),
+            borderRadius: theme.radius.md,
+            background: pb.agentFilter === "user" ? alpha(AGENT_COLORS.user, 0.08) : theme.bg.surface,
+            color: pb.agentFilter === "user" ? AGENT_COLORS.user : theme.text.muted,
+            padding: "5px 8px",
+            fontFamily: theme.font.mono,
+            fontSize: theme.fontSize.xs,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          User only
+        </button>
 
         <button
           type="button"
@@ -220,9 +277,27 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
         })}
 
         {pb.search.searchQuery && (
-          <span style={{ color: theme.text.dim, fontFamily: theme.font.mono, fontSize: theme.fontSize.xs, whiteSpace: "nowrap" }}>
-            {pb.search.matchedEntries.length} match{pb.search.matchedEntries.length === 1 ? "" : "es"}
-          </span>
+          <>
+            <span style={{ color: theme.text.dim, fontFamily: theme.font.mono, fontSize: theme.fontSize.xs, whiteSpace: "nowrap" }}>
+              {visibleMatches.length} match{visibleMatches.length === 1 ? "" : "es"}
+            </span>
+            <ToolbarButton
+              aria-label="Previous search match"
+              title="Previous match (Shift+Enter)"
+              icon="chevron-up"
+              disabled={visibleMatches.length === 0}
+              onClick={function () { jumpToVisibleMatch("prev"); }}
+              style={{ padding: "3px 5px" }}
+            />
+            <ToolbarButton
+              aria-label="Next search match"
+              title="Next match (Enter)"
+              icon="chevron-down"
+              disabled={visibleMatches.length === 0}
+              onClick={function () { jumpToVisibleMatch("next"); }}
+              style={{ padding: "3px 5px" }}
+            />
+          </>
         )}
       </div>
 
@@ -246,7 +321,7 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
             turns={session.turns}
             turnStartMap={pb.turnStartMap}
             searchQuery={pb.search.searchQuery}
-            matchSet={pb.search.matchSet}
+            matchSet={visibleMatchSet}
             metadata={session.metadata}
             targetEventIndex={targetEventIndex}
             renderSelectedActions={function (props) {

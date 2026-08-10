@@ -155,6 +155,9 @@ Run `npx playwright install chromium` once before the first browser test run.
 - Copilot CLI Session Info lists every explicit reasoning effort in first-seen order; selected events show the effective value, and effort is never inferred from reasoning text or token usage
 - The default UI is the v2 workflow shell. Classic UI remains available through the `agentviz:v2:enabled` preference and header toggle.
 - Shared session actions must remain available in both shells; single-session HTML export uses `ExportStatusButton` in the v2 and Classic headers.
+- Investigate search preserves timeline context; Enter and Shift+Enter, plus adjacent arrow controls, navigate next and previous matches.
+- User-only filtering uses the normalized `event.agent === "user"` field across every parser, and search operates on the filtered event set.
+- Codex Session Info distinguishes user threads from named subagent traces when rollout metadata provides `thread_source` and `source.subagent`.
 
 ## Planned features
 - Bookmarks and annotations (persisted to localStorage)

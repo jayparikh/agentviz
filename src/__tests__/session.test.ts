@@ -36,7 +36,7 @@ describe("buildFilteredEventEntries", function () {
   var events = [
     makeEvent(0, 1, "reasoning"),
     makeEvent(1, 1, "tool_call"),
-    makeEvent(2, 1, "output"),
+    makeEvent(2, 1, "output", "user"),
     makeEvent(3, 1, "reasoning"),
   ];
 
@@ -52,6 +52,13 @@ describe("buildFilteredEventEntries", function () {
     expect(entries).toHaveLength(2);
     expect(entries[0].event.track).toBe("tool_call");
     expect(entries[1].event.track).toBe("output");
+  });
+
+  it("filters by normalized agent across trace formats", function () {
+    var entries = buildFilteredEventEntries(events, {}, "user");
+    expect(entries).toHaveLength(1);
+    expect(entries[0].index).toBe(2);
+    expect(entries[0].event.agent).toBe("user");
   });
 
   it("returns empty for null events", function () {

@@ -15,12 +15,13 @@ export function getSessionTotal(events: NormalizedEvent[] | null | undefined): n
 export function buildFilteredEventEntries(
   events: NormalizedEvent[] | null | undefined,
   hiddenTracks: Record<string, boolean | undefined>,
+  agentFilter: string | null = null,
 ): EventEntry[] {
   if (!events) return [];
 
   const entries: EventEntry[] = [];
   for (let i = 0; i < events.length; i += 1) {
-    if (!hiddenTracks[events[i].track]) {
+    if (!hiddenTracks[events[i].track] && (!agentFilter || events[i].agent === agentFilter)) {
       entries.push({ index: i, event: events[i] });
     }
   }

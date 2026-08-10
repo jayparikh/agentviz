@@ -816,6 +816,8 @@ describe("V2 shell routing", function () {
   it("renders InvestigateView and exposes contextual event actions", async function () {
     var onNavigate = vi.fn();
     var session = makeAnalyzeSession();
+    session.metadata.threadSource = "subagent";
+    session.metadata.subagentName = "guardian";
     var app = await renderNode(
       <PlaybackProvider session={session}>
         <InvestigateView
@@ -845,6 +847,7 @@ describe("V2 shell routing", function () {
     expect(findExactButton(app.container, "Copy payload")).toBeTruthy();
     expect(findExactButton(app.container, "Errors only (1)")).toBeTruthy();
     expect(app.container.querySelector('input[aria-label="Search evidence events"]')).toBeTruthy();
+    expect(findExactText(app.container, "subagent · guardian")).toBeTruthy();
 
     await act(async function () {
       findExactButton(app.container, "See in Waterfall").click();
@@ -882,12 +885,71 @@ describe("V2 shell routing", function () {
     await waitFor(function () {
       return findExactText(app.container, "1 match");
     }, "expected search match count");
+    expect(app.container.querySelector('button[aria-label="Previous search match"]')).toBeTruthy();
+    expect(app.container.querySelector('button[aria-label="Next search match"]')).toBeTruthy();
+
+    await changeInput(app.container.querySelector('input[aria-label="Search evidence events"]'), "Plan work");
+    await waitFor(function () {
+      return findExactText(app.container, "0 matches");
+    }, "expected error-only search to exclude hidden non-errors");
+
+    await app.unmount();
+  });
+
+  it("filters Investigate to normalized user input events", async function () {
+    var session = makeAnalyzeSession();
+    session.events[0] = Object.assign({}, session.events[0], { agent: "user" });
+    var app = await renderNode(
+      <PlaybackProvider session={session}>
+        <InvestigateView
+          session={session}
+          onNavigate={vi.fn()}
+        />
+      </PlaybackProvider>,
+    );
+
+    await act(async function () {
+      findExactButton(app.container, "User only").click();
+    });
+    expect(findExactText(app.container, "Plan work")).toBeTruthy();
+    expect(findExactText(app.container, "Run tests")).toBeFalsy();
+    expect(findExactText(app.container, "typecheck failed")).toBeFalsy();
+
+    await changeInput(app.container.querySelector('input[aria-label="Search evidence events"]'), "tests");
+    await waitFor(function () {
+      return findExactText(app.container, "0 matches");
+    }, "expected search to respect the user filter");
+
+    await app.unmount();
+  });
+
+  it("jumps between Investigate search matches with Enter", async function () {
+    var session = makeAnalyzeSession();
+    var app = await renderNode(
+      <PlaybackProvider session={session}>
+        <InvestigateView
+          session={session}
+          onNavigate={vi.fn()}
+        />
+      </PlaybackProvider>,
+    );
+    var searchInput = app.container.querySelector('input[aria-label="Search evidence events"]');
+
+    await changeInput(searchInput, "Plan work");
+    await act(async function () {
+      searchInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+    await waitFor(function () {
+      return findExactText(app.container, "Run tests") === null;
+    }, "expected replay to seek to the first match");
 
     await app.unmount();
   });
 
   it("selects a targeted Investigate event from evidence navigation", async function () {
     var session = makeAnalyzeSession();
+    window.localStorage.setItem("agentviz:agent-filter", JSON.stringify("user"));
+    window.localStorage.setItem("agentviz:track-filters", JSON.stringify({ tool_call: true }));
     var app = await renderNode(
       <PlaybackProvider session={session}>
         <InvestigateView
@@ -902,6 +964,12 @@ describe("V2 shell routing", function () {
       return findExactText(app.container, "Selected Event");
     }, "expected targeted event selection");
     expect(findExactButton(app.container, "Coach in Improve")).toBeTruthy();
+    expect(findExactButton(app.container, "User only").getAttribute("aria-pressed")).toBe("false");
+    expect(findExactButton(app.container, "Tool Calls").getAttribute("aria-pressed")).toBe("false");
+    await act(async function () {
+      findExactButton(app.container, "User only").click();
+    });
+    expect(findExactButton(app.container, "User only").getAttribute("aria-pressed")).toBe("true");
 
     await app.unmount();
   });

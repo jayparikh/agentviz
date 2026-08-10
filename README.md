@@ -247,7 +247,7 @@ The default entry point is a session portfolio for import, demo loading, auto-di
 
 ### Investigate
 
-Investigate wraps the chronological replay stream with search, error-only mode, track filters, contextual Analyze/Compare/Improve actions, and a resizable inspector sidebar. Click any event to see full details plus a payload inspector with readable JSON or text, top-level keys, line and character counts, copy support, and expand or collapse controls.
+Investigate wraps the chronological replay stream with search, next/previous match navigation, user-only and error-only modes, track filters, contextual Analyze/Compare/Improve actions, and a resizable inspector sidebar. The user-only filter works across every supported trace format through the normalized `user` agent. Press Enter or Shift+Enter in evidence search, or use the adjacent arrow controls, to move between matches. Click any event to see full details plus a payload inspector with readable JSON or text, top-level keys, line and character counts, copy support, and expand or collapse controls. Codex Session Info identifies user threads and named subagent traces.
 
 <div align="center">
 <img src="docs/screenshots/replay-view.png" alt="Replay View" width="800" />
