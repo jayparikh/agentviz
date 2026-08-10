@@ -54,6 +54,51 @@ describe("parseCodexJSONL", function () {
     expect(assistantMessages).toHaveLength(1);
   });
 
+  it("identifies Codex Desktop subagent traces", function () {
+    const text = [
+      line({
+        type: "session_meta",
+        timestamp: "2026-05-25T12:00:00.000Z",
+        payload: {
+          id: "guardian-session",
+          parent_thread_id: "parent-session",
+          originator: "Codex Desktop",
+          source: { subagent: { other: "guardian" } },
+          thread_source: "subagent",
+          model_provider: "openai",
+        },
+      }),
+      line({ type: "response_item", timestamp: "2026-05-25T12:00:01.000Z", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "Assess this action" }] } }),
+    ].join("\n");
+
+    const result = parseCodexJSONL(text);
+    expect(result?.metadata.threadSource).toBe("subagent");
+    expect(result?.metadata.parentThreadId).toBe("parent-session");
+    expect(result?.metadata.subagentName).toBe("guardian");
+  });
+
+  it("reads canonical Codex thread-spawn subagent names", function () {
+    const text = [
+      line({
+        type: "session_meta",
+        timestamp: "2026-05-25T12:00:00.000Z",
+        payload: {
+          id: "spawned-session",
+          parent_thread_id: "parent-session",
+          originator: "Codex Desktop",
+          agent_nickname: "reviewer",
+          source: { subagent: { thread_spawn: { parent_thread_id: "parent-session" } } },
+          thread_source: "subagent",
+          model_provider: "openai",
+        },
+      }),
+      line({ type: "response_item", timestamp: "2026-05-25T12:00:01.000Z", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "Review this change" }] } }),
+    ].join("\n");
+
+    const result = parseCodexJSONL(text);
+    expect(result?.metadata.subagentName).toBe("reviewer");
+  });
+
   it("uses cumulative token_count totals for metadata token usage", function () {
     const result = parseCodexJSONL(FIXTURE);
     expect(result?.metadata.tokenUsage).toMatchObject({

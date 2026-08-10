@@ -88,6 +88,22 @@ test("v2 Review and Investigate route to evidence", async function ({ page }) {
   expect(failures).toEqual([]);
 });
 
+test("v2 Investigate filters normalized user inputs", async function ({ page }) {
+  var failures = captureFailures(page);
+  await openV2(page);
+  await importGoldenFixture(page);
+
+  await page.getByRole("button", { name: /Investigate/ }).click();
+  await page.getByRole("button", { name: "User only" }).click();
+  await expect(page.getByText("Can you add a hello world function to utils.js?")).toBeVisible();
+  await expect(page.getByText("I'll add that function.")).toHaveCount(0);
+
+  await page.getByRole("textbox", { name: "Search evidence events" }).fill("hello world function");
+  await expect(page.getByText("1 match", { exact: true })).toBeVisible();
+
+  expect(failures).toEqual([]);
+});
+
 test("v2 Analyze Cost and command palette routing work", async function ({ page }) {
   var failures = captureFailures(page);
   await openV2(page);

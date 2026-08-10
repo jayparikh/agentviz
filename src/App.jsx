@@ -469,8 +469,10 @@ function AppSessionView({
         onToggleFilters={function () { setShowFilters(function (p) { return !p; }); }}
         activeFilterCount={pb.activeFilterCount}
         trackFilters={pb.trackFilters}
+        agentFilter={pb.agentFilter}
         activeTracks={activeTracks}
         onToggleTrackFilter={pb.toggleTrackFilter}
+        onToggleAgentFilter={pb.toggleAgentFilter}
         speed={pb.playback.speed}
         onCycleSpeed={pb.cycleSpeed}
         onStartCompare={function () { setCompareLanding(true); }}

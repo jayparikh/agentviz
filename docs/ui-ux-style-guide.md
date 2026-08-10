@@ -1092,6 +1092,15 @@ Percentages use `.toFixed(1)` (e.g. `85.3%`). Token counts use `.toLocaleString(
 | `Cmd+Shift+K` / `Ctrl+Shift+K` | Toggle Session Q&A drawer |
 | `?` | Toggle shortcuts modal |
 
+### Search Match Navigation
+
+- Evidence search keeps the full chronological stream visible and highlights matches in place.
+- `Enter` jumps to the next match; `Shift+Enter` jumps to the previous match.
+- Previous and next arrow buttons remain visible beside the match count for pointer users.
+- `Escape` clears evidence search and removes focus from the input.
+- The **User only** filter selects normalized `event.agent === "user"` events, so it behaves consistently across all supported trace formats.
+- Search indexing, match counts, and next/previous navigation operate on the filtered event set.
+
 ### Command Palette Navigation
 
 - `ArrowDown` / `ArrowUp`: Move selection.

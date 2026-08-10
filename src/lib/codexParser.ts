@@ -538,6 +538,25 @@ function getSessionMeta(records: RawRecord[]): Record<string, any> {
   return meta && meta.payload || {};
 }
 
+function getSubagentName(meta: Record<string, any>): string | null {
+  if (typeof meta.agent_nickname === "string") return meta.agent_nickname;
+  if (typeof meta.agent_role === "string") return meta.agent_role;
+  if (!isRecord(meta.source)) return null;
+  if (typeof meta.source.subagent === "string") return meta.source.subagent;
+  if (!isRecord(meta.source.subagent)) return null;
+  const subagent = meta.source.subagent;
+  if (typeof subagent.name === "string") return subagent.name;
+  if (typeof subagent.other === "string") return subagent.other;
+  if (isRecord(subagent.thread_spawn)) {
+    const spawn = subagent.thread_spawn;
+    if (typeof spawn.agent_nickname === "string") return spawn.agent_nickname;
+    if (typeof spawn.agent_role === "string") return spawn.agent_role;
+    if (typeof spawn.name === "string") return spawn.name;
+  }
+  const keys = Object.keys(subagent);
+  return keys.length === 1 && keys[0] !== "thread_spawn" ? keys[0] : null;
+}
+
 function getLastTokenUsage(records: RawRecord[], warnings: string[]): TokenUsage | null {
   let lastUsage: Record<string, any> | null = null;
   for (let index = 0; index < records.length; index += 1) {
@@ -599,6 +618,8 @@ function buildMetadata(records: RawRecord[], events: NormalizedEvent[], turns: S
     cliVersion: typeof meta.cli_version === "string" ? meta.cli_version : null,
     modelProvider: typeof meta.model_provider === "string" ? meta.model_provider : null,
     threadSource: typeof meta.thread_source === "string" ? meta.thread_source : null,
+    parentThreadId: typeof meta.parent_thread_id === "string" ? meta.parent_thread_id : null,
+    subagentName: getSubagentName(meta),
   };
 }
 

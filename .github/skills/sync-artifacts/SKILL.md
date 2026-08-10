@@ -110,7 +110,7 @@ The style guide and color-palette.html must agree: if a token's hex value appear
 
 ### 2e. docs/screenshots/
 
-Screenshots need regeneration if **any visual change** occurred -- component changes, theme token changes, layout changes, new views, or view modifications.
+If **any visual change** occurred -- component changes, theme token changes, layout changes, new views, or view modifications -- identify the screenshots that may be stale. Before regenerating anything, ask the user whether they want all screenshots regenerated. Do not regenerate screenshots without explicit confirmation.
 
 The 8 required screenshots:
 - `landing.png` -- landing page (before loading a session)
@@ -160,9 +160,9 @@ For each artifact that needs updating, make the changes directly. Do not ask for
 - Verify the dark-mode and light-mode columns are updated separately (the file has a `.mode.dark` block and a `.mode.light` block)
 - Update the `<div class="banner">` summary at the top if you are documenting a batch of palette changes
 
-## Step 4: Regenerate Screenshots
+## Step 4: Confirm and Regenerate Screenshots
 
-If visual changes occurred, regenerate all 8 screenshots. Even if you think only one view changed, regenerate all of them -- theme changes affect everything.
+If visual changes occurred, use `ask_user` to ask whether the user wants all 8 screenshots regenerated. If they decline, skip screenshot generation and record "Skipped by user request" in the final report. If they approve, regenerate all 8 screenshots. Even if you think only one view changed, regenerate all of them because theme changes can affect everything.
 
 > **PRIVACY: Never capture personal session data.** Use `?demo=empty` for the landing page and "Load a demo session" for all session views. No real user sessions should appear in screenshots.
 
@@ -298,6 +298,7 @@ Present a summary of everything that was synced:
 
 ### docs/screenshots/
 - [which screenshots were regenerated, or "No changes needed"]
+- If regeneration was declined: "Skipped by user request"
 - Hero/replay match: [PASS/FAIL]
 
 ### Validation
@@ -330,7 +331,7 @@ If "just check" is requested, audit all five artifacts but only report drift -- 
 
 ## Important Principles
 
-- **Always regenerate ALL 8 screenshots**, not just the view that changed. Theme or layout changes ripple.
+- **Always ask before regenerating screenshots.** If approved, regenerate all 8 rather than only the visibly affected view because theme or layout changes can ripple.
 - **session-hero.png must equal replay-view.png**. This is the most common mistake.
 - **Use `?demo=empty`** for the landing page screenshot. Never capture with personal session data visible.
 - **Match existing style** when updating README/CLAUDE.md. Read the surrounding content before writing.

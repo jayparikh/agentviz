@@ -24,8 +24,10 @@ export default function AppHeader({
   onToggleFilters,
   activeFilterCount,
   trackFilters,
+  agentFilter,
   activeTracks,
   onToggleTrackFilter,
+  onToggleAgentFilter,
   speed,
   onCycleSpeed,
   currentThemeMode,
@@ -230,8 +232,8 @@ export default function AppHeader({
           <div ref={filtersRef} style={{ position: "relative" }}>
             <ToolbarButton
               onClick={onToggleFilters}
-              title="Filter tracks"
-              aria-label="Filter tracks"
+              title="Filter events"
+              aria-label="Filter events"
               style={{
                 background: activeFilterCount > 0 ? alpha(theme.accent.primary, 0.08) : "transparent",
                 borderColor: activeFilterCount > 0 ? theme.accent.primary : theme.border.default,
@@ -293,6 +295,37 @@ export default function AppHeader({
                     </button>
                   );
                 })}
+                <div style={{ height: 1, background: theme.border.default, margin: "4px 6px" }} />
+                <button
+                className="av-interactive"
+                aria-pressed={agentFilter === "user"}
+                onClick={function () { onToggleAgentFilter("user"); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "4px 10px",
+                  borderRadius: theme.radius.md,
+                  width: "100%",
+                  background: agentFilter === "user" ? alpha(theme.accent.primary, 0.08) : "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+                >
+                <Icon name="agent" size={12} style={{ color: agentFilter === "user" ? theme.accent.primary : theme.text.muted }} />
+                <span style={{
+                  fontSize: theme.fontSize.xs,
+                  fontFamily: theme.font.mono,
+                  color: agentFilter === "user" ? theme.accent.primary : theme.text.secondary,
+                  flex: 1,
+                }}>
+                  User only
+                </span>
+                {agentFilter === "user" && (
+                  <span style={{ fontSize: theme.fontSize.xs, color: theme.accent.primary, fontFamily: theme.font.mono }}>active</span>
+                )}
+                </button>
               </div>
             )}
           </div>

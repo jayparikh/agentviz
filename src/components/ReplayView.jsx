@@ -90,6 +90,10 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
               })(),
               metadata.reasoningEfforts && metadata.reasoningEfforts.length > 0
                 ? ["Reasoning", metadata.reasoningEfforts.join(", "), theme.track.reasoning] : null,
+              metadata.threadSource
+                ? ["Thread", metadata.threadSource === "subagent" && metadata.subagentName
+                  ? "subagent · " + metadata.subagentName
+                  : metadata.threadSource, theme.track.context] : null,
               metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0
                 ? ["Tokens", (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens).toLocaleString(), theme.accent.primary] : null,
               (function () {

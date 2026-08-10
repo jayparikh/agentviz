@@ -6,7 +6,7 @@
  * longer force search/filter consumers to reconcile).
  *
  *   PlaybackTimeCtx -- playback object, cycleSpeed, navigation helpers
- *   FilterCtx       -- trackFilters, filtered entries, turnStartMap, timeMap
+ *   FilterCtx       -- track/agent filters, filtered entries, turnStartMap, timeMap
  *   SearchCtx       -- search object
  *
  * usePlaybackContext() still returns the combined shape for backward compat.
@@ -46,10 +46,11 @@ export function PlaybackProvider({ session, children }) {
 
   // ── filters ───────────────────────────────────────────────────────────────
   var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
+  var [agentFilter, setAgentFilter] = usePersistentState("agentviz:agent-filter", null);
 
   var filteredEventEntries = useMemo(function () {
-    return buildFilteredEventEntries(session.events, trackFilters);
-  }, [session.events, trackFilters]);
+    return buildFilteredEventEntries(session.events, trackFilters, agentFilter);
+  }, [session.events, trackFilters, agentFilter]);
 
   var filteredEvents = useMemo(function () {
     return filteredEventEntries.map(function (entry) { return entry.event; });
@@ -79,7 +80,26 @@ export function PlaybackProvider({ session, children }) {
     });
   }, [setTrackFilters]);
 
-  var activeFilterCount = Object.keys(trackFilters).length;
+  var clearTrackFilter = useCallback(function (track) {
+    setTrackFilters(function (current) {
+      if (!current[track]) return current;
+      var next = Object.assign({}, current);
+      delete next[track];
+      return next;
+    });
+  }, [setTrackFilters]);
+
+  var toggleAgentFilter = useCallback(function (agent) {
+    setAgentFilter(function (current) {
+      return current === agent ? null : agent;
+    });
+  }, [setAgentFilter]);
+
+  var clearAgentFilter = useCallback(function () {
+    setAgentFilter(null);
+  }, [setAgentFilter]);
+
+  var activeFilterCount = Object.keys(trackFilters).length + (agentFilter ? 1 : 0);
 
   var filterValue = useMemo(function () {
     return {
@@ -89,11 +109,16 @@ export function PlaybackProvider({ session, children }) {
       timeMap: timeMap,
       errorEntries: errorEntries,
       trackFilters: trackFilters,
+      agentFilter: agentFilter,
       activeFilterCount: activeFilterCount,
       toggleTrackFilter: toggleTrackFilter,
+      clearTrackFilter: clearTrackFilter,
+      toggleAgentFilter: toggleAgentFilter,
+      clearAgentFilter: clearAgentFilter,
     };
   }, [filteredEventEntries, filteredEvents, turnStartMap, timeMap,
-      errorEntries, trackFilters, activeFilterCount, toggleTrackFilter]);
+      errorEntries, trackFilters, agentFilter, activeFilterCount, toggleTrackFilter, clearTrackFilter,
+      toggleAgentFilter, clearAgentFilter]);
 
   // ── search ────────────────────────────────────────────────────────────────
   var search = useSearch(filteredEventEntries);
@@ -131,25 +156,27 @@ export function PlaybackProvider({ session, children }) {
   }, [errorEntries, jumpToEntries]);
 
   var jumpToMatch = useCallback(function (direction) {
-    jumpToEntries(search.matchedEntries, direction);
-  }, [jumpToEntries, search.matchedEntries]);
+    jumpToEntries(search.submitSearch(), direction);
+  }, [jumpToEntries, search.submitSearch]);
 
   var resetPlaybackState = useCallback(function () {
     playback.resetPlayback(0);
     search.clearSearch();
     setTrackFilters({});
-  }, [playback.resetPlayback, search.clearSearch, setTrackFilters]);
+    setAgentFilter(null);
+  }, [playback.resetPlayback, search.clearSearch, setTrackFilters, setAgentFilter]);
 
   // Navigation lives in PlaybackTimeCtx since it depends on playback.time
   var playbackValue = useMemo(function () {
     return {
       playback: playback,
       cycleSpeed: cycleSpeed,
+      jumpToEntries: jumpToEntries,
       jumpToError: jumpToError,
       jumpToMatch: jumpToMatch,
       resetPlaybackState: resetPlaybackState,
     };
-  }, [playback, cycleSpeed, jumpToError, jumpToMatch, resetPlaybackState]);
+  }, [playback, cycleSpeed, jumpToEntries, jumpToError, jumpToMatch, resetPlaybackState]);
 
   return React.createElement(PlaybackTimeCtx.Provider, { value: playbackValue },
     React.createElement(FilterCtx.Provider, { value: filterValue },
