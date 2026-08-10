@@ -91,7 +91,7 @@ describe("StatsView theme updates", function () {
       root.render(<StatsView {...props} />);
     });
 
-    var totalEventsCard = findExactText(container, "Total Events").parentElement;
+    var totalEventsCard = findExactText(container, "Total events").parentElement;
     expect(totalEventsCard.style.background).toBe(lightSurface);
     expect(totalEventsCard.firstElementChild.style.color).toBe(lightTextPrimary);
     var modelCard = findExactText(container, "Model").parentElement;
@@ -102,7 +102,7 @@ describe("StatsView theme updates", function () {
       root.render(<StatsView {...props} />);
     });
 
-    totalEventsCard = findExactText(container, "Total Events").parentElement;
+    totalEventsCard = findExactText(container, "Total events").parentElement;
     expect(totalEventsCard.style.background).toBe(darkSurface);
     expect(totalEventsCard.firstElementChild.style.color).toBe(darkTextPrimary);
     modelCard = findExactText(container, "Model").parentElement;
@@ -148,8 +148,8 @@ describe("StatsView theme updates", function () {
       root.render(<StatsView {...props} />);
     });
 
-    expect(getCardValue(container, "Total Events")).toBe("1");
-    expect(getCardValue(container, "Tool Calls")).toBe("0");
+    expect(getCardValue(container, "Total events")).toBe("1");
+    expect(getCardValue(container, "Tool calls")).toBe("0");
     expect(getCardValue(container, "Errors")).toBe("0");
 
     await act(async function () {
@@ -165,8 +165,8 @@ describe("StatsView theme updates", function () {
       );
     });
 
-    expect(getCardValue(container, "Total Events")).toBe("2");
-    expect(getCardValue(container, "Tool Calls")).toBe("1");
+    expect(getCardValue(container, "Total events")).toBe("2");
+    expect(getCardValue(container, "Tool calls")).toBe("1");
     expect(getCardValue(container, "Errors")).toBe("1");
 
     await act(async function () {

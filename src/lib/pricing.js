@@ -207,5 +207,5 @@ export function getSessionCostLabel(metadata, estimated) {
   if (metadata && metadata.totalCost != null) {
     return isAiCreditsUnit(metadata.totalCostUnit) ? "AI Credits" : "Cost";
   }
-  return estimated ? "Est. Cost" : "Cost";
+  return estimated ? "Est. cost" : "Cost";
 }

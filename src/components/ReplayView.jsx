@@ -99,7 +99,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
               (function () {
                 var cost = getSessionCost(metadata);
                 if (cost == null) return null;
-                var label = metadata.totalCost != null ? getSessionCostLabel(metadata) : "Est. Cost";
+                var label = metadata.totalCost != null ? getSessionCostLabel(metadata) : "Est. cost";
                 return [label, metadata.totalCost != null ? formatSessionCost(metadata) : formatCost(cost), theme.semantic.success];
               })(),
               metadata.warnings && metadata.warnings.length > 0 ? ["Warnings", metadata.warnings.length, theme.semantic.warning] : null,

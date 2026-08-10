@@ -255,7 +255,7 @@ Investigate wraps the chronological replay stream with search, next/previous mat
 
 ### Analyze: Tracks
 
-DAW-style multi-track lanes for Reasoning, Tool Calls, Context, and Output. **Solo** isolates one track. **Mute** hides it. See at a glance how your agent's time was spent.
+DAW-style multi-track lanes for Reasoning, Tool calls, Context, and Output. **Solo** isolates one track. **Mute** hides it. See at a glance how your agent's time was spent.
 
 <div align="center">
 <img src="docs/screenshots/tracks-view.png" alt="Tracks View" width="800" />

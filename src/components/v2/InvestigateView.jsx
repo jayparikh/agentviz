@@ -102,8 +102,6 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
     if (!pb.search.searchQuery) return null;
     return new Set(visibleMatches.map(function (entry) { return entry.index; }));
   }, [pb.search.searchQuery, visibleMatches]);
-  var errorCount = pb.errorEntries.length;
-
   var jumpToVisibleMatch = useCallback(function (direction) {
     var matches = pb.search.submitSearch();
     if (errorsOnly) {
@@ -242,7 +240,7 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
             whiteSpace: "nowrap",
           }}
         >
-          Errors only {errorCount > 0 ? "(" + errorCount + ")" : ""}
+          Errors only
         </button>
 
         {Object.keys(TRACK_TYPES).map(function (track) {

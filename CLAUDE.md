@@ -157,6 +157,7 @@ Run `npx playwright install chromium` once before the first browser test run.
 - Shared session actions must remain available in both shells; single-session HTML export uses `ExportStatusButton` in the v2 and Classic headers.
 - Investigate search preserves timeline context; Enter and Shift+Enter, plus adjacent arrow controls, navigate next and previous matches.
 - User-only filtering uses the normalized `event.agent === "user"` field across every parser, and search operates on the filtered event set.
+- Filter chips and generic metric labels use sentence case; peer chips do not embed a count in only one label.
 - Codex Session Info distinguishes user threads from named subagent traces when rollout metadata provides `thread_source` and `source.subagent`.
 
 ## Planned features

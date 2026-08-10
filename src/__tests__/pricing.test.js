@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateCost, estimateMultiModelCost, formatCost, hasModelPricing } from "../lib/pricing.js";
+import { estimateCost, estimateMultiModelCost, formatCost, getSessionCostLabel, hasModelPricing } from "../lib/pricing.js";
 
 describe("estimateCost", function () {
   it("returns 0 for null tokenUsage", function () {
@@ -108,6 +108,13 @@ describe("estimateMultiModelCost", function () {
 describe("formatCost", function () {
   it("formats zero", function () {
     expect(formatCost(0)).toBe("$0.00");
+  });
+
+  describe("getSessionCostLabel", function () {
+    it("uses sentence case for estimated cost", function () {
+      expect(getSessionCostLabel({}, true)).toBe("Est. cost");
+      expect(getSessionCostLabel({ totalCost: 1, totalCostUnit: "usd" }, false)).toBe("Cost");
+    });
   });
 
   it("formats sub-penny", function () {
