@@ -456,11 +456,11 @@ describe("App browser regressions", function () {
 
     await click(findButtonByTitle(app.container, "Filter events"));
     await waitFor(function () {
-      return findClickableText(app.container, "Tool Calls");
+      return findClickableText(app.container, "Tool calls");
     }, "expected filter popover to open");
     expect(findClickableText(app.container, "User only")).toBeTruthy();
 
-    await click(findClickableText(app.container, "Tool Calls"));
+    await click(findClickableText(app.container, "Tool calls"));
     await waitFor(function () {
       return findButtonByTitle(app.container, "Filter events");
     }, "expected hidden filter count to update");

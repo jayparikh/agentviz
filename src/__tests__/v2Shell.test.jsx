@@ -757,7 +757,7 @@ describe("V2 shell routing", function () {
       findExactButton(app.container, "Tracks").click();
     });
     expect(findExactButton(app.container, "Tracks").getAttribute("aria-pressed")).toBe("true");
-    expect(findExactText(app.container, "Tool Calls")).toBeTruthy();
+    expect(findExactText(app.container, "Tool calls")).toBeTruthy();
 
     await act(async function () {
       findExactButton(app.container, "Review token spend").click();
@@ -845,7 +845,7 @@ describe("V2 shell routing", function () {
     expect(findExactButton(app.container, "See in Waterfall")).toBeTruthy();
     expect(findExactButton(app.container, "Compare sessions")).toBeTruthy();
     expect(findExactButton(app.container, "Copy payload")).toBeTruthy();
-    expect(findExactButton(app.container, "Errors only (1)")).toBeTruthy();
+    expect(findExactButton(app.container, "Errors only")).toBeTruthy();
     expect(app.container.querySelector('input[aria-label="Search evidence events"]')).toBeTruthy();
     expect(findExactText(app.container, "subagent · guardian")).toBeTruthy();
 
@@ -876,7 +876,7 @@ describe("V2 shell routing", function () {
 
     expect(findExactText(app.container, "Plan work")).toBeTruthy();
     await act(async function () {
-      findExactButton(app.container, "Errors only (1)").click();
+      findExactButton(app.container, "Errors only").click();
     });
     expect(findExactText(app.container, "typecheck failed")).toBeTruthy();
     expect(findExactText(app.container, "Plan work")).toBeFalsy();
@@ -965,7 +965,7 @@ describe("V2 shell routing", function () {
     }, "expected targeted event selection");
     expect(findExactButton(app.container, "Coach in Improve")).toBeTruthy();
     expect(findExactButton(app.container, "User only").getAttribute("aria-pressed")).toBe("false");
-    expect(findExactButton(app.container, "Tool Calls").getAttribute("aria-pressed")).toBe("false");
+    expect(findExactButton(app.container, "Tool calls").getAttribute("aria-pressed")).toBe("false");
     await act(async function () {
       findExactButton(app.container, "User only").click();
     });

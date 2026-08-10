@@ -329,7 +329,7 @@ function createTrackInfo(key, label, icon) {
 
 export const TRACK_TYPES = {
   reasoning: createTrackInfo("reasoning", "Reasoning", "reasoning"),
-  tool_call: createTrackInfo("tool_call", "Tool Calls", "tool_call"),
+  tool_call: createTrackInfo("tool_call", "Tool calls", "tool_call"),
   context: createTrackInfo("context", "Context", "context"),
   output: createTrackInfo("output", "Output", "output"),
   agent: createTrackInfo("agent", "Agents", "agent"),

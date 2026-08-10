@@ -406,10 +406,10 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
 
   var cards = useMemo(function () {
     return [
-      { label: "Total Events", value: events.length, color: theme.text.primary },
+      { label: "Total events", value: events.length, color: theme.text.primary },
       { label: "Turns", value: metadata ? metadata.totalTurns : (turns ? turns.length : 0), color: theme.accent.primary },
-      { label: "User Messages", value: userMsgs, color: theme.accent.primary },
-      { label: "Tool Calls", value: (trackStats.tool_call || {}).count || 0, color: theme.track.tool_call },
+      { label: "User messages", value: userMsgs, color: theme.accent.primary },
+      { label: "Tool calls", value: (trackStats.tool_call || {}).count || 0, color: theme.track.tool_call },
       { label: "Errors", value: errorCount, color: errorCount > 0 ? theme.semantic.error : theme.text.muted },
       { label: "Duration", value: formatDurationLong(totalTime), color: theme.track.context },
     ];
@@ -486,7 +486,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
       });
     }
     if (estimated > 0) {
-      usageCards.push({ label: "Est. Cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: "based on " + modelLabel });
+      usageCards.push({ label: "Est. cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: "based on " + modelLabel });
     }
     var allModelsEntries = Object.keys(metadata.models).length > 1
       ? Object.entries(metadata.models).sort(function (a, b) { return b[1] - a[1]; })

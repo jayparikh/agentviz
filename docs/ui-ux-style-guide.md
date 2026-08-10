@@ -1100,6 +1100,8 @@ Percentages use `.toFixed(1)` (e.g. `85.3%`). Token counts use `.toLocaleString(
 - `Escape` clears evidence search and removes focus from the input.
 - The **User only** filter selects normalized `event.agent === "user"` events, so it behaves consistently across all supported trace formats.
 - Search indexing, match counts, and next/previous navigation operate on the filtered event set.
+- Filter chips and generic metric labels use sentence case, such as **User only**, **Errors only**, and **Tool calls**.
+- Do not append a count to only one chip in a peer filter group. Put counts in a separate status treatment when the whole group needs them.
 
 ### Command Palette Navigation
 
