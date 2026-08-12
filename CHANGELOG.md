@@ -5,6 +5,35 @@ All notable changes to AGENTVIZ are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixed shared HTML exports that only opened on the machine that produced them.
+  Exports no longer use an import map keyed by `http://127.0.0.1:<port>` URLs or
+  `data:` URL modules (which WebKit refuses to evaluate); every chunk is now
+  embedded as source and instantiated from a `blob:` URL at boot.
+- Exported files now answer every `/api/*` route locally, so session discovery,
+  config, and Coach requests return an explicit "Not available in exported view"
+  response instead of throwing `URL scheme "file" is not supported`.
+- Exported files no longer request a webfont from Google Fonts and now carry the
+  theme bootstrap tokens from `index.html`, so they render correctly offline in
+  both dark and light mode.
+
+### Added
+
+- Boot-failure fallback in exported files: a readable message with browser
+  compatibility hints replaces the previous blank page.
+- Export generation aborts loudly if the produced bundle still references the
+  exporting server's origin.
+- `npm run test:e2e:export` plus a `webkit-export` Playwright project that open a
+  real export from `file://` with the network blocked.
+
+### Changed
+
+- Exported HTML is gzip-compressed, cutting a typical shared file from about
+  3.7 MB to under 900 KB.
+
 ## [1.0.2] - 2026-06-19
 
 ### Fixed

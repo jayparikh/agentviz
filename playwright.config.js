@@ -24,5 +24,12 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    // Shared exports must also boot in WebKit, which refuses module scripts
+    // served from data: URLs.
+    {
+      name: "webkit-export",
+      testMatch: /export-portability\.spec\.js/,
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
 });

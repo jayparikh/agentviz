@@ -45,6 +45,7 @@
     "test:v2": "vitest run --maxWorkers=2 src/__tests__/v2Shell.test.jsx src/__tests__/v2GoldenData.test.js src/__tests__/v2GoldenFormats.test.js src/__tests__/v2GoldenUi.test.jsx src/__tests__/appRegression.test.jsx src/__tests__/tokenAccounting.test.js",
     "test:e2e": "playwright test",
     "test:e2e:v2": "playwright test tests/e2e/v2-smoke.spec.js",
+    "test:e2e:export": "npm run build && playwright test tests/e2e/export-portability.spec.js",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
