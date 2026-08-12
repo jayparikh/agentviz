@@ -233,6 +233,10 @@ Export is available in two places:
 
 > Export requires the production build (`npm run build`). It is not available in the Vite dev server.
 
+The exported file is fully portable: every chunk is embedded as source and instantiated from `blob:` URLs at boot, so nothing is fetched from the machine that produced it. The payload is gzip-compressed, fonts fall back to the local monospace stack, and all `/api/*` calls are answered inside the file (backend-only features such as Coach analysis return an explicit "Not available in exported view" response). If a browser cannot start the viewer, the file renders a readable failure message with compatibility hints instead of a blank page.
+
+Recipients need Chrome 80+, Edge 80+, Firefox 113+, or Safari 16.4+. Portability is enforced by `tests/e2e/export-portability.spec.js`, which opens a generated export from `file://` with all network access blocked (`npm run test:e2e:export`).
+
 ---
 
 ## Features
@@ -559,12 +563,14 @@ npm run build           # Production build to dist/
 npm test                # Run all tests via Vitest with stable worker cap
 npm run test:v2         # Run v2 golden data, UI, and v1 regression coverage
 npm run test:e2e:v2     # Run the Playwright v2 browser smoke test
+npm run test:e2e:export # Build, then verify a shared export boots from file://
 npm run test:watch      # Watch mode
 npm run typecheck       # Type-check with tsc --noEmit
 ```
 
 > `npm run dev` starts both the Vite frontend (port 3000) and the API backend (port 4242) automatically. Vite proxies `/api/*` to the backend.
 > `npm run test:e2e:v2` uses a hermetic Vite test server on port 3100. Run `npx playwright install chromium` once before the first browser test run.
+> `npm run test:e2e:export` serves `dist/` on an ephemeral port, downloads a real export, and reopens it from `file://` with the network blocked. Run `npx playwright install --with-deps webkit` to also run the `webkit-export` project, which guards against WebKit's refusal to evaluate module scripts from `data:` URLs.
 
 ### Design System
 

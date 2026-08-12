@@ -1167,7 +1167,9 @@ import KeyboardHint from "./ui/KeyboardHint.jsx";
 3. Use `Object.assign({}, baseStyle, overrideStyle)` for style composition.
 4. The only CSS lives in `index.html` (and is duplicated in `src/lib/exportHtml.js` for HTML export):
    global resets, scrollbar styles, utility classes (`.av-btn`, `.av-interactive`, `.av-search`),
-   keyframe animations, and focus styles.
+   keyframe animations, and focus styles. The export copy must keep the theme variable blocks and
+   theme bootstrap script in sync with `index.html`, but intentionally omits the Google Fonts link
+   (exports are opened offline) and adds `.av-export-status` for the boot-failure message.
 5. Never add new CSS classes. If a new shared style pattern is needed, create a component.
 6. Never add CSS files, CSS modules, styled-components, or any CSS-in-JS library.
 

@@ -31,6 +31,8 @@ coverage/
 
 # Playwright MCP snapshots
 .playwright-mcp/
+test-results/
+playwright-report/
 
 # AGENTVIZ runtime artifacts
 agentviz-server.log
