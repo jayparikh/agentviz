@@ -15,6 +15,8 @@ permissions:
 
 jobs:
   publish:
+    if: github.actor == 'jayparikh'
+    environment: npm-publish
     runs-on: ubuntu-latest
 
     steps:
