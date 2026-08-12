@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-08-11
+
 ### Fixed
 
 - Fixed shared HTML exports that only opened on the machine that produced them.
@@ -33,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Exported HTML is gzip-compressed, cutting a typical shared file from about
   3.7 MB to under 900 KB.
+- Added cross-format filtering for user-authored input.
+- Displayed explicit Copilot CLI reasoning-effort metadata in session details
+  and selected events.
+- Standardized filter chips and metric labels across views.
+- Fixed Codex reasoning-token double-counting.
 
 ## [1.0.2] - 2026-06-19
 
