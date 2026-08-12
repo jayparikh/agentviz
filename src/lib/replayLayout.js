@@ -129,6 +129,34 @@ function findEndIndex(items, targetBottom) {
   return result;
 }
 
+/**
+ * Counts how many leading entries are visible at a given playback time.
+ *
+ * Entries are chronological (every parser emits events sorted ascending by
+ * event.t), so the visible set is always a prefix of the list. Binary searching
+ * for the prefix length lets ReplayView slice `entries.slice(0, count)` instead
+ * of re-running an O(n) filter -- and allocating a fresh array -- on every 100ms
+ * playback tick. The count only changes when the playhead crosses an event, so
+ * downstream memos keyed on it stay stable between crossings.
+ *
+ * Returns the number of entries whose event.t is <= currentTime (matching the
+ * previous `filter(entry => entry.event.t <= currentTime)` semantics exactly).
+ */
+export function countVisibleEntries(entries, currentTime) {
+  if (!entries || entries.length === 0) return 0;
+
+  var low = 0;
+  var high = entries.length;
+
+  while (low < high) {
+    var mid = (low + high) >> 1;
+    if (entries[mid].event.t <= currentTime) low = mid + 1;
+    else high = mid;
+  }
+
+  return low;
+}
+
 export function getReplayWindow(items, scrollTop, viewportHeight, overscanPx) {
   if (!items || items.length === 0) return [];
 

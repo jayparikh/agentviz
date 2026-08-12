@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReplayLayout, getReplayWindow, clearEstimateCache } from "../lib/replayLayout.js";
+import { buildReplayLayout, getReplayWindow, clearEstimateCache, countVisibleEntries } from "../lib/replayLayout.js";
 
 function makeEntry(index, text) {
   return {
@@ -88,5 +88,41 @@ describe("getReplayWindow", function () {
 
     var windowed = getReplayWindow(items, 0, items[0].height + 4, 0);
     expect(windowed.map(function (item) { return item.entry.index; })).toEqual([0, 1]);
+  });
+});
+
+describe("countVisibleEntries", function () {
+  function entryAt(index, t) {
+    return { index: index, event: { t: t } };
+  }
+
+  it("returns 0 for empty or missing input", function () {
+    expect(countVisibleEntries([], 5)).toBe(0);
+    expect(countVisibleEntries(null, 5)).toBe(0);
+    expect(countVisibleEntries(undefined, 5)).toBe(0);
+  });
+
+  it("counts entries whose t is <= currentTime (inclusive boundary)", function () {
+    var entries = [entryAt(0, 0), entryAt(1, 1), entryAt(2, 2), entryAt(3, 3)];
+    expect(countVisibleEntries(entries, -1)).toBe(0);
+    expect(countVisibleEntries(entries, 0)).toBe(1);
+    expect(countVisibleEntries(entries, 1.5)).toBe(2);
+    expect(countVisibleEntries(entries, 3)).toBe(4);
+    expect(countVisibleEntries(entries, 99)).toBe(4);
+  });
+
+  it("includes all entries sharing the exact boundary time (ties)", function () {
+    var entries = [entryAt(0, 1), entryAt(1, 2), entryAt(2, 2), entryAt(3, 2), entryAt(4, 3)];
+    expect(countVisibleEntries(entries, 2)).toBe(4);
+  });
+
+  it("matches the equivalent filter on chronological entries", function () {
+    var entries = [];
+    for (var i = 0; i < 200; i++) entries.push(entryAt(i, i * 0.5));
+
+    for (var time = -1; time <= 101; time += 0.25) {
+      var expected = entries.filter(function (entry) { return entry.event.t <= time; }).length;
+      expect(countVisibleEntries(entries, time)).toBe(expected);
+    }
   });
 });

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useLayoutEffect } from "react";
 import { theme, AGENT_COLORS, TRACK_TYPES, alpha } from "../lib/theme.js";
-import { buildReplayLayout, getReplayWindow } from "../lib/replayLayout.js";
+import { buildReplayLayout, getReplayWindow, countVisibleEntries } from "../lib/replayLayout.js";
 import DataInspector from "./DataInspector.jsx";
 import DiffViewer from "./DiffViewer.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
@@ -294,9 +294,16 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   var shouldFollowRef = useRef(true);
   var prevCount = useRef(0);
 
-  var visibleEntries = useMemo(function () {
-    return eventEntries.filter(function (entry) { return entry.event.t <= currentTime; });
+  // eventEntries is chronological, so the visible set is a prefix. Track it by
+  // count (binary search) rather than re-filtering every tick: visibleEntries and
+  // everything derived from it only recompute when the playhead crosses an event.
+  var visibleCount = useMemo(function () {
+    return countVisibleEntries(eventEntries, currentTime);
   }, [currentTime, eventEntries]);
+
+  var visibleEntries = useMemo(function () {
+    return eventEntries.slice(0, visibleCount);
+  }, [eventEntries, visibleCount]);
 
   var layout = useMemo(function () {
     return buildReplayLayout(visibleEntries, turnStartMap, measuredHeights);
