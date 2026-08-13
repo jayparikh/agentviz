@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Rejected cross-site requests to the local API. Any website the user visited
+  could previously `POST` to `/api/apply` and write arbitrary files under the
+  project directory (for example `.git/hooks/pre-commit`), which is remote code
+  execution the next time the developer ran git or a build. Requests that carry
+  a foreign `Origin`/`Sec-Fetch-Site`, or a body that is not `application/json`,
+  are now refused before any route runs.
+- Rejected requests whose `Host` header is not a loopback name. Without this, an
+  attacker domain that resolves to `127.0.0.1` (DNS rebinding) was treated as
+  same-origin by the browser and could read `/api/sessions`, `/api/session`,
+  `/api/file`, and `/api/read-file` -- that is, every AI session transcript on
+  the machine.
+
 ## [1.0.3] - 2026-08-11
 
 ### Fixed

@@ -49,6 +49,87 @@ var MIME = {
 
 var STREAM_READ_SIZE = 64 * 1024;
 
+// ── Request guards ───────────────────────────────────────────────
+// The server listens on 127.0.0.1, but "local" is not the same as "trusted":
+// every website the user visits can make their browser send requests here.
+// CORS response headers do not stop a request from being *sent* (so a page can
+// POST and write files), and they do not stop a rebound DNS name from reading
+// responses (so a page can exfiltrate session transcripts). Both classes are
+// therefore rejected outright, before any route or static file is served.
+
+var LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1"];
+var STATE_CHANGING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
+var LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+/** Extract the hostname from a Host header, handling ports and IPv6 literals. */
+export function parseHostname(hostHeader) {
+  var value = String(hostHeader || "").trim().toLowerCase();
+  if (!value) return "";
+
+  if (value.charAt(0) === "[") {
+    var end = value.indexOf("]");
+    return end === -1 ? "" : value.slice(1, end);
+  }
+
+  var colon = value.indexOf(":");
+  return colon === -1 ? value : value.slice(0, colon);
+}
+
+/**
+ * Blocks DNS rebinding. An attacker domain that resolves to 127.0.0.1 reaches
+ * this server with its own name in the Host header, and the browser then treats
+ * the response as same-origin and readable. Only loopback names are accepted.
+ */
+export function isAllowedHost(hostHeader) {
+  return LOCAL_HOSTNAMES.indexOf(parseHostname(hostHeader)) !== -1;
+}
+
+export function isLocalOrigin(origin) {
+  return LOCAL_ORIGIN_PATTERN.test(String(origin || ""));
+}
+
+function hasRequestBody(headers) {
+  var length = parseInt(headers["content-length"], 10);
+  if (!isNaN(length) && length > 0) return true;
+  return Boolean(headers["transfer-encoding"]);
+}
+
+/**
+ * Returns null when the request may proceed, or { status, message } when it
+ * must be rejected.
+ */
+export function evaluateRequestGuard(req) {
+  var headers = (req && req.headers) || {};
+
+  if (!isAllowedHost(headers.host)) {
+    return { status: 403, message: "Forbidden: invalid Host header" };
+  }
+
+  var method = String((req && req.method) || "GET").toUpperCase();
+  if (STATE_CHANGING_METHODS.indexOf(method) === -1) return null;
+
+  var origin = headers.origin || "";
+  if (origin && !isLocalOrigin(origin)) {
+    return { status: 403, message: "Forbidden: cross-origin request" };
+  }
+
+  // Set by the browser itself, so page script cannot forge it.
+  var site = headers["sec-fetch-site"];
+  if (site && site !== "same-origin" && site !== "none") {
+    return { status: 403, message: "Forbidden: cross-site request" };
+  }
+
+  // A cross-site <form> can submit a body without an Origin header in older
+  // browsers, but it can only send urlencoded/multipart/text-plain -- never
+  // application/json. Requiring JSON closes that bypass. Bodiless posts such as
+  // /api/qa/reset are exempt because a form submission always carries a body.
+  if (hasRequestBody(headers) && !/^application\/json\b/i.test(headers["content-type"] || "")) {
+    return { status: 415, message: "Unsupported Media Type: expected application/json" };
+  }
+
+  return null;
+}
+
 export function getCompleteJsonlLines(content) {
   if (!content) return [];
   var normalized = content.replace(/\r\n/g, "\n");
@@ -245,10 +326,19 @@ export function createServer({ sessionFile, distDir }) {
     var parsed = url.parse(req.url, true);
     var pathname = parsed.pathname;
 
+    // Reject CSRF and DNS-rebinding requests before any route or file is served.
+    var guard = evaluateRequestGuard(req);
+    if (guard) {
+      res.writeHead(guard.status, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end(guard.message);
+      req.resume(); // drain the body so the socket is not left half-open
+      return;
+    }
+
     // Restrict CORS to localhost origins only
     var origin = req.headers.origin || "";
-    var isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-    if (isLocalOrigin) {
+    var originIsLocal = isLocalOrigin(origin);
+    if (originIsLocal) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
       res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -257,7 +347,7 @@ export function createServer({ sessionFile, distDir }) {
 
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
-      res.writeHead(isLocalOrigin ? 204 : 403);
+      res.writeHead(originIsLocal ? 204 : 403);
       res.end();
       return;
     }
