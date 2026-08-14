@@ -130,27 +130,48 @@ function findEndIndex(items, targetBottom) {
 }
 
 /**
- * Counts how many leading entries are visible at a given playback time.
+ * Builds a sorted array of the entries' event.t values for visibility lookups.
  *
- * Entries are chronological (every parser emits events sorted ascending by
- * event.t), so the visible set is always a prefix of the list. Binary searching
- * for the prefix length lets ReplayView slice `entries.slice(0, count)` instead
- * of re-running an O(n) filter -- and allocating a fresh array -- on every 100ms
- * playback tick. The count only changes when the playhead crosses an event, so
- * downstream memos keyed on it stay stable between crossings.
- *
- * Returns the number of entries whose event.t is <= currentTime (matching the
- * previous `filter(entry => entry.event.t <= currentTime)` semantics exactly).
+ * ReplayView needs the count of events whose t is <= the playhead on every 100ms
+ * tick. Doing that with a filter re-scans and re-allocates O(n) every tick; a
+ * binary search is O(log n) but requires a sorted array. Parser output is NOT
+ * guaranteed to be nondecreasing by event.t (the Claude parser bumps a record's
+ * text/tool events by fractional offsets, so a later record with an earlier real
+ * timestamp can produce out-of-order times), so we sort a copy of just the times
+ * here -- once per entries array -- and never assume the entries themselves are
+ * ordered. Callers memoize this on `entries` so the sort runs only when the
+ * session or filter changes, not per tick.
  */
-export function countVisibleEntries(entries, currentTime) {
-  if (!entries || entries.length === 0) return 0;
+export function buildVisibilityIndex(entries) {
+  if (!entries || entries.length === 0) return [];
+
+  var times = new Array(entries.length);
+  for (var i = 0; i < entries.length; i += 1) {
+    times[i] = entries[i].event.t;
+  }
+  times.sort(function (a, b) { return a - b; });
+  return times;
+}
+
+/**
+ * Counts how many events are visible at a given playback time.
+ *
+ * `sortedTimes` comes from buildVisibilityIndex (ascending). This upper-bound
+ * binary search returns the number of times that are <= currentTime, which is
+ * exactly `entries.filter(entry => entry.event.t <= currentTime).length` --
+ * independent of the original entry order. The count only changes when the
+ * playhead crosses an event, so ReplayView memos keyed on it stay stable
+ * between crossings while still being correct for out-of-order input.
+ */
+export function countVisibleAtTime(sortedTimes, currentTime) {
+  if (!sortedTimes || sortedTimes.length === 0) return 0;
 
   var low = 0;
-  var high = entries.length;
+  var high = sortedTimes.length;
 
   while (low < high) {
     var mid = (low + high) >> 1;
-    if (entries[mid].event.t <= currentTime) low = mid + 1;
+    if (sortedTimes[mid] <= currentTime) low = mid + 1;
     else high = mid;
   }
 
