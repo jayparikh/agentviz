@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildReplayLayout, getReplayWindow, clearEstimateCache } from "../lib/replayLayout.js";
+import { buildReplayLayout, getReplayWindow, clearEstimateCache, buildVisibilityIndex, countVisibleAtTime } from "../lib/replayLayout.js";
+import { parseClaudeCodeJSONL } from "../lib/parser.ts";
+import { buildFilteredEventEntries } from "../lib/session.ts";
 
 function makeEntry(index, text) {
   return {
@@ -88,5 +90,148 @@ describe("getReplayWindow", function () {
 
     var windowed = getReplayWindow(items, 0, items[0].height + 4, 0);
     expect(windowed.map(function (item) { return item.entry.index; })).toEqual([0, 1]);
+  });
+});
+
+describe("buildVisibilityIndex + countVisibleAtTime", function () {
+  function entryAt(index, t) {
+    return { index: index, event: { t: t } };
+  }
+
+  // Mirrors ReplayView's visible-entry derivation exactly.
+  function visibleEntriesAt(entries, currentTime) {
+    var sortedTimes = buildVisibilityIndex(entries);
+    var count = countVisibleAtTime(sortedTimes, currentTime);
+    if (count === 0) return [];
+    if (count === entries.length) return entries.slice();
+    var threshold = sortedTimes[count - 1];
+    return entries.filter(function (entry) { return entry.event.t <= threshold; });
+  }
+
+  function naiveVisible(entries, currentTime) {
+    return entries.filter(function (entry) { return entry.event.t <= currentTime; });
+  }
+
+  it("buildVisibilityIndex returns [] for empty or missing input", function () {
+    expect(buildVisibilityIndex([])).toEqual([]);
+    expect(buildVisibilityIndex(null)).toEqual([]);
+    expect(buildVisibilityIndex(undefined)).toEqual([]);
+  });
+
+  it("buildVisibilityIndex sorts times ascending without reordering entries", function () {
+    var entries = [entryAt(0, 0), entryAt(1, 0.2), entryAt(2, 0.1)];
+    expect(buildVisibilityIndex(entries)).toEqual([0, 0.1, 0.2]);
+    // The source array must be left untouched.
+    expect(entries.map(function (e) { return e.event.t; })).toEqual([0, 0.2, 0.1]);
+  });
+
+  it("countVisibleAtTime returns 0 for empty or missing input", function () {
+    expect(countVisibleAtTime([], 5)).toBe(0);
+    expect(countVisibleAtTime(null, 5)).toBe(0);
+    expect(countVisibleAtTime(undefined, 5)).toBe(0);
+  });
+
+  it("counts times <= currentTime with inclusive boundary", function () {
+    var sorted = buildVisibilityIndex([entryAt(0, 0), entryAt(1, 1), entryAt(2, 2), entryAt(3, 3)]);
+    expect(countVisibleAtTime(sorted, -1)).toBe(0);
+    expect(countVisibleAtTime(sorted, 0)).toBe(1);
+    expect(countVisibleAtTime(sorted, 1.5)).toBe(2);
+    expect(countVisibleAtTime(sorted, 3)).toBe(4);
+    expect(countVisibleAtTime(sorted, 99)).toBe(4);
+  });
+
+  it("includes all times sharing the exact boundary (ties)", function () {
+    var sorted = buildVisibilityIndex([entryAt(0, 1), entryAt(1, 2), entryAt(2, 2), entryAt(3, 2), entryAt(4, 3)]);
+    expect(countVisibleAtTime(sorted, 2)).toBe(4);
+  });
+
+  it("matches the naive filter for out-of-order entry times", function () {
+    // Deliberately unsorted by event.t: the sorted index yields the right count
+    // and the threshold filter returns the right entries in original order.
+    var entries = [entryAt(0, 0), entryAt(1, 0.2), entryAt(2, 0.1), entryAt(3, 0.05), entryAt(4, 0.5)];
+
+    for (var time = -0.1; time <= 0.6; time += 0.01) {
+      expect(visibleEntriesAt(entries, time)).toEqual(naiveVisible(entries, time));
+    }
+  });
+
+  it("matches the naive filter across a large unsorted set", function () {
+    var entries = [];
+    for (var i = 0; i < 300; i++) entries.push(entryAt(i, Math.round(Math.random() * 1000) / 10));
+
+    for (var time = -1; time <= 101; time += 0.5) {
+      expect(visibleEntriesAt(entries, time)).toEqual(naiveVisible(entries, time));
+    }
+  });
+});
+
+describe("replay visibility with out-of-order parser output (regression)", function () {
+  // The Claude parser bumps a record's text/tool events by fractional offsets, so
+  // a later record with an earlier real timestamp yields out-of-order event.t.
+  // ReplayView must still show every event whose t <= playhead; a prefix slice
+  // (which assumes sorted times) would drop the earlier-but-later event.
+  function buildJSONL() {
+    var assistant = {
+      type: "assistant",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      message: {
+        role: "assistant",
+        model: "claude-3-5-sonnet-20241022",
+        content: [
+          { type: "text", text: "Let me read the file." },
+          { type: "tool_use", name: "read_file", input: { path: "a.txt" } },
+        ],
+      },
+    };
+    var user = {
+      type: "user",
+      timestamp: "2026-01-01T00:00:00.100Z",
+      message: { role: "user", content: "thanks" },
+    };
+    return JSON.stringify(assistant) + "\n" + JSON.stringify(user);
+  }
+
+  function visibleEntriesAt(entries, currentTime) {
+    var sortedTimes = buildVisibilityIndex(entries);
+    var count = countVisibleAtTime(sortedTimes, currentTime);
+    if (count === 0) return [];
+    if (count === entries.length) return entries.slice();
+    var threshold = sortedTimes[count - 1];
+    return entries.filter(function (entry) { return entry.event.t <= threshold; });
+  }
+
+  it("emits non-monotonic event times (documents the invariant)", function () {
+    var parsed = parseClaudeCodeJSONL(buildJSONL());
+    expect(parsed).not.toBeNull();
+
+    var entries = buildFilteredEventEntries(parsed.events, {});
+    // text @ 0, tool_use @ ~0.2, user @ ~0.1 -> entry[1].t > entry[2].t.
+    expect(entries.length).toBe(3);
+    expect(entries[1].event.t).toBeGreaterThan(entries[2].event.t);
+  });
+
+  it("shows the earlier-timestamped user event at an intermediate playhead", function () {
+    var parsed = parseClaudeCodeJSONL(buildJSONL());
+    var entries = buildFilteredEventEntries(parsed.events, {});
+
+    // At t=0.15 the user event (t~0.1) must be visible even though it follows the
+    // tool_use event (t~0.2) in array order. A prefix slice would hide it.
+    var visible = visibleEntriesAt(entries, 0.15);
+    var naive = entries.filter(function (entry) { return entry.event.t <= 0.15; });
+    expect(visible).toEqual(naive);
+
+    var userVisible = visible.some(function (entry) { return entry.event.agent === "user"; });
+    expect(userVisible).toBe(true);
+  });
+
+  it("matches the naive filter across the whole playback range", function () {
+    var parsed = parseClaudeCodeJSONL(buildJSONL());
+    var entries = buildFilteredEventEntries(parsed.events, {});
+
+    for (var time = 0; time <= 0.5; time += 0.01) {
+      var visible = visibleEntriesAt(entries, time);
+      var naive = entries.filter(function (entry) { return entry.event.t <= time; });
+      expect(visible).toEqual(naive);
+    }
   });
 });

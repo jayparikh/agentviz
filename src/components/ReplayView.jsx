@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useLayoutEffect } from "react";
 import { theme, AGENT_COLORS, TRACK_TYPES, alpha } from "../lib/theme.js";
-import { buildReplayLayout, getReplayWindow } from "../lib/replayLayout.js";
+import { buildReplayLayout, getReplayWindow, buildVisibilityIndex, countVisibleAtTime } from "../lib/replayLayout.js";
 import DataInspector from "./DataInspector.jsx";
 import DiffViewer from "./DiffViewer.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
@@ -294,9 +294,29 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   var shouldFollowRef = useRef(true);
   var prevCount = useRef(0);
 
+  // eventEntries is NOT guaranteed to be sorted by event.t (some parsers emit
+  // out-of-order times), so we can't slice a prefix. Instead we sort a copy of
+  // the times once (buildVisibilityIndex), count visible events per tick with an
+  // O(log n) binary search, and only rebuild the original-order visible list --
+  // via a threshold filter equivalent to `filter(t <= currentTime)` -- when the
+  // count changes. visibleEntries and everything derived from it stay stable
+  // between crossings while remaining correct for unsorted input.
+  var sortedTimes = useMemo(function () {
+    return buildVisibilityIndex(eventEntries);
+  }, [eventEntries]);
+
+  var visibleCount = useMemo(function () {
+    return countVisibleAtTime(sortedTimes, currentTime);
+  }, [currentTime, sortedTimes]);
+
   var visibleEntries = useMemo(function () {
-    return eventEntries.filter(function (entry) { return entry.event.t <= currentTime; });
-  }, [currentTime, eventEntries]);
+    if (visibleCount === 0) return [];
+    if (visibleCount === eventEntries.length) return eventEntries.slice();
+    var threshold = sortedTimes[visibleCount - 1];
+    return eventEntries.filter(function (entry) {
+      return entry.event.t <= threshold;
+    });
+  }, [eventEntries, sortedTimes, visibleCount]);
 
   var layout = useMemo(function () {
     return buildReplayLayout(visibleEntries, turnStartMap, measuredHeights);
