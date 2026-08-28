@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { theme } from "../../lib/theme.js";
 import usePersistentState from "../../hooks/usePersistentState.js";
 import useBreakpoint from "../../hooks/useBreakpoint.js";
@@ -109,9 +109,7 @@ function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate) {
   );
 }
 
-function getAnalyzeSummary(session, pb) {
-  var events = pb.filteredEvents || [];
-  var metadata = session.metadata || {};
+function getAnalyzeSummary(events, metadata) {
   var cost = buildCostAnalysis(events, metadata);
   return [
     { label: "Events", value: events.length },
@@ -184,7 +182,9 @@ export default function AnalyzeShell({ session, autonomyMetrics, targetPanelId, 
     if (isValidPanel(targetPanelId)) setPanelId(targetPanelId);
   }, [targetPanelId, setPanelId]);
 
-  var summary = getAnalyzeSummary(session, pb);
+  var summary = useMemo(function () {
+    return getAnalyzeSummary(pb.filteredEvents || [], session.metadata || {});
+  }, [pb.filteredEvents, session.metadata]);
 
   function selectPanel(nextPanelId) {
     if (!isValidPanel(nextPanelId)) return;
