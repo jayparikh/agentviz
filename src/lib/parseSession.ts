@@ -7,6 +7,7 @@
  *   - VS Code Copilot Chat JSON (version + requests + sessionId)
  *   - VS Code Copilot prompt exports (copilot_all_prompts_*.json)
  *   - ATIF / Harbor trajectory JSON (schema_version: "ATIF-*")
+ *   - Shared session markdown (from Copilot CLI /share file or /share gist)
  *   - Claude Code JSONL (default fallback)
  *
  * Returns: { events, turns, metadata } or null
@@ -18,15 +19,24 @@ import { detectCopilotCli, parseCopilotCliJSONL } from "./copilotCliParser";
 import { detectCopilotPrompts, parseCopilotPromptsJSON } from "./copilotCostParser";
 import { parseClaudeCodeJSONL } from "./parser";
 import { detectVSCodeChat, parseVSCodeChatJSON } from "./vscodeSessionParser";
+// @ts-ignore -- plain JS module
+import { parseSharedMarkdown } from "./sharedSessionParser";
 import type { ParsedSession, SessionFormat } from "./sessionTypes";
 
 export function detectFormat(text: string): SessionFormat {
   if (detectAtif(text)) return "atif";
   if (detectCodexJSONL(text)) return "codex";
+  if (detectSharedMarkdown(text)) return "shared-md";
   if (detectCopilotCli(text)) return "copilot-cli";
   if (detectVSCodeChat(text)) return "vscode-chat";
   if (detectCopilotPrompts(text)) return "copilot-prompts";
   return "claude-code";
+}
+
+function detectSharedMarkdown(text: string): boolean {
+  // Shared sessions start with "# ... Copilot CLI Session" header
+  const firstChunk = text.substring(0, 500);
+  return firstChunk.includes("Copilot CLI Session") && firstChunk.includes("**Session ID:**");
 }
 
 export function parseSession(text: string): ParsedSession | null {
@@ -35,6 +45,7 @@ export function parseSession(text: string): ParsedSession | null {
   let parsed: ParsedSession | null;
   if (format === "atif") parsed = parseAtifJSON(text);
   else if (format === "codex") parsed = parseCodexJSONL(text);
+  else if (format === "shared-md") parsed = parseSharedMarkdown(text);
   else if (format === "copilot-cli") parsed = parseCopilotCliJSONL(text);
   else if (format === "vscode-chat") parsed = parseVSCodeChatJSON(text);
   else if (format === "copilot-prompts") parsed = parseCopilotPromptsJSON(text);

@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import { join } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractVSCodeCustomTitle, extractVSCodeSessionId, clipToLength, filterSessionFiles, findCodexSessionFiles, isAllowedSessionPath, readCodexSessionPreview, readCopilotCliSessionPreview, readVSCodeCustomTitle, readVSCodeSessionPreview } from "../../routes/sessions.js";
+import { extractVSCodeCustomTitle, extractVSCodeSessionId, clipToLength, filterSessionFiles, findCodexSessionFiles, isAllowedSessionPath, isAllowedSharedPath, readCodexSessionPreview, readCopilotCliSessionPreview, readVSCodeCustomTitle, readVSCodeSessionPreview } from "../../routes/sessions.js";
 
 function withTempFile(name, content, fn) {
   var tempDir = fs.mkdtempSync(join(os.tmpdir(), "agentviz-routes-"));
@@ -271,6 +271,34 @@ describe("session path restrictions", function () {
   it("returns false when homeDir is null or empty", function () {
     expect(isAllowedSessionPath("/some/path", null)).toBe(false);
     expect(isAllowedSessionPath("/some/path", "")).toBe(false);
+  });
+});
+
+describe("isAllowedSharedPath (shared session file restriction)", function () {
+  it("allows a file inside cwd", function () {
+    var cwd = process.platform === "win32" ? "C:\\Users\\tester\\project" : "/home/tester/project";
+    var filePath = process.platform === "win32"
+      ? "C:\\Users\\tester\\project\\copilot-session-abc.md"
+      : "/home/tester/project/copilot-session-abc.md";
+    expect(isAllowedSharedPath(filePath, cwd)).toBe(true);
+  });
+
+  it("rejects a file outside cwd", function () {
+    var cwd = process.platform === "win32" ? "C:\\Users\\tester\\project" : "/home/tester/project";
+    var outsidePath = process.platform === "win32"
+      ? "C:\\Windows\\System32\\secret.md"
+      : "/etc/secret.md";
+    expect(isAllowedSharedPath(outsidePath, cwd)).toBe(false);
+  });
+
+  it("rejects a sibling directory that shares a common prefix with cwd", function () {
+    var cwd = "/home/tester/project";
+    expect(isAllowedSharedPath("/home/tester/project-evil/session.md", cwd)).toBe(false);
+  });
+
+  it("returns false when cwd is null or empty", function () {
+    expect(isAllowedSharedPath("/home/tester/project/session.md", null)).toBe(false);
+    expect(isAllowedSharedPath("/home/tester/project/session.md", "")).toBe(false);
   });
 });
 

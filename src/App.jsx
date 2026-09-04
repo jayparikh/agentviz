@@ -339,7 +339,7 @@ function AppShell({
   );
 }
 
-// ── Active session view (consumes PlaybackContext) ──────────────────────────
+// ΓöÇΓöÇ Active session view (consumes PlaybackContext) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 function AppSessionView({
   session, activeView, setView, autonomyMetrics, debrief,
