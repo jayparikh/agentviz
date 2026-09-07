@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-06
+
+### Fixed
+
+- Preserve exact event identity when navigating from the command palette or
+  Waterfall, and keep deep Replay targets anchored while measured rows settle.
+  Manual scrolling cancels automatic correction. (#131)
+- Share session-scoped playback and search across v2 zones. Session loading is
+  transactional: failed imports preserve the previous session, superseded
+  requests are ignored, and FileReader errors remain recoverable. (#131)
+- Resume live streams at snapshot/SSE byte boundaries, handle reconnects and
+  truncation resets, and keep growing sessions in a stable library entry. (#131)
+- Preserve batch-parser parity for late tool results, cumulative usage,
+  model/lifecycle changes, reordered records, and empty patched sessions,
+  including the no-worker fallback. (#132)
+
+### Changed
+
+- Retain incremental normalization state for Claude Code, Copilot CLI, Codex,
+  and VS Code base-plus-patch JSONL. Ordinary appends process only new or
+  affected records, with indexed tool dependencies, usage, and turn membership.
+  Global timestamp or structural changes still update affected history. (#132)
+- Keep live normalization off the main thread with single-flight backpressure.
+  Full immutable snapshot copying and worker serialization remain O(history);
+  this is not a zero-history-processing pipeline. (#131, #132)
+- Make discovery IO asynchronous with bounded format-specific previews,
+  newest-first enrichment, and a bounded preview cache. Discovery still
+  enumerates and stats candidates for correct ordering. (#131)
+- Memoize Tracks geometry and cap overview groups at 200 per lane while keeping
+  every original event accessible through paginated detail. Memoize Analyze
+  summaries and avoid rebuilding Replay event streams on every tick. (#127,
+  #129, #131)
+- Improve dark/light text contrast, add persisted normal/comfortable reading
+  density, stack compact Replay inspectors, and support keyboard/pointer
+  resizing plus keyboard/touch evidence navigation in Graph and Tracks.
+  Empty Find prioritizes importing real sessions. (#131)
+- Update dependencies and add restricted, provenance-enabled npm publishing
+  through GitHub Actions. (#111, #125, #126, #130)
+
+### Tests
+
+- Validate incremental work counts after 100 versus 10,000 historical items,
+  late historic results, parser partition parity, and real HTTP/worker streams.
+  The release baseline passes 1,027 tests across 66 files and 28 browser tests,
+  including Chromium/WebKit portable exports. (#131, #132)
+
 ### Security
 
 - Rejected cross-site requests to the local API. Any website the user visited
