@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { theme } from "../../lib/theme.js";
 import usePersistentState from "../../hooks/usePersistentState.js";
 import useBreakpoint from "../../hooks/useBreakpoint.js";
@@ -47,7 +47,7 @@ function LoadingPanel({ label }) {
   );
 }
 
-function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate) {
+function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate, targetEventIndex, targetRequest) {
   if (panelId === "tracks") {
     return (
       <TracksView
@@ -63,6 +63,8 @@ function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate) {
   if (panelId === "waterfall") {
     return (
       <WaterfallView
+        targetEventIndex={targetEventIndex}
+        targetRequest={targetRequest}
         currentTime={pb.playback.time}
         eventEntries={pb.filteredEventEntries}
         totalTime={session.total}
@@ -171,12 +173,25 @@ function AnalyzeSummaryBar({ summary, activePanelId, onSelectPanel }) {
   );
 }
 
-export default function AnalyzeShell({ session, autonomyMetrics, targetPanelId, onNavigate }) {
+export default function AnalyzeShell({ session, autonomyMetrics, targetPanelId, targetEventIndex, targetRequest, onNavigate }) {
   var pb = usePlaybackContext();
   var breakpoint = useBreakpoint();
   var [panelId, setPanelId] = usePersistentState("agentviz:v2:analyze-panel", "stats");
   var activePanelId = isValidPanel(panelId) ? panelId : "stats";
   var activePanel = getPanel(activePanelId);
+  var handledTargetRef = useRef(null);
+
+  useEffect(function () {
+    if (targetEventIndex == null) return;
+    if (handledTargetRef.current && handledTargetRef.current.index === targetEventIndex
+      && handledTargetRef.current.request === targetRequest) return;
+    var event = session.events && session.events[targetEventIndex];
+    if (!event) return;
+    handledTargetRef.current = { index: targetEventIndex, request: targetRequest };
+    if (pb.agentFilter && pb.agentFilter !== event.agent) pb.clearAgentFilter();
+    if (pb.trackFilters[event.track]) pb.clearTrackFilter(event.track);
+    pb.playback.seek(event.t);
+  }, [targetEventIndex, targetRequest, session.events, pb.agentFilter, pb.clearAgentFilter, pb.trackFilters, pb.clearTrackFilter, pb.playback.seek]);
 
   useEffect(function () {
     if (isValidPanel(targetPanelId)) setPanelId(targetPanelId);
@@ -276,7 +291,7 @@ export default function AnalyzeShell({ session, autonomyMetrics, targetPanelId, 
           overflow: "hidden",
           padding: activePanelId === "stats" || activePanelId === "cost" ? theme.space.md : 0,
         }}>
-          {renderPanel(activePanelId, session, pb, autonomyMetrics, onNavigate)}
+          {renderPanel(activePanelId, session, pb, autonomyMetrics, onNavigate, targetEventIndex, targetRequest)}
         </div>
       </section>
     </main>

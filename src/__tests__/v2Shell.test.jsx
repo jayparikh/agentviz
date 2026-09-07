@@ -133,6 +133,25 @@ afterEach(function () {
   window.history.replaceState(null, "", "#/");
 });
 
+it("passes event identity alongside palette seek time, including index zero", async function () {
+  var onSeek = vi.fn();
+  var events = [
+    { t: 0, text: "first evidence", track: "output", agent: "user" },
+    { t: 0, text: "second evidence", track: "output", agent: "assistant" },
+  ];
+  var view = await renderNode(<CommandPalette events={events} turns={[]} onSeek={onSeek} onClose={function () {}} />);
+  try {
+    await changeInput(view.container.querySelector("input"), "first evidence");
+    await sleep(200);
+    await act(async function () { findButtonContaining(view.container, "first evidence").click(); });
+    expect(onSeek).toHaveBeenCalledWith(0, 0);
+    await changeInput(view.container.querySelector("input"), "second evidence");
+    await sleep(200);
+    await act(async function () { findButtonContaining(view.container, "second evidence").click(); });
+    expect(onSeek).toHaveBeenLastCalledWith(0, 1);
+  } finally { await view.unmount(); }
+});
+
 describe("V2 shell routing", function () {
   function makePortfolioEntries() {
     return [
@@ -852,7 +871,7 @@ describe("V2 shell routing", function () {
     await act(async function () {
       findExactButton(app.container, "See in Waterfall").click();
     });
-    expect(onNavigate).toHaveBeenCalledWith("analyze", { panelId: "waterfall" });
+    expect(onNavigate).toHaveBeenCalledWith("analyze", { panelId: "waterfall", eventIndex: 2 });
 
     await act(async function () {
       findExactButton(app.container, "Coach in Improve").click();

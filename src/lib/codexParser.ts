@@ -122,7 +122,10 @@ function hasCodexResponseItem(record: RawRecord): boolean {
 }
 
 export function detectCodexJSONL(text: string): boolean {
-  const records = parseFirstRecords(text, MAX_DETECT_LINES);
+  return detectCodexRecords(parseFirstRecords(text, MAX_DETECT_LINES));
+}
+
+export function detectCodexRecords(records: RawRecord[]): boolean {
   if (records.some(hasCodexSessionMeta)) return true;
 
   let signals = 0;

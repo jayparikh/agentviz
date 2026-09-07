@@ -100,15 +100,25 @@ function getEdgeActive(edge, nodeById, currentTime) {
 
 // ── Turn node (collapsed) ──
 
+function nodeAccessibility(node, selected) {
+  return {
+    id: "graph-node-" + node.id,
+    role: "treeitem",
+    "aria-selected": Boolean(selected),
+    "aria-expanded": node.type === "turn" && node.toolCount > 0 ? Boolean(node.isExpanded) : undefined,
+    "aria-label": getNodeTitle(node) + (node.snippet ? ": " + node.snippet : "") + (node.hasError || node.isError ? ", error" : ""),
+  };
+}
+
 function TurnNode({ node, isActive, isFuture, isSelected, onSelect, onExpand, prefersReducedMotion }) {
   var color = getTrackColor(node.track);
-  var opacity = isFuture ? 0.25 : 1;
   var glowFilter = isActive ? "url(#activeGlow)" : "none";
 
   return (
     <g
+      {...nodeAccessibility(node, isSelected)}
       transform={"translate(" + node.x + "," + node.y + ")"}
-      style={{ cursor: "pointer", opacity: opacity }}
+      style={{ cursor: "pointer" }} strokeDasharray={isFuture ? "4 3" : undefined}
       onClick={function (e) {
         e.stopPropagation();
         onSelect(node);
@@ -211,7 +221,6 @@ function TurnNode({ node, isActive, isFuture, isSelected, onSelect, onExpand, pr
 function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect, prefersReducedMotion }) {
   var isAgent = node.event && node.event.agentName && node.event.toolName === "task";
   var color = isAgent ? getAgentTypeColor(node.event.agentName) : getTrackColor("tool_call");
-  var opacity = isFuture ? 0.25 : 1;
   var displayLabel = isAgent
     ? (node.event.agentDisplayName || node.event.agentName || node.label)
     : node.label;
@@ -219,8 +228,9 @@ function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect, prefersR
 
   return (
     <g
+      {...nodeAccessibility(node, isSelected)}
       transform={"translate(" + node.x + "," + node.y + ")"}
-      style={{ cursor: "pointer", opacity: opacity }}
+      style={{ cursor: "pointer" }} strokeDasharray={isFuture ? "4 3" : undefined}
       onClick={function (e) {
         e.stopPropagation();
         onSelect(node);
@@ -294,7 +304,6 @@ function ToolCallNode({ node, isActive, isFuture, isSelected, onSelect, prefersR
 
 function BranchMarkerNode({ node, isActive, isFuture, isSelected, onSelect, prefersReducedMotion, parentOffset }) {
   var color = getNodeColor(node);
-  var opacity = isFuture ? 0.25 : 1;
   var ox = parentOffset ? parentOffset.x : 0;
   var oy = parentOffset ? parentOffset.y : 0;
   var x = node.x + ox;
@@ -309,7 +318,8 @@ function BranchMarkerNode({ node, isActive, isFuture, isSelected, onSelect, pref
 
   return (
     <g
-      style={{ cursor: "pointer", opacity: opacity }}
+      {...nodeAccessibility(node, isSelected)}
+      style={{ cursor: "pointer" }} strokeDasharray={isFuture ? "4 3" : undefined}
       onClick={function (e) {
         e.stopPropagation();
         onSelect(node);
@@ -363,12 +373,12 @@ function BranchMarkerNode({ node, isActive, isFuture, isSelected, onSelect, pref
 
 function ExpandedTurnNode({ node, isActive, isFuture, isSelected, onSelect, onCollapse, currentTime, children }) {
   var color = getTrackColor(node.track);
-  var opacity = isFuture ? 0.25 : 1;
 
   return (
     <g
+      {...nodeAccessibility(node, isSelected)}
       transform={"translate(" + node.x + "," + node.y + ")"}
-      style={{ opacity: opacity }}
+      strokeDasharray={isFuture ? "4 3" : undefined}
     >
       <rect
         width={node.width}
@@ -427,11 +437,11 @@ function ExpandedTurnNode({ node, isActive, isFuture, isSelected, onSelect, onCo
 
 function AgentBranchNode({ node, isActive, isFuture, isSelected, onSelect, children }) {
   var color = getAgentTypeColor(node.agentName);
-  var opacity = isFuture ? 0.25 : 1;
   return (
     <g
+      {...nodeAccessibility(node, isSelected)}
       transform={"translate(" + node.x + "," + node.y + ")"}
-      style={{ cursor: "pointer", opacity: opacity }}
+      style={{ cursor: "pointer" }} strokeDasharray={isFuture ? "4 3" : undefined}
       onClick={function (e) {
         e.stopPropagation();
         onSelect(node);
@@ -510,7 +520,7 @@ function GraphInspector({ selectedNode }) {
         alignItems: "center",
         justifyContent: "center",
         height: "100%",
-        color: theme.text.ghost,
+        color: theme.text.dim,
         fontFamily: theme.font.mono,
         fontSize: theme.fontSize.sm,
       }}>
@@ -729,6 +739,7 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
   var [selectedNode, setSelectedNode] = useState(null);
   var [layoutResult, setLayoutResult] = useState(null);
   var [viewBox, setViewBox] = useState(null);
+  var [keyboardFocused, setKeyboardFocused] = useState(false);
   var prefersReducedMotion = useReducedMotion();
   var svgRef = useRef(null);
   var isPanning = useRef(false);
@@ -759,6 +770,12 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
     }
     return map;
   }, [layoutResult]);
+  useEffect(function () {
+    setSelectedNode(function (previous) {
+      if (!previous) return previous;
+      return nodeById[previous.id] || Object.values(nodeById).find(node => node.type === "turn" && node.turnIndex === previous.turnIndex) || null;
+    });
+  }, [nodeById]);
 
   // Run ELK layout (async)
   useEffect(function () {
@@ -891,6 +908,31 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
       <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
         <svg
           ref={svgRef}
+          role="tree"
+          tabIndex={0}
+          aria-label="Session graph. Up and Down browse nodes, Enter selects, Right expands and Left collapses a turn."
+          aria-activedescendant={selectedNode ? "graph-node-" + selectedNode.id : undefined}
+          onFocus={() => {
+            setKeyboardFocused(true);
+            if (!selectedNode) setSelectedNode(layoutResult.nodes[0]);
+          }}
+          onBlur={() => setKeyboardFocused(false)}
+          onKeyDown={event => {
+            if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "Enter", " "].includes(event.key)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const nodes = Object.values(nodeById);
+            const index = nodes.findIndex(node => node.id === selectedNode?.id);
+            if (event.key === "ArrowRight" && selectedNode?.toolCount > 0) handleExpand(selectedNode.turnIndex);
+            else if (event.key === "ArrowLeft" && selectedNode) handleCollapse(selectedNode.turnIndex);
+            else {
+              const next = event.key === "Home" ? 0 : event.key === "End" ? nodes.length - 1
+                : event.key === "ArrowDown" ? Math.min(nodes.length - 1, index + 1)
+                : event.key === "ArrowUp" ? Math.max(0, index - 1) : Math.max(0, index);
+              setSelectedNode(nodes[next]);
+            }
+            handleFitView();
+          }}
           width="100%"
           height="100%"
           viewBox={vb.x + " " + vb.y + " " + vb.width + " " + vb.height}
@@ -898,6 +940,8 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
             background: theme.bg.base,
             cursor: isPanning.current ? "grabbing" : "grab",
             userSelect: "none",
+            outline: keyboardFocused ? "2px solid " + theme.accent.primary : "none",
+            outlineOffset: -2,
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -1040,6 +1084,13 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
           display: "flex",
           gap: 4,
         }}>
+          {selectedNode && selectedNode.toolCount > 0 && <button type="button" className="av-btn"
+            aria-expanded={Boolean(expandedTurns[selectedNode.turnIndex])}
+            onClick={() => expandedTurns[selectedNode.turnIndex] ? handleCollapse(selectedNode.turnIndex) : handleExpand(selectedNode.turnIndex)}
+            style={{ background: theme.bg.raised, color: theme.text.primary, border: "1px solid " + theme.border.default,
+              borderRadius: theme.radius.md, padding: "6px 10px", fontFamily: theme.font.mono, cursor: "pointer" }}>
+            {expandedTurns[selectedNode.turnIndex] ? "Collapse turn" : "Expand turn"}
+          </button>}
           <button
             className="av-btn"
             onClick={handleFitView}
@@ -1091,8 +1142,8 @@ export default function GraphView({ currentTime, eventEntries, totalTime, timeMa
           color: theme.text.dim,
           fontFamily: theme.font.mono,
         }}>
-          <span>Click: select</span>
-          <span>Double-click: expand turn</span>
+          <span>Click / Enter: select</span>
+          <span>Arrow keys: browse / expand</span>
           <span>Drag: pan</span>
           <span>Scroll: zoom</span>
         </div>

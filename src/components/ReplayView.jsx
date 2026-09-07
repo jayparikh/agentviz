@@ -4,6 +4,7 @@ import { buildReplayLayout, getReplayWindow, buildVisibilityIndex, countVisibleA
 import DataInspector from "./DataInspector.jsx";
 import DiffViewer from "./DiffViewer.jsx";
 import ResizablePanel from "./ResizablePanel.jsx";
+import useBreakpoint from "../hooks/useBreakpoint.js";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Icon from "./Icon.jsx";
 import { isDiffViewable } from "../lib/diffUtils.js";
@@ -130,7 +131,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
           Tools Used
         </div>
         {toolEntries.length === 0 && (
-          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost }}>No tools visible</div>
+          <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim }}>No tools visible</div>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: theme.space.xs }}>
           {toolEntries.map(function (pair) {
@@ -284,15 +285,23 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
   );
 }
 
-export default function ReplayView({ currentTime, eventEntries, turnStartMap, searchQuery, matchSet, metadata, targetEventIndex, renderSelectedActions }) {
+export default function ReplayView({ currentTime, eventEntries, turnStartMap, searchQuery, matchSet, metadata, targetEventIndex, targetRequest, renderSelectedActions }) {
+  var breakpoint = useBreakpoint();
   var containerRef = useRef(null);
   var itemRefs = useRef({});
   var [selectedIndex, setSelectedIndex] = useState(null);
   var [measuredHeights, setMeasuredHeights] = useState({});
   var [scrollTop, setScrollTop] = useState(0);
   var [viewportHeight, setViewportHeight] = useState(0);
+  var [viewportWidth, setViewportWidth] = useState(0);
+  var paneWidthRef = useRef(0);
+  var layoutRef = useRef(null);
+  var resizeAnchorRef = useRef(null);
   var shouldFollowRef = useRef(true);
   var prevCount = useRef(0);
+  var handledTargetRef = useRef(null);
+  var targetScrollRef = useRef(null);
+  var programmaticTopRef = useRef(null);
 
   // eventEntries is NOT guaranteed to be sorted by event.t (some parsers emit
   // out-of-order times), so we can't slice a prefix. Instead we sort a copy of
@@ -321,6 +330,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   var layout = useMemo(function () {
     return buildReplayLayout(visibleEntries, turnStartMap, measuredHeights);
   }, [measuredHeights, turnStartMap, visibleEntries]);
+  layoutRef.current = layout;
 
   var windowedItems = useMemo(function () {
     return getReplayWindow(layout.items, scrollTop, viewportHeight, REPLAY_WINDOW_OVERSCAN);
@@ -342,6 +352,9 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
 
   useEffect(function () {
     if (targetEventIndex == null) return;
+    var alreadyHandled = handledTargetRef.current && handledTargetRef.current.index === targetEventIndex
+      && handledTargetRef.current.request === targetRequest;
+    if (alreadyHandled && !targetScrollRef.current) return;
     var targetItem = null;
     for (var i = 0; i < layout.items.length; i++) {
       if (layout.items[i].entry.index === targetEventIndex) {
@@ -350,15 +363,17 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
       }
     }
     if (!targetItem) return;
-
-    setSelectedIndex(targetEventIndex);
+    handledTargetRef.current = { index: targetEventIndex, request: targetRequest };
+    targetScrollRef.current = handledTargetRef.current;
+    if (!alreadyHandled) setSelectedIndex(targetEventIndex);
     shouldFollowRef.current = false;
     if (containerRef.current) {
       var offset = Math.max(0, targetItem.top - 32);
       containerRef.current.scrollTop = offset;
-      setScrollTop(offset);
+      programmaticTopRef.current = containerRef.current.scrollTop;
+      setScrollTop(containerRef.current.scrollTop);
     }
-  }, [targetEventIndex, layout.items]);
+  }, [targetEventIndex, targetRequest, layout.items]);
 
   useEffect(function () {
     if (containerRef.current && visibleEntries.length > prevCount.current && shouldFollowRef.current) {
@@ -371,21 +386,46 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
     function updateViewportHeight() {
       if (containerRef.current) {
         setViewportHeight(containerRef.current.clientHeight);
+        var width = containerRef.current.clientWidth;
+        if (width !== paneWidthRef.current) {
+          var currentTop = containerRef.current.scrollTop;
+          var anchor = getReplayWindow(layoutRef.current.items, currentTop, 1, 0)[0];
+          if (anchor) resizeAnchorRef.current = { index: anchor.entry.index, offset: currentTop - anchor.top };
+          paneWidthRef.current = width;
+          setMeasuredHeights({});
+          setViewportWidth(width);
+        }
       }
     }
 
     updateViewportHeight();
     window.addEventListener("resize", updateViewportHeight);
+    var observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateViewportHeight) : null;
+    if (observer && containerRef.current) observer.observe(containerRef.current);
 
     return function () {
       window.removeEventListener("resize", updateViewportHeight);
+      if (observer) observer.disconnect();
     };
   }, []);
 
   useEffect(function () {
-    itemRefs.current = {};
     setMeasuredHeights({});
   }, [eventEntriesResetKey]);
+  useLayoutEffect(function () {
+    setMeasuredHeights({});
+  }, [theme.reading.fontSize]);
+  useLayoutEffect(function () {
+    var anchor = resizeAnchorRef.current;
+    if (!anchor || !containerRef.current) return;
+    resizeAnchorRef.current = null;
+    var item = layout.items.find(function (item) { return item.entry.index === anchor.index; });
+    if (item) {
+      var top = Math.max(0, item.top + anchor.offset);
+      containerRef.current.scrollTop = top;
+      setScrollTop(top);
+    }
+  }, [layout]);
 
   useLayoutEffect(function () {
     if (!windowMeasurementKey) return;
@@ -409,10 +449,12 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
 
       return changed ? next : prev;
     });
-  }, [viewportHeight, windowMeasurementKey]);
+  }, [viewportHeight, viewportWidth, windowMeasurementKey, theme.reading.fontSize]);
 
   function handleScroll(e) {
     var nextTop = e.currentTarget.scrollTop;
+    if (programmaticTopRef.current == null || Math.abs(nextTop - programmaticTopRef.current) > 1) targetScrollRef.current = null;
+    programmaticTopRef.current = null;
     var nearBottom = nextTop + e.currentTarget.clientHeight >= e.currentTarget.scrollHeight - REPLAY_BOTTOM_THRESHOLD;
     setScrollTop(nextTop);
     shouldFollowRef.current = nearBottom;
@@ -453,8 +495,11 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   }, [visibleEntries]);
 
   return (
-    <ResizablePanel initialSplit={0.72} minPx={200} direction="horizontal" storageKey="agentviz:replay-panel-split">
-      <div ref={containerRef} onScroll={handleScroll} style={{
+    <ResizablePanel initialSplit={0.72} minPx={breakpoint.isCompact ? 100 : 200} direction={breakpoint.isCompact ? "vertical" : "horizontal"} storageKey="agentviz:replay-panel-split">
+      <div ref={containerRef} onScroll={handleScroll}
+        onWheel={function () { targetScrollRef.current = null; }}
+        onPointerDown={function () { targetScrollRef.current = null; }}
+        onTouchStart={function () { targetScrollRef.current = null; }} style={{
         height: "100%",
         overflowY: "auto",
         padding: "4px 0",
@@ -515,6 +560,8 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                 {turnHeader}
                 <div
                   role="button"
+                  data-event-index={entry.index}
+                  aria-pressed={isSelected}
                   tabIndex={0}
                   onClick={function () { setSelectedIndex(entry.index === selectedIndex ? null : entry.index); }}
                   onKeyDown={function (e) {
@@ -526,11 +573,11 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                   style={{
                     display: "flex",
                     gap: 10,
-                    padding: "8px 12px",
+                    padding: theme.reading.rowPadding + "px 12px",
                     borderRadius: theme.radius.lg,
                     background: isMatch ? alpha(theme.accent.primary, 0.03) : (isSelected ? theme.bg.raised : (isCurrent ? alpha(theme.accent.primary, 0.05) : "transparent")),
                     borderLeft: "2px solid " + borderColor,
-                    opacity: isCurrent || isSelected || isMatch ? 1 : 0.88,
+                    opacity: 1,
                     cursor: "pointer",
                     transition: "background " + theme.transition.base + ", border-color " + theme.transition.base + ", opacity " + theme.transition.base,
                     animation: "none",
@@ -599,7 +646,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                       )}
                     </div>
                     <div style={{
-                      fontSize: theme.fontSize.base,
+                      fontSize: theme.reading.fontSize,
                       color: isError ? theme.semantic.errorText : theme.text.primary,
                       lineHeight: 1.6,
                       fontFamily: ev.track === "tool_call" || ev.track === "context" ? theme.font.mono : undefined,

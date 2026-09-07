@@ -11,11 +11,12 @@ import WaterfallChart from "./waterfall/WaterfallChart.jsx";
 import WaterfallInspector from "./waterfall/WaterfallInspector.jsx";
 import { WATERFALL_OVERSCAN_PX } from "./waterfall/constants.js";
 
-export default function WaterfallView({ currentTime, eventEntries, totalTime, timeMap, turns }) {
-  var [selectedIdx, setSelectedIdx] = useState(null);
+export default function WaterfallView({ currentTime, eventEntries, totalTime, timeMap, turns, targetEventIndex, targetRequest }) {
+  var [selectedEventIndex, setSelectedEventIndex] = useState(null);
   var [hoveredIdx, setHoveredIdx] = useState(null);
   var scrollRef = useRef(null);
   var hoverTimerRef = useRef(null);
+  var handledTargetRef = useRef(null);
   var [scrollTop, setScrollTop] = useState(0);
   var [viewportHeight, setViewportHeight] = useState(600);
 
@@ -24,8 +25,11 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
   }, [eventEntries]);
 
   var items = useMemo(function () {
-    return buildWaterfallItems(allEvents);
-  }, [allEvents]);
+    return buildWaterfallItems(allEvents).map(function (item) {
+      return Object.assign({}, item, { originalIndex: eventEntries[item.originalIndex].index });
+    });
+  }, [allEvents, eventEntries]);
+  var selectedIdx = items.findIndex(function (item) { return item.originalIndex === selectedEventIndex; });
 
   var stats = useMemo(function () {
     return getWaterfallStats(items);
@@ -40,8 +44,17 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
   }, [layout.layoutItems, scrollTop, viewportHeight]);
 
   useEffect(function () {
-    setSelectedIdx(null);
-  }, [items]);
+    if (targetEventIndex == null) return;
+    if (handledTargetRef.current && handledTargetRef.current.index === targetEventIndex
+      && handledTargetRef.current.request === targetRequest) return;
+    var target = layout.layoutItems.find(function (item) { return item.item.originalIndex === targetEventIndex; });
+    if (!target || !scrollRef.current) return;
+    handledTargetRef.current = { index: targetEventIndex, request: targetRequest };
+    setSelectedEventIndex(targetEventIndex);
+    var offset = Math.max(0, target.top - 32);
+    scrollRef.current.scrollTop = offset;
+    setScrollTop(offset);
+  }, [targetEventIndex, targetRequest, layout.layoutItems]);
 
   var selectedItem = useMemo(function () {
     if (selectedIdx === null || !items[selectedIdx]) return null;
@@ -60,7 +73,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
     if (scrollRef.current) {
       setScrollTop(scrollRef.current.scrollTop);
     }
-  }, []);
+  }, [items.length > 0]);
 
   var handleMouseEnter = useCallback(function (idx) {
     clearTimeout(hoverTimerRef.current);
@@ -124,7 +137,7 @@ export default function WaterfallView({ currentTime, eventEntries, totalTime, ti
         itemIndexMap={itemIndexMap}
         selectedIdx={selectedIdx}
         hoveredIdx={hoveredIdx}
-        onSelect={setSelectedIdx}
+        onSelect={function (index) { setSelectedEventIndex(index == null ? null : items[index].originalIndex); }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         currentTime={currentTime}

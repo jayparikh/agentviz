@@ -38,8 +38,16 @@ function WaterfallRow({
     <div
       key={item.originalIndex}
       role="button"
+      data-event-index={item.originalIndex}
+      aria-pressed={isSelected}
       tabIndex={0}
       onClick={function () { onSelect(isSelected ? null : idx); }}
+      onKeyDown={function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(isSelected ? null : idx);
+        }
+      }}
       onMouseEnter={function () { onMouseEnter(idx); }}
       onMouseLeave={onMouseLeave}
       style={{

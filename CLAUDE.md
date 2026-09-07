@@ -16,15 +16,15 @@ src/
   main.jsx             # React entry point
   contexts/
     SessionProvider.jsx  # Shared session loading, discovery, compare, live, export, and derived state
-    PlaybackContext.jsx  # Playback, search, track filtering, and derived state provider
+    PlaybackContext.jsx  # Session-scoped playback/search/filter provider shared across v2 zones
   hooks/
     usePlayback.js     # Playback state: time, playing, speed, seek, playPause
     useSearch.js       # Debounced search with matchSet/matchedEntries
     useKeyboardShortcuts.js # Centralized keyboard handler (ref-based, stable listener)
     useQA.js           # Session Q&A state: messages, classifier, SSE streaming, abort
     useFeatureFlag.js  # localStorage-backed feature flag evaluation
-    useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
-    useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
+    useSessionLoader.js # Transactional parsing, completion signaling, live snapshot bootstrap, session reset
+    useLiveStream.js   # Cursor-resumable SSE hook with 500ms debounce and reset handling
     usePersistentState.js # localStorage-backed useState with debounced writes
     useDiscoveredSessions.js # Auto-discovery of sessions via /api/sessions or ?manifest= URL
     useHashRouter.js   # Hash-based routing between inbox and session views
@@ -43,6 +43,9 @@ src/
     vscodeSessionParser.ts # parseVSCodeChatJSON() - VS Code Copilot Chat JSON parser
     atifParser.ts       # parseAtifJSON() - ATIF / Harbor trajectory JSON parser (schema_version ATIF-v1.6)
     liveSessionParser.ts # Incremental live JSONL parser for appended session text
+    liveSessionWorker.ts # Off-main-thread normalization with batch-parser parity
+    liveParserClient.js # Single-flight worker backpressure, reset and disposal
+    tracksLayout.js     # Bounded overview groups retaining original evidence indices
     parseSession.ts    # Auto-detect format router: detectFormat() + parseSession()
     session.ts         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
     sessionLibrary.js  # localStorage-backed session library with content persistence
@@ -97,6 +100,7 @@ src/
     v2/                # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner
     waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
+  discovery.js       # Async traversal, newest-first enrichment and bounded preview cache
   sessions.js        # Session discovery, file serving, SSE streaming
   ai.js              # Coach analysis, Q&A, model info (SSE streaming)
   config.js          # Project config surface detection, file preview, apply
@@ -144,6 +148,20 @@ Vite proxies `/api/*` to the backend automatically.
 Run `npx playwright install chromium` once before the first browser test run.
 
 ## Conventions
+- Deep Replay targets remain scroll-anchored through measured layout changes; manual wheel, touch, pointer or scroll movement cancels automatic correction.
+- Discovery preview IO is asynchronous with format-specific bounded buffers; synchronous compatibility readers share the same pure preview extractors.
+- Reading density is an explicit header preference at `agentviz:density`. Use `theme.reading` for evidence text, row padding and detail targets, not global scaling.
+- Meaningful text uses primary/secondary/muted/dim at 4.5:1 or better on neutral surfaces; ghost is nonessential. Track groups use 18% tint with primary labels.
+- Replay observes pane width and remeasures virtual rows; compact layouts stack. Separators support pointer capture, keyboard arrows/Home/End and restore body styles on cancellation.
+- Graph uses one tab stop with active-descendant tree navigation; Tracks uses one per lane and retains every event in persistent paginated detail.
+- Empty Find keeps real-session import primary and omits empty metrics.
+- Live parsing decodes new records and applies new VS Code patches incrementally; full normalization remains in a single-flight worker, not on the UI thread. Do not describe normalized output as incremental.
+- Tracks overview geometry is memoized and capped at 200 groups per lane, with every original event reachable through paginated detail.
+- Claude metadata preserves explicit sessionId, so appended snapshots update one library entry.
+- Evidence navigation carries original event indices, not just timestamps. Palette seeks retain their timestamp argument for Classic compatibility and add event identity as the second argument.
+- V2 zones share one PlaybackProvider keyed by successful session replacement, not request start or live event updates. Consume explicit navigation targets once per request, not on every session-object render.
+- Session opens resolve to success only after parsing. Preserve the previous events and raw text on failure, and ignore superseded async requests.
+- Live bootstrap reads `/api/file?live=1` and subscribes using `X-Agentviz-Cursor`; SSE IDs resume reconnects. Reset payloads discard both pending batches and previous parser records. Non-live file reads remain complete.
 - No em dashes in any content or comments
 - All styles are inline (no CSS files), all colors reference theme.js tokens
 - Unicode characters used directly or as escape sequences in JS

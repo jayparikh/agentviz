@@ -31,6 +31,7 @@ export default function V2Header({
   exportSessionError,
   onExitV2,
   compact,
+  densityControl,
 }) {
   var [showThemeMenu, setShowThemeMenu] = useState(false);
   var themeMenuRef = useRef(null);
@@ -153,6 +154,7 @@ export default function V2Header({
         )}
       </div>
 
+      {densityControl}
       {onExportSession && (
         <ExportStatusButton
           state={exportSessionState}

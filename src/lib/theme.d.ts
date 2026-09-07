@@ -13,6 +13,7 @@ export interface TrackTypeInfo {
 }
 
 export interface Theme {
+  reading: { fontSize: number; rowPadding: number; controlMin: number };
   bg: {
     base: string;
     surface: string;
@@ -123,3 +124,4 @@ export declare const theme: Theme;
 export declare const TRACK_TYPES: Record<TrackType, TrackTypeInfo>;
 export declare const AGENT_COLORS: Theme["agent"];
 export declare function alpha(hex: string, opacity: number): string;
+export declare function setDensityPreference(value: string): void;

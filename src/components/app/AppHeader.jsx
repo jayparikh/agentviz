@@ -41,6 +41,7 @@ export default function AppHeader({
   onOpenRecentSession,
   currentFile,
   onTryV2,
+  densityControl,
 }) {
   var [showRecent, setShowRecent] = useState(false);
   var [showThemeMenu, setShowThemeMenu] = useState(false);
@@ -66,6 +67,7 @@ export default function AppHeader({
       zIndex: theme.z.active,
     }}>
       <BrandWordmark onClick={onReset} title="Back to start" style={{ flexShrink: 0, fontSize: theme.fontSize.xl }} />
+      {densityControl}
       <div style={{ height: 16, width: 1, background: theme.border.default, flexShrink: 0 }} />
       <span style={{
         fontSize: theme.fontSize.base,
@@ -283,14 +285,14 @@ export default function AppHeader({
                       <span style={{
                         fontSize: theme.fontSize.xs,
                         fontFamily: theme.font.mono,
-                        color: isHidden ? theme.text.ghost : theme.text.secondary,
+                        color: isHidden ? theme.text.dim : theme.text.secondary,
                         textDecoration: isHidden ? "line-through" : "none",
                         flex: 1,
                       }}>
                         {info.label}
                       </span>
                       {isHidden && (
-                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, fontFamily: theme.font.mono }}>hidden</span>
+                        <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, fontFamily: theme.font.mono }}>hidden</span>
                       )}
                     </button>
                   );

@@ -167,7 +167,7 @@ function SessionCard({ entry, onClick }) {
           }}>
             {title}
           </span>
-          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, flexShrink: 0, marginTop: 1 }}>
+          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, flexShrink: 0, marginTop: 1 }}>
             {updatedLabel}
           </span>
         </span>
@@ -175,7 +175,7 @@ function SessionCard({ entry, onClick }) {
         {meta && (
           <span style={{
             fontSize: theme.fontSize.sm,
-            color: isDiscovered ? theme.text.ghost : theme.text.muted,
+            color: theme.text.muted,
             lineHeight: 1.5,
             minWidth: 0,
             overflow: "hidden",
@@ -360,7 +360,7 @@ export default function DashboardView({ entries, onOpenSession, onRefresh }) {
                 className="av-btn"
                 aria-label="Clear search"
                 onClick={function () { setQuery(""); }}
-                style={{ background: "transparent", border: "none", color: theme.text.ghost, padding: 0, cursor: "pointer", lineHeight: 1 }}
+                style={{ background: "transparent", border: "none", color: theme.text.dim, padding: 0, cursor: "pointer", lineHeight: 1 }}
               >
                 <Icon name="close" size={11} />
               </button>

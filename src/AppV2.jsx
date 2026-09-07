@@ -14,6 +14,7 @@ import InvestigateView from "./components/v2/InvestigateView.jsx";
 import InlineCompare from "./components/v2/InlineCompare.jsx";
 import ImproveView from "./components/v2/ImproveView.jsx";
 import LiveSessionBanner from "./components/v2/LiveSessionBanner.jsx";
+import ToolbarButton from "./components/ui/ToolbarButton.jsx";
 
 var DEFAULT_ZONE = "find";
 var ZONE_IDS = V2_ZONES.map(function (zone) { return zone.id; });
@@ -280,23 +281,22 @@ function FindZone({ sessionState, onNavigate, onCompareSelected }) {
   return (
     <FindPortfolio
       entries={sessionState.allSessions}
-      onOpenSession={function (entry) {
-        sessionState.openStoredSession(entry);
-        onNavigate("review");
+      onReadStart={sessionState.beginFileRead}
+      onReadError={function () { sessionState.session.failLoad(null); }}
+      onOpenSession={async function (entry) {
+        if (await sessionState.openStoredSession(entry)) onNavigate("review");
       }}
-      onImport={function (text, name) {
-        sessionState.handleFile(text, name);
-        onNavigate("review");
+      onImport={async function (text, name) {
+        if (await sessionState.handleFile(text, name)) onNavigate("review");
       }}
       onLoadSample={function (mode) {
         sessionState.loadSample(mode);
         onNavigate("review");
       }}
       onRefresh={sessionState.refreshSessions}
-      onCompareSelected={function (entries) {
+      onCompareSelected={async function (entries) {
         if (onCompareSelected) onCompareSelected(entries);
-        sessionState.openCompareEntries(entries);
-        onNavigate("compare");
+        if (await sessionState.openCompareEntries(entries)) onNavigate("compare");
       }}
       manifestError={sessionState.discovered.manifestError}
       isManifestMode={sessionState.discovered.isManifestMode}
@@ -314,36 +314,35 @@ function ReviewZone({ sessionState, onNavigate }) {
   );
 }
 
-function AnalyzeZone({ sessionState, targetPanelId, onNavigate }) {
+function AnalyzeZone({ sessionState, targetPanelId, targetEventIndex, targetRequest, onNavigate }) {
   if (!sessionState.session.events) {
     return <ZonePlaceholder zone="analyze" sessionState={sessionState} />;
   }
 
   return (
-    <PlaybackProvider key={sessionState.sessionLoadKey} session={sessionState.session}>
       <AnalyzeShell
         session={sessionState.session}
         autonomyMetrics={sessionState.autonomyMetrics}
         targetPanelId={targetPanelId}
+        targetEventIndex={targetEventIndex}
+        targetRequest={targetRequest}
         onNavigate={onNavigate}
       />
-    </PlaybackProvider>
   );
 }
 
-function InvestigateZone({ sessionState, targetEventIndex, onNavigate }) {
+function InvestigateZone({ sessionState, targetEventIndex, targetRequest, onNavigate }) {
   if (!sessionState.session.events) {
     return <ZonePlaceholder zone="investigate" sessionState={sessionState} />;
   }
 
   return (
-    <PlaybackProvider key={sessionState.sessionLoadKey} session={sessionState.session}>
       <InvestigateView
         session={sessionState.session}
         targetEventIndex={targetEventIndex}
+        targetRequest={targetRequest}
         onNavigate={onNavigate}
       />
-    </PlaybackProvider>
   );
 }
 
@@ -362,11 +361,11 @@ function CompareZone({ sessionState, compareSeedEntries, compareContext, onNavig
       onExportComparison={sessionState.handleExportComparison}
       exportState={sessionState.compareExport.state}
       exportError={sessionState.compareExport.error}
-      onOpenSessionA={function () {
-        if (sessionState.openCompareSessionInCoach(sessionState.session)) onNavigate("improve");
+      onOpenSessionA={async function () {
+        if (await sessionState.openCompareSessionInCoach(sessionState.session)) onNavigate("improve");
       }}
-      onOpenSessionB={function () {
-        if (sessionState.openCompareSessionInCoach(sessionState.sessionB)) onNavigate("improve");
+      onOpenSessionB={async function () {
+        if (await sessionState.openCompareSessionInCoach(sessionState.sessionB)) onNavigate("improve");
       }}
     />
   );
@@ -374,7 +373,6 @@ function CompareZone({ sessionState, compareSeedEntries, compareContext, onNavig
 
 function ImproveZone({ sessionState, openQARequest, onNavigate }) {
   return (
-    <PlaybackProvider key={sessionState.sessionLoadKey} session={sessionState.session}>
       <ImproveView
         session={sessionState.session}
         autonomyMetrics={sessionState.autonomyMetrics}
@@ -382,11 +380,10 @@ function ImproveZone({ sessionState, openQARequest, onNavigate }) {
         openQARequest={openQARequest}
         onNavigate={onNavigate}
       />
-    </PlaybackProvider>
   );
 }
 
-export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
+export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, densityControl }) {
   var sessionState = useSessionContext();
   var breakpoint = useBreakpoint();
   var [activeZone, setActiveZone] = useState(function () {
@@ -489,6 +486,12 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
   );
 
   useEffect(function () {
+    if (sessionState.session.loading) {
+      wasLiveRef.current = false;
+      liveSessionLoadKeyRef.current = null;
+      setLiveComplete(false);
+      return;
+    }
     if (sessionState.session.isLive) {
       wasLiveRef.current = true;
       liveSessionLoadKeyRef.current = sessionState.sessionLoadKey;
@@ -515,7 +518,7 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
       liveSessionLoadKeyRef.current = null;
       setLiveComplete(false);
     }
-  }, [sessionState.session.isLive, sessionState.session.events, sessionState.sessionLoadKey, navigate]);
+  }, [sessionState.session.loading, sessionState.session.isLive, sessionState.session.events, sessionState.sessionLoadKey, navigate]);
 
   return (
     <div style={{
@@ -529,6 +532,7 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
       overflow: "hidden",
     }}>
       <V2Header
+        densityControl={densityControl}
         session={sessionState.session}
         activeZone={activeZone}
         currentThemeMode={currentThemeMode}
@@ -550,6 +554,35 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
           onDismiss={function () { setLiveComplete(false); }}
         />
       )}
+      <PlaybackProvider key={sessionState.sessionLoadKey} session={sessionState.session}>
+      {(sessionState.session.loading || sessionState.session.error || sessionState.loadError) && (
+        <div
+          role={sessionState.session.loading ? "status" : "alert"}
+          style={{
+            padding: theme.space.md,
+            background: sessionState.session.loading ? theme.bg.surface : theme.semantic.errorBg,
+            color: sessionState.session.loading ? theme.text.secondary : theme.semantic.errorText,
+            borderBottom: "1px solid " + theme.border.default,
+            fontSize: theme.fontSize.sm,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: theme.space.md,
+          }}
+        >
+          {sessionState.session.loading
+            ? "Loading requested session..."
+            : sessionState.session.error || sessionState.loadError}
+          {!sessionState.session.loading && sessionState.retryLoad && (
+            <ToolbarButton onClick={async function () {
+              if (await sessionState.retryLoad()) navigate("review");
+            }}>Retry load</ToolbarButton>
+          )}
+          {!sessionState.session.loading && (
+            <ToolbarButton onClick={function () { navigate("find"); }}>Reimport from Find</ToolbarButton>
+          )}
+        </div>
+      )}
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <FlowRail activeZone={activeZone} onNavigate={navigate} disabledZones={disabledZones} compact={breakpoint.isCompact} />
         {activeZone === "find" ? (
@@ -566,12 +599,15 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
           <InvestigateZone
             sessionState={sessionState}
             targetEventIndex={navigationTarget && navigationTarget.zone === "investigate" ? navigationTarget.eventIndex : null}
+            targetRequest={navigationTarget}
             onNavigate={navigate}
           />
         ) : activeZone === "analyze" ? (
           <AnalyzeZone
             sessionState={sessionState}
             targetPanelId={navigationTarget && navigationTarget.zone === "analyze" ? navigationTarget.panelId : getV2AnalyzePanelFromHash(window.location.hash)}
+            targetEventIndex={navigationTarget && navigationTarget.zone === "analyze" ? navigationTarget.eventIndex : null}
+            targetRequest={navigationTarget}
             onNavigate={navigate}
           />
         ) : activeZone === "compare" ? (
@@ -595,6 +631,7 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
           />
         )}
       </div>
+      </PlaybackProvider>
       {shortcutNotice && (
         <div
           role="status"
@@ -625,7 +662,12 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
           indexOptions={{ includeLegacyViews: false, includeDefaultActions: false }}
           placeholder="Search workflow, events, turns..."
           onNavigateZone={function (zoneId) { navigate(zoneId); }}
-          onSeek={function () { navigate("investigate"); }}
+          onSeek={function (time, eventIndex) {
+            var index = eventIndex == null
+              ? (sessionState.session.events || []).findIndex(function (event) { return event.t === time; })
+              : eventIndex;
+            navigate("investigate", { eventIndex: index });
+          }}
           onClose={function () { setShowPalettePlaceholder(false); }}
         />
       )}
@@ -633,10 +675,11 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
   );
 }
 
-export default function AppV2({ currentThemeMode, onSetThemeMode, onExitV2 }) {
+export default function AppV2({ currentThemeMode, onSetThemeMode, onExitV2, densityControl }) {
   return (
     <SessionProvider enableHashRouter={false}>
       <AppV2Shell
+        densityControl={densityControl}
         currentThemeMode={currentThemeMode}
         onSetThemeMode={onSetThemeMode}
         onExitV2={onExitV2}

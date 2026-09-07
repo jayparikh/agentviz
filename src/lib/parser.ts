@@ -705,6 +705,8 @@ export function parseClaudeCodeRecords(rawRecords: RawRecord[], issues?: ParseIs
 
   const turns = buildTurns(events);
   const metadata = buildMetadata(events, turns, parseIssues);
+  const identity = rawRecords.find(record => typeof record.sessionId === "string" && record.sessionId);
+  if (identity) metadata.sessionId = identity.sessionId;
 
   return { events, turns, metadata };
 }

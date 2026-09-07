@@ -517,7 +517,7 @@ export default function ReviewHub({ session, autonomyMetrics, onNavigate }) {
             </div>
             <div style={{ display: "grid", gap: theme.space.sm, marginTop: theme.space.md }}>
               {summary.topTools.length === 0 ? (
-                <div style={{ color: theme.text.ghost, fontSize: theme.fontSize.sm }}>No tool calls recorded.</div>
+                <div style={{ color: theme.text.dim, fontSize: theme.fontSize.sm }}>No tool calls recorded.</div>
               ) : summary.topTools.map(function (tool) {
                 return (
                   <div key={tool.name} style={{

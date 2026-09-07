@@ -4,6 +4,7 @@ import {
   getResolvedThemeMode,
   readStoredThemePreference,
   syncThemeState,
+  setDensityPreference,
 } from "./lib/theme.js";
 import usePersistentState from "./hooks/usePersistentState.js";
 import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts.js";
@@ -30,6 +31,7 @@ import useQA from "./hooks/useQA.js";
 import { PlaybackProvider, usePlaybackContext } from "./contexts/PlaybackContext.jsx";
 import { SessionProvider, useSessionContext } from "./contexts/SessionProvider.jsx";
 import AppV2 from "./AppV2.jsx";
+import ToolbarSelect from "./components/ui/ToolbarSelect.jsx";
 
 function renderActiveView(activeView, props) {
   if (activeView === "replay") {
@@ -127,6 +129,10 @@ export default function App() {
   var [view, setView] = usePersistentState("agentviz:view", "replay");
   var [themeModePreference, setThemeModePreference] = usePersistentState("agentviz:theme-mode", readStoredThemePreference);
   var [v2Enabled, setV2Enabled] = usePersistentState("agentviz:v2:enabled", true);
+  var [density, setDensity] = usePersistentState("agentviz:density", "normal");
+  setDensityPreference(density);
+  var densityControl = <ToolbarSelect ariaLabel="Reading density" value={density} onChange={setDensity}
+    options={[{ id: "normal", label: "Normal density" }, { id: "comfortable", label: "Comfortable density" }]} minWidth={130} />;
   var [systemThemeMode, setSystemThemeMode] = useState(function () {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "dark";
     return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
@@ -198,6 +204,7 @@ export default function App() {
   if (v2Enabled) {
     return (
       <AppV2
+        densityControl={densityControl}
         currentThemeMode={themeModePreference}
         onSetThemeMode={setThemeModePreference}
         onExitV2={function () { setV2Enabled(false); }}
@@ -211,6 +218,7 @@ export default function App() {
       onStoredSessionOpen={handleStoredSessionOpen}
     >
       <AppShell
+        densityControl={densityControl}
         view={view}
         setView={setView}
         themeModePreference={themeModePreference}
@@ -233,6 +241,7 @@ export default function App() {
 }
 
 function AppShell({
+  densityControl,
   view, setView, themeModePreference, setThemeModePreference,
   showPalette, setShowPalette, showShortcuts, setShowShortcuts,
   showFilters, setShowFilters, showQA, setShowQA, qaFlag,
@@ -294,11 +303,11 @@ function AppShell({
           onExportComparison={sessionState.handleExportComparison}
           exportState={compareExport.state}
           exportError={compareExport.error}
-          onOpenSessionA={function () {
-            if (sessionState.openCompareSessionInCoach(session)) setView("coach");
+          onOpenSessionA={async function () {
+            if (await sessionState.openCompareSessionInCoach(session)) setView("coach");
           }}
-          onOpenSessionB={function () {
-            if (sessionState.openCompareSessionInCoach(sessionB)) setView("coach");
+          onOpenSessionB={async function () {
+            if (await sessionState.openCompareSessionInCoach(sessionB)) setView("coach");
           }}
         />
       </React.Suspense>
@@ -313,6 +322,7 @@ function AppShell({
         activeView={activeView}
         setView={setView}
         currentThemeMode={themeModePreference}
+        densityControl={densityControl}
         onSetThemeMode={setThemeModePreference}
         autonomyMetrics={sessionState.autonomyMetrics}
         debrief={sessionState.debrief}
@@ -347,7 +357,7 @@ function AppSessionView({
   showFilters, setShowFilters, showQA, setShowQA, qaFlag,
   searchInputRef, filtersRef, reset, allSessions, openStoredSession,
   handleExportSession, sessionExport, setCompareLanding,
-  currentThemeMode, onSetThemeMode, onTryV2,
+  currentThemeMode, onSetThemeMode, onTryV2, densityControl,
 }) {
   var pb = usePlaybackContext();
 
@@ -451,6 +461,7 @@ function AppSessionView({
       )}
 
       <AppHeader
+        densityControl={densityControl}
         session={session}
         activeView={activeView}
         views={APP_VIEWS}

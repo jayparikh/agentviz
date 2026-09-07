@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import vm from "node:vm";
 import {
   theme,
   alpha,
@@ -20,6 +22,47 @@ describe("alpha", function () {
     expect(alpha("#ff0000", 0.5)).toBe("rgba(255,0,0,0.5)");
     expect(alpha("#00ff00", 1)).toBe("rgba(0,255,0,1)");
     expect(alpha("#000000", 0)).toBe("rgba(0,0,0,0)");
+  });
+
+  function contrast(left, right) {
+    function luminance(hex) {
+      const values = hex.slice(1).match(/../g).map(value => parseInt(value, 16) / 255)
+        .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+    }
+    const a = luminance(left), b = luminance(right);
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  }
+
+  describe("readable text contrast", () => {
+    it("keeps every offline palette snapshot synchronized with source tokens", () => {
+      const html = fs.readFileSync("docs/color-palette.html", "utf8");
+      const literal = html.match(/const palettes = ([\s\S]*?);\s*function element/)[1];
+      const palettes = vm.runInNewContext("(" + literal + ")");
+      for (const mode of ["dark", "light"]) {
+        const source = getThemeTokensForMode(mode, mode);
+        for (const [section, values] of Object.entries(palettes[mode])) {
+          expect(JSON.parse(JSON.stringify(values))).toEqual(source[section]);
+        }
+      }
+    });
+    for (const mode of ["dark", "light"]) {
+      it(mode + " supports small text on every neutral surface", () => {
+        const tokens = getThemeTokensForMode(mode, mode);
+        const values = [];
+        for (const name of ["primary", "secondary", "muted", "dim"]) {
+          for (const background of ["base", "surface", "raised", "hover", "active"]) {
+            const ratio = contrast(tokens.text[name], tokens.bg[background]);
+            expect(ratio, name + " on " + background).toBeGreaterThanOrEqual(4.5);
+            values.push(ratio);
+          }
+        }
+        for (const color of [...Object.values(tokens.track), tokens.accent.primary, tokens.semantic.success, tokens.semantic.warning, tokens.semantic.errorText]) {
+          expect(contrast(color, tokens.bg.surface), color).toBeGreaterThanOrEqual(4.5);
+        }
+        process.stdout.write(JSON.stringify({ mode, minimumTextContrast: Math.min(...values), dimSurfaceContrast: contrast(tokens.text.dim, tokens.bg.surface) }) + "\n");
+      });
+    }
   });
 
   it("passes through existing rgba strings unchanged", function () {

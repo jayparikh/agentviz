@@ -1,6 +1,7 @@
-import { detectFormat, parseSession } from "./parseSession";
+import { detectFormat, parseSession, pairToolCallsWithResults } from "./parseSession";
 import { parseCopilotCliRecords } from "./copilotCliParser";
 import { parseClaudeCodeRecords } from "./parser";
+import { detectCodexRecords, parseCodexRecords } from "./codexParser";
 import {
   applyVSCodeJsonlPatch,
   parseVSCodeChatSession,
@@ -135,6 +136,7 @@ function detectExplicitFormatFromRecords(records: RawRecord[]): SessionFormat | 
   if (records.length === 0) return null;
   if (isCopilotStart(records[0])) return "copilot-cli";
   if (isVSCodeBase(records[0])) return "vscode-chat";
+  if (detectCodexRecords(records)) return "codex";
   return null;
 }
 
@@ -166,13 +168,17 @@ function deriveResult(
   records: RawRecord[],
   malformedLineCount: number,
   vscodeSession: VSCodeSession | null,
+  appendedRecords?: RawRecord[],
 ): { result: ParsedSession | null; vscodeSession: VSCodeSession | null } {
   if (!format) return { result: null, vscodeSession };
+  if (format === "codex") {
+    return { result: parseCodexRecords(records, malformedLineCount), vscodeSession };
+  }
   if (format === "copilot-cli") {
     return { result: parseCopilotCliRecords(records, malformedLineCount), vscodeSession };
   }
   if (format === "vscode-chat") {
-    const session = buildVSCodeSession(records, null);
+    const session = buildVSCodeSession(appendedRecords || records, appendedRecords && vscodeSession ? cloneJson(vscodeSession) : null);
     return { result: session ? parseVSCodeChatSession(session) : null, vscodeSession: session };
   }
   return {
@@ -206,6 +212,7 @@ function rebuildStateFromRawText(
   const format = detectFormatFromRecords(parsed.records) || (rawText.trim() ? detectFormat(rawText) : null);
   const derived = deriveResult(format, parsed.records, parsed.malformedLines, null);
   const result = derived.result || (rawText.trim() ? parseSession(rawText) : null);
+  if (result) pairToolCallsWithResults(result);
 
   return {
     rawText,
@@ -256,8 +263,9 @@ export function appendLiveSessionText(
   const format = previous.format || incomingFormat || detectFormatFromRecords(parsed.records);
   const records = previous.records.concat(parsed.records);
   const malformedLineCount = previous.malformedLineCount + parsed.malformedLines;
-  const derived = deriveResult(format, records, malformedLineCount, previous.vscodeSession);
+  const derived = deriveResult(format, records, malformedLineCount, previous.vscodeSession, parsed.records);
   const result = derived.result || previous.result;
+  if (result) pairToolCallsWithResults(result);
 
   const state: LiveSessionParserState = {
     rawText,

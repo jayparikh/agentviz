@@ -61,6 +61,19 @@ function buildVSCodePatchJsonlFixture(): string {
 }
 
 describe("liveSessionParser", function () {
+  it("keeps Codex snapshot and multiple append batches equivalent to full parsing", function () {
+    var text = readFixture("test-codex.jsonl").trim();
+    var lines = text.split("\n");
+    var state = createLiveSessionParser(lines.slice(0, 4).join("\n"));
+    state = appendLiveSessionText(state, lines.slice(4).join("\n")).state;
+    expectSameSession(state.result, parseSession(text));
+    expectSameSession(appendInBatches(lines, [1, 2, 1, 3]).result, parseSession(text));
+    var split = Math.floor(lines[4].length / 2);
+    state = createLiveSessionParser(lines.slice(0, 4).join("\n") + "\n" + lines[4].slice(0, split));
+    state = appendLiveSessionText(state, lines[4].slice(split) + "\n" + lines.slice(5).join("\n")).state;
+    expectSameSession(state.result, parseSession(text));
+    expect(state.format).toBe("codex");
+  });
   it("starts empty and reports no parsed session", function () {
     var state = createLiveSessionParser("");
     expect(state.result).toBeNull();

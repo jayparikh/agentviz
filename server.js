@@ -10,7 +10,7 @@ import os from "os";
 import url from "url";
 import { StringDecoder } from "string_decoder";
 
-import { handle as handleSessions } from "./routes/sessions.js";
+import { handle as handleSessions, liveBoundaryHash } from "./routes/sessions.js";
 import { handle as handleAI } from "./routes/ai.js";
 import { handle as handleConfig } from "./routes/config.js";
 import { shutdownQA } from "./src/lib/qaAgent.js";
@@ -219,6 +219,7 @@ function serveStatic(res, filePath) {
 
 export function createServer({ sessionFile, distDir }) {
   var clients = new Set();
+  var resumedClients = new Map();
   var lastByteOffset = 0;
   var partialLine = "";
   var decoder = new StringDecoder("utf8");
@@ -226,7 +227,59 @@ export function createServer({ sessionFile, distDir }) {
   var watcherClosed = false;
   var pollInterval = null;
 
+  function readBoundary(fd, offset) {
+    var size = Math.min(64, offset);
+    var bytes = Buffer.alloc(size);
+    var read = fs.readSync(fd, bytes, 0, size, offset - size);
+    return liveBoundaryHash(bytes.subarray(0, read));
+  }
+
+  function sendResumedLines(res, state) {
+    var fd;
+    try {
+      fd = fs.openSync(sessionFile, "r");
+      var size = fs.fstatSync(fd).size;
+      var reset = state.reset || size < state.offset
+        || (state.hash && readBoundary(fd, state.offset) !== state.hash);
+      if (reset) { state.offset = 0; state.hash = null; state.reset = false; }
+      var chunks = [];
+      var position = state.offset;
+      while (position < size) {
+        var buffer = Buffer.alloc(Math.min(STREAM_READ_SIZE, size - position));
+        var count = fs.readSync(fd, buffer, 0, buffer.length, position);
+        if (!count) break;
+        chunks.push(buffer.subarray(0, count));
+        position += count;
+      }
+      var bytes = Buffer.concat(chunks);
+      var completeLength = bytes.lastIndexOf(10) + 1;
+      if (!completeLength && !reset) return;
+      state.offset += completeLength;
+      state.hash = readBoundary(fd, state.offset);
+      var cursor = state.offset + ":" + state.hash;
+      res.write("id: " + cursor + "\ndata: " + JSON.stringify({
+        lines: bytes.subarray(0, completeLength).toString("utf8"),
+        reset: Boolean(reset),
+      }) + "\n\n");
+    } catch (err) {
+      process.stderr.write("AGENTVIZ: live stream read failed: " + err.message + "\n");
+    } finally {
+      if (fd !== undefined) fs.closeSync(fd);
+    }
+  }
+
+  function subscribeLive(req, res) {
+    var query = url.parse(req.url, true).query;
+    var cursor = String(req.headers["last-event-id"] || query.cursor || query.offset || "0").split(":");
+    var offset = Number(cursor[0]);
+    var state = { offset: Number.isSafeInteger(offset) && offset >= 0 ? offset : 0, hash: cursor[1] || null, reset: false };
+    resumedClients.set(res, state);
+    req.on("close", function () { resumedClients.delete(res); });
+    sendResumedLines(res, state);
+  }
+
   function broadcastNewLines() {
+    for (var [res, state] of resumedClients) sendResumedLines(res, state);
     if (!sessionFile || clients.size === 0) return;
     try {
       var stat = fs.statSync(sessionFile);
@@ -284,6 +337,7 @@ export function createServer({ sessionFile, distDir }) {
             lastByteOffset = 0;
             partialLine = "";
             decoder = new StringDecoder("utf8");
+            for (var state of resumedClients.values()) state.reset = true;
             broadcastNewLines();
             setTimeout(function () {
               if (watcherClosed) return;
@@ -302,6 +356,9 @@ export function createServer({ sessionFile, distDir }) {
           var errPayload = "data: " + JSON.stringify({ error: "watcher_error" }) + "\n\n";
           for (var client of clients) {
             try { client.write(errPayload); } catch (e) { clients.delete(client); }
+          }
+          for (var client of resumedClients.keys()) {
+            try { client.write(errPayload); } catch (e) { resumedClients.delete(client); }
           }
         });
       } catch (e) {}
@@ -374,7 +431,7 @@ export function createServer({ sessionFile, distDir }) {
     }
 
     // Shared context for route modules
-    var ctx = { sessionFile: sessionFile, clients: clients, parsed: parsed, getConfiguredModel: getConfiguredModel };
+    var ctx = { sessionFile: sessionFile, clients: clients, parsed: parsed, subscribeLive: subscribeLive, getConfiguredModel: getConfiguredModel };
 
     // Dispatch to route modules
     if (handleConfig(pathname, req, res, ctx)) return;
@@ -419,6 +476,10 @@ export function createServer({ sessionFile, distDir }) {
       try { client.end(); } catch (e) {}
     }
     clients.clear();
+    for (var client of resumedClients.keys()) {
+      try { client.end(); } catch (e) {}
+    }
+    resumedClients.clear();
     shutdownQA().catch(function () {});
   });
 

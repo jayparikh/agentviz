@@ -96,7 +96,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
         </span>
         <span style={{
           fontSize: theme.fontSize.xs,
-          color: theme.text.ghost,
+          color: theme.text.dim,
           display: "flex",
           alignItems: "center",
           justifyContent: "flex-end",
@@ -116,7 +116,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
 
       <div ref={listRef} style={{ maxHeight: 340, overflowY: "auto" }}>
         {sorted.length === 0 ? (
-          <div style={{ padding: "20px 14px", color: theme.text.ghost, fontSize: theme.fontSize.sm, textAlign: "center" }}>
+          <div style={{ padding: "20px 14px", color: theme.text.dim, fontSize: theme.fontSize.sm, textAlign: "center" }}>
             No sessions imported yet
           </div>
         ) : (
@@ -173,7 +173,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
                     </span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
+                    <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
                       {formatRelativeTime(entry.updatedAt || entry.importedAt)}
                     </span>
                     {effLabel && (
@@ -182,7 +182,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
                       </span>
                     )}
                     {entry.totalEvents != null && (
-                      <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
+                      <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
                         {entry.totalEvents} events
                       </span>
                     )}
@@ -190,7 +190,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
                 </div>
 
                 {isCurrent ? (
-                  <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, flexShrink: 0 }}>current</span>
+                  <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, flexShrink: 0 }}>current</span>
                 ) : isActive ? (
                   <Icon name="arrow-right" size={12} style={{ color: theme.accent.primary, flexShrink: 0 }} />
                 ) : null}
@@ -205,7 +205,7 @@ export default function RecentSessionsPicker({ entries, onOpen, onClose, current
           padding: "8px 14px",
           borderTop: "1px solid " + theme.border.default,
           fontSize: theme.fontSize.xs,
-          color: theme.text.ghost,
+          color: theme.text.dim,
         }}>
           {sorted.length} of {(entries || []).length} sessions &middot; view all in Inbox
         </div>

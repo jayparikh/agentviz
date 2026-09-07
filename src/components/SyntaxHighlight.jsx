@@ -77,7 +77,7 @@ export default function SyntaxHighlight({ text, maxLines }) {
   var elements = highlightSyntaxToElements(display);
   if (truncated) {
     elements.push("\n");
-    elements.push(createElement("span", { key: "trunc", style: { color: theme.text.ghost } }, "... " + (lines.length - maxLines) + " more lines"));
+    elements.push(createElement("span", { key: "trunc", style: { color: theme.text.dim } }, "... " + (lines.length - maxLines) + " more lines"));
   }
 
   return (

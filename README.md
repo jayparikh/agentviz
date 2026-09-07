@@ -37,6 +37,8 @@ AI coding agents (Claude Code, Codex, VS Code Copilot Chat, Copilot CLI, ATIF / 
 - **Get AI coaching** on prompt engineering, skills, and MCP setup grounded in best practices
 - **Switch themes** between dark, light, and system-matched modes with one click
 - **Use the default workflow UI**: Find, Review, Investigate, Analyze, Compare, Improve, with Classic UI available as a fallback
+- **Follow exact evidence** from command-palette events/turns and Review insights into Investigate or Waterfall, including equal-time events and offscreen rows. Playback and search survive workflow switches.
+- **Recover failed imports** with visible loading, read/parse errors, retry, and reimport actions. Find opens Review only after parsing succeeds; failed or superseded loads do not replace the last successful session.
 
 ## Quick Start
 
@@ -56,6 +58,8 @@ npx agentviz ~/.claude/projects/my-project/
 ```
 
 The browser opens with a pulsing **LIVE** badge. As Claude Code writes new events to the session file, they stream into the view in real time via SSE, including records that are written incrementally before the trailing newline lands.
+
+Live JSONL snapshots use `/api/file?live=1`, which returns only newline-complete records and a byte-boundary cursor. `/api/stream?cursor=...` catches up from that boundary, including appends before subscription; SSE event IDs resume reconnects and reset messages replace truncated content. Plain `/api/file` still returns the full file. Codex appends use the same record parser and tool-result pairing as full imports.
 
 ### CLI (self-contained manifest export)
 
@@ -259,6 +263,16 @@ Investigate wraps the chronological replay stream with search, next/previous mat
 
 ### Analyze: Tracks
 
+Tracks memoizes static geometry and groups dense overviews into at most 200 marks per lane. Select a group to inspect every original event in pages of 50; error groups remain marked and the playhead updates independently.
+
+Evidence controls support keyboard and touch: Tracks uses one tab stop per lane with arrow-key browsing; Graph uses one keyboard entry with Up/Down to browse and Right/Left to expand/collapse. Replay stacks the inspector below the stream on compact screens. Its separator supports pointer dragging, arrow keys, Home and End, and remeasures wrapping rows on pane resize.
+
+The header's explicit **Reading density** preference switches between normal and comfortable evidence text and spacing without enlarging all dashboard surfaces. Both themes now use readable small-text tokens (at least 4.5:1 on neutral surfaces). Empty Find prioritizes importing a real JSON/JSONL session; demos remain secondary.
+
+Live streams normalize in a dedicated worker with one in-flight batch and coalesced appends. JSON decoding and VS Code patch application are incremental; normalized output is still rebuilt for full batch-parser parity (including cross-record usage and tool pairing). Result transfer and rendering still scale with session size. Discovery uses asynchronous, eight-operation traversal, newest-first enrichment, and a bounded path/mtime/size preview cache, including companion metadata invalidation.
+
+Discovery preview reads are asynchronous and capped at 128 KiB (Codex), 64 KiB (CLI), or 2 KiB head plus tail (VS Code). Deep evidence jumps keep the selected row in view while measured heights settle, then yield to manual scrolling.
+
 DAW-style multi-track lanes for Reasoning, Tool calls, Context, and Output. **Solo** isolates one track. **Mute** hides it. See at a glance how your agent's time was spent.
 
 <div align="center">
@@ -436,15 +450,15 @@ src/
   main.jsx               # React entry point
   contexts/
     SessionProvider.jsx  # Shared session loading, discovery, compare, live, export, and derived state
-    PlaybackContext.jsx  # Playback, search, track filtering, and derived state provider
+    PlaybackContext.jsx  # Session-scoped playback/search/filter provider shared across v2 zones
   hooks/
     usePlayback.js       # Play/pause, speed, seek state machine
     useSearch.js         # Debounced full-text search with match highlighting
     useKeyboardShortcuts.js  # Centralized keyboard handler
-    useSessionLoader.js  # File parsing, live init from /api/file, session reset
+    useSessionLoader.js  # Transactional parsing, completion signaling, live snapshot bootstrap, session reset
     useQA.js             # Session Q&A state: messages, classifier, SSE streaming, abort
     useFeatureFlag.js    # localStorage-backed feature flag evaluation
-    useLiveStream.js     # SSE EventSource hook with 500ms debounce for live mode
+    useLiveStream.js     # Cursor-resumable SSE hook with 500ms debounce and reset handling
     usePersistentState.js    # localStorage-backed useState with debounced writes
     useDiscoveredSessions.js # Auto-discovery via /api/sessions or ?manifest= URL
     useHashRouter.js     # Hash-based routing between inbox and session views
@@ -460,6 +474,10 @@ src/
     copilotCostParser.ts # Copilot prompt export JSON parser for token/cost analysis
     vscodeSessionParser.ts # VS Code Copilot Chat JSON parser
     atifParser.ts        # ATIF / Harbor trajectory JSON parser
+    liveSessionParser.ts # Incremental records and patches, parity-preserving normalization
+    liveSessionWorker.ts # Off-main-thread live normalization
+    liveParserClient.js  # Single-flight worker, coalescing, resets and disposal
+    tracksLayout.js      # Bounded overview geometry retaining original evidence
     dataInspector.js     # Payload summary and preview helpers for inspector panels
     session.ts           # Pure helpers: getSessionTotal, buildFilteredEventEntries
     sessionLibrary.js    # localStorage-backed session library with content persistence
@@ -520,6 +538,7 @@ src/
     v2/                  # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
+  discovery.js         # Async traversal and bounded cached preview enrichment
   sessions.js            # Session discovery, file serving, SSE streaming
   ai.js                  # Coach analysis, Q&A, model info (SSE streaming)
   config.js              # Project config surface detection, file preview, apply
