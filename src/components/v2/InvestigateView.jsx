@@ -51,7 +51,7 @@ function buildEntryActions(entry, onNavigate) {
   var event = entry && entry.event;
   var analyzePanelId = event && event.track === "tool_call" ? "waterfall" : "stats";
   var actions = [
-    { id: "analyze", label: analyzePanelId === "waterfall" ? "See in Waterfall" : "See in Stats", icon: "graph", targetZone: "analyze", options: { panelId: analyzePanelId } },
+    { id: "analyze", label: analyzePanelId === "waterfall" ? "See in Waterfall" : "See in Stats", icon: "graph", targetZone: "analyze", options: { panelId: analyzePanelId, eventIndex: entry && entry.index } },
     { id: "compare", label: "Compare sessions", icon: "arrow-up-down", targetZone: "compare", options: { eventIndex: entry && entry.index } },
     { id: "copy-payload", label: "Copy payload", icon: "copy", onClick: function () { copyText(stringifyPayload(event && event.raw ? event.raw : event)); } },
   ];
@@ -84,7 +84,7 @@ function buildEntryActions(entry, onNavigate) {
   });
 }
 
-export default function InvestigateView({ session, targetEventIndex, onNavigate }) {
+export default function InvestigateView({ session, targetEventIndex, targetRequest, onNavigate }) {
   var pb = usePlaybackContext();
   var [errorsOnly, setErrorsOnly] = useState(false);
   var handledTargetRef = useRef({ session: null, eventIndex: null });
@@ -112,10 +112,12 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
 
   useEffect(function () {
     if (targetEventIndex == null || !session || !session.events) return;
-    if (handledTargetRef.current.session === session
+    if (handledTargetRef.current.request === targetRequest
       && handledTargetRef.current.eventIndex === targetEventIndex) return;
-    handledTargetRef.current = { session: session, eventIndex: targetEventIndex };
     var event = session.events[targetEventIndex];
+    if (!event) return;
+    handledTargetRef.current = { request: targetRequest, eventIndex: targetEventIndex };
+    setErrorsOnly(false);
     if (event && pb.agentFilter && event.agent !== pb.agentFilter) {
       pb.clearAgentFilter();
     }
@@ -125,7 +127,7 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
     if (event && pb.playback && pb.playback.seek) {
       pb.playback.seek(event.t);
     }
-  }, [targetEventIndex, session, pb.agentFilter, pb.clearAgentFilter, pb.trackFilters, pb.clearTrackFilter, pb.playback.seek]);
+  }, [targetEventIndex, targetRequest, session.events, pb.agentFilter, pb.clearAgentFilter, pb.trackFilters, pb.clearTrackFilter, pb.playback.seek]);
 
   return (
     <main style={{
@@ -322,6 +324,7 @@ export default function InvestigateView({ session, targetEventIndex, onNavigate 
             matchSet={visibleMatchSet}
             metadata={session.metadata}
             targetEventIndex={targetEventIndex}
+            targetRequest={targetRequest}
             renderSelectedActions={function (props) {
               return (
                 <div style={{ display: "flex", gap: theme.space.sm, flexWrap: "wrap" }}>

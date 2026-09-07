@@ -24,6 +24,9 @@ export default function useSessionLoader(options) {
   var [loading, setLoading] = useState(false);
   var [showHero, setShowHero] = useState(false);
   var [isLive, setIsLive] = useState(false);
+  var [sessionKey, setSessionKey] = useState(0);
+  var [streamOffset, setStreamOffset] = useState(null);
+  var pendingCompletionRef = useRef(null);
   var parseTimeoutRef = useRef(null);
   var liveNotifyTimeoutRef = useRef(null);
   var requestIdRef = useRef(0);
@@ -44,6 +47,7 @@ export default function useSessionLoader(options) {
     setSourcePath(nextSourcePath || null);
     setError(applied.error);
     setShowHero(applied.showHero);
+    setSessionKey(function (key) { return key + 1; });
   }, []);
 
   var notifySessionParsed = useCallback(function (result, name, text) {
@@ -73,66 +77,93 @@ export default function useSessionLoader(options) {
     liveParserRef.current = createLiveSessionParser(text || "");
   }, [clearLiveNotify]);
 
-  var handleFile = useCallback(function (text, name, nextSourcePath) {
+  var cancelPendingLoad = useCallback(function () {
     requestIdRef.current += 1;
-    var requestId = requestIdRef.current;
-
     if (parseTimeoutRef.current) {
       clearTimeout(parseTimeoutRef.current);
       parseTimeoutRef.current = null;
     }
+    if (pendingCompletionRef.current) {
+      pendingCompletionRef.current(false);
+      pendingCompletionRef.current = null;
+    }
+    setLoading(false);
+    clearLiveNotify();
+  }, [clearLiveNotify]);
 
-    rawTextRef.current = text;
-    resetLiveParser(text);
+  var beginLoad = useCallback(function () {
+    cancelPendingLoad();
     setError(null);
     setLoading(true);
     setIsLive(false);
     liveRequestIdRef.current = 0;
+  }, [cancelPendingLoad]);
 
-    parseTimeoutRef.current = setTimeout(function () {
-      parseTimeoutRef.current = null;
-      var parsed = parseSessionText(text);
+  var failLoad = useCallback(function (message) {
+    setLoading(false);
+    setError(message);
+  }, []);
 
-      if (requestId !== requestIdRef.current) return;
+  var handleFile = useCallback(function (text, name, nextSourcePath) {
+    beginLoad();
+    var requestId = requestIdRef.current;
+    return new Promise(function (resolve) {
+      pendingCompletionRef.current = resolve;
+      parseTimeoutRef.current = setTimeout(function () {
+        parseTimeoutRef.current = null;
+        var parsed = parseSessionText(text);
 
-      setLoading(false);
+        if (requestId !== requestIdRef.current) { resolve(false); return; }
 
-      if (!parsed.result) {
-        setError(parsed.error);
-        return;
-      }
+        setLoading(false);
+        pendingCompletionRef.current = null;
 
-      applySession(parsed.result, name, nextSourcePath);
-      notifySessionParsed(parsed.result, name, text);
-    }, 16);
-  }, [applySession, notifySessionParsed, resetLiveParser]);
+        if (!parsed.result) {
+          setError(parsed.error);
+          resolve(false);
+          return;
+        }
+
+        rawTextRef.current = text;
+        resetLiveParser(text);
+        applySession(parsed.result, name, nextSourcePath);
+        notifySessionParsed(parsed.result, name, text);
+        resolve(true);
+      }, 16);
+    });
+  }, [beginLoad, applySession, notifySessionParsed, resetLiveParser]);
 
   // Called by useLiveStream with each batch of new JSONL lines.
   // Parses only appended lines and rebuilds normalized session output from the
   // accumulated parsed records. Guards against stale live data overwriting a
   // newly-loaded file.
-  var appendLines = useCallback(function (newLines) {
+  var appendLines = useCallback(function (newLines, reset) {
     if (!shouldApplyLiveLines(liveRequestIdRef.current, requestIdRef.current)) return;
 
+    if (reset) resetLiveParser("");
     var updated = appendLiveSessionText(liveParserRef.current, newLines);
     liveParserRef.current = updated.state;
     rawTextRef.current = updated.state.rawText;
 
-    if (!updated.result) return;
+    if (!updated.result) {
+      if (reset) {
+        setEvents(null);
+        setTurns([]);
+        setMetadata(null);
+        setTotal(0);
+      }
+      return;
+    }
 
     setEvents(updated.result.events);
     setTurns(updated.result.turns);
     setMetadata(updated.result.metadata);
     setTotal(getSessionTotal(updated.result.events));
     notifyLiveSessionParsed(updated.result, file || "live-session.jsonl", updated.state.rawText);
-  }, [file, notifyLiveSessionParsed]);
+  }, [file, notifyLiveSessionParsed, resetLiveParser]);
 
   var loadSample = useCallback(function (mode) {
-    requestIdRef.current += 1;
-    if (parseTimeoutRef.current) {
-      clearTimeout(parseTimeoutRef.current);
-      parseTimeoutRef.current = null;
-    }
+    cancelPendingLoad();
 
     var isMultiAgent = mode === "multiagent";
     rawTextRef.current = "";
@@ -147,14 +178,11 @@ export default function useSessionLoader(options) {
     setLoading(false);
     setIsLive(false);
     setShowHero(true);
-  }, [resetLiveParser]);
+    setSessionKey(function (key) { return key + 1; });
+  }, [resetLiveParser, cancelPendingLoad]);
 
   var resetSession = useCallback(function () {
-    requestIdRef.current += 1;
-    if (parseTimeoutRef.current) {
-      clearTimeout(parseTimeoutRef.current);
-      parseTimeoutRef.current = null;
-    }
+    cancelPendingLoad();
 
     rawTextRef.current = "";
     resetLiveParser("");
@@ -168,7 +196,8 @@ export default function useSessionLoader(options) {
     setLoading(false);
     setIsLive(false);
     setShowHero(false);
-  }, [resetLiveParser]);
+    setSessionKey(function (key) { return key + 1; });
+  }, [resetLiveParser, cancelPendingLoad]);
 
   var dismissHero = useCallback(function () {
     setShowHero(false);
@@ -178,15 +207,25 @@ export default function useSessionLoader(options) {
   // and /api/file provides the initial content. Bootstrap from there.
   useEffect(function () {
     if (!autoBootstrap) return;
-
+    var requestId = requestIdRef.current;
+    var cancelled = false;
+    function isCurrent() { return !cancelled && requestId === requestIdRef.current; }
     fetch("/api/meta")
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (meta) {
-        if (!meta || !meta.filename) return;
-        return fetch("/api/file")
-          .then(function (r) { return r.ok ? r.text() : null; })
+        if (!meta || !meta.filename || !isCurrent()) return;
+        setLoading(true);
+        return fetch("/api/file" + (meta.live ? "?live=1" : ""))
+          .then(function (r) {
+            if (!r.ok) throw new Error("Unable to load " + meta.filename + ". Reimport the session from Find.");
+            if (isCurrent()) setStreamOffset(r.headers && (r.headers.get("X-Agentviz-Cursor") || r.headers.get("X-Agentviz-Offset")));
+            return r.text();
+          })
           .then(function (text) {
-            if (!text) return;
+            if (!isCurrent()) return;
+            var parsed = parseSessionText(text, parseSession);
+            setLoading(false);
+            if (!parsed.result && !meta.live) { setError(parsed.error); return; }
             rawTextRef.current = text;
             resetLiveParser(text);
             requestIdRef.current += 1;
@@ -196,34 +235,25 @@ export default function useSessionLoader(options) {
               liveRequestIdRef.current = 0;
             }
             setIsLive(Boolean(meta.live));
-
-            var parsed = parseSessionText(text, parseSession);
-            if (!parsed.result) return;
-
-            setEvents(parsed.result.events);
-            setTurns(parsed.result.turns);
-            setMetadata(parsed.result.metadata);
-            setTotal(getSessionTotal(parsed.result.events));
             setFile(meta.filename);
             setSourcePath(meta.path || null);
             setError(null);
-            setShowHero(true);
+            if (!parsed.result) return;
+            applySession(parsed.result, meta.filename, meta.path);
             notifySessionParsed(parsed.result, meta.filename, text);
           });
       })
-      .catch(function () {});
-  }, [autoBootstrap, notifySessionParsed, resetLiveParser]);
+      .catch(function (err) {
+        if (isCurrent()) failLoad(err.message || "Unable to load the session. Reimport it from Find.");
+      });
+    return function () { cancelled = true; };
+  }, [autoBootstrap, notifySessionParsed, resetLiveParser, applySession, failLoad]);
 
   useEffect(function () {
     return function () {
-      requestIdRef.current += 1;
-      clearLiveNotify();
-      if (parseTimeoutRef.current) {
-        clearTimeout(parseTimeoutRef.current);
-        parseTimeoutRef.current = null;
-      }
+      cancelPendingLoad();
     };
-  }, [clearLiveNotify]);
+  }, [cancelPendingLoad]);
 
   return {
     events: events,
@@ -236,6 +266,11 @@ export default function useSessionLoader(options) {
     loading: loading,
     showHero: showHero,
     isLive: isLive,
+    sessionKey: sessionKey,
+    streamOffset: streamOffset,
+    beginLoad: beginLoad,
+    cancelPendingLoad: cancelPendingLoad,
+    failLoad: failLoad,
     handleFile: handleFile,
     appendLines: appendLines,
     loadSample: loadSample,

@@ -35,7 +35,7 @@ export default function CommandPalette({ events, turns, extraItems, indexOptions
     if (item.type === "action" && item.actionId && onAction) onAction(item.actionId);
     if (item.type === "zone" && item.zoneId && onNavigateZone) onNavigateZone(item.zoneId);
     if (item.type === "view" && item.viewId && onSetView) onSetView(item.viewId);
-    if ((item.type === "turn" || item.type === "event") && item.seekTime !== undefined && onSeek) onSeek(item.seekTime);
+    if ((item.type === "turn" || item.type === "event") && item.seekTime !== undefined && onSeek) onSeek(item.seekTime, item.eventIndex);
     onClose();
   }
 

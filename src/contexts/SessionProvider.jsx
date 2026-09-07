@@ -5,6 +5,7 @@ import useLiveStream from "../hooks/useLiveStream.js";
 import useAsyncStatus from "../hooks/useAsyncStatus.js";
 import useDiscoveredSessions from "../hooks/useDiscoveredSessions.js";
 import useHashRouter from "../hooks/useHashRouter.js";
+import { parseSessionText } from "../lib/sessionParsing";
 import { buildAutonomyMetrics, buildAutonomySummary } from "../lib/autonomyMetrics.js";
 import {
   loadStoredSessionContent,
@@ -81,7 +82,11 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
   });
   var [compareLanding, setCompareLanding] = useState(false);
   var [loadError, setLoadError] = useState(null);
+  var [retryLoad, setRetryLoad] = useState(null);
   var sessionLoadCount = useRef(0);
+  useEffect(function () {
+    return function () { sessionLoadCount.current += 1; };
+  }, []);
   var discovered = useDiscoveredSessions();
   var sessionExport = useAsyncStatus();
   var compareExport = useAsyncStatus();
@@ -119,6 +124,7 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
   useLiveStream({
     enabled: session.isLive,
     onLines: session.appendLines,
+    offset: session.streamOffset,
   });
 
   var autonomyMetrics = useMemo(function () {
@@ -131,25 +137,47 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
 
   var handleFile = useCallback(function (text, name, sourcePath) {
     sessionLoadCount.current += 1;
+    sessionB.cancelPendingLoad();
+    setLoadError(null);
+    setRetryLoad(function () { return function () { return handleFile(text, name, sourcePath); }; });
     beforeSessionChange();
-    session.handleFile(text, name, sourcePath);
-  }, [beforeSessionChange, session.handleFile]);
+    return session.handleFile(text, name, sourcePath);
+  }, [beforeSessionChange, session.handleFile, sessionB.cancelPendingLoad]);
+
+  var beginFileRead = useCallback(function () {
+    sessionLoadCount.current += 1;
+    setLoadError(null);
+    setRetryLoad(null);
+    sessionB.cancelPendingLoad();
+    session.beginLoad();
+  }, [session.beginLoad, sessionB.cancelPendingLoad]);
 
   var loadSample = useCallback(function (mode) {
     sessionLoadCount.current += 1;
+    sessionB.cancelPendingLoad();
+    setLoadError(null);
+    setRetryLoad(null);
     beforeSessionChange();
     session.loadSample(mode);
-  }, [beforeSessionChange, session.loadSample]);
+  }, [beforeSessionChange, session.loadSample, sessionB.cancelPendingLoad]);
 
-  var openStoredSession = useCallback(function (entry) {
-    if (!entry) return;
+  var openStoredSession = useCallback(async function (entry) {
+    if (!entry) return false;
+    var requestId = ++sessionLoadCount.current;
+    sessionB.cancelPendingLoad();
+    session.beginLoad();
+    setLoadError(null);
+    setRetryLoad(function () { return function () { return openStoredSession(entry); }; });
     var sessionPath = entry.discoveredPath || null;
     var sessionName = entry.file || entry.summary || entry.filename || "events.jsonl";
 
-    function afterLoad(rawText) {
+    async function afterLoad(rawText) {
+      if (requestId !== sessionLoadCount.current) return false;
+      beforeSessionChange();
+      var success = await session.handleFile(rawText, sessionName, sessionPath);
+      if (!success || requestId !== sessionLoadCount.current) return false;
       setLoadError(null);
       if (typeof onStoredSessionOpen === "function") onStoredSessionOpen();
-      handleFile(rawText, sessionName, sessionPath);
 
       var entryTags = entry.tags && entry.tags.length > 0 ? entry.tags : null;
       if (sessionPath || entryTags) {
@@ -164,26 +192,29 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
           });
         });
       }
+      return true;
     }
 
     function onFetchError(err) {
+      if (requestId !== sessionLoadCount.current) return false;
       console.error("[session] failed to load:", sessionName, err);
-      setLoadError("Failed to load session: " + sessionName);
+      var message = "Failed to load session: " + sessionName + ". Retry or reimport the file.";
+      setLoadError(message);
+      session.failLoad(message);
+      return false;
     }
 
     if ((entry.source === "manifest" || entry.isDiscovered) && sessionPath) {
       var fetchArg = entry.source === "manifest"
         ? { source: "manifest", path: sessionPath }
         : sessionPath;
-      discovered.fetchSessionContent(fetchArg).then(afterLoad).catch(onFetchError);
-      return;
+      return discovered.fetchSessionContent(fetchArg).then(afterLoad).catch(onFetchError);
     }
 
     var rawText = loadStoredSessionContent(entry.id);
-    if (rawText) { afterLoad(rawText); return; }
+    if (rawText) return afterLoad(rawText);
     if (sessionPath) {
-      discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(onFetchError);
-      return;
+      return discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(onFetchError);
     }
 
     setLibraryEntries(function (prev) {
@@ -191,7 +222,8 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
         return e.id === entry.id ? Object.assign({}, e, { hasContent: false }) : e;
       });
     });
-  }, [discovered.fetchSessionContent, handleFile, onStoredSessionOpen]);
+    return onFetchError(new Error("Stored content is unavailable"));
+  }, [discovered.fetchSessionContent, beforeSessionChange, session.beginLoad, session.failLoad, session.handleFile, sessionB.cancelPendingLoad, onStoredSessionOpen]);
 
   var loadEntryText = useCallback(function (entry) {
     if (!entry) return Promise.resolve(null);
@@ -213,23 +245,36 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
   var openCompareEntries = useCallback(function (entries) {
     var pair = entries || [];
     if (pair.length < 2) return Promise.resolve(false);
+    var requestId = ++sessionLoadCount.current;
+    session.beginLoad();
+    sessionB.beginLoad();
+    setLoadError(null);
+    setRetryLoad(null);
     beforeSessionChange();
 
     return Promise.all([loadEntryText(pair[0]), loadEntryText(pair[1])])
-      .then(function (texts) {
-        if (!texts[0] || !texts[1]) return false;
-        sessionLoadCount.current += 1;
-        session.handleFile(texts[0], pair[0].file || pair[0].summary || pair[0].filename || "session-a.jsonl", pair[0].discoveredPath || null);
-        sessionB.handleFile(texts[1], pair[1].file || pair[1].summary || pair[1].filename || "session-b.jsonl", pair[1].discoveredPath || null);
+      .then(async function (texts) {
+        if (requestId !== sessionLoadCount.current) return false;
+        if (texts.some(function (text) { return !text || !parseSessionText(text).result; })) {
+          throw new Error("Both comparison files must contain a supported session");
+        }
+        var results = await Promise.all([
+          session.handleFile(texts[0], pair[0].file || pair[0].summary || pair[0].filename || "session-a.jsonl", pair[0].discoveredPath || null),
+          sessionB.handleFile(texts[1], pair[1].file || pair[1].summary || pair[1].filename || "session-b.jsonl", pair[1].discoveredPath || null),
+        ]);
+        if (requestId !== sessionLoadCount.current || !results.every(Boolean)) return false;
         setCompareLanding(true);
         return true;
       })
       .catch(function (err) {
+        if (requestId !== sessionLoadCount.current) return false;
         console.error("[compare] failed to load selected sessions:", err);
         setLoadError("Failed to load selected sessions for comparison");
+        session.failLoad("Failed to load selected sessions for comparison. Reimport valid session files.");
+        sessionB.failLoad("Failed to load selected sessions for comparison.");
         return false;
       });
-  }, [beforeSessionChange, loadEntryText, session.handleFile, sessionB.handleFile]);
+  }, [beforeSessionChange, loadEntryText, session.beginLoad, session.failLoad, session.handleFile, sessionB.beginLoad, sessionB.failLoad, sessionB.handleFile]);
 
   var openCompareCurrentWithEntry = useCallback(function (entry) {
     if (!entry) return Promise.resolve(false);
@@ -237,25 +282,39 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     if (!currentRaw) return Promise.resolve(false);
     var currentName = session.file || "current-session.jsonl";
     var currentSourcePath = session.sourcePath || null;
+    var requestId = ++sessionLoadCount.current;
+    session.beginLoad();
+    sessionB.beginLoad();
+    setLoadError(null);
+    setRetryLoad(null);
     beforeSessionChange();
 
     return loadEntryText(entry)
-      .then(function (text) {
-        if (!text) return false;
-        sessionLoadCount.current += 1;
-        session.handleFile(currentRaw, currentName, currentSourcePath);
-        sessionB.handleFile(text, entry.file || entry.summary || entry.filename || "session-b.jsonl", entry.discoveredPath || null);
+      .then(async function (text) {
+        if (requestId !== sessionLoadCount.current) return false;
+        if (!text || !parseSessionText(text).result) throw new Error("Invalid comparison session");
+        var results = await Promise.all([
+          session.handleFile(currentRaw, currentName, currentSourcePath),
+          sessionB.handleFile(text, entry.file || entry.summary || entry.filename || "session-b.jsonl", entry.discoveredPath || null),
+        ]);
+        if (requestId !== sessionLoadCount.current || !results.every(Boolean)) return false;
         setCompareLanding(true);
         return true;
       })
       .catch(function (err) {
+        if (requestId !== sessionLoadCount.current) return false;
         console.error("[compare] failed to load comparison session:", err);
         setLoadError("Failed to load session for comparison");
+        session.failLoad("Failed to load session for comparison. Reimport a valid session file.");
+        sessionB.failLoad("Failed to load session for comparison.");
         return false;
       });
-  }, [beforeSessionChange, loadEntryText, session.getRawText, session.file, session.sourcePath, session.handleFile, sessionB.handleFile]);
+  }, [beforeSessionChange, loadEntryText, session.getRawText, session.file, session.sourcePath, session.beginLoad, session.failLoad, session.handleFile, sessionB.beginLoad, sessionB.failLoad, sessionB.handleFile]);
 
   var reset = useCallback(function () {
+    sessionLoadCount.current += 1;
+    setLoadError(null);
+    setRetryLoad(null);
     beforeSessionChange();
     session.resetSession();
     sessionB.resetSession();
@@ -276,18 +335,21 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
   });
 
   var exitCompare = useCallback(function () {
+    sessionLoadCount.current += 1;
+    session.cancelPendingLoad();
     sessionB.resetSession();
     setCompareLanding(false);
-  }, [sessionB.resetSession]);
+  }, [session.cancelPendingLoad, sessionB.resetSession]);
 
-  var openCompareSessionInCoach = useCallback(function (loader) {
+  var openCompareSessionInCoach = useCallback(async function (loader) {
     var rawText = loader.getRawText();
     if (!rawText) return false;
-    session.handleFile(rawText, loader.file);
+    var success = await handleFile(rawText, loader.file, loader.sourcePath);
+    if (!success) return false;
     sessionB.resetSession();
     setCompareLanding(false);
     return true;
-  }, [session.handleFile, sessionB.resetSession]);
+  }, [handleFile, sessionB.resetSession]);
 
   var handleExportSession = useCallback(function () {
     var rawText = session.getRawText();
@@ -312,16 +374,18 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     return discovered.refresh();
   }, [discovered.refresh]);
 
-  var compareReady = compareLanding && Boolean(session.events) && Boolean(sessionB.events);
+  var compareReady = compareLanding && !session.loading && !sessionB.loading
+    && !session.error && !sessionB.error && Boolean(session.events) && Boolean(sessionB.events);
 
   var value = useMemo(function () {
     return {
       session: session,
       sessionB: sessionB,
-      sessionLoadKey: sessionLoadCount.current,
+      sessionLoadKey: session.sessionKey,
       allSessions: allSessions,
       discovered: discovered,
       loadError: loadError,
+      retryLoad: retryLoad,
       compareLanding: compareLanding,
       setCompareLanding: setCompareLanding,
       compareReady: compareReady,
@@ -330,6 +394,7 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
       autonomyMetrics: autonomyMetrics,
       debrief: debrief,
       handleFile: handleFile,
+      beginFileRead: beginFileRead,
       loadSample: loadSample,
       openStoredSession: openStoredSession,
       openCompareEntries: openCompareEntries,
@@ -342,9 +407,9 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
       refreshSessions: refreshSessions,
     };
   }, [
-    session, sessionB, allSessions, discovered, loadError, compareLanding,
+    session, sessionB, allSessions, discovered, loadError, retryLoad, compareLanding,
     compareReady, sessionExport, compareExport, autonomyMetrics, debrief,
-    handleFile, loadSample, openStoredSession, openCompareEntries, openCompareCurrentWithEntry, reset, exitCompare,
+    handleFile, beginFileRead, loadSample, openStoredSession, openCompareEntries, openCompareCurrentWithEntry, reset, exitCompare,
     openCompareSessionInCoach, handleExportSession, handleExportComparison,
     refreshSessions,
   ]);

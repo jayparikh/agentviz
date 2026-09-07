@@ -77,7 +77,7 @@ test("v2 Review and Investigate route to evidence", async function ({ page }) {
 
   await expect(page.getByText("81", { exact: true })).toBeVisible();
   await expect(page.getByText("Needs review", { exact: true })).toBeVisible();
-  await expect(page.getByText("3 PRU", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("4.7 credits (~$0.047)", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("9%", { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: /Investigate/ }).click();
@@ -114,7 +114,7 @@ test("v2 Analyze Cost and command palette routing work", async function ({ page 
   await expect(page.getByText("Analysis panels", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Cost" }).click();
   await expect(page).toHaveURL(/#\/v2\/analyze\/cost$/);
-  await expect(page.getByText("Reported PRU")).toBeVisible();
+  await expect(page.getByText("Reported AI Credit usage")).toBeVisible();
 
   await page.keyboard.press("Control+K");
   await page.getByPlaceholder("Search workflow, events, turns...").fill("review");
@@ -158,4 +158,160 @@ test("v2 compact layout keeps workflow navigation keyboard accessible", async fu
   await expect(page.getByText("A/B sessions")).toBeVisible();
 
   expect(failures).toEqual([]);
+});
+
+test("palette preserves equal-time identity, distant Waterfall selection, and shared search", async ({ page }) => {
+  const failures = captureFailures(page);
+  await openV2(page);
+  const timestamp = "2026-05-01T00:00:00.000Z";
+  const records = [{ type: "user", timestamp, message: { content: "first evidence" } }];
+  for (let i = 0; i < 100; i++) records.push({
+    type: "assistant", timestamp,
+    message: { content: [{ type: "tool_use", id: "call-" + i, name: "tool_" + String(i).padStart(3, "0"), input: { marker: i } }] },
+  });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "navigation.jsonl", mimeType: "text/plain", buffer: Buffer.from(records.map(JSON.stringify).join("\n")),
+  });
+  await expect(page).toHaveURL(/review$/);
+  await page.getByRole("button", { name: /Investigate/ }).click();
+  await page.getByRole("button", { name: "User only" }).click();
+  await page.getByRole("textbox", { name: "Search evidence events" }).fill("retained search");
+  await page.getByRole("textbox", { name: "Search evidence events" }).blur();
+  await page.keyboard.press("Control+K");
+  await page.getByPlaceholder("Search workflow, events, turns...").fill("tool_090");
+  await page.getByRole("button", { name: /tool_090/ }).click();
+  await expect(page.locator('[data-event-index="91"][aria-pressed="true"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "User only" })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "See in Waterfall" }).click();
+  await expect(page).toHaveURL(/analyze\/waterfall$/);
+  const target = page.locator('[data-event-index="91"][aria-pressed="true"]');
+  await expect(target).toBeVisible();
+  await target.click();
+  await expect(page.locator('[data-event-index="91"]')).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: /Investigate/ }).click();
+  await expect(page.getByRole("textbox", { name: "Search evidence events" })).toHaveValue("retained search");
+  await page.keyboard.press("Control+K");
+  await page.getByPlaceholder("Search workflow, events, turns...").fill("first evidence");
+  await page.getByRole("button", { name: /first evidence/ }).last().click();
+  await expect(page.locator('[data-event-index="0"][aria-pressed="true"]')).toBeVisible();
+  expect(failures).toEqual([]);
+});
+
+test("Find stays pending until success, reports malformed imports, and retries read failures", async ({ page }) => {
+  await openV2(page);
+  await page.locator('input[type="file"]').setInputFiles({ name: "invalid.jsonl", mimeType: "text/plain", buffer: Buffer.from("{}") });
+  await expect(page.getByRole("alert")).toContainText("Supported");
+  await expect(page).toHaveURL(/find$/);
+  await importGoldenFixture(page);
+  await page.getByRole("button", { name: "Find, Portfolio" }).click();
+  await page.evaluate(() => {
+    const NativeReader = window.FileReader;
+    window.FileReader = class extends NativeReader {
+      readAsText() { this.dispatchEvent(new ProgressEvent("error")); }
+    };
+    window.restoreReader = () => { window.FileReader = NativeReader; };
+  });
+  await page.locator('input[type="file"]').setInputFiles(fixturePath);
+  await expect(page.getByRole("alert")).toContainText("Unable to read");
+  await page.evaluate(() => window.restoreReader());
+  await page.getByRole("button", { name: "Retry reading file" }).click();
+  await expect(page).toHaveURL(/review$/);
+});
+
+test("slow discovered load stays in Find and stale responses cannot replace a newer import", async ({ page }) => {
+  await installApiStubs(page);
+  await page.route("**/api/sessions", route => route.fulfill({
+    json: [{ path: "slow", filename: "slow.jsonl", size: 6000, mtime: Date.now(), format: "claude-code" }],
+  }));
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route("**/api/session?path=slow", async route => {
+    await gate;
+    await route.fulfill({ body: '{"type":"user","message":{"content":"STALE REQUEST"}}' });
+  });
+  await page.goto("/");
+  await page.getByRole("article").filter({ hasText: "slow.jsonl" }).getByRole("button", { name: "Open", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Loading requested session");
+  await expect(page).toHaveURL(/find$/);
+  await importGoldenFixture(page);
+  release();
+  await expect(page.getByText("Review health")).toBeVisible();
+  await expect(page.getByText("STALE REQUEST")).toHaveCount(0);
+});
+
+test("Review slowest-tool insight reveals the exact filtered Waterfall row", async ({ page }) => {
+    const failures = captureFailures(page);
+    await openV2(page);
+    const time = seconds => new Date(Date.UTC(2026, 4, 1, 0, 0, seconds)).toISOString();
+    const records = [
+      { type: "session.start", timestamp: time(0), data: { producer: "copilot-agent", sessionId: "slow-tool-test" } },
+      { type: "user.message", timestamp: time(1), data: { content: "inspect timing" } },
+    ];
+    for (let i = 0; i < 100; i++) {
+      const toolName = i === 90 ? "slow_target" : "fast_tool";
+      records.push({ type: "tool.execution_start", timestamp: time(2 + i * 2), data: { toolCallId: "t" + i, toolName, arguments: { marker: i } } });
+      records.push({ type: "tool.execution_complete", timestamp: time(2 + i * 2 + (i === 90 ? 20 : 1)), data: { toolCallId: "t" + i, success: true, result: { content: "done" } } });
+    }
+    await page.locator('input[type="file"]').setInputFiles({ name: "timing.jsonl", mimeType: "text/plain", buffer: Buffer.from(records.map(JSON.stringify).join("\n")) });
+    await expect(page).toHaveURL(/review$/);
+    await page.getByRole("button", { name: /Investigate/ }).click();
+    await page.getByRole("button", { name: "User only" }).click();
+    await page.getByRole("button", { name: "Back to Review" }).click();
+    await page.getByRole("button", { name: "Open Waterfall", exact: true }).click();
+    await expect(page).toHaveURL(/analyze\/waterfall$/);
+    await expect(page.locator('[data-event-index][aria-pressed="true"]')).toContainText("slow_target");
+    await expect(page.locator('[data-event-index][aria-pressed="true"]')).toBeVisible();
+    expect(failures).toEqual([]);
+  });
+
+test("successful delayed fetch navigates only after completion and HTTP failure offers retry", async ({ page }) => {
+    await installApiStubs(page);
+    await page.route("**/api/sessions", route => route.fulfill({
+      json: [{ path: "retry", filename: "retry.jsonl", size: 6000, mtime: Date.now(), format: "claude-code" }],
+    }));
+    let finish;
+    const gate = new Promise(resolve => { finish = resolve; });
+    let attempts = 0;
+    await page.route("**/api/session?path=retry", async route => {
+      attempts++;
+      if (attempts === 1) return route.fulfill({ status: 500, body: "unavailable" });
+      await gate;
+      await route.fulfill({ body: '{"type":"user","message":{"content":"recovered request"}}' });
+    });
+    await page.goto("/");
+    await page.getByRole("article").getByRole("button", { name: "Open", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("Failed to load session");
+    await expect(page).toHaveURL(/find$/);
+    await page.getByRole("button", { name: "Retry load" }).click();
+    await expect(page.getByRole("status")).toContainText("Loading requested session");
+    await expect(page).toHaveURL(/find$/);
+    finish();
+    await expect(page).toHaveURL(/review$/);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+
+test("playback position survives workflow switches and successful imports reset search", async ({ page }) => {
+  await openV2(page);
+  const records = [
+    { type: "user", timestamp: "2026-05-01T00:00:00Z", message: { content: "start marker" } },
+    { type: "assistant", timestamp: "2026-05-01T00:00:10Z", message: { content: "middle marker" } },
+    { type: "assistant", timestamp: "2026-05-01T00:00:20Z", message: { content: "late marker" } },
+  ];
+  await page.locator('input[type="file"]').setInputFiles({ name: "position.jsonl", mimeType: "text/plain", buffer: Buffer.from(records.map(JSON.stringify).join("\n")) });
+  await expect(page).toHaveURL(/review$/);
+  await page.getByRole("button", { name: "Command palette" }).click();
+  await page.getByPlaceholder("Search workflow, events, turns...").fill("middle marker");
+  await page.getByRole("button", { name: /middle marker/ }).click();
+  await expect(page.locator('[data-event-index="1"][aria-pressed="true"]')).toBeVisible();
+  await expect(page.locator('[data-event-index="2"]')).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Search evidence events" }).fill("middle");
+  await page.getByRole("button", { name: "Analyze, Deep panels" }).click();
+  await page.getByRole("button", { name: "Improve, Coach & Q&A" }).click();
+  await page.getByRole("button", { name: "Investigate, Evidence stream" }).click();
+  await expect(page.locator('[data-event-index="2"]')).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Search evidence events" })).toHaveValue("middle");
+  await page.getByRole("button", { name: "Find, Portfolio" }).click();
+  await importGoldenFixture(page);
+  await page.getByRole("button", { name: "Investigate, Evidence stream" }).click();
+  await expect(page.getByRole("textbox", { name: "Search evidence events" })).toHaveValue("");
 });

@@ -16,15 +16,15 @@ src/
   main.jsx             # React entry point
   contexts/
     SessionProvider.jsx  # Shared session loading, discovery, compare, live, export, and derived state
-    PlaybackContext.jsx  # Playback, search, track filtering, and derived state provider
+    PlaybackContext.jsx  # Session-scoped playback/search/filter provider shared across v2 zones
   hooks/
     usePlayback.js     # Playback state: time, playing, speed, seek, playPause
     useSearch.js       # Debounced search with matchSet/matchedEntries
     useKeyboardShortcuts.js # Centralized keyboard handler (ref-based, stable listener)
     useQA.js           # Session Q&A state: messages, classifier, SSE streaming, abort
     useFeatureFlag.js  # localStorage-backed feature flag evaluation
-    useSessionLoader.js # File parsing, live init from /api/file, session reset, hero state
-    useLiveStream.js   # SSE EventSource hook with 500ms debounce for live mode
+    useSessionLoader.js # Transactional parsing, completion signaling, live snapshot bootstrap, session reset
+    useLiveStream.js   # Cursor-resumable SSE hook with 500ms debounce and reset handling
     usePersistentState.js # localStorage-backed useState with debounced writes
     useDiscoveredSessions.js # Auto-discovery of sessions via /api/sessions or ?manifest= URL
     useHashRouter.js   # Hash-based routing between inbox and session views
@@ -144,6 +144,10 @@ Vite proxies `/api/*` to the backend automatically.
 Run `npx playwright install chromium` once before the first browser test run.
 
 ## Conventions
+- Evidence navigation carries original event indices, not just timestamps. Palette seeks retain their timestamp argument for Classic compatibility and add event identity as the second argument.
+- V2 zones share one PlaybackProvider keyed by successful session replacement, not request start or live event updates. Consume explicit navigation targets once per request, not on every session-object render.
+- Session opens resolve to success only after parsing. Preserve the previous events and raw text on failure, and ignore superseded async requests.
+- Live bootstrap reads `/api/file?live=1` and subscribes using `X-Agentviz-Cursor`; SSE IDs resume reconnects. Reset payloads discard both pending batches and previous parser records. Non-live file reads remain complete.
 - No em dashes in any content or comments
 - All styles are inline (no CSS files), all colors reference theme.js tokens
 - Unicode characters used directly or as escape sequences in JS

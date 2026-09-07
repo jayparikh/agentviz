@@ -37,7 +37,6 @@ export function buildCommandPaletteIndex(events, turns, options) {
   var actionItems = config.includeDefaultActions === false ? [] : buildActionItems();
   var turnItems = [];
   var eventItems = [];
-  var seenEvents = {};
 
   if (turns) {
     for (var i = 0; i < turns.length; i++) {
@@ -48,6 +47,7 @@ export function buildCommandPaletteIndex(events, turns, options) {
         label: "Turn " + (turn.index + 1) + ": " + (turn.userMessage || "").substring(0, 80),
         iconName: "message-circle",
         seekTime: turn.startTime,
+        eventIndex: turn.eventIndices && turn.eventIndices[0],
         hasError: turn.hasError,
         searchText: normalize("turn " + (turn.index + 1) + " " + (turn.userMessage || "")),
         priority: turn.hasError ? 12 : 8,
@@ -58,10 +58,6 @@ export function buildCommandPaletteIndex(events, turns, options) {
   if (events) {
     for (var j = 0; j < events.length; j++) {
       var ev = events[j];
-      var dedupeKey = (ev.toolName || ev.text.substring(0, 50)) + ":" + ev.track + ":" + ev.t;
-      if (seenEvents[dedupeKey]) continue;
-      seenEvents[dedupeKey] = true;
-
       eventItems.push({
         id: "event-" + j,
         type: "event",
@@ -72,6 +68,7 @@ export function buildCommandPaletteIndex(events, turns, options) {
         toolName: ev.toolName,
         time: ev.t,
         seekTime: ev.t,
+        eventIndex: j,
         isError: ev.isError,
         searchText: normalize([
           ev.toolName || "",

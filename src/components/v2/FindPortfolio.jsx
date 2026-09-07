@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { theme, alpha } from "../../lib/theme.js";
 import { formatRelativeTime } from "../../lib/formatTime.js";
 import { formatCostValue, isAiCreditsUnit } from "../../lib/pricing.js";
@@ -275,6 +275,8 @@ export default function FindPortfolio({
   entries,
   onOpenSession,
   onImport,
+  onReadStart,
+  onReadError,
   onLoadSample,
   onRefresh,
   onCompareSelected,
@@ -290,6 +292,22 @@ export default function FindPortfolio({
   var [activeTags, setActiveTags] = useState(getInitialTagsFromURL);
   var [selectedIds, setSelectedIds] = useState([]);
   var fileRef = useRef(null);
+  var readerRef = useRef(null);
+  var [readError, setReadError] = useState(null);
+  var [reading, setReading] = useState(false);
+  var retryFileRef = useRef(null);
+  var onReadErrorRef = useRef(onReadError);
+  onReadErrorRef.current = onReadError;
+  useEffect(function () {
+    return function () {
+      var reader = readerRef.current;
+      readerRef.current = null;
+      if (reader && reader.readyState === 1) {
+        reader.abort();
+        if (onReadErrorRef.current) onReadErrorRef.current();
+      }
+    };
+  }, []);
   var breakpoint = useBreakpoint();
   var prefersReducedMotion = useReducedMotion();
 
@@ -331,14 +349,37 @@ export default function FindPortfolio({
 
   function handleCompareSelected() {
     if (selectedEntries.length < 2 || !onCompareSelected) return;
+    cancelRead();
     onCompareSelected(selectedEntries.slice(0, 2));
+  }
+
+  function cancelRead() {
+    var reader = readerRef.current;
+    readerRef.current = null;
+    if (reader) reader.abort();
+    setReading(false);
+    setReadError(null);
   }
 
   function importFile(file) {
     if (!file || !onImport) return;
+    cancelRead();
+    if (onReadStart) onReadStart();
     var reader = new FileReader();
+    readerRef.current = reader;
+    retryFileRef.current = file;
+    setReadError(null);
+    setReading(true);
     reader.onload = function (readerEvent) {
+      if (readerRef.current !== reader) return;
+      setReading(false);
       onImport(readerEvent.target.result, file.name);
+    };
+    reader.onerror = function () {
+      if (readerRef.current !== reader) return;
+      setReading(false);
+      setReadError("Unable to read " + file.name + ". Retry or choose another file.");
+      if (onReadError) onReadError();
     };
     reader.readAsText(file);
   }
@@ -376,6 +417,22 @@ export default function FindPortfolio({
       var file = event.dataTransfer.files && event.dataTransfer.files[0];
       importFile(file);
     }}>
+      {(reading || readError) && (
+        <div role={reading ? "status" : "alert"} style={{
+          color: reading ? theme.text.secondary : theme.semantic.errorText,
+          fontSize: theme.fontSize.sm,
+          display: "flex",
+          alignItems: "center",
+          gap: theme.space.md,
+        }}>
+          {reading ? "Reading session file..." : readError}
+          {readError && <button type="button" className="av-btn" onClick={function () { importFile(retryFileRef.current); }}
+            style={{ color: theme.text.primary, background: theme.bg.surface, border: "1px solid " + theme.border.default,
+              borderRadius: theme.radius.md, fontFamily: theme.font.mono, padding: theme.space.sm }}>
+            Retry reading file
+          </button>}
+        </div>
+      )}
       {dragActive && (
         <div style={{
           position: "absolute",
@@ -534,7 +591,7 @@ export default function FindPortfolio({
 
           {onLoadSample && (
             <ToolbarButton
-              onClick={function () { onLoadSample(); }}
+              onClick={function () { cancelRead(); onLoadSample(); }}
               style={{ padding: "5px 8px", background: theme.bg.base }}
             >
               Demo
@@ -716,7 +773,7 @@ export default function FindPortfolio({
                 <button
                   type="button"
                   className="av-btn"
-                  onClick={onLoadSample}
+                  onClick={function () { cancelRead(); onLoadSample(); }}
                   style={{
                     border: "1px solid " + theme.accent.primary,
                     borderRadius: theme.radius.md,
@@ -746,7 +803,7 @@ export default function FindPortfolio({
                     layout={layout}
                     selected={selectedIds.indexOf(id) !== -1}
                     onToggleSelected={toggleSelected}
-                    onOpen={onOpenSession}
+                    onOpen={function (entry) { cancelRead(); if (onOpenSession) onOpenSession(entry); }}
                   />
                 );
               })}

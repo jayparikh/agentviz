@@ -284,7 +284,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
   );
 }
 
-export default function ReplayView({ currentTime, eventEntries, turnStartMap, searchQuery, matchSet, metadata, targetEventIndex, renderSelectedActions }) {
+export default function ReplayView({ currentTime, eventEntries, turnStartMap, searchQuery, matchSet, metadata, targetEventIndex, targetRequest, renderSelectedActions }) {
   var containerRef = useRef(null);
   var itemRefs = useRef({});
   var [selectedIndex, setSelectedIndex] = useState(null);
@@ -293,6 +293,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   var [viewportHeight, setViewportHeight] = useState(0);
   var shouldFollowRef = useRef(true);
   var prevCount = useRef(0);
+  var handledTargetRef = useRef(null);
 
   // eventEntries is NOT guaranteed to be sorted by event.t (some parsers emit
   // out-of-order times), so we can't slice a prefix. Instead we sort a copy of
@@ -342,6 +343,8 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
 
   useEffect(function () {
     if (targetEventIndex == null) return;
+    if (handledTargetRef.current && handledTargetRef.current.index === targetEventIndex
+      && handledTargetRef.current.request === targetRequest) return;
     var targetItem = null;
     for (var i = 0; i < layout.items.length; i++) {
       if (layout.items[i].entry.index === targetEventIndex) {
@@ -350,6 +353,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
       }
     }
     if (!targetItem) return;
+    handledTargetRef.current = { index: targetEventIndex, request: targetRequest };
 
     setSelectedIndex(targetEventIndex);
     shouldFollowRef.current = false;
@@ -358,7 +362,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
       containerRef.current.scrollTop = offset;
       setScrollTop(offset);
     }
-  }, [targetEventIndex, layout.items]);
+  }, [targetEventIndex, targetRequest, layout.items]);
 
   useEffect(function () {
     if (containerRef.current && visibleEntries.length > prevCount.current && shouldFollowRef.current) {
@@ -515,6 +519,8 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
                 {turnHeader}
                 <div
                   role="button"
+                  data-event-index={entry.index}
+                  aria-pressed={isSelected}
                   tabIndex={0}
                   onClick={function () { setSelectedIndex(entry.index === selectedIndex ? null : entry.index); }}
                   onKeyDown={function (e) {

@@ -11,6 +11,11 @@
 
 import fs from "fs";
 import path from "path";
+import { createHash } from "node:crypto";
+
+export function liveBoundaryHash(bytes) {
+  return createHash("sha256").update(bytes).digest("hex").slice(0, 24);
+}
 
 function decodeProjectDir(dirName) {
   return (dirName || "").replace(/^-/, "").replace(/-/g, "/");
@@ -541,9 +546,16 @@ export function handle(pathname, req, res, ctx) {
   if (pathname === "/api/file") {
     if (!ctx.sessionFile) { res.writeHead(404); res.end("No session file"); return true; }
     try {
-      var text = fs.readFileSync(ctx.sessionFile, "utf8");
-      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-      res.end(text);
+      var bytes = fs.readFileSync(ctx.sessionFile);
+      var headers = { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" };
+      if (ctx.parsed.query.live === "1") {
+        var offset = bytes.lastIndexOf(10) + 1;
+        bytes = bytes.subarray(0, offset);
+        headers["X-Agentviz-Offset"] = String(offset);
+        headers["X-Agentviz-Cursor"] = offset + ":" + liveBoundaryHash(bytes.subarray(Math.max(0, offset - 64)));
+      }
+      res.writeHead(200, headers);
+      res.end(bytes);
     } catch (e) {
       res.writeHead(500);
       res.end(e.message);
@@ -568,6 +580,10 @@ export function handle(pathname, req, res, ctx) {
       "Connection": "keep-alive",
     });
     res.write("retry: 3000\n\n");
+    if (ctx.subscribeLive && (ctx.parsed.query.offset != null || ctx.parsed.query.cursor != null || req.headers["last-event-id"])) {
+      ctx.subscribeLive(req, res);
+      return true;
+    }
     ctx.clients.add(res);
     req.on("close", function () { ctx.clients.delete(res); });
     return true;

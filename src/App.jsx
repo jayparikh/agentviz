@@ -294,11 +294,11 @@ function AppShell({
           onExportComparison={sessionState.handleExportComparison}
           exportState={compareExport.state}
           exportError={compareExport.error}
-          onOpenSessionA={function () {
-            if (sessionState.openCompareSessionInCoach(session)) setView("coach");
+          onOpenSessionA={async function () {
+            if (await sessionState.openCompareSessionInCoach(session)) setView("coach");
           }}
-          onOpenSessionB={function () {
-            if (sessionState.openCompareSessionInCoach(sessionB)) setView("coach");
+          onOpenSessionB={async function () {
+            if (await sessionState.openCompareSessionInCoach(sessionB)) setView("coach");
           }}
         />
       </React.Suspense>

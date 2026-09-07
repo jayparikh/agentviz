@@ -935,6 +935,8 @@ New code should target the pattern above.
 
 ## 13. Error States
 
+Session loading errors stay visible in the workflow shell with `role="alert"`, `theme.semantic.errorBg`, and `theme.semantic.errorText`. Provide Retry and reimport actions; file-read errors belong next to the import controls and must allow retrying the same file. Do not navigate to Review until the requested session parses successfully or relabel retained evidence as the failed request.
+
 ### Inline Error Text
 
 ```jsx
@@ -983,6 +985,10 @@ Two variants exist:
 ---
 
 ## 14. Loading States
+
+Pending session requests use an announced `role="status"` with `theme.bg.surface` and `theme.text.secondary`. Keep Find usable while loading. Superseded requests must not navigate or replace the current session when they finish.
+
+Evidence links carry the original event index through filters and virtualized layouts. Reveal hidden targets, select the exact row, and scroll it into view once per navigation request. Equal timestamps are not event identity. Workflow changes retain playback/search state; successful session replacement resets that state.
 
 Two loading patterns exist:
 

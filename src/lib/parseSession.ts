@@ -50,7 +50,7 @@ export function parseSession(text: string): ParsedSession | null {
  * attach that text. Lets all formats expose paired Input/Output to inspectors
  * without each parser duplicating the pairing logic.
  */
-function pairToolCallsWithResults(parsed: ParsedSession): void {
+export function pairToolCallsWithResults(parsed: ParsedSession): void {
   const events = parsed.events;
   if (!events || events.length === 0) return;
 
