@@ -12,18 +12,10 @@
 import fs from "fs";
 import path from "path";
 import { createHash } from "node:crypto";
+import { discoverSessions } from "./discovery.js";
 
 export function liveBoundaryHash(bytes) {
   return createHash("sha256").update(bytes).digest("hex").slice(0, 24);
-}
-
-function decodeProjectDir(dirName) {
-  return (dirName || "").replace(/^-/, "").replace(/-/g, "/");
-}
-
-function projectLabel(dirName) {
-  var parts = decodeProjectDir(dirName).split("/").filter(Boolean);
-  return parts[parts.length - 1] || dirName;
 }
 
 export function getVSCodeStorageRoots(homeDir) {
@@ -358,157 +350,15 @@ export function handle(pathname, req, res, ctx) {
     if (req.method !== "GET") { res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" })); return true; }
 
     var homeDir = process.env.HOME || process.env.USERPROFILE || "";
-    var results = [];
-
-    // Claude Code: ~/.claude/projects/{project-dir}/{session-uuid}.jsonl
-    var claudeRoot = path.join(homeDir, ".claude", "projects");
-    try {
-      fs.readdirSync(claudeRoot).forEach(function (projectDirName) {
-        var projectPath = path.join(claudeRoot, projectDirName);
-        try {
-          if (!fs.statSync(projectPath).isDirectory()) return;
-          fs.readdirSync(projectPath).forEach(function (fname) {
-            if (!fname.endsWith(".jsonl")) return;
-            var filePath = path.join(projectPath, fname);
-            try {
-              var stat = fs.statSync(filePath);
-              results.push({ id: "claude-code:" + projectDirName + ":" + fname, path: filePath, filename: fname, project: projectLabel(projectDirName), projectDir: projectDirName, format: "claude-code", size: stat.size, mtime: stat.mtime.toISOString() });
-            } catch (e) {}
-          });
-        } catch (e) {}
-      });
-    } catch (e) {}
-
-    // Copilot CLI: ~/.copilot/session-state/{uuid}/events.jsonl
-    var copilotRoot = path.join(homeDir, ".copilot", "session-state");
-    try {
-      fs.readdirSync(copilotRoot).forEach(function (sessionDirName) {
-        var sessionDir = path.join(copilotRoot, sessionDirName);
-        var eventsFile = path.join(sessionDir, "events.jsonl");
-        try {
-          var stat = fs.statSync(eventsFile);
-          var label = sessionDirName.substring(0, 8);
-          var repo = null;
-          var branch = null;
-          var summary = null;
-          var preview = { title: null, isContinuationSummary: false };
-          try {
-            var yamlText = fs.readFileSync(path.join(sessionDir, "workspace.yaml"), "utf8");
-            var inlineMatch = yamlText.match(/^summary:\s+(?!\|-\s*$)(.+)$/m);
-            var blockMatch = yamlText.match(/^summary:\s*\|-\s*\n([ \t]+)(.+)$/m);
-            var repoMatch = yamlText.match(/^repository:\s*(.+)$/m);
-            var branchMatch = yamlText.match(/^branch:\s*(.+)$/m);
-            if (inlineMatch && inlineMatch[1].trim()) {
-              summary = inlineMatch[1].trim();
-            } else if (blockMatch && blockMatch[2].trim()) {
-              summary = blockMatch[2].trim();
-            }
-            if (repoMatch) repo = repoMatch[1].trim();
-            if (branchMatch) branch = branchMatch[1].trim();
-
-            if (summary && (
-              summary.startsWith("Analyze this") ||
-              (summary.includes("Session stats") && summary.includes("read_config"))
-            )) {
-              return; // skip AI coach subprocess sessions
-            }
-
-            if (summary) label = summary;
-          } catch (e) {}
-          if (!summary) {
-            preview = readCopilotCliSessionPreview(eventsFile, stat.size);
-            if (preview.isContinuationSummary) return;
-            if (preview.title) label = preview.title;
-          }
-          results.push({ id: "copilot-cli:" + sessionDirName + ":events.jsonl", path: eventsFile, filename: "events.jsonl", file: preview.title || "events.jsonl", project: label, projectDir: sessionDirName, sessionId: sessionDirName, repository: repo, branch: branch, summary: summary || preview.title, format: "copilot-cli", size: stat.size, mtime: stat.mtime.toISOString() });
-        } catch (e) {}
-      });
-    } catch (e) {}
-
-    // Codex: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl
-    var codexRoot = path.join(homeDir, ".codex", "sessions");
-    findCodexSessionFiles(codexRoot).forEach(function (filePath) {
-      try {
-        var stat = fs.statSync(filePath);
-        var preview = readCodexSessionPreview(filePath, stat.size);
-        var relative = path.relative(codexRoot, filePath);
-        var project = null;
-        if (preview.cwd) {
-          var cwdParts = preview.cwd.replace(/\\/g, "/").split("/").filter(Boolean);
-          project = cwdParts[cwdParts.length - 1] || null;
-        }
-        results.push({
-          id: "codex:" + relative,
-          path: filePath,
-          filename: path.basename(filePath),
-          file: preview.title || path.basename(filePath),
-          project: project || preview.title || "Codex",
-          projectDir: relative.split(path.sep).slice(0, 3).join(path.sep),
-          sessionId: preview.sessionId,
-          repository: null,
-          branch: null,
-          summary: preview.summary || preview.title,
-          format: "codex",
-          originator: preview.originator,
-          cliVersion: preview.cliVersion,
-          model: preview.model,
-          size: stat.size,
-          mtime: stat.mtime.toISOString(),
-        });
-      } catch (e) {}
+    discoverSessions(homeDir).then(function (results) {
+      if (res.destroyed) return;
+      res.writeHead(200);
+      res.end(JSON.stringify(results));
+    }).catch(function () {
+      if (res.destroyed) return;
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: "Unable to discover sessions" }));
     });
-
-    // VS Code Chat: {vscodeUserData}/workspaceStorage/*/chatSessions/*.json|*.jsonl
-    var vscodeRoots = getVSCodeStorageRoots(homeDir);
-    vscodeRoots.forEach(function (vscodeRoot) {
-      var isInsiders = vscodeRoot.includes("Code - Insiders");
-      try {
-        fs.readdirSync(vscodeRoot).forEach(function (wsId) {
-          var wsDir = path.join(vscodeRoot, wsId);
-          var chatDir = path.join(wsDir, "chatSessions");
-          try {
-            if (!fs.statSync(chatDir).isDirectory()) return;
-            // Derive project name from workspace.json folder path (once per workspace)
-            var wsProject = null;
-            try {
-              var wsJson = JSON.parse(fs.readFileSync(path.join(wsDir, "workspace.json"), "utf8"));
-              if (wsJson.folder) {
-                var decoded = decodeURIComponent(wsJson.folder.replace(/^file:\/\/\//, ""));
-                var segments = decoded.replace(/\\/g, "/").split("/").filter(Boolean);
-                wsProject = segments[segments.length - 1] || null;
-              }
-            } catch (e) {}
-            var sessionFiles = filterSessionFiles(fs.readdirSync(chatDir));
-            sessionFiles.forEach(function (fname) {
-              var filePath = path.join(chatDir, fname);
-              try {
-                var stat = fs.statSync(filePath);
-                if (stat.size < 200) return;
-                // Quick-parse for customTitle (appears near end of file)
-                var preview = readVSCodeSessionPreview(filePath, stat.size);
-                results.push({
-                  id: "vscode-chat:" + wsId + ":" + fname,
-                  path: filePath,
-                  filename: fname,
-                  file: preview.title || fname,
-                  summary: preview.title || null,
-                  project: wsProject,
-                  sessionId: preview.sessionId,
-                  format: "vscode-chat",
-                  isInsiders: isInsiders,
-                  size: stat.size,
-                  mtime: stat.mtime.toISOString(),
-                });
-              } catch (e) {}
-            });
-          } catch (e) {}
-        });
-      } catch (e) {}
-    });
-
-    results.sort(function (a, b) { return new Date(b.mtime) - new Date(a.mtime); });
-    res.writeHead(200);
-    res.end(JSON.stringify(results.slice(0, 200)));
     return true;
   }
 

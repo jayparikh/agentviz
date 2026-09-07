@@ -60,13 +60,22 @@ export function createSessionStorageId(fileName, metadata, rawText) {
   if (metadata && metadata.sessionId) {
     return (metadata.format || "session") + ":" + metadata.sessionId;
   }
+  if (metadata && metadata.sourcePath) return (metadata.format || "session") + ":source:" + metadata.sourcePath;
+  var firstRecord = (rawText || "").slice(0, 4096).split(/\r?\n/, 1)[0];
+  var recordIdentity = null;
+  try {
+    var record = JSON.parse(firstRecord);
+    recordIdentity = record.sessionId || record.uuid || null;
+  } catch {}
 
   return [
     metadata && metadata.format ? metadata.format : "session",
     metadata && metadata.repository ? metadata.repository : "",
     metadata && metadata.branch ? metadata.branch : "",
     fileName || "session.jsonl",
-    hashText(rawText),
+    // Unknown formats retain a content hash rather than merging distinct
+    // transcripts that happen to start with the same user message.
+    recordIdentity || hashText(rawText),
   ].join(":");
 }
 

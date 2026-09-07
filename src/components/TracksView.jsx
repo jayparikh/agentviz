@@ -1,253 +1,98 @@
-import { useState, useMemo } from "react";
-import { theme, AGENT_COLORS, TRACK_TYPES, alpha } from "../lib/theme.js";
+import { memo, useState, useMemo } from "react";
+import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
+import { buildTrackMarks } from "../lib/tracksLayout.js";
 import Icon from "./Icon.jsx";
 
+const Marks = memo(function Marks({ marks, info, onSelect }) {
+  return marks.map(mark => {
+    const event = mark.entries[0].event;
+    const color = mark.isError ? theme.semantic.error : info.color;
+    const label = mark.entries.length > 1 ? mark.entries.length + " events"
+      : event.agentDisplayName || event.agentName || event.toolName || event.text.substring(0, 50);
+    return <button key={mark.key} type="button" data-track-mark=""
+      title={label + (mark.entries.length > 1 ? ": click to inspect individual events" : "")}
+      onMouseEnter={() => onSelect(mark)} onClick={() => onSelect(mark)}
+      style={{ position: "absolute", left: mark.left * 100 + "%", width: mark.width * 100 + "%",
+        top: 4, bottom: 4, borderRadius: theme.radius.md, background: alpha(color, 0.4),
+        border: "1px solid " + (mark.isError ? color : "transparent"), color: theme.text.primary,
+        cursor: "pointer", padding: "0 3px", overflow: "hidden", textOverflow: "ellipsis",
+        whiteSpace: "nowrap", fontFamily: "inherit", fontSize: theme.fontSize.xs }}>
+      {label}
+    </button>;
+  });
+});
+
+const Boundaries = memo(function Boundaries({ turns, totalTime, timeMap }) {
+  // At overview scale identical pixel columns carry no additional information.
+  const columns = new Set((turns || []).slice(1).map(turn => Math.round((timeMap ? timeMap.toPosition(turn.startTime) : totalTime ? turn.startTime / totalTime : 0) * 200)));
+  return Array.from(columns).map(column => <div key={column} style={{
+    position: "absolute", left: column / 2 + "%", top: 0, bottom: 0, width: 1, background: theme.border.default,
+  }} />);
+});
+
 export default function TracksView({ currentTime, eventEntries, totalTime, timeMap, turns }) {
-  var [muted, setMuted] = useState({});
-  var [solo, setSolo] = useState(null);
-  var [hoveredEntry, setHoveredEntry] = useState(null);
-
-  function toggleMute(key) {
-    setSolo(null);
-    setMuted(function (prev) {
-      var next = Object.assign({}, prev);
-      if (next[key]) {
-        delete next[key];
-      } else {
-        next[key] = true;
-      }
-      return next;
-    });
-  }
-
-  function toggleSolo(key) {
-    setMuted({});
-    setSolo(function (prev) { return prev === key ? null : key; });
-  }
-
-  function isVisible(key) {
-    if (solo) return key === solo;
-    return !muted[key];
-  }
-
-  var playPct = timeMap ? timeMap.toPosition(currentTime) * 100 : (totalTime > 0 ? (currentTime / totalTime) * 100 : 0);
-
-  var eventsByTrack = useMemo(function () {
-    var grouped = {};
-    Object.keys(TRACK_TYPES).forEach(function (key) { grouped[key] = []; });
-
-    for (var i = 0; i < eventEntries.length; i++) {
-      var entry = eventEntries[i];
-      grouped[entry.event.track].push(entry);
-    }
-
-    return grouped;
-  }, [eventEntries]);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0, height: "100%", overflow: "auto" }}>
-      {Object.entries(TRACK_TYPES).map(function (entry) {
-        var key = entry[0];
-        var info = entry[1];
-        var trackEntries = eventsByTrack[key] || [];
-        // Hide tracks with no events (e.g., "agent" in sessions without subagents)
-        if (trackEntries.length === 0) return null;
-        var visible = isVisible(key);
-
-        return (
-          <div key={key} style={{
-            display: "flex",
-            alignItems: "stretch",
-            minHeight: 48,
-            opacity: visible ? 1 : 0.15,
-            transition: "opacity " + theme.transition.smooth,
-          }}>
-            <div style={{
-              width: 220,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "0 10px",
-              borderRight: "1px solid " + theme.border.default,
-              flexShrink: 0,
-            }}>
-              <span style={{ color: info.color, fontSize: theme.fontSize.md, display: "flex", alignItems: "center" }}><Icon name={key} size={14} /></span>
-              <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary, fontWeight: 500, whiteSpace: "nowrap" }}>{info.label}</span>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 2, alignItems: "center" }}>
-                <button
-                  type="button"
-                  onClick={function () { toggleSolo(key); }}
-                  aria-label={"Solo " + info.label + " track"}
-                  aria-pressed={solo === key}
-                  title={"Solo " + info.label + " track"}
-                  style={{
-                   background: solo === key ? info.color : "transparent",
-                   border: "1px solid " + (solo === key ? info.color : theme.border.strong),
-                   color: solo === key ? theme.bg.surface : theme.text.muted,
-                   borderRadius: theme.radius.sm,
-                   fontSize: theme.fontSize.xs,
-                   padding: "2px 6px",
-                   minWidth: 24,
-                   minHeight: 24,
-                   cursor: "pointer",
-                   fontWeight: 700,
-                   display: "inline-flex",
-                   alignItems: "center",
-                   justifyContent: "center",
-                 }}
-                >Solo</button>
-                <button
-                  type="button"
-                  onClick={function () { toggleMute(key); }}
-                  aria-label={(muted[key] ? "Unmute " : "Mute ") + info.label + " track"}
-                  aria-pressed={Boolean(muted[key])}
-                  title={(muted[key] ? "Unmute " : "Mute ") + info.label + " track"}
-                  style={{
-                   background: muted[key] ? theme.semantic.error : "transparent",
-                   border: "1px solid " + (muted[key] ? theme.semantic.error : theme.border.strong),
-                   color: muted[key] ? theme.text.primary : theme.text.muted,
-                   borderRadius: theme.radius.sm,
-                   fontSize: theme.fontSize.xs,
-                   padding: "2px 6px",
-                   minWidth: 24,
-                   minHeight: 24,
-                   cursor: "pointer",
-                   fontWeight: 700,
-                   display: "inline-flex",
-                   alignItems: "center",
-                   justifyContent: "center",
-                 }}
-                >Mute</button>
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, marginLeft: 4, minWidth: 18, textAlign: "right" }}>
-                  {trackEntries.length || ""}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ flex: 1, position: "relative", background: theme.bg.base, borderBottom: "1px solid " + theme.border.subtle }}>
-              {turns && turns.map(function (turn, ti) {
-                if (ti === 0) return null;
-                var left = timeMap ? timeMap.toPosition(turn.startTime) * 100 : (totalTime > 0 ? (turn.startTime / totalTime) * 100 : 0);
-                return (
-                  <div key={"tb-" + ti} style={{
-                    position: "absolute",
-                    left: left + "%",
-                    top: 0,
-                    bottom: 0,
-                    width: 1,
-                    background: theme.border.default,
-                    zIndex: 0,
-                  }} />
-                );
-              })}
-              {(function () {
-                // Stagger zero-duration siblings that share the exact same `t`
-                // (e.g. parallel tool_calls in one ATIF step) so they don't
-                // collapse into a single visible bar. Underlying ev.t is
-                // unchanged -- this is presentation only.
-                var clusterIndex = {};
-                return trackEntries.map(function (trackEntry) {
-                var ev = trackEntry.event;
-                var left = timeMap ? timeMap.toPosition(ev.t) * 100 : (totalTime > 0 ? (ev.t / totalTime) * 100 : 0);
-                var width = Math.max(1, timeMap ? (timeMap.toPosition(ev.t + ev.duration) - timeMap.toPosition(ev.t)) * 100 : (totalTime > 0 ? (ev.duration / totalTime) * 100 : 2));
-                if (ev.duration === 0) {
-                  var bucket = ev.t.toFixed(3);
-                  var idx = clusterIndex[bucket] || 0;
-                  clusterIndex[bucket] = idx + 1;
-                  // Shift each sibling by ~one bar-width plus a half-bar gap.
-                  left = left + idx * (width * 1.5);
-                }
-                var agentColor = AGENT_COLORS[ev.agent] || theme.text.muted;
-                var active = currentTime >= ev.t && currentTime <= ev.t + ev.duration;
-                var hovered = hoveredEntry && hoveredEntry.index === trackEntry.index;
-                var blockColor = ev.isError ? theme.semantic.error
-                  : (ev.track === "agent" && ev.agentName) ? (theme.agentType[ev.agentName] || theme.agentType.default)
-                  : info.color;
-
-                return (
-                  <div
-                    key={trackEntry.index}
-                    onMouseEnter={function () { setHoveredEntry(trackEntry); }}
-                    onMouseLeave={function () { setHoveredEntry(null); }}
-                    style={{
-                      position: "absolute",
-                      left: left + "%",
-                      width: width + "%",
-                      top: 4,
-                      bottom: 4,
-                      borderRadius: theme.radius.md,
-                      background: alpha(blockColor, 0.4),
-                      border: "1px solid " + (active || hovered ? blockColor : "transparent"),
-                      boxShadow: ev.isError ? "inset 0 0 0 1px " + alpha(theme.semantic.error, 0.38) : "none",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "0 5px",
-                      overflow: "hidden",
-                      zIndex: active ? theme.z.active : theme.z.base,
-                    }}
-                  >
-                    {ev.isError && (
-                      <span style={{ fontSize: theme.fontSize.xs, marginRight: 4, color: theme.semantic.error, display: "inline-flex", alignItems: "center" }}><Icon name="alert-circle" size={10} /></span>
-                    )}
-                    <span style={{
-                      fontSize: theme.fontSize.xs,
-                      color: ev.isError ? theme.semantic.errorText : theme.text.primary,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      opacity: active ? 1 : 0.7,
-                    }}>
-                      {ev.agentDisplayName || ev.agentName || ev.toolName || ev.text.substring(0, 50)}
-                    </span>
-                  </div>
-                );
-              });
-              })()}
-              <div style={{
-                position: "absolute",
-                left: playPct + "%",
-                top: 0,
-                bottom: 0,
-                width: 1,
-                background: theme.accent.primary,
-                zIndex: theme.z.playhead,
-                transition: "left 0.08s linear",
-              }} />
-            </div>
-          </div>
-        );
-      })}
-
-      {hoveredEntry && (function () {
-        var ev = hoveredEntry.event;
-        var info = TRACK_TYPES[ev.track];
-        return (
-          <div style={{
-            position: "fixed",
-            bottom: 80,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: theme.bg.raised,
-            border: "1px solid " + (ev.isError ? alpha(theme.semantic.error, 0.38) : theme.border.strong),
-            borderRadius: theme.radius.xl,
-            padding: "8px 14px",
-            maxWidth: 500,
-            zIndex: theme.z.modal,
-            boxShadow: theme.shadow.md,
-          }}>
-            {info && (
-              <div style={{ fontSize: theme.fontSize.base, color: ev.isError ? theme.semantic.error : info.color, marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
-                <Icon name={ev.track} size={13} /> {info.label} @ {ev.t.toFixed(1)}s
-                {ev.isError && " (ERROR)"}
-              </div>
-            )}
-            <div style={{ fontSize: theme.fontSize.base, color: ev.isError ? theme.semantic.errorText : theme.text.primary, lineHeight: 1.5, wordBreak: "break-word" }}>
-              {ev.text.substring(0, 200)}
-            </div>
-          </div>
-        );
-      })()}
-    </div>
-  );
+  const [muted, setMuted] = useState({});
+  const [solo, setSolo] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [page, setPage] = useState(0);
+  const [detail, setDetail] = useState(null);
+  const layout = useMemo(() => {
+    const grouped = {};
+    for (const entry of eventEntries) (grouped[entry.event.track] ||= []).push(entry);
+    return Object.entries(TRACK_TYPES).filter(([key]) => grouped[key]?.length).map(([key, info]) => ({
+      key, info, entries: grouped[key], marks: buildTrackMarks(grouped[key], totalTime, timeMap),
+    }));
+  }, [eventEntries, totalTime, timeMap]);
+  const select = useMemo(() => mark => { setSelected(mark); setPage(0); setDetail(mark.entries[0]); }, []);
+  const playPct = (timeMap ? timeMap.toPosition(currentTime) : totalTime ? currentTime / totalTime : 0) * 100;
+  const buttonStyle = { background: "transparent", border: "1px solid " + theme.border.strong,
+    color: theme.text.secondary, borderRadius: theme.radius.sm, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit", fontSize: theme.fontSize.xs };
+  return <div style={{ height: "100%", overflow: "auto", "--tracks-playhead": playPct + "%" }}>
+    {layout.map(({ key, info, entries, marks }) => {
+      const visible = solo ? solo === key : !muted[key];
+      const active = marks.filter(mark => mark.entries.some(({ event }) => currentTime >= event.t && currentTime <= event.t + event.duration));
+      return <div key={key} style={{ display: "flex", minHeight: 48, opacity: visible ? 1 : 0.15 }}>
+        <div style={{ width: 220, flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 10px", borderRight: "1px solid " + theme.border.default }}>
+          <Icon name={key} size={14} color={info.color} />
+          <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary }}>{info.label}</span>
+          <button type="button" aria-label={"Solo " + info.label + " track"} aria-pressed={solo === key}
+            onClick={() => { setMuted({}); setSolo(solo === key ? null : key); }} style={{ ...buttonStyle, marginLeft: "auto", background: solo === key ? alpha(info.color, 0.25) : "transparent" }}>Solo</button>
+          <button type="button" aria-label={(muted[key] ? "Unmute " : "Mute ") + info.label + " track"} aria-pressed={!!muted[key]}
+            onClick={() => { setSolo(null); setMuted(previous => ({ ...previous, [key]: !previous[key] })); }} style={buttonStyle}>Mute</button>
+          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>{entries.length}</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0, position: "relative", background: theme.bg.base, borderBottom: "1px solid " + theme.border.subtle }}>
+          <Boundaries turns={turns} totalTime={totalTime} timeMap={timeMap} />
+          <Marks marks={marks} info={info} onSelect={select} />
+          {active.map(mark => <div key={mark.key} aria-hidden="true" style={{ position: "absolute", pointerEvents: "none",
+            left: mark.left * 100 + "%", width: mark.width * 100 + "%", top: 4, bottom: 4,
+            border: "1px solid " + info.color, borderRadius: theme.radius.md }} />)}
+          <div style={{ position: "absolute", left: "var(--tracks-playhead)", top: 0, bottom: 0, width: 1, background: theme.accent.primary, pointerEvents: "none" }} />
+        </div>
+      </div>;
+    })}
+    {selected && <section aria-label="Track evidence" style={{ padding: 16, borderTop: "1px solid " + theme.border.default, color: theme.text.primary }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+        <strong style={{ fontSize: theme.fontSize.base }}>{selected.entries.length === 1 ? "Event detail" : selected.entries.length + " events in this time range"}</strong>
+        <button type="button" onClick={() => setSelected(null)} style={buttonStyle}>Close detail</button>
+      </div>
+      {selected.entries.length > 1 && <>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {selected.entries.slice(page * 50, page * 50 + 50).map(entry => <button key={entry.index} type="button"
+            onClick={() => setDetail(entry)} aria-pressed={detail?.index === entry.index} style={buttonStyle}>
+            #{entry.index + 1} · {entry.event.t.toFixed(1)}s · {entry.event.toolName || entry.event.track}
+          </button>)}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)} style={buttonStyle}>Previous events</button>
+          <span>{page + 1} / {Math.ceil(selected.entries.length / 50)}</span>
+          <button type="button" disabled={(page + 1) * 50 >= selected.entries.length} onClick={() => setPage(page + 1)} style={buttonStyle}>Next events</button>
+        </div>
+      </>}
+      {detail && <div style={{ marginTop: 12, fontSize: theme.fontSize.base, lineHeight: 1.6, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>
+        <div style={{ color: theme.text.secondary }}>Event #{detail.index + 1} · {detail.event.t.toFixed(1)}s{detail.event.isError ? " · Error" : ""}</div>
+        {detail.event.text}
+      </div>}
+    </section>}
+  </div>;
 }

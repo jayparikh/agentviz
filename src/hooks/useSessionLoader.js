@@ -4,6 +4,7 @@ import { appendLiveSessionText, createLiveSessionParser } from "../lib/liveSessi
 import { SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA, MULTIAGENT_SAMPLE_EVENTS, MULTIAGENT_SAMPLE_TOTAL, MULTIAGENT_SAMPLE_TURNS, MULTIAGENT_SAMPLE_METADATA } from "../lib/constants.js";
 import { getSessionTotal } from "../lib/session";
 import { buildAppliedSession, parseSessionText } from "../lib/sessionParsing";
+import { createLiveParserClient } from "../lib/liveParserClient";
 
 export var LIVE_NOTIFY_DEBOUNCE_MS = 250;
 
@@ -32,6 +33,7 @@ export default function useSessionLoader(options) {
   var requestIdRef = useRef(0);
   var rawTextRef = useRef("");
   var liveParserRef = useRef(createLiveSessionParser(""));
+  var liveClientRef = useRef(null);
   // Tracks the requestId that initiated the current live session. appendLines
   // checks this so stale live data from a previous session never overwrites a
   // newly-loaded file.
@@ -74,10 +76,16 @@ export default function useSessionLoader(options) {
 
   var resetLiveParser = useCallback(function (text) {
     clearLiveNotify();
-    liveParserRef.current = createLiveSessionParser(text || "");
+    if (liveClientRef.current) liveClientRef.current.dispose();
+    liveClientRef.current = null;
+    // Workers preserve batch-parser semantics without normalizing history on
+    // the UI thread. The synchronous path supports non-browser consumers.
+    liveParserRef.current = typeof Worker === "undefined" ? createLiveSessionParser(text || "") : null;
   }, [clearLiveNotify]);
 
   var cancelPendingLoad = useCallback(function () {
+    if (liveClientRef.current) liveClientRef.current.dispose();
+    liveClientRef.current = null;
     requestIdRef.current += 1;
     if (parseTimeoutRef.current) {
       clearTimeout(parseTimeoutRef.current);
@@ -125,6 +133,7 @@ export default function useSessionLoader(options) {
         }
 
         rawTextRef.current = text;
+        if (nextSourcePath) parsed.result.metadata.sourcePath = nextSourcePath;
         resetLiveParser(text);
         applySession(parsed.result, name, nextSourcePath);
         notifySessionParsed(parsed.result, name, text);
@@ -140,10 +149,33 @@ export default function useSessionLoader(options) {
   var appendLines = useCallback(function (newLines, reset) {
     if (!shouldApplyLiveLines(liveRequestIdRef.current, requestIdRef.current)) return;
 
+    if (typeof Worker !== "undefined") {
+      if (!liveClientRef.current) {
+        var requestId = requestIdRef.current;
+        liveClientRef.current = createLiveParserClient(
+          new Worker(new URL("../lib/liveSessionWorker.ts", import.meta.url), { type: "module" }),
+          rawTextRef.current,
+          function (updated) {
+            if (requestId !== requestIdRef.current) return;
+            if (updated.result && sourcePath) updated.result.metadata.sourcePath = sourcePath;
+            rawTextRef.current = updated.rawText;
+            setEvents(updated.result ? updated.result.events : null);
+            setTurns(updated.result ? updated.result.turns : []);
+            setMetadata(updated.result ? updated.result.metadata : null);
+            setTotal(updated.result ? getSessionTotal(updated.result.events) : 0);
+            if (updated.result) notifyLiveSessionParsed(updated.result, file || "live-session.jsonl", updated.rawText);
+          },
+          function (message) { if (requestId === requestIdRef.current) setError(message); },
+        );
+      }
+      liveClientRef.current.append(newLines, reset);
+      return;
+    }
     if (reset) resetLiveParser("");
     var updated = appendLiveSessionText(liveParserRef.current, newLines);
     liveParserRef.current = updated.state;
     rawTextRef.current = updated.state.rawText;
+    if (updated.result && sourcePath) updated.result.metadata.sourcePath = sourcePath;
 
     if (!updated.result) {
       if (reset) {
@@ -160,7 +192,7 @@ export default function useSessionLoader(options) {
     setMetadata(updated.result.metadata);
     setTotal(getSessionTotal(updated.result.events));
     notifyLiveSessionParsed(updated.result, file || "live-session.jsonl", updated.state.rawText);
-  }, [file, notifyLiveSessionParsed, resetLiveParser]);
+  }, [file, sourcePath, notifyLiveSessionParsed, resetLiveParser]);
 
   var loadSample = useCallback(function (mode) {
     cancelPendingLoad();
@@ -227,6 +259,7 @@ export default function useSessionLoader(options) {
             setLoading(false);
             if (!parsed.result && !meta.live) { setError(parsed.error); return; }
             rawTextRef.current = text;
+            if (parsed.result && meta.path) parsed.result.metadata.sourcePath = meta.path;
             resetLiveParser(text);
             requestIdRef.current += 1;
             if (meta.live) {

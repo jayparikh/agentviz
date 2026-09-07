@@ -263,6 +263,10 @@ Investigate wraps the chronological replay stream with search, next/previous mat
 
 ### Analyze: Tracks
 
+Tracks memoizes static geometry and groups dense overviews into at most 200 marks per lane. Select a group to inspect every original event in pages of 50; error groups remain marked and the playhead updates independently.
+
+Live streams normalize in a dedicated worker with one in-flight batch and coalesced appends. JSON decoding and VS Code patch application are incremental; normalized output is still rebuilt for full batch-parser parity (including cross-record usage and tool pairing). Result transfer and rendering still scale with session size. Discovery uses asynchronous, eight-operation traversal, newest-first enrichment, and a bounded path/mtime/size preview cache, including companion metadata invalidation.
+
 DAW-style multi-track lanes for Reasoning, Tool calls, Context, and Output. **Solo** isolates one track. **Mute** hides it. See at a glance how your agent's time was spent.
 
 <div align="center">
@@ -501,6 +505,7 @@ src/
     DebriefView.jsx      # AI Coach panel with cached analysis (lazy-loaded)
     ReplayView.jsx       # Windowed event stream + inspector sidebar
     TracksView.jsx       # DAW-style multi-track timeline
+    # Tracks geometry is bounded by src/lib/tracksLayout.js.
     WaterfallView.jsx    # Tool execution waterfall with nesting and inspector
     GraphView.jsx        # Interactive turn graph with expandable tool-call nodes (lazy-loaded)
     StatsView.jsx        # Aggregate metrics, tool ranking, turn summary

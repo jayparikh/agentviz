@@ -43,6 +43,9 @@ src/
     vscodeSessionParser.ts # parseVSCodeChatJSON() - VS Code Copilot Chat JSON parser
     atifParser.ts       # parseAtifJSON() - ATIF / Harbor trajectory JSON parser (schema_version ATIF-v1.6)
     liveSessionParser.ts # Incremental live JSONL parser for appended session text
+    liveSessionWorker.ts # Off-main-thread normalization with batch-parser parity
+    liveParserClient.js # Single-flight worker backpressure, reset and disposal
+    tracksLayout.js     # Bounded overview groups retaining original evidence indices
     parseSession.ts    # Auto-detect format router: detectFormat() + parseSession()
     session.ts         # Pure helpers: getSessionTotal, buildFilteredEventEntries, buildTurnStartMap
     sessionLibrary.js  # localStorage-backed session library with content persistence
@@ -97,6 +100,7 @@ src/
     v2/                # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner
     waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
+  discovery.js       # Async traversal, newest-first enrichment and bounded preview cache
   sessions.js        # Session discovery, file serving, SSE streaming
   ai.js              # Coach analysis, Q&A, model info (SSE streaming)
   config.js          # Project config surface detection, file preview, apply
@@ -144,6 +148,9 @@ Vite proxies `/api/*` to the backend automatically.
 Run `npx playwright install chromium` once before the first browser test run.
 
 ## Conventions
+- Live parsing decodes new records and applies new VS Code patches incrementally; full normalization remains in a single-flight worker, not on the UI thread. Do not describe normalized output as incremental.
+- Tracks overview geometry is memoized and capped at 200 groups per lane, with every original event reachable through paginated detail.
+- Claude metadata preserves explicit sessionId, so appended snapshots update one library entry.
 - Evidence navigation carries original event indices, not just timestamps. Palette seeks retain their timestamp argument for Classic compatibility and add event identity as the second argument.
 - V2 zones share one PlaybackProvider keyed by successful session replacement, not request start or live event updates. Consume explicit navigation targets once per request, not on every session-object render.
 - Session opens resolve to success only after parsing. Preserve the previous events and raw text on failure, and ignore superseded async requests.

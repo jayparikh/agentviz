@@ -8,6 +8,8 @@
 
 ## Design Philosophy
 
+Tracks scaling: static lane geometry is memoized independently of playback. Dense overviews use at most 200 groups per lane. A group retains error state and opens paginated individual evidence, never discards events. Detail is a persistent inline region rather than a hover-only tooltip.
+
 AGENTVIZ follows a "quiet power tool" aesthetic inspired by Linear, Raycast, and Vercel.
 The interface should feel fast, focused, and information-dense without ever feeling cluttered.
 
