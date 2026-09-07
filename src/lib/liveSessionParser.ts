@@ -1,20 +1,13 @@
-import { detectFormat, parseSession, pairToolCallsWithResults } from "./parseSession";
-import { parseCopilotCliRecords } from "./copilotCliParser";
-import { parseClaudeCodeRecords } from "./parser";
-import { detectCodexRecords, parseCodexRecords } from "./codexParser";
-import {
-  applyVSCodeJsonlPatch,
-  parseVSCodeChatSession,
-  type VSCodeSession,
-} from "./vscodeSessionParser";
+import { detectFormat, parseSession } from "./parseSession";
+import { detectCodexRecords } from "./codexParser";
+import { LiveClaudeNormalizer } from "./liveClaudeNormalizer";
+import { LiveCopilotNormalizer } from "./liveCopilotNormalizer";
+import { LiveCodexNormalizer } from "./liveCodexNormalizer";
+import { LiveVSCodeNormalizer } from "./liveVSCodeNormalizer";
+import type { LiveNormalizer, NormalizationWork } from "./liveNormalization";
 import type { ParsedSession, SessionFormat } from "./sessionTypes";
 
 type RawRecord = Record<string, any>;
-
-interface ParseIssues {
-  malformedLines: number;
-  invalidEvents: number;
-}
 
 export interface LiveSessionParserState {
   rawText: string;
@@ -26,7 +19,9 @@ export interface LiveSessionParserState {
   format: SessionFormat | null;
   result: ParsedSession | null;
   records: RawRecord[];
-  vscodeSession: VSCodeSession | null;
+  normalizer: LiveNormalizer | null;
+  normalizationWork: NormalizationWork;
+  snapshot: boolean;
   initialFullParseCount: number;
   fallbackFullParseCount: number;
 }
@@ -36,7 +31,7 @@ export interface LiveSessionParserUpdate {
   result: ParsedSession | null;
 }
 
-function createEmptyState(): LiveSessionParserState {
+function createEmptyState(snapshot = true): LiveSessionParserState {
   return {
     rawText: "",
     pendingText: "",
@@ -47,14 +42,12 @@ function createEmptyState(): LiveSessionParserState {
     format: null,
     result: null,
     records: [],
-    vscodeSession: null,
+    normalizer: null,
+    normalizationWork: { records: 0, events: 0, turns: 0 },
+    snapshot,
     initialFullParseCount: 0,
     fallbackFullParseCount: 0,
   };
-}
-
-function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
 }
 
 function appendRawText(previous: string, next: string): string {
@@ -144,47 +137,12 @@ function detectFormatFromRecords(records: RawRecord[]): SessionFormat | null {
   return detectExplicitFormatFromRecords(records) || (records.length > 0 ? "claude-code" : null);
 }
 
-function createIssues(malformedLineCount: number): ParseIssues {
-  return { malformedLines: malformedLineCount, invalidEvents: 0 };
-}
-
-function buildVSCodeSession(records: RawRecord[], existingSession: VSCodeSession | null): VSCodeSession | null {
-  let session = existingSession;
-
-  for (let index = 0; index < records.length; index += 1) {
-    const record = records[index];
-    if (isVSCodeBase(record)) {
-      session = cloneJson(record.v);
-    } else if (session) {
-      applyVSCodeJsonlPatch(session, record);
-    }
-  }
-
-  return session;
-}
-
-function deriveResult(
-  format: SessionFormat | null,
-  records: RawRecord[],
-  malformedLineCount: number,
-  vscodeSession: VSCodeSession | null,
-  appendedRecords?: RawRecord[],
-): { result: ParsedSession | null; vscodeSession: VSCodeSession | null } {
-  if (!format) return { result: null, vscodeSession };
-  if (format === "codex") {
-    return { result: parseCodexRecords(records, malformedLineCount), vscodeSession };
-  }
-  if (format === "copilot-cli") {
-    return { result: parseCopilotCliRecords(records, malformedLineCount), vscodeSession };
-  }
-  if (format === "vscode-chat") {
-    const session = buildVSCodeSession(appendedRecords || records, appendedRecords && vscodeSession ? cloneJson(vscodeSession) : null);
-    return { result: session ? parseVSCodeChatSession(session) : null, vscodeSession: session };
-  }
-  return {
-    result: parseClaudeCodeRecords(records, createIssues(malformedLineCount)),
-    vscodeSession,
-  };
+function createNormalizer(format: SessionFormat | null): LiveNormalizer | null {
+  if (format === "codex") return new LiveCodexNormalizer();
+  if (format === "copilot-cli") return new LiveCopilotNormalizer();
+  if (format === "vscode-chat") return new LiveVSCodeNormalizer();
+  if (format === "claude-code") return new LiveClaudeNormalizer();
+  return null;
 }
 
 function detectPlainVSCodeJson(text: string): boolean {
@@ -206,13 +164,15 @@ function rebuildStateFromRawText(
   rawText: string,
   initialFullParseCount: number,
   fallbackFullParseCount: number,
+  snapshot = true,
 ): LiveSessionParserState {
   const split = splitCompleteLines(rawText);
   const parsed = parseLines(split.lines);
-  const format = detectFormatFromRecords(parsed.records) || (rawText.trim() ? detectFormat(rawText) : null);
-  const derived = deriveResult(format, parsed.records, parsed.malformedLines, null);
-  const result = derived.result || (rawText.trim() ? parseSession(rawText) : null);
-  if (result) pairToolCallsWithResults(result);
+  const plain = detectPlainVSCodeJson(rawText);
+  if (plain) parsed.records = [JSON.parse(rawText)];
+  const format = plain ? "vscode-chat" : detectFormatFromRecords(parsed.records.slice(0, 8)) || (rawText.trim() ? detectFormat(rawText) : null);
+  const normalizer = createNormalizer(format);
+  const result = normalizer?.append(parsed.records, parsed.malformedLines) || (rawText.trim() ? parseSession(rawText) : null);
 
   return {
     rawText,
@@ -222,18 +182,20 @@ function rebuildStateFromRawText(
     malformedLineCount: parsed.malformedLines,
     lastAppendParsedLineCount: 0,
     format,
-    result,
+    result: snapshot && result ? structuredClone(result) : result,
     records: parsed.records,
-    vscodeSession: derived.vscodeSession,
+    normalizer,
+    normalizationWork: normalizer?.work || { records: 0, events: 0, turns: 0 },
+    snapshot,
     initialFullParseCount,
     fallbackFullParseCount,
   };
 }
 
-export function createLiveSessionParser(initialText: string): LiveSessionParserState {
-  if (!initialText.trim()) return createEmptyState();
+export function createLiveSessionParser(initialText: string, options: { snapshot?: boolean } = {}): LiveSessionParserState {
+  if (!initialText.trim()) return createEmptyState(options.snapshot);
 
-  const state = rebuildStateFromRawText(initialText, detectPlainVSCodeJson(initialText) ? 1 : 0, 0);
+  const state = rebuildStateFromRawText(initialText, detectPlainVSCodeJson(initialText) ? 1 : 0, 0, options.snapshot);
   if (!state.result && detectPlainVSCodeJson(initialText)) {
     return { ...state, result: parseSession(initialText), format: "vscode-chat" };
   }
@@ -250,22 +212,27 @@ export function appendLiveSessionText(
   const split = splitCompleteLines(previous.pendingText + newText);
   const parsed = parseLines(split.lines);
   const incomingFormat = detectExplicitFormatFromRecords(parsed.records);
+  const prefixFormat = detectFormatFromRecords(previous.records.slice(0, 8).concat(parsed.records.slice(0, Math.max(0, 8 - previous.records.length))));
 
-  if (previous.format && incomingFormat && incomingFormat !== previous.format) {
+  if (previous.format && ((incomingFormat && incomingFormat !== previous.format) || (prefixFormat && prefixFormat !== previous.format))) {
     const fallbackState = rebuildStateFromRawText(
       rawText,
       previous.initialFullParseCount,
       previous.fallbackFullParseCount + 1,
+      previous.snapshot,
     );
     return { state: fallbackState, result: fallbackState.result };
   }
 
-  const format = previous.format || incomingFormat || detectFormatFromRecords(parsed.records);
-  const records = previous.records.concat(parsed.records);
+  const format = previous.format || prefixFormat || incomingFormat || detectFormatFromRecords(parsed.records);
+  const records = previous.records;
+  for (const record of parsed.records) records.push(record);
   const malformedLineCount = previous.malformedLineCount + parsed.malformedLines;
-  const derived = deriveResult(format, records, malformedLineCount, previous.vscodeSession, parsed.records);
-  const result = derived.result || previous.result;
-  if (result) pairToolCallsWithResults(result);
+  const normalizer = previous.normalizer || createNormalizer(format);
+  const normalized = normalizer?.append(parsed.records, malformedLineCount) || null;
+  // Normalization retains mutable state. Publication is a separate O(history)
+  // snapshot cost; workers omit this copy because postMessage already clones.
+  const result = previous.snapshot && normalized ? structuredClone(normalized) : normalized;
 
   const state: LiveSessionParserState = {
     rawText,
@@ -277,7 +244,9 @@ export function appendLiveSessionText(
     format,
     result,
     records,
-    vscodeSession: derived.vscodeSession,
+    normalizer,
+    normalizationWork: normalizer?.work || { records: 0, events: 0, turns: 0 },
+    snapshot: previous.snapshot,
     initialFullParseCount: previous.initialFullParseCount,
     fallbackFullParseCount: previous.fallbackFullParseCount,
   };

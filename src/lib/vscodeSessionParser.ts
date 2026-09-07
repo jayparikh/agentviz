@@ -333,7 +333,7 @@ function mapResponsePart(
 
 // ── Timeline builder ─────────────────────────────────────────────────────────
 
-function buildTimeline(session: VSCodeSession): {
+function buildTimeline(session: VSCodeSession, previousEvent?: NormalizedEvent): {
   events: NormalizedEvent[];
   turns: SessionTurn[];
 } {
@@ -410,8 +410,9 @@ function buildTimeline(session: VSCodeSession): {
       }
 
       // Minimum event spacing
-      if (events.length > 0 && eventTime <= events[events.length - 1].t) {
-        eventTime = events[events.length - 1].t + 0.1;
+      const previous = events[events.length - 1] || previousEvent;
+      if (previous && eventTime <= previous.t) {
+        eventTime = previous.t + 0.1;
       }
 
       const mapped = mapResponsePart(part, eventTime, model);
@@ -512,6 +513,7 @@ export function parseVSCodeChatJSON(text: string): ParsedSession | null {
     } else {
       session = parsed;
     }
+
   } catch {
     // Try unwrap from JSONL wrapper
     session = unwrapJsonl(text);
@@ -520,3 +522,5 @@ export function parseVSCodeChatJSON(text: string): ParsedSession | null {
   if (!session) return null;
   return parseVSCodeChatSession(session);
 }
+
+export const vscodeLive = { buildTimeline, buildMetadata, isVSCodeSession, mapResponsePart };

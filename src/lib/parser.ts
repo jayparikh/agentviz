@@ -712,7 +712,7 @@ export function parseClaudeCodeRecords(rawRecords: RawRecord[], issues?: ParseIs
 }
 
 export function parseClaudeCodeJSONL(text: string): ParsedSession | null {
-  const lines = text.trim().split("\n").filter(Boolean);
+  const lines = text.trim().split("\n").filter(line => line.trim().length > 0);
   const rawRecords: RawRecord[] = [];
   const issues = createParseIssues();
 
@@ -726,3 +726,8 @@ export function parseClaudeCodeJSONL(text: string): ParsedSession | null {
 
   return parseClaudeCodeRecords(rawRecords, issues);
 }
+
+export const claudeLive = {
+  extractTimestamp, extractUsage, getUsageDedupKey, mergeTokenUsage,
+  extractEventsFromRecord, buildWarnings,
+};

@@ -69,6 +69,21 @@ describe("session load completion", () => {
       });
       expect(loader.events[0].text).toBe("replacement evidence");
       expect(sources).toHaveLength(1);
+      const vscode = JSON.stringify({ kind: 0, v: {
+        version: 3, sessionId: "patch-delete", requests: [{ message: { text: "remove me" }, response: [] }],
+      } });
+      await act(async () => {
+        sources[0].onmessage({ data: JSON.stringify({ lines: vscode, reset: true }) });
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      expect(loader.events).toHaveLength(1);
+      await act(async () => {
+        sources[0].onmessage({ data: JSON.stringify({ lines: JSON.stringify({ kind: 1, k: ["requests"], v: [] }) }) });
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      expect(loader.events).toBeNull();
+      expect(loader.turns).toEqual([]);
+      expect(loader.metadata).toBeNull();
     } finally {
       await act(async () => root.unmount());
       vi.useRealTimers();

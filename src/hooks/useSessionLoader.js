@@ -178,12 +178,10 @@ export default function useSessionLoader(options) {
     if (updated.result && sourcePath) updated.result.metadata.sourcePath = sourcePath;
 
     if (!updated.result) {
-      if (reset) {
-        setEvents(null);
-        setTurns([]);
-        setMetadata(null);
-        setTotal(0);
-      }
+      setEvents(null);
+      setTurns([]);
+      setMetadata(null);
+      setTotal(0);
       return;
     }
 

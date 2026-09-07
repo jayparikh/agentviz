@@ -194,19 +194,23 @@ function attachReasoningEffort(events: NormalizedEvent[], records: RawRecord[], 
   }
 }
 
-function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, toolPairs: ToolPairs): NormalizedEvent[] {
+function buildNormalizedEvents(records: RawRecord[], sessionStartSec: number, toolPairs: ToolPairs, retained?: {
+  taskToolMap: Record<string, { agentType: string; description: string }>;
+  subagentStartTimes: Record<string, number>;
+  subagentLifecycle: Record<string, { agentName?: string; agentDisplayName?: string }>;
+}): NormalizedEvent[] {
   const events: NormalizedEvent[] = [];
   const seenToolStarts: Record<string, boolean> = {};
 
   // Build a map of task tool calls to their agent metadata
-  const taskToolMap: Record<string, { agentType: string; description: string }> = {};
-  const subagentStartTimes: Record<string, number> = {};
+  const taskToolMap: Record<string, { agentType: string; description: string }> = retained?.taskToolMap || {};
+  const subagentStartTimes: Record<string, number> = retained?.subagentStartTimes || {};
   // Lifecycle metadata from subagent.started events (preferred for display names)
-  const subagentLifecycle: Record<string, { agentName?: string; agentDisplayName?: string }> = {};
+  const subagentLifecycle: Record<string, { agentName?: string; agentDisplayName?: string }> = retained?.subagentLifecycle || {};
 
   // First pass: build taskToolMap from task tool execution_start events,
   // collect subagent.started timestamps and lifecycle metadata
-  for (let index = 0; index < records.length; index += 1) {
+  for (let index = 0; !retained && index < records.length; index += 1) {
     const record = records[index];
     const data = record.data || {};
 
@@ -641,6 +645,7 @@ function buildMetadata(
   events: NormalizedEvent[],
   turns: SessionTurn[],
   malformedLines: number,
+  summary?: { models: Record<string, number>; totalToolCalls: number; errorCount: number; duration: number },
 ): SessionMetadata {
   let sessionStart: Record<string, any> | null = null;
   let sessionResume: Record<string, any> | null = null;
@@ -653,9 +658,9 @@ function buildMetadata(
   }
 
   const sessionInfo = sessionStart || sessionResume;
-  let totalToolCalls = 0;
-  let errorCount = 0;
-  const models: Record<string, number> = {};
+  let totalToolCalls = summary?.totalToolCalls || 0;
+  let errorCount = summary?.errorCount || 0;
+  const models: Record<string, number> = { ...summary?.models };
 
   for (let index = 0; index < events.length; index += 1) {
     if (events[index].track === "tool_call") totalToolCalls += 1;
@@ -724,7 +729,7 @@ function buildMetadata(
   const reasoningEfforts = getReasoningEffortHistory(records);
   const reasoningEffort = getCurrentReasoningEffort(records);
 
-  const duration = getSessionTotal(events);
+  const duration = summary?.duration ?? getSessionTotal(events);
 
   const warnings: string[] = [];
   if (malformedLines > 0) warnings.push(malformedLines + " malformed line(s) skipped");
@@ -777,6 +782,7 @@ function buildMetadata(
 }
 
 export function detectCopilotCli(text: string): boolean {
+  text = text.trimStart();
   const firstNewline = text.indexOf("\n");
   const firstLine = firstNewline > 0 ? text.substring(0, firstNewline) : text;
 
@@ -825,3 +831,5 @@ export function parseCopilotCliJSONL(text: string): ParsedSession | null {
   const parsed = parseRawRecords(text);
   return parseCopilotCliRecords(parsed.records, parsed.malformedLines);
 }
+
+export const copilotLive = { parseTimestamp, buildNormalizedEvents, buildMetadata, getReasoningEffort };

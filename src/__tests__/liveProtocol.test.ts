@@ -31,6 +31,44 @@ function nextPayload(port: number, offset: string | null, connected: () => void,
 }
 
 describe("live snapshot and actual SSE contract", () => {
+  for (const format of ["test-claude-code.jsonl", "test-copilot.jsonl", "test-codex.jsonl", "test-vscode-chat.json"]) {
+    it(`${format}: actual SSE append and truncation reset match the batch oracle`, async () => {
+      const fixture = fs.readFileSync(path.join(__dirname, "fixtures", format), "utf8");
+      const lines = format.endsWith(".json")
+        ? [
+          JSON.stringify({ kind: 0, v: JSON.parse(fixture) }),
+          JSON.stringify({ kind: 1, k: ["customTitle"], v: "Streamed title" }),
+          JSON.stringify({ kind: 1, k: ["requests", 0, "message", "text"], v: "Streamed user text" }),
+        ]
+        : fixture.trim().split("\n");
+      const directory = fs.mkdtempSync(path.join(process.cwd(), ".live-protocol-"));
+      const file = path.join(directory, "session.jsonl");
+      fs.writeFileSync(file, lines[0] + "\n");
+      const server = createServer({ sessionFile: file, distDir: directory });
+      try {
+        await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+        const port = (server.address() as any).port;
+        const response = await fetch(`http://127.0.0.1:${port}/api/file?live=1`);
+        let state = createLiveSessionParser(await response.text());
+        let cursor = response.headers.get("X-Agentviz-Cursor");
+        for (const line of lines.slice(1)) {
+          const payload = await nextPayload(port, cursor, () => fs.appendFileSync(file, line + "\n"));
+          state = appendLiveSessionText(state, payload.lines).state;
+          cursor = payload.cursor;
+          expect(state.result).toEqual(parseSession(state.rawText));
+        }
+        fs.writeFileSync(file, lines[0] + "\n");
+        const payload = await nextPayload(port, cursor, () => {});
+        expect(payload.reset).toBe(true);
+        state = appendLiveSessionText(createLiveSessionParser(""), payload.lines).state;
+        expect(state.result).toEqual(parseSession(lines[0]));
+      } finally {
+        await new Promise<void>(resolve => server.close(() => resolve()));
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    });
+  }
+
   it("catches appends before subscription, resumes after disconnect, and resets after replacement", async () => {
     const directory = fs.mkdtempSync(path.join(process.cwd(), ".live-protocol-"));
     const file = path.join(directory, "session.jsonl");
