@@ -43,6 +43,11 @@ src/
     vscodeSessionParser.ts # parseVSCodeChatJSON() - VS Code Copilot Chat JSON parser
     atifParser.ts       # parseAtifJSON() - ATIF / Harbor trajectory JSON parser (schema_version ATIF-v1.6)
     liveSessionParser.ts # Incremental live JSONL parser for appended session text
+    liveNormalization.ts # Indexed aggregates, tool pairing, and affected-turn helpers
+    liveClaudeNormalizer.ts # Retained timestamps, cumulative usage, and duration boundaries
+    liveCopilotNormalizer.ts # Indexed tool/lifecycle dependencies and turn aggregates
+    liveCodexNormalizer.ts # Stateful emission, cumulative usage, and indexed turns
+    liveVSCodeNormalizer.ts # Owned patch tree with request and response-part caches
     liveSessionWorker.ts # Off-main-thread normalization with batch-parser parity
     liveParserClient.js # Single-flight worker backpressure, reset and disposal
     tracksLayout.js     # Bounded overview groups retaining original evidence indices
@@ -155,7 +160,8 @@ Run `npx playwright install chromium` once before the first browser test run.
 - Replay observes pane width and remeasures virtual rows; compact layouts stack. Separators support pointer capture, keyboard arrows/Home/End and restore body styles on cancellation.
 - Graph uses one tab stop with active-descendant tree navigation; Tracks uses one per lane and retains every event in persistent paginated detail.
 - Empty Find keeps real-session import primary and omits empty metrics.
-- Live parsing decodes new records and applies new VS Code patches incrementally; full normalization remains in a single-flight worker, not on the UI thread. Do not describe normalized output as incremental.
+- Live JSONL normalization retains format-specific state. Ordinary appends process new/affected records, not history; late tool completions update indexed aggregates without removing/reinserting unchanged turn membership. Batch parsers remain the parity oracle. See `docs/live-normalization.md` for invalidation boundaries and measurements.
+- Live parser state is a single-owner mutable accumulator. Published results are independent snapshots by default; only the worker uses `snapshot: false` because `postMessage` clones the result. Full snapshot copying, raw-text transfer, and rendering are still O(history), separate from normalization.
 - Tracks overview geometry is memoized and capped at 200 groups per lane, with every original event reachable through paginated detail.
 - Claude metadata preserves explicit sessionId, so appended snapshots update one library entry.
 - Evidence navigation carries original event indices, not just timestamps. Palette seeks retain their timestamp argument for Classic compatibility and add event identity as the second argument.

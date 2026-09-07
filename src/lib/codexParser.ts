@@ -43,6 +43,7 @@ type ParseState = {
   currentModel: string | null;
   turnContexts: Record<string, CodexTurnContext>;
   turns: Record<string, CodexTurnLifecycle>;
+  turnCount?: number;
 };
 
 type ParsedRecords = {
@@ -248,6 +249,7 @@ function getEventTime(record: RawRecord, fallback: number): number {
 function ensureTurn(state: ParseState, turnId: string, startTime: number): CodexTurnLifecycle {
   if (!state.turns[turnId]) {
     state.turns[turnId] = { id: turnId, startTime, endTime: null, userMessage: null };
+    if (state.turnCount !== undefined) state.turnCount++;
   }
   return state.turns[turnId];
 }
@@ -383,7 +385,7 @@ function handleEventMessage(record: RawRecord, state: ParseState, events: Normal
   const payloadType = payload.type;
 
   if (payloadType === "task_started") {
-    const turnId = typeof payload.turn_id === "string" ? payload.turn_id : "turn-" + Object.keys(state.turns).length;
+    const turnId = typeof payload.turn_id === "string" ? payload.turn_id : "turn-" + (state.turnCount ?? Object.keys(state.turns).length);
     state.currentTurnId = turnId;
     ensureTurn(state, turnId, parseTimestamp(payload.started_at) || t);
     return;
@@ -588,10 +590,12 @@ function getLastTokenUsage(records: RawRecord[], warnings: string[]): TokenUsage
   return usage;
 }
 
-function buildMetadata(records: RawRecord[], events: NormalizedEvent[], turns: SessionTurn[], state: ParseState, malformedLines: number, warnings: string[]): SessionMetadata {
+function buildMetadata(records: RawRecord[], events: NormalizedEvent[], turns: SessionTurn[], state: ParseState, malformedLines: number, warnings: string[], summary?: {
+  models: Record<string, number>; totalToolCalls: number; errorCount: number; duration: number;
+}): SessionMetadata {
   const meta = getSessionMeta(records);
   const tokenUsage = getLastTokenUsage(records, warnings);
-  const models: Record<string, number> = {};
+  const models: Record<string, number> = { ...summary?.models };
   Object.keys(state.turnContexts).forEach(function (turnId) {
     const model = state.turnContexts[turnId].model;
     if (model) models[model] = (models[model] || 0) + 1;
@@ -606,9 +610,9 @@ function buildMetadata(records: RawRecord[], events: NormalizedEvent[], turns: S
   return {
     totalEvents: events.length,
     totalTurns: turns.length,
-    totalToolCalls: events.filter(function (event) { return event.track === "tool_call"; }).length,
-    errorCount: events.filter(function (event) { return event.isError; }).length,
-    duration: getSessionTotal(events),
+    totalToolCalls: summary?.totalToolCalls ?? events.filter(function (event) { return event.track === "tool_call"; }).length,
+    errorCount: summary?.errorCount ?? events.filter(function (event) { return event.isError; }).length,
+    duration: summary?.duration ?? getSessionTotal(events),
     models,
     primaryModel: modelEntries.length > 0 ? modelEntries[0][0] : null,
     tokenUsage,
@@ -646,3 +650,9 @@ export function parseCodexJSONL(text: string): ParsedSession | null {
   const parsed = parseRecords(text);
   return parseCodexRecords(parsed.records, parsed.malformedLines);
 }
+
+export const codexLive = {
+  getEventTime, updateTurnContext, handleEventMessage, pushMessageEvent,
+  pushReasoningEvent, pushToolCallEvent, pushToolOutputEvent, getWebSearchQuery,
+  buildMetadata, isRecord,
+};

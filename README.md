@@ -269,7 +269,7 @@ Evidence controls support keyboard and touch: Tracks uses one tab stop per lane 
 
 The header's explicit **Reading density** preference switches between normal and comfortable evidence text and spacing without enlarging all dashboard surfaces. Both themes now use readable small-text tokens (at least 4.5:1 on neutral surfaces). Empty Find prioritizes importing a real JSON/JSONL session; demos remain secondary.
 
-Live streams normalize in a dedicated worker with one in-flight batch and coalesced appends. JSON decoding and VS Code patch application are incremental; normalized output is still rebuilt for full batch-parser parity (including cross-record usage and tool pairing). Result transfer and rendering still scale with session size. Discovery uses asynchronous, eight-operation traversal, newest-first enrichment, and a bounded path/mtime/size preview cache, including companion metadata invalidation.
+Live streams normalize incrementally in a dedicated worker with one in-flight batch and coalesced appends. Claude Code, Copilot CLI, Codex, and VS Code JSONL retain normalization state and update new or affected records, including earlier tool results, cumulative usage, and lifecycle metadata. Ordinary appends do not traverse historical records or rebuild historical turns. Timestamp rebases and structural edits update the affected timeline; snapshot copying, worker transfer, and rendering still scale with session size. See [live normalization contracts and measurements](docs/live-normalization.md). Discovery uses asynchronous, eight-operation traversal, newest-first enrichment, and a bounded path/mtime/size preview cache, including companion metadata invalidation.
 
 Discovery preview reads are asynchronous and capped at 128 KiB (Codex), 64 KiB (CLI), or 2 KiB head plus tail (VS Code). Deep evidence jumps keep the selected row in view while measured heights settle, then yield to manual scrolling.
 
@@ -474,7 +474,12 @@ src/
     copilotCostParser.ts # Copilot prompt export JSON parser for token/cost analysis
     vscodeSessionParser.ts # VS Code Copilot Chat JSON parser
     atifParser.ts        # ATIF / Harbor trajectory JSON parser
-    liveSessionParser.ts # Incremental records and patches, parity-preserving normalization
+    liveSessionParser.ts # Incremental records, retained normalizers, immutable publication
+    liveNormalization.ts # Indexed aggregates, tool pairing, and affected-turn helpers
+    liveClaudeNormalizer.ts # Timestamp, cumulative usage, and boundary-duration state
+    liveCopilotNormalizer.ts # Indexed tool/lifecycle dependencies and turn aggregates
+    liveCodexNormalizer.ts # Stateful emission, cumulative usage, and indexed turns
+    liveVSCodeNormalizer.ts # Owned patch tree, request caches, and local part updates
     liveSessionWorker.ts # Off-main-thread live normalization
     liveParserClient.js  # Single-flight worker, coalescing, resets and disposal
     tracksLayout.js      # Bounded overview geometry retaining original evidence
