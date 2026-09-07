@@ -102,6 +102,15 @@ export function extractVSCodeSessionId(snippet) {
   return extractJSONFieldValue(snippet, "sessionId", 200);
 }
 
+export function parseVSCodePreview(headSnippet, tailSnippet) {
+  var requestsIdx = headSnippet.indexOf('"requests"');
+  var sessionIdSnippet = requestsIdx > 0 ? headSnippet.slice(0, requestsIdx) : headSnippet.slice(0, 512);
+  return {
+    sessionId: extractVSCodeSessionId(sessionIdSnippet),
+    title: extractVSCodeCustomTitle(headSnippet + "\n" + tailSnippet),
+  };
+}
+
 export function readVSCodeSessionPreview(filePath, fileSize) {
   var fd = null;
   try {
@@ -113,19 +122,7 @@ export function readVSCodeSessionPreview(filePath, fileSize) {
     fs.readSync(fd, headBuf, 0, headSize, 0);
     fs.readSync(fd, tailBuf, 0, tailSize, Math.max(0, fileSize - tailSize));
 
-    var headSnippet = headBuf.toString("utf8");
-    var tailSnippet = tailBuf.toString("utf8");
-    var combinedSnippet = fileSize <= headSize ? headSnippet : headSnippet + "\n" + tailSnippet;
-
-    // sessionId is a top-level field before "requests". Truncate at the
-    // "requests" key boundary to avoid matching nested sessionId values.
-    var requestsIdx = headSnippet.indexOf('"requests"');
-    var sessionIdSnippet = requestsIdx > 0 ? headSnippet.slice(0, requestsIdx) : headSnippet.slice(0, 512);
-
-    return {
-      sessionId: extractVSCodeSessionId(sessionIdSnippet),
-      title: extractVSCodeCustomTitle(combinedSnippet),
-    };
+    return parseVSCodePreview(headBuf.toString("utf8"), tailBuf.toString("utf8"));
   } catch (e) {
     return { sessionId: null, title: null };
   } finally {
@@ -161,25 +158,7 @@ export function readCopilotCliSessionPreview(filePath, fileSize) {
     var headBuf = Buffer.alloc(headSize);
     fs.readSync(fd, headBuf, 0, headSize, 0);
 
-    var snippet = headBuf.toString("utf8");
-    var lines = snippet.split(/\r?\n/);
-
-    for (var index = 0; index < lines.length; index += 1) {
-      var line = lines[index].trim();
-      if (!line) continue;
-      try {
-        var record = JSON.parse(line);
-        if (record.type !== "user.message" || !record.data) continue;
-        var content = clipToLength(record.data.content || record.data.transformedContent, 120);
-        if (!content) return { title: null, isContinuationSummary: false };
-        return {
-          title: content,
-          isContinuationSummary: content.startsWith("Summarize the following conversation for context continuity."),
-        };
-      } catch (e) {}
-    }
-
-    return { title: null, isContinuationSummary: false };
+    return parseCopilotCliPreview(headBuf.toString("utf8"));
   } catch (e) {
     return { title: null, isContinuationSummary: false };
   } finally {
@@ -189,6 +168,20 @@ export function readCopilotCliSessionPreview(filePath, fileSize) {
       } catch (closeError) {}
     }
   }
+}
+
+export function parseCopilotCliPreview(snippet) {
+  for (var line of snippet.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try {
+      var record = JSON.parse(line);
+      if (record.type !== "user.message" || !record.data) continue;
+      var content = clipToLength(record.data.content || record.data.transformedContent, 120);
+      if (!content) break;
+      return { title: content, isContinuationSummary: content.startsWith("Summarize the following conversation for context continuity.") };
+    } catch {}
+  }
+  return { title: null, isContinuationSummary: false };
 }
 
 export function findCodexSessionFiles(root) {
@@ -258,7 +251,20 @@ export function readCodexSessionPreview(filePath, fileSize) {
     var headSize = Math.min(fileSize, 128 * 1024);
     var headBuf = Buffer.alloc(headSize);
     fs.readSync(fd, headBuf, 0, headSize, 0);
-    var lines = headBuf.toString("utf8").split(/\r?\n/);
+    return parseCodexPreview(headBuf.toString("utf8"));
+  } catch (e) {
+    return { sessionId: null, title: null, summary: null, model: null, cwd: null, originator: null, cliVersion: null };
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch (closeError) {}
+    }
+  }
+}
+
+export function parseCodexPreview(snippet) {
+    var lines = snippet.split(/\r?\n/);
     var meta = {};
     var summary = null;
     var firstUserMessage = null;
@@ -274,6 +280,7 @@ export function readCodexSessionPreview(filePath, fileSize) {
       } catch (e) {
         continue;
       }
+      if (!record || typeof record !== "object") continue;
       var payload = record && record.payload && typeof record.payload === "object" ? record.payload : {};
       if (record.type === "session_meta") {
         meta = payload;
@@ -302,15 +309,6 @@ export function readCodexSessionPreview(filePath, fileSize) {
       originator: typeof meta.originator === "string" ? meta.originator : null,
       cliVersion: typeof meta.cli_version === "string" ? meta.cli_version : null,
     };
-  } catch (e) {
-    return { sessionId: null, title: null, summary: null, model: null, cwd: null, originator: null, cliVersion: null };
-  } finally {
-    if (fd !== null) {
-      try {
-        fs.closeSync(fd);
-      } catch (closeError) {}
-    }
-  }
 }
 
 function isPathInsideRoot(root, targetPath) {

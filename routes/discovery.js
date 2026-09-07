@@ -1,9 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { setImmediate as yieldIO } from "node:timers/promises";
 import {
-  filterSessionFiles, getVSCodeStorageRoots, readCodexSessionPreview,
-  readCopilotCliSessionPreview, readVSCodeSessionPreview,
+  filterSessionFiles, getVSCodeStorageRoots, parseCodexPreview,
+  parseCopilotCliPreview, parseVSCodePreview,
 } from "./sessions.js";
 
 const previews = new Map();
@@ -19,6 +18,26 @@ async function stat(file) {
 }
 async function text(file) {
   try { return await fs.readFile(file, "utf8"); } catch { return ""; }
+}
+export async function readDiscoveryPreview(candidate) {
+  let handle;
+  try {
+    handle = await fs.open(candidate.path, "r");
+    const headSize = Math.min(candidate.size, candidate.format === "vscode-chat" ? 2048 : candidate.format === "codex" ? 128 * 1024 : 65536);
+    const head = Buffer.alloc(headSize);
+    const { bytesRead } = await handle.read(head, 0, head.length, 0);
+    const snippet = head.subarray(0, bytesRead).toString("utf8");
+    if (candidate.format === "copilot-cli") return parseCopilotCliPreview(snippet);
+    if (candidate.format === "codex") return parseCodexPreview(snippet);
+    const tail = Buffer.alloc(Math.min(candidate.size, 2048));
+    const read = await handle.read(tail, 0, tail.length, Math.max(0, candidate.size - tail.length));
+    return parseVSCodePreview(snippet, tail.subarray(0, read.bytesRead).toString("utf8"));
+  } catch {
+    return candidate.format === "copilot-cli" ? parseCopilotCliPreview("")
+      : candidate.format === "codex" ? parseCodexPreview("") : parseVSCodePreview("", "");
+  } finally {
+    if (handle) await handle.close();
+  }
 }
 async function boundedMap(items, fn) {
   let next = 0;
@@ -93,15 +112,13 @@ async function scan(home) {
       if (cached.value) results.push(cached.value);
       continue;
     }
-    // Preview readers have bounded buffers (at most 64 KiB), never whole
-    // transcripts. Yield between them so SSE and other requests can progress.
-    await yieldIO();
+    // Preview buffers are bounded to 128 KiB; filesystem waits never block SSE.
     discoveryMetrics.previews++;
     let value = { ...candidate };
     if (candidate.format === "copilot-cli") {
       const yaml = await text(companion);
       const summary = (yaml.match(/^summary:\s+(?!\|-\s*$)(.+)$/m)?.[1] || yaml.match(/^summary:\s*\|-\s*\n[ \t]+(.+)$/m)?.[1] || "").trim();
-      const preview = summary ? {} : readCopilotCliSessionPreview(candidate.path, candidate.size);
+      const preview = summary ? {} : await readDiscoveryPreview(candidate);
       if (summary.startsWith("Analyze this") || (summary.includes("Session stats") && summary.includes("read_config")) || preview.isContinuationSummary) value = null;
       else Object.assign(value, {
         file: preview.title || "events.jsonl", project: summary || preview.title || candidate.sessionId.slice(0, 8),
@@ -109,14 +126,14 @@ async function scan(home) {
         branch: yaml.match(/^branch:\s*(.+)$/m)?.[1]?.trim() || null,
       });
     } else if (candidate.format === "codex") {
-      const preview = readCodexSessionPreview(candidate.path, candidate.size);
+      const preview = await readDiscoveryPreview(candidate);
       Object.assign(value, {
         file: preview.title || candidate.filename, project: preview.cwd?.replace(/\\/g, "/").split("/").filter(Boolean).pop() || preview.title || "Codex",
         sessionId: preview.sessionId, summary: preview.summary || preview.title, repository: null, branch: null,
         originator: preview.originator, cliVersion: preview.cliVersion, model: preview.model,
       });
     } else if (candidate.format === "vscode-chat") {
-      const preview = readVSCodeSessionPreview(candidate.path, candidate.size);
+      const preview = await readDiscoveryPreview(candidate);
       let project = null;
       try {
         const workspace = JSON.parse(await text(companion));

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import TracksView from "../components/TracksView";
 import { createLiveSessionParser, appendLiveSessionText } from "../lib/liveSessionParser";
-import { createSessionStorageId } from "../lib/sessionLibrary";
+import { createSessionStorageId, persistSessionSnapshot, readSessionLibrary, loadStoredSessionContent } from "../lib/sessionLibrary";
 import { createLiveParserClient } from "../lib/liveParserClient";
 import { buildTrackMarks } from "../lib/tracksLayout";
 import { parseSession } from "../lib/parseSession";
@@ -44,6 +44,10 @@ describe("cleanup scaling evidence", () => {
     expect(marks).toHaveLength(1);
     expect(marks[0].isError).toBe(true);
     expect(marks[0].entries.map(entry => entry.index)).toEqual(entries.map(entry => entry.index));
+    expect(buildTrackMarks(entries.slice(0, 10), 100)).toHaveLength(1);
+    const end = buildTrackMarks([{ index: 0, event: { t: 100, duration: 0 } }], 100)[0];
+    expect(end.left + end.width).toBeLessThanOrEqual(1);
+    expect(end.width).toBeGreaterThan(0);
   });
 
   it("preserves Claude identity across appended snapshots and distinguishes sessions", () => {
@@ -53,6 +57,14 @@ describe("cleanup scaling evidence", () => {
     expect(first.metadata.sessionId).toBe("benchmark-session");
     expect(createSessionStorageId("a.jsonl", first.metadata, raw)).toBe(createSessionStorageId("a.jsonl", later.metadata, raw + transcript(2)));
     expect(createSessionStorageId("a.jsonl", first.metadata, raw)).not.toBe(createSessionStorageId("a.jsonl", { ...first.metadata, sessionId: "other" }, raw));
+    const content = new Map();
+    const storage = { getItem: key => content.get(key) || null, setItem: (key, value) => content.set(key, value), removeItem: key => content.delete(key) };
+    persistSessionSnapshot("a.jsonl", first, raw, storage);
+    persistSessionSnapshot("a.jsonl", later, raw + transcript(2), storage);
+    expect(readSessionLibrary(storage)).toHaveLength(1);
+    expect(loadStoredSessionContent(readSessionLibrary(storage)[0].id, storage)).toBe(raw + transcript(2));
+    expect(createSessionStorageId("events.jsonl", { sourcePath: "project-a/events.jsonl" }, raw))
+      .not.toBe(createSessionStorageId("events.jsonl", { sourcePath: "project-b/events.jsonl" }, raw));
   });
 
   it("coalesces worker backpressure and discards pre-reset results", () => {

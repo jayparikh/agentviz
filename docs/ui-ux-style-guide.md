@@ -109,6 +109,7 @@ Agent type foregrounds reuse these hues: explore uses tool_call, task uses outpu
 - The explicit header density preference persists to `agentviz:density`. Normal retains 12px reading text and 8px row padding; comfortable uses 14px and 12px. Tracks detail controls grow from 24px to 32px minimum height. Do not enlarge every dashboard surface.
 - Replay stacks its evidence and inspector at the compact breakpoint (760px). Panel separators expose orientation, values, focus, pointer capture, and keyboard arrows (2%, Shift 10%) plus Home/End. Restore pointer styles on cancel/unmount.
 - Replay observes pane dimensions, invalidates width-dependent row measurements, and keeps the visible evidence anchor on resize.
+- Deep evidence navigation corrects the target position while virtual rows settle. Manual scrolling cancels correction; tests must assert viewport intersection, not just DOM visibility.
 - Graph has one tab stop: Up/Down browse named nodes, Home/End reach endpoints, Right expands and Left collapses. Selected turns also expose a touch-friendly expand/collapse button.
 - Tracks has one tab stop per lane and Left/Right/Home/End navigation. Click, tap or Enter opens persistent evidence detail; dense groups paginate every original event. Marks use an 18% track tint with primary text.
 - Empty Find hides irrelevant metric tiles, makes importing/dropping a real session primary, lists supported formats and discovery status, and keeps the demo secondary.
@@ -914,7 +915,7 @@ Custom scrollbars match the dark theme (defined in `index.html`):
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3a3a3f; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #585860; }
+::-webkit-scrollbar-thumb:hover { background: #b6b6c0; }
 ```
 
 - Thin (6px), unobtrusive, transparent track.

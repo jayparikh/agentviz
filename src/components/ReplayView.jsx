@@ -300,6 +300,8 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   var shouldFollowRef = useRef(true);
   var prevCount = useRef(0);
   var handledTargetRef = useRef(null);
+  var targetScrollRef = useRef(null);
+  var programmaticTopRef = useRef(null);
 
   // eventEntries is NOT guaranteed to be sorted by event.t (some parsers emit
   // out-of-order times), so we can't slice a prefix. Instead we sort a copy of
@@ -350,8 +352,9 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
 
   useEffect(function () {
     if (targetEventIndex == null) return;
-    if (handledTargetRef.current && handledTargetRef.current.index === targetEventIndex
-      && handledTargetRef.current.request === targetRequest) return;
+    var alreadyHandled = handledTargetRef.current && handledTargetRef.current.index === targetEventIndex
+      && handledTargetRef.current.request === targetRequest;
+    if (alreadyHandled && !targetScrollRef.current) return;
     var targetItem = null;
     for (var i = 0; i < layout.items.length; i++) {
       if (layout.items[i].entry.index === targetEventIndex) {
@@ -361,13 +364,14 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
     }
     if (!targetItem) return;
     handledTargetRef.current = { index: targetEventIndex, request: targetRequest };
-
-    setSelectedIndex(targetEventIndex);
+    targetScrollRef.current = handledTargetRef.current;
+    if (!alreadyHandled) setSelectedIndex(targetEventIndex);
     shouldFollowRef.current = false;
     if (containerRef.current) {
       var offset = Math.max(0, targetItem.top - 32);
       containerRef.current.scrollTop = offset;
-      setScrollTop(offset);
+      programmaticTopRef.current = containerRef.current.scrollTop;
+      setScrollTop(containerRef.current.scrollTop);
     }
   }, [targetEventIndex, targetRequest, layout.items]);
 
@@ -449,6 +453,8 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
 
   function handleScroll(e) {
     var nextTop = e.currentTarget.scrollTop;
+    if (programmaticTopRef.current == null || Math.abs(nextTop - programmaticTopRef.current) > 1) targetScrollRef.current = null;
+    programmaticTopRef.current = null;
     var nearBottom = nextTop + e.currentTarget.clientHeight >= e.currentTarget.scrollHeight - REPLAY_BOTTOM_THRESHOLD;
     setScrollTop(nextTop);
     shouldFollowRef.current = nearBottom;
@@ -489,8 +495,11 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
   }, [visibleEntries]);
 
   return (
-    <ResizablePanel initialSplit={0.72} minPx={breakpoint.isCompact ? 100 : 200} direction={breakpoint.isCompact ? "vertical" : "horizontal"} storageKey={breakpoint.isCompact ? "agentviz:replay-panel-stack" : "agentviz:replay-panel-split"}>
-      <div ref={containerRef} onScroll={handleScroll} style={{
+    <ResizablePanel initialSplit={0.72} minPx={breakpoint.isCompact ? 100 : 200} direction={breakpoint.isCompact ? "vertical" : "horizontal"} storageKey="agentviz:replay-panel-split">
+      <div ref={containerRef} onScroll={handleScroll}
+        onWheel={function () { targetScrollRef.current = null; }}
+        onPointerDown={function () { targetScrollRef.current = null; }}
+        onTouchStart={function () { targetScrollRef.current = null; }} style={{
         height: "100%",
         overflowY: "auto",
         padding: "4px 0",

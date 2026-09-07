@@ -132,6 +132,7 @@ test("real live worker retains parser parity and lets browser timers progress", 
         client.append(tail);
         dispatchMs = performance.now() - start;
       });
+
       const expected = parseSession(initial + tail);
       if (JSON.stringify(result) !== JSON.stringify(expected)) throw new Error("Worker/batch parser parity mismatch");
       return { events: result.events.length, baselineMainThreadMs, workerDispatchMs: dispatchMs, timerTicks: ticks };
@@ -140,4 +141,25 @@ test("real live worker retains parser parity and lets browser timers progress", 
   expect(metrics.events).toBe(10001);
   expect(metrics.timerTicks).toBeGreaterThan(0);
   console.log("Live worker benchmark", metrics);
+});
+
+test("deep palette evidence remains in the viewport after multiline row measurement", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 850 });
+  await open(page);
+  const lines = Array.from({ length: 500 }, (_, index) => JSON.stringify({
+    type: "user", sessionId: "multiline-navigation", timestamp: new Date(1700000000000 + index * 1000).toISOString(),
+    message: { role: "user", content: "Unique evidence " + index + "\n" + Array(4).fill("Multiline evidence wraps as the inspector changes width and the virtual rows are measured.").join("\n") },
+  })).join("\n");
+  await page.locator('input[type="file"]').setInputFiles({ name: "multiline.jsonl", mimeType: "application/json", buffer: Buffer.from(lines) });
+  await expect(page).toHaveURL(/review$/);
+  await page.keyboard.press("Control+K");
+  await page.getByPlaceholder("Search workflow, events, turns...").fill("Unique evidence 250");
+  await page.getByRole("button", { name: /Unique evidence 250/ }).last().click();
+  const evidence = page.locator('[data-event-index="250"][aria-pressed="true"]');
+  await expect(evidence).toBeInViewport({ ratio: 0.5 });
+  await page.waitForTimeout(300);
+  await expect(evidence).toBeInViewport({ ratio: 0.5 });
+  await evidence.hover();
+  await page.mouse.wheel(0, -1500);
+  await expect(evidence).not.toBeInViewport();
 });

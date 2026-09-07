@@ -271,6 +271,8 @@ The header's explicit **Reading density** preference switches between normal and
 
 Live streams normalize in a dedicated worker with one in-flight batch and coalesced appends. JSON decoding and VS Code patch application are incremental; normalized output is still rebuilt for full batch-parser parity (including cross-record usage and tool pairing). Result transfer and rendering still scale with session size. Discovery uses asynchronous, eight-operation traversal, newest-first enrichment, and a bounded path/mtime/size preview cache, including companion metadata invalidation.
 
+Discovery preview reads are asynchronous and capped at 128 KiB (Codex), 64 KiB (CLI), or 2 KiB head plus tail (VS Code). Deep evidence jumps keep the selected row in view while measured heights settle, then yield to manual scrolling.
+
 DAW-style multi-track lanes for Reasoning, Tool calls, Context, and Output. **Solo** isolates one track. **Mute** hides it. See at a glance how your agent's time was spent.
 
 <div align="center">
@@ -472,6 +474,10 @@ src/
     copilotCostParser.ts # Copilot prompt export JSON parser for token/cost analysis
     vscodeSessionParser.ts # VS Code Copilot Chat JSON parser
     atifParser.ts        # ATIF / Harbor trajectory JSON parser
+    liveSessionParser.ts # Incremental records and patches, parity-preserving normalization
+    liveSessionWorker.ts # Off-main-thread live normalization
+    liveParserClient.js  # Single-flight worker, coalescing, resets and disposal
+    tracksLayout.js      # Bounded overview geometry retaining original evidence
     dataInspector.js     # Payload summary and preview helpers for inspector panels
     session.ts           # Pure helpers: getSessionTotal, buildFilteredEventEntries
     sessionLibrary.js    # localStorage-backed session library with content persistence
@@ -509,7 +515,6 @@ src/
     DebriefView.jsx      # AI Coach panel with cached analysis (lazy-loaded)
     ReplayView.jsx       # Windowed event stream + inspector sidebar
     TracksView.jsx       # DAW-style multi-track timeline
-    # Tracks geometry is bounded by src/lib/tracksLayout.js.
     WaterfallView.jsx    # Tool execution waterfall with nesting and inspector
     GraphView.jsx        # Interactive turn graph with expandable tool-call nodes (lazy-loaded)
     StatsView.jsx        # Aggregate metrics, tool ranking, turn summary
@@ -533,6 +538,7 @@ src/
     v2/                  # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
+  discovery.js         # Async traversal and bounded cached preview enrichment
   sessions.js            # Session discovery, file serving, SSE streaming
   ai.js                  # Coach analysis, Q&A, model info (SSE streaming)
   config.js              # Project config surface detection, file preview, apply

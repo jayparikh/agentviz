@@ -148,6 +148,8 @@ Vite proxies `/api/*` to the backend automatically.
 Run `npx playwright install chromium` once before the first browser test run.
 
 ## Conventions
+- Deep Replay targets remain scroll-anchored through measured layout changes; manual wheel, touch, pointer or scroll movement cancels automatic correction.
+- Discovery preview IO is asynchronous with format-specific bounded buffers; synchronous compatibility readers share the same pure preview extractors.
 - Reading density is an explicit header preference at `agentviz:density`. Use `theme.reading` for evidence text, row padding and detail targets, not global scaling.
 - Meaningful text uses primary/secondary/muted/dim at 4.5:1 or better on neutral surfaces; ghost is nonessential. Track groups use 18% tint with primary labels.
 - Replay observes pane width and remeasures virtual rows; compact layouts stack. Separators support pointer capture, keyboard arrows/Home/End and restore body styles on cancellation.
