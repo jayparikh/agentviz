@@ -148,6 +148,11 @@ Vite proxies `/api/*` to the backend automatically.
 Run `npx playwright install chromium` once before the first browser test run.
 
 ## Conventions
+- Reading density is an explicit header preference at `agentviz:density`. Use `theme.reading` for evidence text, row padding and detail targets, not global scaling.
+- Meaningful text uses primary/secondary/muted/dim at 4.5:1 or better on neutral surfaces; ghost is nonessential. Track groups use 18% tint with primary labels.
+- Replay observes pane width and remeasures virtual rows; compact layouts stack. Separators support pointer capture, keyboard arrows/Home/End and restore body styles on cancellation.
+- Graph uses one tab stop with active-descendant tree navigation; Tracks uses one per lane and retains every event in persistent paginated detail.
+- Empty Find keeps real-session import primary and omits empty metrics.
 - Live parsing decodes new records and applies new VS Code patches incrementally; full normalization remains in a single-flight worker, not on the UI thread. Do not describe normalized output as incremental.
 - Tracks overview geometry is memoized and capped at 200 groups per lane, with every original event reachable through paginated detail.
 - Claude metadata preserves explicit sessionId, so appended snapshots update one library entry.

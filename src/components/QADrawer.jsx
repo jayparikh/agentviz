@@ -136,7 +136,7 @@ function QuickInsights({ sessionData, onAsk }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <span style={{
         fontSize: theme.fontSize.xs,
-        color: theme.text.ghost,
+        color: theme.text.dim,
         textTransform: "uppercase",
         letterSpacing: 1.5,
         fontFamily: theme.font.mono,
@@ -310,7 +310,7 @@ function MessageBubble({ message, onSeekTurn, prefersReducedMotion }) {
           display: "block",
           marginTop: 6,
           fontSize: theme.fontSize.xs,
-          color: theme.text.ghost,
+          color: theme.text.dim,
         }}>
           {message.instant ? "quick answer" : "AI answer"}
         </span>
@@ -501,7 +501,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               alignItems: "center",
               gap: 8,
               fontSize: theme.fontSize.xs,
-              color: theme.text.ghost,
+              color: theme.text.dim,
               fontFamily: theme.font.mono,
               padding: "2px 4px",
             }}>
@@ -618,7 +618,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
             )}
           </form>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-            <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost }}>
+            <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
               <KeyboardHint>Esc</KeyboardHint>{" "}close
             </span>
             <button
@@ -627,7 +627,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
               style={{
                 background: "none",
                 border: "none",
-                color: theme.text.ghost,
+                color: theme.text.dim,
                 fontSize: theme.fontSize.xs,
                 textDecoration: "underline",
                 cursor: "pointer",

@@ -48,15 +48,15 @@ These values describe the active palette. The token names stay the same across m
 
 ### Text
 
-Five-level hierarchy. Use the minimum contrast level that communicates the information.
+Four readable text levels meet at least 4.5:1 on base, surface, raised, hover, and active neutral backgrounds in both modes. Ghost is nonessential only. Do not reduce meaningful text contrast with parent opacity; use semantic foregrounds on lightly tinted surfaces.
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
 | `theme.text.primary` | `#f0f0f2` | `#141824` | Body text, values, important content |
-| `theme.text.secondary` | `#a1a1a8` | `#4f5669` | Labels, metadata, descriptions |
-| `theme.text.muted` | `#717178` | `#70788d` | Disabled text, tertiary info |
-| `theme.text.dim` | `#585860` | `#8a90a2` | Section headers (uppercase), subtle labels |
-| `theme.text.ghost` | `#454548` | `#b0b6c8` | Placeholders, gutter numbers, near-invisible |
+| `theme.text.secondary` | `#b6b6c0` | `#424a5b` | Labels, metadata, descriptions, placeholders |
+| `theme.text.muted` | `#a1a1ac` | `#50596d` | Tertiary information |
+| `theme.text.dim` | `#92929d` | `#565f73` | Subtle meaningful labels |
+| `theme.text.ghost` | `#454548` | `#b0b6c8` | Nonessential decoration and disabled content only |
 
 ### Accent
 
@@ -64,21 +64,21 @@ One color. Used for: selection, focus rings, primary actions, active tab indicat
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
-| `theme.accent.primary` | `#6475e8` | `#6475e8` | Links, focus, selected, CTA |
+| `theme.accent.primary` | `#6475e8` | `#4658c8` | Links, focus, selected, CTA |
 | `theme.accent.hover` | `#7585f0` | `#5467e6` | Hover state of accent elements |
-| `theme.accent.muted` | `#6475e820` | `#6475e818` | Subtle accent background |
+| `theme.accent.muted` | `#6475e820` | `#4658c818` | Subtle accent background |
 
 ### Semantic
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
-| `theme.semantic.success` | `#10d97a` | `#0ea86b` | Positive outcomes, output track, "done" |
-| `theme.semantic.warning` | `#eab308` | `#ca8a04` | Caution, modified files |
+| `theme.semantic.success` | `#10d97a` | `#087a4d` | Positive outcomes, output track, "done" |
+| `theme.semantic.warning` | `#eab308` | `#8a5b00` | Caution, modified files |
 | `theme.semantic.error` | `#f43f5e` | `#e11d48` | Errors, failures |
 | `theme.semantic.errorBg` | `#f43f5e15` | `#e11d4814` | Error row/card background |
 | `theme.semantic.errorBorder` | `#f43f5e30` | `#e11d482a` | Error container border |
 | `theme.semantic.errorText` | `#fb7185` | `#be123c` | Error text (lighter for readability) |
-| `theme.semantic.info` | `#6475e8` | `#6475e8` | Informational (same as accent) |
+| `theme.semantic.info` | `#6475e8` | `#4658c8` | Informational (same as accent) |
 
 ### Agent Colors
 
@@ -86,9 +86,9 @@ Subtle. The content matters, not who said it.
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
-| `theme.agent.user` | `#8b8b99` | `#70788d` | User messages |
-| `theme.agent.assistant` | `#6475e8` | `#6475e8` | Assistant messages |
-| `theme.agent.system` | `#a78bfa` | `#8b5cf6` | System messages |
+| `theme.agent.user` | `#8b8b99` | `#565f73` | User messages |
+| `theme.agent.assistant` | `#6475e8` | `#4658c8` | Assistant messages |
+| `theme.agent.system` | `#a78bfa` | `#7041cc` | System messages |
 
 ### Track Colors
 
@@ -96,11 +96,22 @@ Balanced luminance so no track visually dominates another.
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
-| `theme.track.reasoning` | `#94a3b8` | `#64748b` | Thinking/reasoning events |
-| `theme.track.tool_call` | `#3b9eff` | `#2563eb` | Tool invocations |
-| `theme.track.context` | `#a78bfa` | `#8b5cf6` | Context loading |
-| `theme.track.output` | `#10d97a` | `#0ea86b` | Output/results |
-| `theme.track.agent` | `#06b6d4` | `#0891b2` | Agent/subagent events |
+| `theme.track.reasoning` | `#94a3b8` | `#52627a` | Thinking/reasoning events |
+| `theme.track.tool_call` | `#3b9eff` | `#2057ca` | Tool invocations |
+| `theme.track.context` | `#a78bfa` | `#7041cc` | Context loading |
+| `theme.track.output` | `#10d97a` | `#087a4d` | Output/results |
+| `theme.track.agent` | `#06b6d4` | `#08677e` | Agent/subagent events |
+
+Agent type foregrounds reuse these hues: explore uses tool_call, task uses output, general-purpose uses context. Code-review/default use `#06b6d4` / `#08677e`; configure-copilot retains `#ec4899` / `#db2777`.
+
+### Reading density and accessible evidence
+
+- The explicit header density preference persists to `agentviz:density`. Normal retains 12px reading text and 8px row padding; comfortable uses 14px and 12px. Tracks detail controls grow from 24px to 32px minimum height. Do not enlarge every dashboard surface.
+- Replay stacks its evidence and inspector at the compact breakpoint (760px). Panel separators expose orientation, values, focus, pointer capture, and keyboard arrows (2%, Shift 10%) plus Home/End. Restore pointer styles on cancel/unmount.
+- Replay observes pane dimensions, invalidates width-dependent row measurements, and keeps the visible evidence anchor on resize.
+- Graph has one tab stop: Up/Down browse named nodes, Home/End reach endpoints, Right expands and Left collapses. Selected turns also expose a touch-friendly expand/collapse button.
+- Tracks has one tab stop per lane and Left/Right/Home/End navigation. Click, tap or Enter opens persistent evidence detail; dense groups paginate every original event. Marks use an 18% track tint with primary text.
+- Empty Find hides irrelevant metric tiles, makes importing/dropping a real session primary, lists supported formats and discovery status, and keeps the demo secondary.
 
 ### Data Visualization Scales
 

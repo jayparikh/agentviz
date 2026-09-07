@@ -13,6 +13,7 @@ export interface TrackTypeInfo {
 }
 
 export interface Theme {
+  reading: { fontSize: number; rowPadding: number; controlMin: number };
   bg: {
     base: string;
     surface: string;

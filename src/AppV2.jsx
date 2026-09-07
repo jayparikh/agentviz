@@ -383,7 +383,7 @@ function ImproveZone({ sessionState, openQARequest, onNavigate }) {
   );
 }
 
-export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
+export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, densityControl }) {
   var sessionState = useSessionContext();
   var breakpoint = useBreakpoint();
   var [activeZone, setActiveZone] = useState(function () {
@@ -532,6 +532,7 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
       overflow: "hidden",
     }}>
       <V2Header
+        densityControl={densityControl}
         session={sessionState.session}
         activeZone={activeZone}
         currentThemeMode={currentThemeMode}
@@ -674,10 +675,11 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2 }) {
   );
 }
 
-export default function AppV2({ currentThemeMode, onSetThemeMode, onExitV2 }) {
+export default function AppV2({ currentThemeMode, onSetThemeMode, onExitV2, densityControl }) {
   return (
     <SessionProvider enableHashRouter={false}>
       <AppV2Shell
+        densityControl={densityControl}
         currentThemeMode={currentThemeMode}
         onSetThemeMode={onSetThemeMode}
         onExitV2={onExitV2}

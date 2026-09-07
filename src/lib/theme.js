@@ -77,9 +77,9 @@ var DARK_THEME = {
   },
   text: {
     primary: "#f0f0f2",
-    secondary: "#a1a1a8",
-    muted: "#717178",
-    dim: "#585860",
+    secondary: "#b6b6c0",
+    muted: "#a1a1ac",
+    dim: "#92929d",
     ghost: "#454548",
   },
   accent: {
@@ -141,44 +141,44 @@ var LIGHT_THEME = {
   },
   text: {
     primary: "#141824",
-    secondary: "#4f5669",
-    muted: "#70788d",
-    dim: "#8a90a2",
+    secondary: "#424a5b",
+    muted: "#50596d",
+    dim: "#565f73",
     ghost: "#b0b6c8",
   },
   accent: {
-    primary: "#6475e8",
+    primary: "#4658c8",
     hover: "#5467e6",
-    muted: "#6475e818",
+    muted: "#4658c818",
   },
   semantic: {
-    success: "#0ea86b",
-    warning: "#ca8a04",
+    success: "#087a4d",
+    warning: "#8a5b00",
     error: "#e11d48",
     errorBg: "#e11d4814",
     errorBorder: "#e11d482a",
     errorText: "#be123c",
-    info: "#6475e8",
+    info: "#4658c8",
   },
   agent: {
-    user: "#70788d",
-    assistant: "#6475e8",
-    system: "#8b5cf6",
+    user: "#565f73",
+    assistant: "#4658c8",
+    system: "#7041cc",
   },
   agentType: {
-    explore: "#2563eb",
-    task: "#0ea86b",
-    "general-purpose": "#8b5cf6",
-    "code-review": "#0891b2",
+    explore: "#2057ca",
+    task: "#087a4d",
+    "general-purpose": "#7041cc",
+    "code-review": "#08677e",
     "configure-copilot": "#db2777",
-    default: "#0891b2",
+    default: "#08677e",
   },
   track: {
-    reasoning: "#64748b",
-    tool_call: "#2563eb",
-    context: "#8b5cf6",
-    output: "#0ea86b",
-    agent: "#0891b2",
+    reasoning: "#52627a",
+    tool_call: "#2057ca",
+    context: "#7041cc",
+    output: "#087a4d",
+    agent: "#08677e",
   },
   shadow: {
     sm: "0 1px 2px rgba(17,24,39,0.08)",
@@ -190,6 +190,8 @@ var LIGHT_THEME = {
 
 var themePreference = "dark";
 var systemThemePreference = "dark";
+var densityPreference = "normal";
+export function setDensityPreference(value) { densityPreference = value === "comfortable" ? value : "normal"; }
 
 function normalizeThemePreference(mode) {
   return mode === "light" || mode === "dark" ? mode : "system";
@@ -278,6 +280,14 @@ function defineThemeSection(target, key) {
 }
 
 export var theme = {};
+Object.defineProperty(theme, "reading", {
+  enumerable: true,
+  get: function () {
+    return densityPreference === "comfortable"
+      ? { fontSize: 14, rowPadding: 12, controlMin: 32 }
+      : { fontSize: 12, rowPadding: 8, controlMin: 24 };
+  },
+});
 defineThemeSection(theme, "bg");
 defineThemeSection(theme, "border");
 defineThemeSection(theme, "text");

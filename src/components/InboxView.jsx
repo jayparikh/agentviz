@@ -193,7 +193,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
           Inbox
         </div>
         {(analyzedCount > 0 || discoveredCount > 0) && (
-          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, flexShrink: 0 }}>
+          <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, flexShrink: 0 }}>
             {analyzedCount > 0 && analyzedCount + " analyzed"}
             {analyzedCount > 0 && discoveredCount > 0 && ", "}
             {discoveredCount > 0 && discoveredCount + " unanalyzed"}
@@ -220,7 +220,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
             }}
           />
           {query && (
-            <button type="button" className="av-btn" aria-label="Clear search" onClick={function () { setQuery(""); }} style={{ background: "transparent", border: "none", color: theme.text.ghost, padding: 0, cursor: "pointer", lineHeight: 1 }}>
+            <button type="button" className="av-btn" aria-label="Clear search" onClick={function () { setQuery(""); }} style={{ background: "transparent", border: "none", color: theme.text.dim, padding: 0, cursor: "pointer", lineHeight: 1 }}>
               <Icon name="close" size={11} />
             </button>
           )}
@@ -324,7 +324,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                 borderRadius: theme.radius.full,
                 border: "none",
                 background: "transparent",
-                color: theme.text.ghost,
+                color: theme.text.dim,
                 fontSize: theme.fontSize.xs,
                 fontFamily: theme.font.mono,
                 cursor: "pointer",
@@ -529,7 +529,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
               marginTop: sortedParsed.length > 0 ? 4 : 0,
             }}>
               <div style={{ flex: 1, height: 1, background: theme.border.subtle }} />
-              <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>
+              <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>
                 Discovered ({totalFilteredDiscovered}, not yet analyzed)
               </span>
               <div style={{ flex: 1, height: 1, background: theme.border.subtle }} />
@@ -555,7 +555,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                       >
                         {title}
                       </div>
-                      <div style={{ fontSize: theme.fontSize.sm, color: theme.text.ghost, marginTop: 4 }}>
+                      <div style={{ fontSize: theme.fontSize.sm, color: theme.text.dim, marginTop: 4 }}>
                         {[
                           formatLandingClientLabel(entry),
                           entry.project || null,
@@ -577,7 +577,7 @@ export default function InboxView({ entries, onOpenSession, onImport, onLoadSamp
                                   borderRadius: theme.radius.full,
                                   border: "1px solid " + (isActive ? theme.accent.primary : theme.border.default),
                                   background: isActive ? alpha(theme.accent.primary, 0.12) : alpha(theme.bg.surface, 0.6),
-                                  color: isActive ? theme.accent.primary : theme.text.ghost,
+                                  color: isActive ? theme.accent.primary : theme.text.dim,
                                   fontSize: theme.fontSize.xs,
                                   fontFamily: theme.font.mono,
                                   cursor: "pointer",

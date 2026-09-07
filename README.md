@@ -265,6 +265,10 @@ Investigate wraps the chronological replay stream with search, next/previous mat
 
 Tracks memoizes static geometry and groups dense overviews into at most 200 marks per lane. Select a group to inspect every original event in pages of 50; error groups remain marked and the playhead updates independently.
 
+Evidence controls support keyboard and touch: Tracks uses one tab stop per lane with arrow-key browsing; Graph uses one keyboard entry with Up/Down to browse and Right/Left to expand/collapse. Replay stacks the inspector below the stream on compact screens. Its separator supports pointer dragging, arrow keys, Home and End, and remeasures wrapping rows on pane resize.
+
+The header's explicit **Reading density** preference switches between normal and comfortable evidence text and spacing without enlarging all dashboard surfaces. Both themes now use readable small-text tokens (at least 4.5:1 on neutral surfaces). Empty Find prioritizes importing a real JSON/JSONL session; demos remain secondary.
+
 Live streams normalize in a dedicated worker with one in-flight batch and coalesced appends. JSON decoding and VS Code patch application are incremental; normalized output is still rebuilt for full batch-parser parity (including cross-record usage and tool pairing). Result transfer and rendering still scale with session size. Discovery uses asynchronous, eight-operation traversal, newest-first enrichment, and a bounded path/mtime/size preview cache, including companion metadata invalidation.
 
 DAW-style multi-track lanes for Reasoning, Tool calls, Context, and Output. **Solo** isolates one track. **Mute** hides it. See at a glance how your agent's time was spent.

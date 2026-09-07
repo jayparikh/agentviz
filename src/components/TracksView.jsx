@@ -1,19 +1,35 @@
-import { memo, useState, useMemo } from "react";
+import { memo, useState, useMemo, useRef, useEffect } from "react";
+import useBreakpoint from "../hooks/useBreakpoint.js";
 import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
 import { buildTrackMarks } from "../lib/tracksLayout.js";
 import Icon from "./Icon.jsx";
 
 const Marks = memo(function Marks({ marks, info, onSelect }) {
-  return marks.map(mark => {
+  const [focusIndex, setFocusIndex] = useState(0);
+  const refs = useRef([]);
+  return marks.map((mark, index) => {
     const event = mark.entries[0].event;
     const color = mark.isError ? theme.semantic.error : info.color;
     const label = mark.entries.length > 1 ? mark.entries.length + " events"
       : event.agentDisplayName || event.agentName || event.toolName || event.text.substring(0, 50);
     return <button key={mark.key} type="button" data-track-mark=""
+      ref={node => { refs.current[index] = node; }}
+      tabIndex={index === Math.min(focusIndex, marks.length - 1) ? 0 : -1}
+      aria-label={info.label + ": " + label + " at " + event.t.toFixed(1) + " seconds"}
       title={label + (mark.entries.length > 1 ? ": click to inspect individual events" : "")}
-      onMouseEnter={() => onSelect(mark)} onClick={() => onSelect(mark)}
+      onClick={() => { setFocusIndex(index); onSelect(mark); }}
+      onKeyDown={event => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? marks.length - 1
+          : Math.max(0, Math.min(marks.length - 1, index + (event.key === "ArrowLeft" ? -1 : 1)));
+        setFocusIndex(next);
+        refs.current[next]?.focus();
+        onSelect(marks[next]);
+      }}
       style={{ position: "absolute", left: mark.left * 100 + "%", width: mark.width * 100 + "%",
-        top: 4, bottom: 4, borderRadius: theme.radius.md, background: alpha(color, 0.4),
+        top: 4, bottom: 4, borderRadius: theme.radius.md, background: alpha(color, 0.18),
         border: "1px solid " + (mark.isError ? color : "transparent"), color: theme.text.primary,
         cursor: "pointer", padding: "0 3px", overflow: "hidden", textOverflow: "ellipsis",
         whiteSpace: "nowrap", fontFamily: "inherit", fontSize: theme.fontSize.xs }}>
@@ -31,11 +47,13 @@ const Boundaries = memo(function Boundaries({ turns, totalTime, timeMap }) {
 });
 
 export default function TracksView({ currentTime, eventEntries, totalTime, timeMap, turns }) {
+  const breakpoint = useBreakpoint();
   const [muted, setMuted] = useState({});
   const [solo, setSolo] = useState(null);
   const [selected, setSelected] = useState(null);
   const [page, setPage] = useState(0);
   const [detail, setDetail] = useState(null);
+  useEffect(() => { setSelected(null); setDetail(null); setPage(0); }, [eventEntries]);
   const layout = useMemo(() => {
     const grouped = {};
     for (const entry of eventEntries) (grouped[entry.event.track] ||= []).push(entry);
@@ -46,13 +64,13 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
   const select = useMemo(() => mark => { setSelected(mark); setPage(0); setDetail(mark.entries[0]); }, []);
   const playPct = (timeMap ? timeMap.toPosition(currentTime) : totalTime ? currentTime / totalTime : 0) * 100;
   const buttonStyle = { background: "transparent", border: "1px solid " + theme.border.strong,
-    color: theme.text.secondary, borderRadius: theme.radius.sm, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit", fontSize: theme.fontSize.xs };
+    color: theme.text.secondary, borderRadius: theme.radius.sm, padding: "4px 6px", minHeight: theme.reading.controlMin, cursor: "pointer", fontFamily: "inherit", fontSize: theme.fontSize.xs };
   return <div style={{ height: "100%", overflow: "auto", "--tracks-playhead": playPct + "%" }}>
     {layout.map(({ key, info, entries, marks }) => {
       const visible = solo ? solo === key : !muted[key];
       const active = marks.filter(mark => mark.entries.some(({ event }) => currentTime >= event.t && currentTime <= event.t + event.duration));
-      return <div key={key} style={{ display: "flex", minHeight: 48, opacity: visible ? 1 : 0.15 }}>
-        <div style={{ width: 220, flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 10px", borderRight: "1px solid " + theme.border.default }}>
+      return <div key={key} style={{ display: "flex", flexDirection: breakpoint.isCompact ? "column" : "row", minHeight: 48 }}>
+        <div style={{ width: breakpoint.isCompact ? "auto" : 220, flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 10px", borderRight: "1px solid " + theme.border.default }}>
           <Icon name={key} size={14} color={info.color} />
           <span style={{ fontSize: theme.fontSize.base, color: theme.text.secondary }}>{info.label}</span>
           <button type="button" aria-label={"Solo " + info.label + " track"} aria-pressed={solo === key}
@@ -61,9 +79,10 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
             onClick={() => { setSolo(null); setMuted(previous => ({ ...previous, [key]: !previous[key] })); }} style={buttonStyle}>Mute</button>
           <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>{entries.length}</span>
         </div>
-        <div style={{ flex: 1, minWidth: 0, position: "relative", background: theme.bg.base, borderBottom: "1px solid " + theme.border.subtle }}>
-          <Boundaries turns={turns} totalTime={totalTime} timeMap={timeMap} />
-          <Marks marks={marks} info={info} onSelect={select} />
+        <div role="group" aria-label={info.label + " timeline. Use arrow keys to browse events."}
+          style={{ flex: 1, minWidth: 0, minHeight: 48, position: "relative", background: theme.bg.base, borderBottom: "1px solid " + theme.border.subtle, opacity: visible ? 1 : 0.4 }}>
+          <Boundaries turns={turns} totalTime={totalTime} timeMap={timeMap} mode={theme.mode} />
+          <Marks marks={marks} info={info} onSelect={select} mode={theme.mode} />
           {active.map(mark => <div key={mark.key} aria-hidden="true" style={{ position: "absolute", pointerEvents: "none",
             left: mark.left * 100 + "%", width: mark.width * 100 + "%", top: 4, bottom: 4,
             border: "1px solid " + info.color, borderRadius: theme.radius.md }} />)}
@@ -89,9 +108,9 @@ export default function TracksView({ currentTime, eventEntries, totalTime, timeM
           <button type="button" disabled={(page + 1) * 50 >= selected.entries.length} onClick={() => setPage(page + 1)} style={buttonStyle}>Next events</button>
         </div>
       </>}
-      {detail && <div style={{ marginTop: 12, fontSize: theme.fontSize.base, lineHeight: 1.6, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>
+      {detail && <div aria-live="polite" style={{ marginTop: 12, fontSize: theme.reading.fontSize, lineHeight: 1.6, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>
         <div style={{ color: theme.text.secondary }}>Event #{detail.index + 1} · {detail.event.t.toFixed(1)}s{detail.event.isError ? " · Error" : ""}</div>
-        {detail.event.text}
+        <div>{detail.event.text}</div>
       </div>}
     </section>}
   </div>;

@@ -214,7 +214,7 @@ function PortfolioCard({ entry, layout, selected, onToggleSelected, onOpen }) {
               {title}
             </span>
             {timestamp && (
-              <span style={{ color: theme.text.ghost, fontSize: theme.fontSize.xs, flexShrink: 0 }}>
+              <span style={{ color: theme.text.dim, fontSize: theme.fontSize.xs, flexShrink: 0 }}>
                 {getLandingEntryTimestamp(entry).slice(0, 10)}
               </span>
             )}
@@ -452,7 +452,7 @@ export default function FindPortfolio({
           Drop session file to import
         </div>
       )}
-      <section style={{
+      {stats.total > 0 && <section aria-label="Portfolio metrics" style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
         gap: theme.space.md,
@@ -462,7 +462,7 @@ export default function FindPortfolio({
         <Stat label="avg review" value={stats.avgReviewScore != null ? stats.avgReviewScore.toFixed(1) : "--"} />
         <Stat label={isAiCreditsUnit(stats.avgCostUnit) ? "avg credits" : "avg cost"} value={stats.avgCost != null ? formatCostValue(stats.avgCost, stats.avgCostUnit) : "--"} />
         <Stat label="errors" value={stats.totalErrors != null ? stats.totalErrors : "--"} />
-      </section>
+      </section>}
 
       <section style={{
         background: theme.bg.surface,
@@ -668,7 +668,7 @@ export default function FindPortfolio({
                 style={{
                   border: "none",
                   background: "transparent",
-                  color: theme.text.ghost,
+                  color: theme.text.dim,
                   fontSize: theme.fontSize.xs,
                   fontFamily: theme.font.mono,
                   cursor: "pointer",
@@ -769,16 +769,30 @@ export default function FindPortfolio({
               lineHeight: 1.7,
             }}>
               <div>{query ? "No sessions matching \"" + query + "\"" : isManifestMode ? "No sessions in this manifest." : "No sessions available yet."}</div>
+              {stats.total === 0 && <>
+                <div style={{ maxWidth: 580, padding: "0 16px", color: theme.text.secondary }}>
+                  Import or drop a session file to review your agent's work.
+                  <div style={{ marginTop: 8 }}>Claude Code · Codex · Copilot CLI · VS Code Chat · Copilot prompts · ATIF / Harbor</div>
+                  <div role="status" style={{ marginTop: 8, color: theme.text.dim }}>
+                    {refreshing ? "Scanning session directories..." : isManifestMode ? "Using the configured manifest." : "No local sessions found. Import JSON or JSONL, or rescan session directories."}
+                  </div>
+                </div>
+                {onImport && <button type="button" className="av-btn" onClick={() => fileRef.current?.click()}
+                  style={{ background: theme.accent.primary, color: theme.bg.surface, border: "1px solid " + theme.accent.primary,
+                    borderRadius: theme.radius.md, padding: "10px 16px", fontFamily: theme.font.mono, fontSize: theme.fontSize.base, cursor: "pointer" }}>
+                  Import a session
+                </button>}
+              </>}
               {onLoadSample && (
                 <button
                   type="button"
                   className="av-btn"
                   onClick={function () { cancelRead(); onLoadSample(); }}
                   style={{
-                    border: "1px solid " + theme.accent.primary,
+                    border: "1px solid " + theme.border.default,
                     borderRadius: theme.radius.md,
-                    background: theme.accent.muted,
-                    color: theme.accent.primary,
+                    background: "transparent",
+                    color: theme.text.secondary,
                     padding: "6px 10px",
                     cursor: "pointer",
                     fontFamily: theme.font.mono,

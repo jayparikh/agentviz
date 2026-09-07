@@ -157,7 +157,7 @@ export default function CommandPalette({ events, turns, extraItems, indexOptions
                 }}>
                   {item.label}
                 </span>
-                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.ghost, textTransform: "uppercase", letterSpacing: 1 }}>
+                <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1 }}>
                   {item.type}
                 </span>
                 {item.time !== undefined && (
@@ -173,7 +173,7 @@ export default function CommandPalette({ events, turns, extraItems, indexOptions
         {/* Footer hint */}
         <div style={{
           padding: "8px 18px", borderTop: "1px solid " + theme.border.default,
-          display: "flex", gap: 16, fontSize: theme.fontSize.xs, color: theme.text.ghost,
+          display: "flex", gap: 16, fontSize: theme.fontSize.xs, color: theme.text.dim,
           alignItems: "center", flexWrap: "wrap",
         }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
