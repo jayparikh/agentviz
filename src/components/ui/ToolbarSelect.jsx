@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { theme } from "../../lib/theme.js";
 import Icon from "../Icon.jsx";
 
-export default function ToolbarSelect({ ariaLabel, value, onChange, options, minWidth, menuWidth }) {
+export default function ToolbarSelect({ ariaLabel, value, onChange, options, minWidth, menuWidth, placement }) {
   var [open, setOpen] = useState(false);
   var ref = useRef(null);
   var triggerRef = useRef(null);
@@ -64,7 +64,8 @@ export default function ToolbarSelect({ ariaLabel, value, onChange, options, min
           aria-label={ariaLabel}
           style={{
             position: "absolute",
-            top: "calc(100% + 4px)",
+            top: placement === "top" ? undefined : "calc(100% + 4px)",
+            bottom: placement === "top" ? "calc(100% + 4px)" : undefined,
             right: 0,
             background: theme.bg.surface,
             border: "1px solid " + theme.border.strong,

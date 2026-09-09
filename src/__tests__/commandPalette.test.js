@@ -12,8 +12,6 @@ describe("command palette flow-aware items", function () {
   });
   it("searches extra zone commands", function () {
     var index = buildCommandPaletteIndex([], [], {
-      includeLegacyViews: false,
-      includeDefaultActions: false,
       extraItems: [
         {
           id: "failed",

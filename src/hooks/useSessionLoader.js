@@ -23,7 +23,6 @@ export default function useSessionLoader(options) {
   var [sourcePath, setSourcePath] = useState(null);
   var [error, setError] = useState(null);
   var [loading, setLoading] = useState(false);
-  var [showHero, setShowHero] = useState(false);
   var [isLive, setIsLive] = useState(false);
   var [sessionKey, setSessionKey] = useState(0);
   var [streamOffset, setStreamOffset] = useState(null);
@@ -48,7 +47,6 @@ export default function useSessionLoader(options) {
     setFile(applied.file);
     setSourcePath(nextSourcePath || null);
     setError(applied.error);
-    setShowHero(applied.showHero);
     setSessionKey(function (key) { return key + 1; });
   }, []);
 
@@ -207,7 +205,6 @@ export default function useSessionLoader(options) {
     setError(null);
     setLoading(false);
     setIsLive(false);
-    setShowHero(true);
     setSessionKey(function (key) { return key + 1; });
   }, [resetLiveParser, cancelPendingLoad]);
 
@@ -225,13 +222,8 @@ export default function useSessionLoader(options) {
     setError(null);
     setLoading(false);
     setIsLive(false);
-    setShowHero(false);
     setSessionKey(function (key) { return key + 1; });
   }, [resetLiveParser, cancelPendingLoad]);
-
-  var dismissHero = useCallback(function () {
-    setShowHero(false);
-  }, []);
 
   // When served by the CLI (server.js), /api/meta tells us the filename
   // and /api/file provides the initial content. Bootstrap from there.
@@ -295,7 +287,6 @@ export default function useSessionLoader(options) {
     sourcePath: sourcePath,
     error: error,
     loading: loading,
-    showHero: showHero,
     isLive: isLive,
     sessionKey: sessionKey,
     streamOffset: streamOffset,
@@ -306,7 +297,6 @@ export default function useSessionLoader(options) {
     appendLines: appendLines,
     loadSample: loadSample,
     resetSession: resetSession,
-    dismissHero: dismissHero,
     getRawText: function () { return rawTextRef.current; },
   };
 }

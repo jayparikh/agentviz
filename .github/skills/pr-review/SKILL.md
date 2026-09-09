@@ -22,7 +22,7 @@ You are an opinionated, thorough code reviewer for the AGENTVIZ codebase. Your j
    - **Server** (`server.js`, `routes/**/*.js`)
    - **Config** (`package.json`, `vite.config.js`, `tsconfig.json`)
    - **Docs** (`README.md`, `docs/**`, `CLAUDE.md`)
-   - **Tests** (`src/lib/__tests__/**`)
+   - **Tests** (`src/__tests__/**`, `tests/e2e/**`)
    - **Skills/prompts** (`.github/skills/**`, `.github/copilot-instructions.md`)
 
 ## Review Passes
@@ -37,7 +37,7 @@ Run these passes in order. Each pass focuses on a specific category. For every i
 
 Read `docs/ui-ux-style-guide.md` and mechanically verify the full review checklist against every changed line:
 
-- [ ] **Colors**: All color values reference `theme.*` tokens. No new hardcoded hex values in components. Known exceptions: `LiveIndicator.jsx` (`#34d399`), `CompareView.jsx` (`#a78bfa`), `index.html` (`--av-*` CSS custom properties). New code must not add to this list.
+- [ ] **Colors**: All color values reference `theme.*` tokens. No new hardcoded hex values in components. Known exception: `index.html` (`--av-*` CSS custom properties). New code must not add to this list.
 - [ ] **Color palette sync**: `docs/color-palette.html` is the visual authority for the color palette. If the PR introduces a hex value that is not in `color-palette.html`, or if a `theme.js` token value was changed without a corresponding `color-palette.html` update, **flag it as a violation** -- do not accept the drift. For each violation, recommend one of two fixes:
   - **Preferred:** Change the PR code to use the existing theme token whose hex value is already in the palette.
   - **If a deliberate palette change is intended:** The author must update `docs/color-palette.html` and `docs/ui-ux-style-guide.md` in the same PR, documenting the new value. Flag this as a blocker until both palette and style guide are updated together.
@@ -141,7 +141,7 @@ The AGENTVIZ architecture has clear rules. Verify:
    - Sub-components go in subdirectories (e.g., `src/components/waterfall/`)
    - Server routes go in top-level `routes/` (not under `src/`)
 
-2. **No global state**: Components receive data as props. No Redux, Zustand, MobX, or React context for application state (except `PlaybackContext` which is the one allowed context).
+2. **No external global state**: Components receive data as props. No Redux, Zustand, or MobX. The allowed session contexts are `SessionProvider` for orchestration and `PlaybackContext` for playback/search/filter state. Do not flag either existing boundary as an architecture violation.
 
 3. **Mixed JS/TS boundary**: Components and hooks are `.jsx`/`.js`. Parsers and data libraries are `.ts`. Don't mix -- a new parser should be TypeScript, a new hook should be JavaScript.
 
@@ -151,7 +151,7 @@ The AGENTVIZ architecture has clear rules. Verify:
 
 6. **Import hygiene**: Components should not import from server code. Server code should not import from `src/`.
 
-7. **View registration**: New session views must be registered in `APP_VIEWS` in `App.jsx` with a keyboard shortcut (1-9).
+7. **Workflow registration**: Keep 1-6 mapped to `V2_ZONES` and 7 as the Improve alias. New deep visualizations belong in `ANALYZE_PANELS`, not a second shell or peer view navigation.
 
 ---
 
@@ -257,5 +257,5 @@ If a focus is provided, still run all passes but give extra attention to the req
 - **Be specific.** Don't say "there might be style issues." Say "`GraphView.jsx:142` uses `fontSize: 12` instead of `theme.fontSize.xs`."
 - **Show evidence.** When flagging duplicates, show the existing code. When flagging dead code, show the grep that proves it's unused.
 - **Don't invent issues.** If a pass is clean, say so. Fabricating issues destroys trust.
-- **Respect existing exceptions.** The style guide documents known exceptions (LiveIndicator, CompareView). Don't flag those.
+- **Respect existing exceptions.** The style guide documents the `index.html` custom properties. Don't flag those.
 - **Run the build.** After your review, run `npm run typecheck && npm test` to verify the branch is healthy. Report the results.

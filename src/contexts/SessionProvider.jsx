@@ -4,7 +4,6 @@ import useSessionLoader from "../hooks/useSessionLoader.js";
 import useLiveStream from "../hooks/useLiveStream.js";
 import useAsyncStatus from "../hooks/useAsyncStatus.js";
 import useDiscoveredSessions from "../hooks/useDiscoveredSessions.js";
-import useHashRouter from "../hooks/useHashRouter.js";
 import { parseSessionText } from "../lib/sessionParsing";
 import { buildAutonomyMetrics, buildAutonomySummary } from "../lib/autonomyMetrics.js";
 import {
@@ -76,11 +75,11 @@ function mergeSessionSources(libraryEntries, discoveredSessions) {
   return enrichedLibrary.concat(discoveredOnly);
 }
 
-export function SessionProvider({ children, onBeforeSessionChange, onStoredSessionOpen, enableHashRouter }) {
+export function SessionProvider({ children }) {
   var [libraryEntries, setLibraryEntries] = useState(function () {
     return reconcileSessionLibrary();
   });
-  var [compareLanding, setCompareLanding] = useState(false);
+  var [comparisonActive, setComparisonActive] = useState(false);
   var [loadError, setLoadError] = useState(null);
   var [retryLoad, setRetryLoad] = useState(null);
   var sessionLoadCount = useRef(0);
@@ -99,10 +98,6 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
   var session = useSessionLoader({ onSessionParsed: handleSessionParsed });
   var sessionB = useSessionLoader({ autoBootstrap: false, onSessionParsed: handleSessionParsed });
 
-  var beforeSessionChange = useCallback(function () {
-    if (typeof onBeforeSessionChange === "function") onBeforeSessionChange();
-  }, [onBeforeSessionChange]);
-
   var allSessions = useMemo(function () {
     try {
       return mergeSessionSources(libraryEntries, discovered.sessions);
@@ -116,7 +111,7 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     var compareData = window.__AGENTVIZ_COMPARE__;
     if (!compareData || !compareData.a || !compareData.b) return;
     delete window.__AGENTVIZ_COMPARE__;
-    setCompareLanding(true);
+    setComparisonActive(true);
     session.handleFile(compareData.a.text, compareData.a.name);
     sessionB.handleFile(compareData.b.text, compareData.b.name);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -140,9 +135,14 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     sessionB.cancelPendingLoad();
     setLoadError(null);
     setRetryLoad(function () { return function () { return handleFile(text, name, sourcePath); }; });
-    beforeSessionChange();
-    return session.handleFile(text, name, sourcePath);
-  }, [beforeSessionChange, session.handleFile, sessionB.cancelPendingLoad]);
+    return session.handleFile(text, name, sourcePath).then(function (success) {
+      if (success) {
+        setComparisonActive(false);
+        sessionB.resetSession();
+      }
+      return success;
+    });
+  }, [session.handleFile, sessionB.cancelPendingLoad, sessionB.resetSession]);
 
   var beginFileRead = useCallback(function () {
     sessionLoadCount.current += 1;
@@ -157,9 +157,10 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     sessionB.cancelPendingLoad();
     setLoadError(null);
     setRetryLoad(null);
-    beforeSessionChange();
+    setComparisonActive(false);
+    sessionB.resetSession();
     session.loadSample(mode);
-  }, [beforeSessionChange, session.loadSample, sessionB.cancelPendingLoad]);
+  }, [session.loadSample, sessionB.cancelPendingLoad, sessionB.resetSession]);
 
   var openStoredSession = useCallback(async function (entry) {
     if (!entry) return false;
@@ -173,11 +174,11 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
 
     async function afterLoad(rawText) {
       if (requestId !== sessionLoadCount.current) return false;
-      beforeSessionChange();
       var success = await session.handleFile(rawText, sessionName, sessionPath);
       if (!success || requestId !== sessionLoadCount.current) return false;
       setLoadError(null);
-      if (typeof onStoredSessionOpen === "function") onStoredSessionOpen();
+      setComparisonActive(false);
+      sessionB.resetSession();
 
       var entryTags = entry.tags && entry.tags.length > 0 ? entry.tags : null;
       if (sessionPath || entryTags) {
@@ -223,7 +224,7 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
       });
     });
     return onFetchError(new Error("Stored content is unavailable"));
-  }, [discovered.fetchSessionContent, beforeSessionChange, session.beginLoad, session.failLoad, session.handleFile, sessionB.cancelPendingLoad, onStoredSessionOpen]);
+  }, [discovered.fetchSessionContent, session.beginLoad, session.failLoad, session.handleFile, sessionB.cancelPendingLoad, sessionB.resetSession]);
 
   var loadEntryText = useCallback(function (entry) {
     if (!entry) return Promise.resolve(null);
@@ -250,7 +251,6 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     sessionB.beginLoad();
     setLoadError(null);
     setRetryLoad(null);
-    beforeSessionChange();
 
     return Promise.all([loadEntryText(pair[0]), loadEntryText(pair[1])])
       .then(async function (texts) {
@@ -263,7 +263,7 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
           sessionB.handleFile(texts[1], pair[1].file || pair[1].summary || pair[1].filename || "session-b.jsonl", pair[1].discoveredPath || null),
         ]);
         if (requestId !== sessionLoadCount.current || !results.every(Boolean)) return false;
-        setCompareLanding(true);
+        setComparisonActive(true);
         return true;
       })
       .catch(function (err) {
@@ -274,7 +274,7 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
         sessionB.failLoad("Failed to load selected sessions for comparison.");
         return false;
       });
-  }, [beforeSessionChange, loadEntryText, session.beginLoad, session.failLoad, session.handleFile, sessionB.beginLoad, sessionB.failLoad, sessionB.handleFile]);
+  }, [loadEntryText, session.beginLoad, session.failLoad, session.handleFile, sessionB.beginLoad, sessionB.failLoad, sessionB.handleFile]);
 
   var openCompareCurrentWithEntry = useCallback(function (entry) {
     if (!entry) return Promise.resolve(false);
@@ -287,7 +287,6 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     sessionB.beginLoad();
     setLoadError(null);
     setRetryLoad(null);
-    beforeSessionChange();
 
     return loadEntryText(entry)
       .then(async function (text) {
@@ -298,7 +297,7 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
           sessionB.handleFile(text, entry.file || entry.summary || entry.filename || "session-b.jsonl", entry.discoveredPath || null),
         ]);
         if (requestId !== sessionLoadCount.current || !results.every(Boolean)) return false;
-        setCompareLanding(true);
+        setComparisonActive(true);
         return true;
       })
       .catch(function (err) {
@@ -309,17 +308,16 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
         sessionB.failLoad("Failed to load session for comparison.");
         return false;
       });
-  }, [beforeSessionChange, loadEntryText, session.getRawText, session.file, session.sourcePath, session.beginLoad, session.failLoad, session.handleFile, sessionB.beginLoad, sessionB.failLoad, sessionB.handleFile]);
+  }, [loadEntryText, session.getRawText, session.file, session.sourcePath, session.beginLoad, session.failLoad, session.handleFile, sessionB.beginLoad, sessionB.failLoad, sessionB.handleFile]);
 
   var reset = useCallback(function () {
     sessionLoadCount.current += 1;
     setLoadError(null);
     setRetryLoad(null);
-    beforeSessionChange();
     session.resetSession();
     sessionB.resetSession();
-    setCompareLanding(false);
-  }, [beforeSessionChange, session.resetSession, sessionB.resetSession]);
+    setComparisonActive(false);
+  }, [session.resetSession, sessionB.resetSession]);
 
   useEffect(function () {
     var params = new URLSearchParams(window.location.search);
@@ -328,28 +326,11 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     }
   }, [loadSample]);
 
-  useHashRouter({
-    hasSession: Boolean(session.events),
-    onNavigateToLanding: reset,
-    enabled: enableHashRouter !== false,
-  });
-
-  var exitCompare = useCallback(function () {
-    sessionLoadCount.current += 1;
-    session.cancelPendingLoad();
-    sessionB.resetSession();
-    setCompareLanding(false);
-  }, [session.cancelPendingLoad, sessionB.resetSession]);
-
-  var openCompareSessionInCoach = useCallback(async function (loader) {
+  var openCompareSessionInCoach = useCallback(function (loader) {
     var rawText = loader.getRawText();
-    if (!rawText) return false;
-    var success = await handleFile(rawText, loader.file, loader.sourcePath);
-    if (!success) return false;
-    sessionB.resetSession();
-    setCompareLanding(false);
-    return true;
-  }, [handleFile, sessionB.resetSession]);
+    if (!rawText) return Promise.resolve(false);
+    return handleFile(rawText, loader.file, loader.sourcePath);
+  }, [handleFile]);
 
   var handleExportSession = useCallback(function () {
     var rawText = session.getRawText();
@@ -374,7 +355,7 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
     return discovered.refresh();
   }, [discovered.refresh]);
 
-  var compareReady = compareLanding && !session.loading && !sessionB.loading
+  var compareReady = comparisonActive && !session.loading && !sessionB.loading
     && !session.error && !sessionB.error && Boolean(session.events) && Boolean(sessionB.events);
 
   var value = useMemo(function () {
@@ -386,8 +367,6 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
       discovered: discovered,
       loadError: loadError,
       retryLoad: retryLoad,
-      compareLanding: compareLanding,
-      setCompareLanding: setCompareLanding,
       compareReady: compareReady,
       sessionExport: sessionExport,
       compareExport: compareExport,
@@ -400,16 +379,15 @@ export function SessionProvider({ children, onBeforeSessionChange, onStoredSessi
       openCompareEntries: openCompareEntries,
       openCompareCurrentWithEntry: openCompareCurrentWithEntry,
       reset: reset,
-      exitCompare: exitCompare,
       openCompareSessionInCoach: openCompareSessionInCoach,
       handleExportSession: handleExportSession,
       handleExportComparison: handleExportComparison,
       refreshSessions: refreshSessions,
     };
   }, [
-    session, sessionB, allSessions, discovered, loadError, retryLoad, compareLanding,
+    session, sessionB, allSessions, discovered, loadError, retryLoad,
     compareReady, sessionExport, compareExport, autonomyMetrics, debrief,
-    handleFile, beginFileRead, loadSample, openStoredSession, openCompareEntries, openCompareCurrentWithEntry, reset, exitCompare,
+    handleFile, beginFileRead, loadSample, openStoredSession, openCompareEntries, openCompareCurrentWithEntry, reset,
     openCompareSessionInCoach, handleExportSession, handleExportComparison,
     refreshSessions,
   ]);

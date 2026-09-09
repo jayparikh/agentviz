@@ -29,7 +29,8 @@ export default function V2Header({
   onExportSession,
   exportSessionState,
   exportSessionError,
-  onExitV2,
+  onCloseSession,
+  onOpenShortcuts,
   compact,
   densityControl,
 }) {
@@ -155,6 +156,8 @@ export default function V2Header({
       </div>
 
       {densityControl}
+      {onCloseSession && <ToolbarButton onClick={onCloseSession} aria-label="Close session" title="Close session without deleting saved runs">Close session</ToolbarButton>}
+      <ToolbarButton onClick={onOpenShortcuts} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</ToolbarButton>
       {onExportSession && (
         <ExportStatusButton
           state={exportSessionState}
@@ -252,11 +255,6 @@ export default function V2Header({
         </div>
       )}
 
-      {onExitV2 && (
-        <ToolbarButton onClick={onExitV2} title="Switch to Classic UI">
-          Classic UI
-        </ToolbarButton>
-      )}
     </header>
   );
 }

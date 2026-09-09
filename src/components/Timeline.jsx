@@ -1,6 +1,9 @@
 import { useRef, useMemo } from "react";
 import { theme, TRACK_TYPES } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
+import ToolbarSelect from "./ui/ToolbarSelect.jsx";
+import { PLAYBACK_SPEEDS } from "../lib/playbackUtils.js";
+import useReducedMotion from "../hooks/useReducedMotion.js";
 
 var TIMELINE_BINS = 200;
 
@@ -37,8 +40,9 @@ export function buildTimelineBins(eventEntries, totalTime, timeMap, matchSet) {
   return bins;
 }
 
-export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPlaying, onPlayPause, isLive, eventEntries, turns, matchSet }) {
+export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPlaying, onPlayPause, isLive, eventEntries, turns, matchSet, speed, onSetSpeed }) {
   var barRef = useRef(null);
+  var reducedMotion = useReducedMotion();
 
   function handleClick(e) {
     var rect = barRef.current.getBoundingClientRect();
@@ -80,7 +84,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
 
   return (
     <div style={{ paddingBottom: theme.space.md }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 6 }}>
         {!isLive && (
           <button
             onClick={onPlayPause}
@@ -99,6 +103,11 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           >
             {isPlaying ? <Icon name="pause" size={14} /> : <Icon name="play" size={14} />}
           </button>
+        )}
+        {!isLive && onSetSpeed && (
+          <ToolbarSelect ariaLabel="Playback speed" value={speed} placement="top" menuWidth={120}
+            onChange={function (value) { onSetSpeed(Number(value)); }}
+            options={PLAYBACK_SPEEDS.map(function (value) { return { id: value, label: value + "x" }; })} />
         )}
         <span style={{ fontFamily: theme.font.mono, fontSize: theme.fontSize.md, color: theme.text.secondary, letterSpacing: 1 }}>
           {isLive ? totalTime.toFixed(1) + "s" : currentTime.toFixed(1) + "s / " + totalTime.toFixed(1) + "s"}
@@ -124,6 +133,26 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
       <div
         ref={barRef}
         onClick={handleClick}
+        role="slider"
+        tabIndex={0}
+        aria-label="Playback position"
+        aria-valuemin={0}
+        aria-valuemax={totalTime}
+        aria-valuenow={currentTime}
+        aria-valuetext={currentTime.toFixed(1) + " seconds of " + totalTime.toFixed(1)}
+        onKeyDown={function (event) {
+          if (event.metaKey || event.ctrlKey || event.altKey) return;
+          var position = timeMap ? timeMap.toPosition(currentTime) : (totalTime ? currentTime / totalTime : 0);
+          if (event.key === "Home") position = 0;
+          else if (event.key === "End") position = 1;
+          else if (event.key === "ArrowRight" || event.key === "ArrowUp") position += 0.01;
+          else if (event.key === "ArrowLeft" || event.key === "ArrowDown") position -= 0.01;
+          else return;
+          event.preventDefault();
+          event.stopPropagation();
+          position = Math.max(0, Math.min(1, position));
+          onSeek(timeMap ? timeMap.toTime(position) : position * totalTime);
+        }}
         style={{
           height: 28,
           background: theme.bg.surface,
@@ -201,7 +230,7 @@ export default function Timeline({ currentTime, totalTime, timeMap, onSeek, isPl
           width: 2,
           background: theme.accent.primary,
           boxShadow: "none",
-          transition: "left 0.08s linear",
+          transition: reducedMotion ? "none" : "left 0.08s linear",
           zIndex: theme.z.active,
         }} />
       </div>

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act, createElement } from "react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +11,15 @@ var exportMocks = vi.hoisted(function () {
     exportSingleSession: vi.fn(function () { return Promise.resolve(); }),
     exportComparison: vi.fn(function () { return Promise.resolve(); }),
   };
+});
+
+var reviewRender = vi.hoisted(function () { return vi.fn(); });
+vi.mock("../components/v2/ReviewHub.jsx", async function (importOriginal) {
+  var original = await importOriginal();
+  return { default: function (props) {
+    reviewRender();
+    return createElement(original.default, props);
+  } };
 });
 
 vi.mock("../lib/exportHtml.js", function () {
@@ -117,6 +126,10 @@ function findButtonByTitle(container, title) {
     .find(function (node) { return node.title === title; }) || null;
 }
 
+function closeQAButton(container) {
+  return Array.from(container.querySelectorAll("button")).find(function (node) { return node.getAttribute("aria-label") === "Close Q&A drawer"; });
+}
+
 function findClickableText(container, text) {
   return Array.from(container.querySelectorAll("button, span"))
     .find(function (node) {
@@ -125,18 +138,11 @@ function findClickableText(container, text) {
 }
 
 function getSearchCount(container) {
-  var input = container.querySelector("#agentviz-search");
-  if (!input || !input.parentElement) return null;
-  var children = Array.from(input.parentElement.children);
-  var lastChild = children[children.length - 1];
-  if (!lastChild || lastChild === input) return null;
-  return lastChild.textContent || null;
+  return Array.from(container.querySelectorAll("span")).map(function (node) { return node.textContent; })
+    .find(function (text) { return /^\d+ match(es)?$/.test(text); });
 }
 
-async function renderApp(fetchImpl, options) {
-  if (!options || !options.defaultV2) {
-    window.localStorage.setItem("agentviz:v2:enabled", "false");
-  }
+async function renderApp(fetchImpl) {
   global.fetch = fetchImpl || createInactiveFetch();
 
   var container = document.createElement("div");
@@ -170,6 +176,7 @@ beforeEach(function () {
     clear: function () { storage = {}; },
   };
   document.body.innerHTML = "";
+  window.history.replaceState(null, "", "#/");
   global.ResizeObserver = class {
     observe() {}
     disconnect() {}
@@ -185,6 +192,63 @@ afterEach(function () {
 });
 
 describe("App browser regressions", function () {
+  it("can close a live stream before its first event arrives", async function () {
+    var sources = [];
+    global.EventSource = class {
+      constructor() { this.close = vi.fn(); sources.push(this); }
+    };
+    var app = await renderApp(createLiveFetch("empty-live.jsonl", ""));
+    try {
+      await waitFor(function () { return sources.length === 1; });
+      expect(app.container.querySelector('[aria-label="Close session"]')).toBeTruthy();
+      await click(app.container.querySelector('[aria-label="Close session"]'));
+      expect(sources[0].close).toHaveBeenCalledOnce();
+      expect(window.location.hash).toBe("#/v2/find");
+      expect(app.container.textContent).not.toContain("Live session streaming");
+    } finally { await app.unmount(); }
+  });
+
+  it("does not rerender Review on background playback ticks", async function () {
+    var app = await renderApp();
+    try {
+      await click(findClickableText(app.container, "Load a demo session"));
+      await click(app.container.querySelector('button[aria-label^="Investigate,"]'));
+      await click(app.container.querySelector('[aria-label="Play playback"]'));
+      await click(app.container.querySelector('button[aria-label^="Review,"]'));
+      var renders = reviewRender.mock.calls.length;
+      await sleep(250);
+      expect(reviewRender.mock.calls.length).toBe(renders);
+      await click(app.container.querySelector('button[aria-label^="Investigate,"]'));
+      expect(Number(app.container.querySelector('[role="slider"]').getAttribute("aria-valuenow"))).toBeGreaterThan(0);
+    } finally { await app.unmount(); }
+  });
+
+  it("cancels an unfinished file read on Close and ignores its late completion", async function () {
+    var originalReader = global.FileReader;
+    var reader;
+    global.FileReader = class {
+      constructor() { reader = this; this.readyState = 0; this.abort = vi.fn(); }
+      readAsText() { this.readyState = 1; }
+    };
+    var app = await renderApp();
+    try {
+      var upload = app.container.querySelector('input[type="file"]');
+      Object.defineProperty(upload, "files", { value: [new File([FIXTURE_TEXT], "late.jsonl")] });
+      await act(async function () { upload.dispatchEvent(new Event("change", { bubbles: true })); });
+      expect(app.container.textContent).toContain("Reading session file...");
+      await click(app.container.querySelector('[aria-label="Close session"]'));
+      expect(reader.abort).toHaveBeenCalledOnce();
+      await act(async function () { reader.onload({ target: { result: FIXTURE_TEXT } }); });
+      await sleep(30);
+      expect(app.container.querySelector('[aria-label="Close session"]')).toBeNull();
+      expect(window.location.hash).toBe("#/v2/find");
+      expect(app.container.textContent).not.toContain("late.jsonl");
+    } finally {
+      await app.unmount();
+      global.FileReader = originalReader;
+    }
+  });
+
   it("disables Open button for entries with evicted content", async function () {
     // Simulate a library entry whose content was evicted: hasContent is true
     // but the actual content key is missing from localStorage.
@@ -277,7 +341,7 @@ describe("App browser regressions", function () {
     await app.unmount();
   });
 
-  it("uses shared landing controls in dashboard mode and rescans sessions", async function () {
+  it("uses Find controls despite retired landing preferences and rescans sessions", async function () {
     global.localStorage.setItem("agentviz:landing-mode", "\"dashboard\"");
     global.localStorage.setItem("agentviz:session-library:v1", JSON.stringify([
       {
@@ -324,6 +388,8 @@ describe("App browser regressions", function () {
     expect(formatButton).toBeTruthy();
     expect(formatButton.getAttribute("aria-haspopup")).toBe("listbox");
     expect(formatButton.getAttribute("aria-expanded")).toBe("false");
+    await click(findExactButton(app.container, "Most recent"));
+    await click(Array.from(app.container.querySelectorAll('[role="option"]')).find(function (node) { return node.textContent === "Needs review"; }));
     expect(findExactButton(app.container, "Needs review")).toBeTruthy();
     expect(getSessionRequestCount()).toBe(1);
 
@@ -338,7 +404,7 @@ describe("App browser regressions", function () {
       return formatButton.getAttribute("aria-expanded") === "false";
     }, "expected escape to close toolbar select");
 
-    var refreshButton = app.container.querySelector('button[aria-label="Rescan session directories"]');
+    var refreshButton = app.container.querySelector('button[aria-label="Rescan v2 session directories"]');
     expect(refreshButton).toBeTruthy();
     await click(refreshButton);
 
@@ -357,87 +423,31 @@ describe("App browser regressions", function () {
       return findByText(app.container, "demo-session.jsonl");
     }, "expected demo session to load");
 
-    await click(findButtonByTitle(app.container, "Compare with another session"));
+    await click(app.container.querySelector('button[aria-label^="Compare,"]'));
     expect(findByText(app.container, "demo-session.jsonl")).toBeTruthy();
-    expect(findByText(app.container, "Drop a session file here")).toBeTruthy();
+    expect(findByText(app.container, "Select two sessions to compare")).toBeTruthy();
 
     await app.unmount();
   });
 
-  it("defaults to v2 and can switch back to Classic UI", async function () {
-    var app = await renderApp(null, { defaultV2: true });
-
-    await waitFor(function () {
-      return findByText(app.container, "Open or discover a session");
-    }, "expected v2 shell to mount by default");
-
-    await waitFor(function () {
-      return window.localStorage.getItem("agentviz:v2:enabled") === null;
-    }, "expected default v2 preference to be implicit");
-
-    await click(findExactButton(app.container, "Classic UI"));
-    await waitFor(function () {
-      return findByText(app.container, "Inbox");
-    }, "expected classic UI to remount");
-
-    await waitFor(function () {
-      return window.localStorage.getItem("agentviz:v2:enabled") === "false";
-    }, "expected classic preference to persist");
-
-    await click(findExactButton(app.container, "Default UI"));
-    await waitFor(function () {
-      return findByText(app.container, "Open or discover a session");
-    }, "expected default UI to remount");
-
-    await waitFor(function () {
-      return window.localStorage.getItem("agentviz:v2:enabled") === "true";
-    }, "expected v2 preference to persist after returning from classic");
-
-    await app.unmount();
-  });
-
-  it("toggles between Classic UI and default v2 UI", async function () {
+  it.each([null, "false", "true", "{broken"])("mounts only the workflow with retired preference %s", async function (value) {
+    if (value !== null) window.localStorage.setItem("agentviz:v2:enabled", value);
     var app = await renderApp();
-
-    await waitFor(function () {
-      return findByText(app.container, "Default UI");
-    }, "expected default UI toggle on landing");
-
-    await click(findExactButton(app.container, "Default UI"));
-    await waitFor(function () {
-      return findByText(app.container, "Open or discover a session");
-    }, "expected v2 shell to mount");
-
-    await waitFor(function () {
-      return window.localStorage.getItem("agentviz:v2:enabled") === "true";
-    }, "expected v2 preference to persist");
-
-    await click(findExactButton(app.container, "Classic UI"));
-    await waitFor(function () {
-      return findByText(app.container, "Inbox");
-    }, "expected v1 UI to remount");
-
-    await waitFor(function () {
-      return window.localStorage.getItem("agentviz:v2:enabled") === "false";
-    }, "expected classic UI preference to persist");
-
+    expect(app.container.querySelector('button[aria-label^="Find,"]')).toBeTruthy();
+    expect(findExactButton(app.container, "Classic UI")).toBeNull();
+    expect(findExactButton(app.container, "Default UI")).toBeNull();
+    expect(window.localStorage.getItem("agentviz:v2:enabled")).toBe(value);
     await app.unmount();
   });
 
-  it("shows the default UI toggle in the active session header", async function () {
+  it.each(["#/", "#/session"])("maps old %s links to Find without losing query parameters", async function (hash) {
+    window.history.replaceState(null, "", "?demo=empty&tag=review" + hash);
     var app = await renderApp();
-
-    await click(findClickableText(app.container, "Load a demo session"));
-    await waitFor(function () {
-      return findByText(app.container, "demo-session.jsonl");
-    }, "expected demo session to load");
-
-    await click(findExactButton(app.container, "Default UI"));
-    await waitFor(function () {
-      return findByText(app.container, "Open or discover a session");
-    }, "expected v2 shell from session header");
-
+    expect(window.location.hash).toBe("#/v2/find");
+    expect(window.location.search).toBe("?demo=empty&tag=review");
+    expect(app.container.querySelector('[aria-label="Search v2 sessions"]')).toBeTruthy();
     await app.unmount();
+    window.history.replaceState(null, "", "/");
   });
 
   it("updates search results and track filters on the loaded demo session", async function () {
@@ -448,27 +458,22 @@ describe("App browser regressions", function () {
       return findByText(app.container, "demo-session.jsonl");
     }, "expected demo session to load");
 
-    var searchInput = app.container.querySelector("#agentviz-search");
+    await click(app.container.querySelector('button[aria-label^="Investigate,"]'));
+    var searchInput = app.container.querySelector('[aria-label="Search evidence events"]');
     await changeInput(searchInput, "rate limiting");
     expect(await waitFor(function () {
       return getSearchCount(app.container);
-    }, "expected search count to appear")).toBe("1");
+    }, "expected search count to appear")).toBe("1 match");
 
-    await click(findButtonByTitle(app.container, "Filter events"));
-    await waitFor(function () {
-      return findClickableText(app.container, "Tool calls");
-    }, "expected filter popover to open");
     expect(findClickableText(app.container, "User only")).toBeTruthy();
 
     await click(findClickableText(app.container, "Tool calls"));
-    await waitFor(function () {
-      return findButtonByTitle(app.container, "Filter events");
-    }, "expected hidden filter count to update");
+    expect(findExactButton(app.container, "Tool calls").getAttribute("aria-pressed")).toBe("true");
 
     await app.unmount();
   });
 
-  it("keeps v1 view navigation and command palette working with shared session provider", async function () {
+  it("keeps visualization and command palette journeys in the workflow", async function () {
     var app = await renderApp();
 
     await click(findClickableText(app.container, "Load a demo session"));
@@ -476,13 +481,14 @@ describe("App browser regressions", function () {
       return findByText(app.container, "demo-session.jsonl");
     }, "expected demo session to load");
 
+    await click(app.container.querySelector('button[aria-label^="Investigate,"]'));
+    expect(findByText(app.container, "Session Info")).toBeTruthy();
+    await click(app.container.querySelector('button[aria-label^="Analyze,"]'));
     var viewExpectations = [
-      ["Replay", "Session Info"],
       ["Tracks", "Tracks"],
       ["Waterfall", "Waterfall Stats"],
       ["Stats", "Autonomy Metrics"],
       ["Cost", "Token spend & context buildup"],
-      ["Coach", "Session coaching:"],
     ];
 
     for (var i = 0; i < viewExpectations.length; i++) {
@@ -493,10 +499,12 @@ describe("App browser regressions", function () {
         };
       }(viewExpectations[i][1]), "expected " + viewExpectations[i][0] + " view to render");
     }
+    await click(app.container.querySelector('button[aria-label^="Improve,"]'));
+    await waitFor(function () { return findByText(app.container, "Session coaching:"); });
 
     await click(findButtonByTitle(app.container, "Command Palette (Cmd+K)"));
     await waitFor(function () {
-      return app.container.querySelector('input[placeholder="Search events, turns, tools..."]');
+      return app.container.querySelector('input[aria-label="Search command palette"]');
     }, "expected command palette to open");
 
     await app.unmount();
@@ -571,12 +579,15 @@ describe("App browser regressions", function () {
 
     expect(exportMocks.exportSingleSession).toHaveBeenCalledWith(FIXTURE_TEXT, "fixture.jsonl");
 
-    await click(findButtonByTitle(app.container, "Compare with another session"));
-    await waitFor(function () {
-      return findByText(app.container, "Session B");
-    }, "expected compare landing to open");
-
-    expect(findByText(app.container, "Drop a session file here")).toBeTruthy();
+    expect(app.container.querySelector('button[aria-label^="Compare,"]').getAttribute("aria-disabled")).toBe("true");
+    expect(app.container.querySelector('button[aria-label^="Improve,"]').getAttribute("aria-disabled")).toBe("true");
+    await click(app.container.querySelector('button[aria-label^="Investigate,"]'));
+    expect(app.container.querySelector('[aria-label="Play playback"]')).toBeNull();
+    expect(app.container.querySelector('[aria-label="Playback speed"]')).toBeNull();
+    expect(app.container.querySelector('[aria-label="Playback position"]')).toBeTruthy();
+    await click(app.container.querySelector('[aria-label="Close session"]'));
+    expect(findByText(app.container, "Live session streaming")).toBeNull();
+    expect(window.location.hash).toBe("#/v2/find");
 
     await app.unmount();
   });
@@ -592,6 +603,152 @@ describe("App browser regressions", function () {
     expect(findByText(app.container, "Drop a session file here")).toBeFalsy();
     expect(fetchMock).toHaveBeenCalledWith("/api/file");
 
+    await app.unmount();
+  });
+
+  it("keeps transport time and speed across zones and uses workflow shortcuts without stealing native keys", async function () {
+    var app = await renderApp();
+    await click(findClickableText(app.container, "Load a demo session"));
+    async function key(key, extras, target) {
+      await act(async function () {
+        (target || document.body).dispatchEvent(new KeyboardEvent("keydown", Object.assign({ key: key, code: key === " " ? "Space" : key, bubbles: true, cancelable: true }, extras)));
+      });
+    }
+    await key("3");
+    expect(window.location.hash).toBe("#/v2/investigate");
+    var slider = app.container.querySelector('[role="slider"]');
+    await key("Home", {}, slider);
+    expect(slider.getAttribute("aria-valuenow")).toBe("0");
+    await key("ArrowRight", {}, slider);
+    var time = slider.getAttribute("aria-valuenow");
+    expect(Number(time)).toBeGreaterThan(0);
+    await click(app.container.querySelector('[aria-label="Playback speed"]'));
+    await click(Array.from(app.container.querySelectorAll('[role="option"]')).find(function (node) { return node.textContent === "4x"; }));
+    await key("4");
+    expect(window.location.hash).toBe("#/v2/analyze");
+    expect(app.container.querySelector('[role="slider"]').getAttribute("aria-valuenow")).toBe(time);
+    expect(app.container.querySelector('[aria-label="Playback speed"]').textContent).toBe("4x");
+    await key("1", { ctrlKey: true });
+    expect(window.location.hash).toBe("#/v2/analyze");
+    await key(" ", {}, app.container.querySelector('[aria-label="Play playback"]'));
+    expect(app.container.querySelector('[aria-label="Play playback"]')).toBeTruthy();
+    await key(" ");
+    expect(app.container.querySelector('[aria-label="Pause playback"]')).toBeTruthy();
+    await key(" ");
+    await key("7");
+    expect(window.location.hash).toBe("#/v2/improve");
+    expect(app.container.textContent).toContain("Coach is now Improve");
+    await key("?");
+    expect(app.container.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')).toBeTruthy();
+    await click(app.container.querySelector('[aria-label="Close keyboard shortcuts"]'));
+    await key("1");
+    await key("/");
+    expect(document.activeElement.getAttribute("aria-label")).toBe("Search v2 sessions");
+    await app.unmount();
+  });
+
+  it("preserves Q&A messages and drafts across zones and failed loads, but Close resets them and retains saved runs", async function () {
+    global.localStorage.setItem("agentviz:density", '"comfortable"');
+    global.localStorage.setItem("agentviz:theme-mode", '"light"');
+    global.localStorage.setItem("agentviz:v2:find:sort", '"cost"');
+    var app = await renderApp(createExportBootstrapFetch("qa-session.jsonl", FIXTURE_TEXT));
+    await waitFor(function () { return app.container.querySelector('[aria-label="Close session"]'); });
+    async function askShortcut() {
+      await act(async function () { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "K", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true })); });
+    }
+    await askShortcut();
+    var input = app.container.querySelector('[aria-label="Ask about this session"]');
+    await changeInput(input, "how many turns?");
+    await act(async function () { input.closest("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    expect(app.container.textContent).toContain("quick answer");
+    await changeInput(input, "my unfinished question");
+    await click(closeQAButton(app.container));
+    await click(app.container.querySelector('button[aria-label^="Analyze,"]'));
+    await click(app.container.querySelector('button[aria-label^="Improve,"]'));
+    await click(findExactButton(app.container, "Ask about session"));
+    expect(app.container.querySelector('[aria-label="Ask about this session"]').value).toBe("my unfinished question");
+    expect(app.container.textContent).toContain("how many turns?");
+    await click(closeQAButton(app.container));
+    await click(app.container.querySelector('button[aria-label^="Find,"]'));
+    expect(app.container.querySelector('[aria-label="Close session"]')).toBeTruthy();
+    var upload = app.container.querySelector('input[type="file"]');
+    Object.defineProperty(upload, "files", { value: [new File(["{}"], "bad.jsonl")], configurable: true });
+    await act(async function () { upload.dispatchEvent(new Event("change", { bubbles: true })); });
+    await waitFor(function () { return app.container.querySelector('[role="alert"]'); });
+    await askShortcut();
+    expect(app.container.querySelector('[aria-label="Ask about this session"]').value).toBe("my unfinished question");
+    expect(app.container.textContent).toContain("how many turns?");
+    await click(closeQAButton(app.container));
+    var library = global.localStorage.getItem("agentviz:session-library:v1");
+    await click(app.container.querySelector('[aria-label="Close session"]'));
+    expect(global.localStorage.getItem("agentviz:session-library:v1")).toBe(library);
+    expect(global.localStorage.getItem("agentviz:density")).toBe('"comfortable"');
+    expect(global.localStorage.getItem("agentviz:theme-mode")).toBe('"light"');
+    expect(global.localStorage.getItem("agentviz:v2:find:sort")).toBe('"cost"');
+    expect(app.container.querySelector('[aria-label="Close session"]')).toBeNull();
+    await click(findExactButton(app.container, "Open"));
+    await waitFor(function () { return window.location.hash === "#/v2/review"; });
+    await askShortcut();
+    expect(app.container.querySelector('[aria-label="Ask about this session"]').value).toBe("");
+    expect(app.container.textContent).not.toContain("how many turns?");
+    await app.unmount();
+  });
+
+  it.each(["replacement", "close"])("aborts session Q&A on successful %s, not zone changes or failed loads", async function (disposal) {
+    var signal;
+    var finishRead;
+    var reader = {
+      read: vi.fn(function () { return new Promise(function (resolve) { finishRead = resolve; }); }),
+      cancel: vi.fn(async function () {}),
+    };
+    var bootstrap = createExportBootstrapFetch("stream-session.jsonl", FIXTURE_TEXT);
+    var app = await renderApp(function (url, options) {
+      if (url === "/api/qa/ask") {
+        signal = options.signal;
+        return Promise.resolve({ ok: true, body: { getReader: function () { return reader; } } });
+      }
+      return bootstrap(url, options);
+    });
+    await waitFor(function () { return app.container.querySelector('[aria-label="Close session"]'); });
+    async function openQA() {
+      await act(async function () {
+        document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "K", ctrlKey: true, shiftKey: true, bubbles: true }));
+      });
+    }
+    await openQA();
+    var input = app.container.querySelector('[aria-label="Ask about this session"]');
+    await changeInput(input, "Propose an alternative implementation strategy");
+    await act(async function () { input.closest("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    await waitFor(function () { return signal; });
+    await changeInput(input, "retain this draft");
+    await click(closeQAButton(app.container));
+    await click(app.container.querySelector('button[aria-label^="Analyze,"]'));
+    expect(signal.aborted).toBe(false);
+    await click(app.container.querySelector('button[aria-label^="Find,"]'));
+    var upload = app.container.querySelector('input[type="file"]');
+    async function importText(text, name) {
+      Object.defineProperty(upload, "files", { value: [new File([text], name)], configurable: true });
+      await act(async function () { upload.dispatchEvent(new Event("change", { bubbles: true })); });
+    }
+    await importText("{}", "invalid.jsonl");
+    await waitFor(function () { return app.container.querySelector('[role="alert"]'); });
+    expect(signal.aborted).toBe(false);
+    if (disposal === "close") {
+      await click(app.container.querySelector('[aria-label="Close session"]'));
+      await click(findExactButton(app.container, "Open"));
+    } else {
+      await importText(FIXTURE_TEXT, "replacement.jsonl");
+    }
+    await waitFor(function () { return window.location.hash === "#/v2/review"; });
+    expect(signal.aborted).toBe(true);
+    expect(reader.cancel).toHaveBeenCalledTimes(1);
+    await act(async function () {
+      finishRead({ done: false, value: new TextEncoder().encode('data: {"token":"stale answer"}\n') });
+    });
+    await openQA();
+    expect(app.container.querySelector('[aria-label="Ask about this session"]').value).toBe("");
+    expect(app.container.textContent).not.toContain("Propose an alternative implementation strategy");
+    expect(app.container.textContent).not.toContain("stale answer");
     await app.unmount();
   });
 });

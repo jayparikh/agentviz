@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Make the workflow the only shell while preserving `#/v2/...` links, preferences
+  and v1 session-library/content schemas. Retire Classic, its recent-session
+  dropdown, direct A/B upload screen and human-response/idle sort modes.
+- Restore shared Timeline playback and keyboard shortcuts in Investigate/Analyze.
+  Keep Q&A history and drafts across zones and failed loads; successful replacement
+  or explicit Close aborts streams and clears transient state, not saved runs.
+- Open newly exported comparisons directly in Compare and preserve offline
+  single-session and A/B exports.
+
 ## [1.0.4] - 2026-09-06
 
 ### Fixed

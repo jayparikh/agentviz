@@ -16,7 +16,6 @@ export interface AppliedSession {
   total: number;
   file: string;
   error: null;
-  showHero: true;
 }
 
 type SessionParser = (text: string) => ParsedSession | null;
@@ -47,6 +46,5 @@ export function buildAppliedSession(result: ParsedSession, name: string): Applie
     total: getSessionTotal(result.events),
     file: name,
     error: null,
-    showHero: true,
   };
 }

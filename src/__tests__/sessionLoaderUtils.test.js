@@ -50,7 +50,6 @@ describe("useSessionLoader helpers", function () {
 
     expect(applied.file).toBe("demo.jsonl");
     expect(applied.error).toBeNull();
-    expect(applied.showHero).toBe(true);
     expect(applied.total).toBe(5);
     expect(applied.metadata.totalEvents).toBe(2);
   });

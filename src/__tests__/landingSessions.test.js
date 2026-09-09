@@ -6,12 +6,10 @@ import {
   getLandingEntrySecondaryText,
   getLandingEntryTimestamp,
   isLowSignalDiscoveredEntry,
-  isLandingSearchShortcut,
   LANDING_FORMAT_OPTIONS,
   settleLandingRefresh,
   sortDiscoveredLandingEntries,
   sortLandingEntries,
-  sortLandingEntriesByDate,
 } from "../lib/landingSessions.js";
 
 describe("formatLandingClientLabel", function () {
@@ -132,9 +130,6 @@ describe("sortLandingEntries", function () {
     expect(sortLandingEntries(discoveredEntries, "most-recent").map(function (entry) { return entry.id; })).toEqual(["b", "c", "a"]);
   });
 
-  it("sorts by date helper", function () {
-    expect(sortLandingEntriesByDate(entries).map(function (entry) { return entry.id; })).toEqual(["b", "c", "a"]);
-  });
 });
 
 describe("low-signal discovered sessions", function () {
@@ -162,32 +157,6 @@ describe("low-signal discovered sessions", function () {
     ];
 
     expect(sortDiscoveredLandingEntries(entries).map(function (entry) { return entry.id; })).toEqual(["good", "generic", "small"]);
-  });
-});
-
-describe("isLandingSearchShortcut", function () {
-  it("matches slash outside text inputs", function () {
-    expect(isLandingSearchShortcut({
-      key: "/",
-      metaKey: false,
-      ctrlKey: false,
-      target: { tagName: "DIV" },
-    })).toBe(true);
-  });
-
-  it("ignores slash inside inputs and modified shortcuts", function () {
-    expect(isLandingSearchShortcut({
-      key: "/",
-      metaKey: false,
-      ctrlKey: false,
-      target: { tagName: "INPUT" },
-    })).toBe(false);
-    expect(isLandingSearchShortcut({
-      key: "/",
-      metaKey: true,
-      ctrlKey: false,
-      target: { tagName: "DIV" },
-    })).toBe(false);
   });
 });
 

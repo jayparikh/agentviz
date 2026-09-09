@@ -27,3 +27,4 @@ export function filterEventEntries(entries, query) {
 export function clampTime(time, total) {
   return Math.max(0, Math.min(total, time));
 }
+export const PLAYBACK_SPEEDS = [0.5, 1, 2, 4, 8];

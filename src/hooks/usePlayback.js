@@ -50,11 +50,6 @@ export default function usePlayback(total, isLive) {
     setPlaying(function (prev) { return !prev; });
   }, [total]);
 
-  var resetPlayback = useCallback(function (nextTime) {
-    setTime(nextTime || 0);
-    setPlaying(false);
-  }, []);
-
   return {
     time: time,
     playing: playing,
@@ -62,6 +57,5 @@ export default function usePlayback(total, isLive) {
     setSpeed: setSpeed,
     seek: seek,
     playPause: playPause,
-    resetPlayback: resetPlayback,
   };
 }

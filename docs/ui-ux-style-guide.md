@@ -28,8 +28,7 @@ The interface should feel fast, focused, and information-dense without ever feel
 All colors live in `src/lib/theme.js`. Components should reference `theme.*` tokens.
 The token names stay the same across modes, but the resolved values now follow the active `light`, `dark`, or `system` preference.
 
-**Known exceptions:** `LiveIndicator.jsx` hardcodes `#34d399` (teal green) and
-`CompareView.jsx` hardcodes `#a78bfa` (purple) for the Session B accent.
+**Known exceptions:**
 `index.html` defines `--av-*` CSS custom properties for hover/focus utility classes.
 These are legacy exceptions -- new code should use theme tokens.
 
@@ -187,7 +186,7 @@ background: alpha(theme.accent.primary, 0.08)  // 8% accent
 JetBrains Mono is loaded via Google Fonts in `index.html`. It is the primary typeface for
 all content -- including tool labels, coach metrics, dropdowns, and stat values.
 `font.ui` is intentionally limited to two places: the brand wordmark (`BrandWordmark` component)
-and the view-switcher tab buttons in `AppHeader`. Using it elsewhere is a violation.
+and existing navigation tab buttons. Using it elsewhere is a violation.
 
 ### Font Scale
 
@@ -216,7 +215,7 @@ and the view-switcher tab buttons in `AppHeader`. Using it elsewhere is a violat
   marginBottom: 8,
 }
 
-// Compact (inspector panels, StatsView, WaterfallInspector, InboxView)
+// Compact (inspector panels, StatsView, WaterfallInspector)
 {
   fontSize: theme.fontSize.xs,
   color: theme.text.dim,
@@ -301,7 +300,7 @@ All spacing follows a **4px base grid**. Use `theme.space.*` tokens.
 | Section containers | `14px 16px` | StatsView overview |
 | Modal inputs | `14px 18px` | CommandPalette input |
 | Result rows | `8px 18px` | CommandPalette results |
-| Drop zone | `48px 32px` | FileUploader |
+| Find import area | `theme.space.*` | FindPortfolio |
 | Error boundary | `16px` all | ErrorBoundary |
 
 ### Gap Conventions
@@ -547,8 +546,8 @@ in a conditional.
 
 ### Full-Viewport Shell
 
-The app shell uses `ShellFrame` at the top level. Individual views (ReplayView, TracksView, etc.)
-are rendered as children -- they are not each independently wrapped in `ShellFrame`.
+`AppV2Shell` owns the full-viewport layout. Individual views (ReplayView, TracksView, etc.)
+render inside workflow zones; they do not create a second viewport shell.
 
 ```jsx
 {
@@ -720,11 +719,19 @@ The default workflow shell uses a single task-oriented rail instead of peer visu
 Rules:
 
 - The rail is the primary navigation surface. Do not add a second row of workflow preset buttons.
-- Each zone uses `theme.font.mono`, thin borders, and the same dark/light token system as v1.
+- Each zone uses `theme.font.mono`, thin borders, and the shared dark/light token system.
 - Zone-specific preferences use `agentviz:v2:*` localStorage keys.
 - Workflow command-palette items use `type: "zone"` and navigate by zone id.
 - Live sessions dim Compare and Improve until streaming completes, then show a completion banner with Review, Compare, and Improve actions.
-- The workflow shell must mount exclusively. Do not render the workflow shell and Classic UI at the same time.
+- The workflow is the only shell. Ignore obsolete shell preferences without clearing saved data.
+- Keep `#/v2/...` links and internal v2 filenames. The library/content `v1` suffix denotes a storage schema, not a UI.
+- Investigate and Analyze share a session-scoped Timeline transport, including speed, turn markers, filtered evidence and search highlights. Zone changes retain time and speed.
+- Timeline seeking supports arrows and Home/End with an accessible slider label/value. Live mode hides ordinary play/speed controls.
+- The bottom Timeline speed selector uses `ToolbarSelect` with `placement="top"` and a menu no wider than the trigger. Check every option's viewport bounds at desktop and compact sizes, not just DOM visibility.
+- Playback ticks update subscribed visualizations and transport without rerendering unrelated Find/Review zone subtrees.
+- Close session is distinct from Find navigation: Close cancels active loads and viewer subscriptions, clears A/B and overlays, and retains the library and preferences.
+- Close remains available while a live stream is waiting for its first event or has reset to empty.
+- Q&A history and its unfinished draft belong above conditional zone rendering and beneath successful-session identity. Failed loads and zone switches retain them; replacement or Close aborts streams and resets them.
 
 **Cards must be `<button>` elements**, not clickable `<div>`. Set `textAlign: "left"` to
 override the button default. This ensures keyboard accessibility.
@@ -738,7 +745,7 @@ dim the partial cards:
 
 ### Tag Filter Chips
 
-Used in InboxView when sessions carry freeform tags (e.g., static manifest mode).
+Used in FindPortfolio when sessions carry freeform tags (e.g., static manifest mode).
 Tags render as a horizontal wrap row below the toolbar, separated by `gap: 6`.
 
 **Toolbar-level chips** (filter bar):
@@ -842,7 +849,7 @@ Three overlay patterns exist:
 }
 ```
 
-Drawers use flex column layout with a scrollable middle area (`flex: 1; minHeight: 0; overflowY: auto`) and a fixed input area at bottom. Dismiss via close button, Escape key, or a footer "Disable" link. Bottom controls must reserve generous space with `paddingBottom: calc(theme.space.huge + env(safe-area-inset-bottom, 0px))` so footer rows do not clip at the viewport edge in Safari or Chrome.
+Drawers use flex column layout with a scrollable middle area (`flex: 1; minHeight: 0; overflowY: auto`) and a fixed input area at bottom. Dismiss via close button, Escape key, or backdrop. Bottom controls must reserve generous space with `paddingBottom: calc(theme.space.huge + env(safe-area-inset-bottom, 0px))` so footer rows do not clip at the viewport edge in Safari or Chrome.
 
 All overlays dismiss on backdrop click via `e.stopPropagation()` on the inner container.
 
@@ -1006,7 +1013,7 @@ Evidence links carry the original event index through filters and virtualized la
 
 Two loading patterns exist:
 
-**Primary loading screen** (AppLoadingState) -- border spinner:
+**Border spinner** (shared loading pattern):
 
 ```jsx
 <div style={{
@@ -1103,14 +1110,17 @@ Percentages use `.toFixed(1)` (e.g. `85.3%`). Token counts use `.toLocaleString(
 
 | Key | Action |
 |-----|--------|
-| `Space` | Play / Pause |
-| `ArrowRight` / `ArrowLeft` | Seek forward / back 2s |
-| `1` - `7` | Switch view (Replay, Tracks, Waterfall, Graph, Stats, Cost, Coach) |
+| `Space` | Play / Pause in Investigate and Analyze, except live |
+| `ArrowRight` / `ArrowLeft` | Seek forward / back 2s in Investigate and Analyze, except live |
+| `1` - `6` | Find, Review, Investigate, Analyze, Compare, Improve |
+| `7` | Compatibility alias for Improve, with a notice |
 | `e` / `E` | Jump to next / previous error |
-| `/` | Focus search input |
+| `/` | Focus Find or Investigate search |
 | `Cmd+K` / `Ctrl+K` | Open command palette |
-| `Cmd+Shift+K` / `Ctrl+Shift+K` | Toggle Session Q&A drawer |
-| `?` | Toggle shortcuts modal |
+| `Cmd+Shift+K` / `Ctrl+Shift+K` | Open session Q&A for a completed session |
+| `?` | Open shortcuts modal |
+
+One dispatcher owns global shortcuts. Modified browser keys, editable fields, dialogs, native button activation, Graph tree keys, Tracks lane navigation, separators and slider keys retain their native/local behavior. Palette event/turn actions carry original event indices, including index zero and equal timestamps.
 
 ### Search Match Navigation
 
@@ -1201,16 +1211,15 @@ import KeyboardHint from "./ui/KeyboardHint.jsx";
 
 - No external global state management (no Redux, Zustand, or similar libraries).
 - Components receive data as props by default. Stateful behavior lives in hooks (`usePlayback`, `useSearch`, etc.).
-- Context is reserved for cross-cutting session state that would otherwise cause prop drilling. `PlaybackContext` owns playback, search, track filtering, and derived session state.
+- Context is reserved for cross-cutting session state that would otherwise cause prop drilling. `SessionProvider` owns loading, discovery, library, comparison, live and export; `PlaybackContext` owns playback, search, track filtering, and derived session state.
 - Responsive layout, modal focus trapping, and reduced-motion checks use shared hooks: `useBreakpoint`, `useFocusTrap`, and `useReducedMotion`.
-- Shared UI primitives: `ShellFrame`, `BrandWordmark`, `ToolbarButton`, `ExportStatusButton`,
+- Shared UI primitives: `BrandWordmark`, `ToolbarButton`, `ToolbarSelect`, `ExportStatusButton`,
   `KeyboardHint`, `ResizablePanel`, `Icon`, `ErrorBoundary`.
 
 ### Shared UI Primitives
 
 | Component | Purpose |
 |-----------|---------|
-| `ShellFrame` | Full-viewport flex-column container |
 | `BrandWordmark` | "AGENTVIZ." logo with accent dot |
 | `ToolbarButton` | Standard button with icon + text |
 | `ExportStatusButton` | Async operation button (idle/loading/done/error) |
@@ -1221,38 +1230,22 @@ import KeyboardHint from "./ui/KeyboardHint.jsx";
 
 When building new UI, check if an existing primitive fits before creating a new component.
 
-Shared session actions must stay available across both application shells. In particular, the
-default workflow header and Classic UI header both use `ExportStatusButton` for single-session
-HTML export, while comparison headers use the same primitive for comparison export.
+The workflow header uses `ExportStatusButton` for single-session HTML export; the inline comparison
+header uses the same primitive for comparison export. Both embed the production workflow build
+and must rehydrate offline, including lazy visualization chunks.
 
-### Landing-State vs Session-State Views
+### Workflow Zones and Shared Views
 
-Views fall into two categories:
+Find owns the merged saved/discovered/manifest session portfolio, importing and two-run selection.
+It remains available while a session is loaded. The retired recent-session dropdown, direct A/B
+upload screen and human-response/idle sort modes must not be recreated.
 
-**Session-state views** (require a loaded session): Replay, Tracks, Waterfall, Graph, Stats, Cost, Coach.
-These are registered in `APP_VIEWS` in `constants.js`, appear as tabs in `AppHeader`, and are
-switched via keyboard shortcuts 1-7. They receive session data (events, turns, metadata) as props
-via `renderActiveView()` in `App.jsx`.
+Investigate hosts Replay. Analyze hosts Stats, Tracks, Waterfall, Graph and Cost. Improve hosts
+Coach and opens session Q&A. Compare retains A/B readiness and offline comparison bootstrap.
+Shared visualizations receive session data as props and consume the same PlaybackProvider.
 
-**Landing-state views** (operate on the session list): Landing page, Compare landing, Dashboard.
-These render when no session is loaded (`!session.events`). They receive `allSessions` (the merged
-library + discovered list) and `onOpenSession` as props. They are NOT in `APP_VIEWS` and do NOT
-get keyboard shortcuts -- they are selected by app state, not user toggle.
-
-New aggregate/multi-session views belong in the landing state. New single-session analysis views
-belong in the session state (add to `APP_VIEWS`).
-
-### Feature Flags
-
-Experimental features are gated via `useFeatureFlag(key)`. Flags are stored in localStorage
-with the prefix `av_flag_`. Enable flags via browser console:
-
-```js
-localStorage.setItem('av_flag_qa-drawer', 'true')
-```
-
-The Q&A drawer uses this pattern. When the flag is disabled, the drawer is hidden from the
-UI and the `Cmd+Shift+K` shortcut is a no-op.
+Q&A is a supported workflow capability, not a feature flag. App retains only theme, reading-density
+and chunk-recovery setup; SessionProvider owns transactional loading, live, library and export.
 
 ---
 
@@ -1300,3 +1293,6 @@ When reviewing a PR that touches UI, verify each of these:
 - [ ] **Data formatting**: Durations, numbers, and costs follow the formatting rules in Section 15.
 - [ ] **z-index**: Uses `theme.z.*` tokens for new code. No new arbitrary values.
 - [ ] **Transitions**: `ease-out` only. Duration uses `theme.transition.*`. No decorative motion.
+- [ ] **Session lifetime**: Zone changes and failed loads retain playback and Q&A; successful replacement/Close resets transient state without deleting saved content or preferences.
+- [ ] **Keyboard ownership**: One global dispatcher; native controls and visualization navigation retain their local keys.
+- [ ] **Workflow artifacts**: All eight screenshots use demo-only data at 1400x860; hero is byte-identical to replay.

@@ -40,23 +40,25 @@ describe("replay layout helpers", function () {
 });
 
 describe("command palette helpers", function () {
-  it("builds defaults with views and turns", function () {
+  it("builds defaults with workflow commands and turns", function () {
     var index = buildCommandPaletteIndex([], [
       { index: 0, startTime: 0, userMessage: "Open the replay", hasError: false },
       { index: 1, startTime: 5, userMessage: "Inspect tool calls", hasError: true },
-    ]);
+    ], { extraItems: [{ id: "find", type: "zone", label: "Find", zoneId: "find" }] });
 
-    expect(index.defaults[0].type).toBe("action");
-    expect(index.defaults.some(function (item) { return item.type === "view"; })).toBe(true);
+    expect(index.defaults[0].type).toBe("zone");
     expect(index.defaults.some(function (item) { return item.type === "turn"; })).toBe(true);
   });
 
-  it("ranks an exact view match highly", function () {
-    var index = buildCommandPaletteIndex([], []);
-    var results = searchCommandPalette(index, "replay");
+  it("ranks an exact workflow match highly", function () {
+    var index = buildCommandPaletteIndex([], [], { extraItems: [
+      { id: "investigate", type: "zone", label: "Investigate", searchText: "investigate replay", zoneId: "investigate" },
+      { id: "analyze", type: "zone", label: "Analyze", searchText: "analyze", zoneId: "analyze" },
+    ] });
+    var results = searchCommandPalette(index, "investigate");
 
-    expect(results[0].type).toBe("view");
-    expect(results[0].label).toBe("Replay View");
+    expect(results[0].type).toBe("zone");
+    expect(results[0].label).toBe("Investigate");
   });
 
   it("caps event-heavy results", function () {

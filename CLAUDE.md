@@ -11,8 +11,8 @@ Session replay visualizer for AI agent workflows. Renders Claude Code, Codex, VS
 ## Architecture
 ```
 src/
-  App.jsx              # Default v2 mount + Classic UI fallback, theme wiring, session entry routing
-  AppV2.jsx            # Default workflow shell: Find, Review, Investigate, Analyze, Compare, Improve
+  App.jsx              # Workflow-only mount, theme/density wiring and chunk recovery
+  AppV2.jsx            # Workflow shell, session-scoped Q&A, shortcuts and shared Timeline transport
   main.jsx             # React entry point
   contexts/
     SessionProvider.jsx  # Shared session loading, discovery, compare, live, export, and derived state
@@ -22,12 +22,10 @@ src/
     useSearch.js       # Debounced search with matchSet/matchedEntries
     useKeyboardShortcuts.js # Centralized keyboard handler (ref-based, stable listener)
     useQA.js           # Session Q&A state: messages, classifier, SSE streaming, abort
-    useFeatureFlag.js  # localStorage-backed feature flag evaluation
     useSessionLoader.js # Transactional parsing, completion signaling, live snapshot bootstrap, session reset
     useLiveStream.js   # Cursor-resumable SSE hook with 500ms debounce and reset handling
     usePersistentState.js # localStorage-backed useState with debounced writes
     useDiscoveredSessions.js # Auto-discovery of sessions via /api/sessions or ?manifest= URL
-    useHashRouter.js   # Hash-based routing between inbox and session views
     useAsyncStatus.js  # Async operation state machine (idle/loading/success/error)
     useBreakpoint.js   # Shared compact/narrow/wide responsive breakpoint hook
     useFocusTrap.js    # Modal focus trap with Escape close and focus restoration
@@ -64,7 +62,7 @@ src/
     qaClassifier.js    # Session Q&A instant answer engine (9 patterns + model context)
     qaAgent.js         # Q&A agent powered by @github/copilot-sdk for model fallback
     replayLayout.js    # Estimated layout + binary search windowing for virtualized replay
-    commandPalette.js  # Precomputed search index with scoring, legacy views, and v2 workflow commands
+    commandPalette.js  # Indexed event/turn search and workflow zone/panel commands
     diffUtils.js       # Diff detection (isFileEditEvent) + Myers line diff algorithm
     waterfall.ts       # Waterfall view helpers: item building, stats, layout, windowing
     graphLayout.js     # Graph view helpers: ELKjs DAG builder, layout runner, position merger
@@ -77,10 +75,7 @@ src/
     lazyImport.js      # Dynamic import wrapper with stale-chunk reload recovery
     playbackUtils.js   # Playback state helpers
   components/
-    InboxView.jsx      # Session inbox with auto-discovery, sorting, refresh, and review priority
-    DashboardView.jsx  # Landing dashboard card grid with shared landing controls, aggregate stats, and quick open
     DebriefView.jsx    # AI Coach panel with cached analysis and one-click apply
-    FileUploader.jsx   # Drag-and-drop file input with error handling
     Timeline.jsx       # Scrubable playback bar with event markers, turn boundaries
     ReplayView.jsx     # Windowed event stream + resizable inspector sidebar
     TracksView.jsx     # DAW-style multi-track lanes with solo/mute
@@ -92,16 +87,13 @@ src/
     CommandPalette.jsx # Cmd+K fuzzy search overlay (events, turns, views)
     DiffViewer.jsx     # Inline unified diff view for file-editing tool calls
     DataInspector.jsx  # Readable payload inspector with summaries and copy support
-    LiveIndicator.jsx  # Pulsing LIVE badge shown in CLI streaming mode
     ShortcutsModal.jsx # Keyboard shortcuts overlay
     QADrawer.jsx       # Session Q&A slide-over drawer with instant answers
-    RecentSessionsPicker.jsx # Recent sessions dropdown picker
     SyntaxHighlight.jsx # Lightweight code syntax coloring for raw data
     ResizablePanel.jsx # Drag-to-resize split panel utility
     ErrorBoundary.jsx  # React error boundary with resetKey for recovery
     Icon.jsx           # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
-    app/               # Shell components: AppHeader, AppLandingState, AppLoadingState, CompareLandingState, CompareShell (AppLandingState switches between inbox and dashboard landing modes)
-    ui/                # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ToolbarSelect, ExportStatusButton, KeyboardHint
+    ui/                # Shared primitives: BrandWordmark, ToolbarButton, ToolbarSelect, ExportStatusButton, KeyboardHint
     v2/                # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner
     waterfall/         # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
@@ -143,8 +135,9 @@ Agent types: user, assistant, system
 - `npm run dev` - Vite dev server + API backend (both auto-started)
 - `npm run build` - Production build to dist/
 - `npm test` - Run 800+ tests via Vitest with a stable worker cap (parsers, layout, diff, graph, autonomy, QA, regressions, and more)
-- `npm run test:v2` - Run v2 golden data, UI, and v1 regression coverage
+- `npm run test:v2` - Run workflow golden data, UI, and app regression coverage
 - `npm run test:e2e:v2` - Run the Playwright v2 browser smoke test on the hermetic Vite test server
+- `npm run test:e2e:export` - Build and test single/comparison HTML offline in Chromium and WebKit
 - `npm run test:watch` - Watch mode for tests
 - `npm run typecheck` - Type-check with tsc --noEmit
 
@@ -164,7 +157,7 @@ Run `npx playwright install chromium` once before the first browser test run.
 - Live parser state is a single-owner mutable accumulator. Published results are independent snapshots by default; only the worker uses `snapshot: false` because `postMessage` clones the result. Full snapshot copying, raw-text transfer, and rendering are still O(history), separate from normalization.
 - Tracks overview geometry is memoized and capped at 200 groups per lane, with every original event reachable through paginated detail.
 - Claude metadata preserves explicit sessionId, so appended snapshots update one library entry.
-- Evidence navigation carries original event indices, not just timestamps. Palette seeks retain their timestamp argument for Classic compatibility and add event identity as the second argument.
+- Evidence navigation carries original event indices, not just timestamps. Palette event and turn results preserve index zero and equal-time identities.
 - V2 zones share one PlaybackProvider keyed by successful session replacement, not request start or live event updates. Consume explicit navigation targets once per request, not on every session-object render.
 - Session opens resolve to success only after parsing. Preserve the previous events and raw text on failure, and ignore superseded async requests.
 - Live bootstrap reads `/api/file?live=1` and subscribes using `X-Agentviz-Cursor`; SSE IDs resume reconnects. Reset payloads discard both pending batches and previous parser records. Non-live file reads remain complete.
@@ -177,8 +170,14 @@ Run `npx playwright install chromium` once before the first browser test run.
 - UI/UX design system: see docs/ui-ux-style-guide.md -- all UI changes must conform to it
 - Cache usage summaries omit the cache-write segment when `cacheWrite` is zero
 - Copilot CLI Session Info lists every explicit reasoning effort in first-seen order; selected events show the effective value, and effort is never inferred from reasoning text or token usage
-- The default UI is the v2 workflow shell. Classic UI remains available through the `agentviz:v2:enabled` preference and header toggle.
-- Shared session actions must remain available in both shells; single-session HTML export uses `ExportStatusButton` in the v2 and Classic headers.
+- The workflow is the only shell. Keep `#/v2/...` URLs, internal v2 filenames and preferences, and session-library/content v1 schema keys. Ignore obsolete UI preferences; never clear saved data to remove a shell.
+- Timeline transport in Investigate and Analyze shares PlaybackProvider state. Speeds live in playbackUtils.js. One shortcut dispatcher preserves 1-6 zones and the 7 Improve alias, without stealing native control keys.
+- Bottom-mounted ToolbarSelect menus use `placement="top"` and fit their trigger width. Browser regressions verify actual viewport bounds and selection at desktop/compact sizes.
+- WorkflowSession memoizes its zone subtree so transport ticks do not rerender unrelated Find/Review content. Only consumers of playback context should update on time ticks.
+- Q&A and its draft live beneath the successful-session key, above zone rendering. Failed loads and zone changes retain them; successful replacement or Close aborts streams and resets them.
+- Close session clears active A/B, overlays and live subscriptions, not saved library entries or preferences. Going to Find retains the session.
+- Close remains available for an empty live stream, including before its first event and after a live reset.
+- Single-session and comparison HTML exports use ExportStatusButton and the current workflow-only production build.
 - Investigate search preserves timeline context; Enter and Shift+Enter, plus adjacent arrow controls, navigate next and previous matches.
 - User-only filtering uses the normalized `event.agent === "user"` field across every parser, and search operates on the filtered event set.
 - Filter chips and generic metric labels use sentence case; peer chips do not embed a count in only one label.

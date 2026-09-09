@@ -24,11 +24,13 @@ Diff the current branch against the base branch to understand what was modified:
 git rev-parse --abbrev-ref HEAD
 
 # What files changed vs main?
-git diff --name-only main...HEAD
+git diff --name-only main
 
 # What's the full diff?
-git diff main...HEAD --stat
+git diff main --stat
 ```
+
+Use `git diff main` for the full review, including staged and unstaged work. A three-dot comparison ending at HEAD omits uncommitted changes.
 
 Categorize the changes:
 
@@ -40,7 +42,7 @@ Categorize the changes:
 | Theme tokens | `src/lib/theme.js` | Style guide + color-palette.html + screenshots |
 | Server/routes | `server.js`, `routes/**` | README + CLAUDE.md architecture |
 | Config | `package.json`, `vite.config.js` | README commands section |
-| Tests | `src/lib/__tests__/**` | None (tests don't affect artifacts) |
+| Tests | `src/__tests__/**`, `tests/e2e/**` | None (tests don't affect artifacts) |
 | Docs only | `docs/**`, `README.md`, `CLAUDE.md` | Self-contained, just validate consistency |
 
 ## Step 2: Audit Each Artifact
@@ -80,12 +82,7 @@ Check if changes introduced:
 - **New component conventions** that should be added to the guide
 - **New known exceptions** to the color/font/spacing rules
 
-```bash
-# Compare theme.js exports against style guide mentions
-grep -oP "theme\.\w+\.\w+" src/lib/theme.js | sort -u > /tmp/theme-tokens.txt
-grep -oP "theme\.\w+\.\w+" docs/ui-ux-style-guide.md | sort -u > /tmp/guide-tokens.txt
-diff /tmp/theme-tokens.txt /tmp/guide-tokens.txt
-```
+Compare the token definitions and style-guide mentions in memory using the existing Node runtime. Do not write scratch files outside the repository.
 
 ### 2d. docs/color-palette.html
 
@@ -96,15 +93,7 @@ Check if:
 - **New tokens added to `theme.js`** that have no swatch row in the palette
 - **Removed tokens** that still appear in the palette
 
-```bash
-# Extract hex values from color-palette.html and compare against theme.js
-grep -oP '#[0-9a-fA-F]{6}' docs/color-palette.html | sort -u > /tmp/palette-hexes.txt
-grep -oP '#[0-9a-fA-F]{6}' src/lib/theme.js | sort -u > /tmp/theme-hexes.txt
-# Values in palette not in theme (stale palette colors):
-comm -23 /tmp/palette-hexes.txt /tmp/theme-hexes.txt
-# Values in theme not in palette (missing palette entries):
-comm -13 /tmp/palette-hexes.txt /tmp/theme-hexes.txt
-```
+Extract hex values with `#[0-9a-fA-F]{6}` and compare the two sets in memory. Verify missing values against the corresponding dark/light tokens rather than treating HTML framing colors as palette tokens.
 
 The style guide and color-palette.html must agree: if a token's hex value appears in the style guide table, the same hex must appear in the corresponding swatch in `color-palette.html`.
 
@@ -188,12 +177,12 @@ npm run dev
    - Capture screenshot
 
 2. **Load demo session**
-   - Navigate to `http://127.0.0.1:3000` (without `?demo=empty`)
-   - Click "Load a demo session"
-   - Wait for the session to load and the replay view to render
+   - Stay on the privacy-safe `?demo=empty` page
+   - Click "Load a demo session" (or "Demo"), then open Investigate
+   - Wait for the session evidence to render
 
 3. **Replay** (`replay-view.png`)
-   - Should already be on the Replay tab after loading demo
+   - Open Investigate (the workflow's Replay surface)
    - Capture screenshot
 
 4. **Session hero** (`session-hero.png`)
@@ -201,7 +190,7 @@ npm run dev
    - They must be byte-identical
 
 5. **Tracks** (`tracks-view.png`)
-   - Click the "Tracks" tab
+   - Open Analyze, then click the "Tracks" tab
    - Wait for track lanes to render
    - Capture screenshot
 
@@ -221,7 +210,7 @@ npm run dev
    - Capture screenshot
 
 9. **Coach** (`coach-view.png`)
-   - Click the "Coach" tab
+   - Open Improve (the workflow's Coach surface)
    - **Before capturing**, hide the error banner by evaluating:
      ```js
      document.querySelectorAll('*').forEach(el => {

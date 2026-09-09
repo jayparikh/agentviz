@@ -1,15 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { theme } from "./lib/theme.js";
 import { SessionProvider, useSessionContext } from "./contexts/SessionProvider.jsx";
-import { PlaybackProvider } from "./contexts/PlaybackContext.jsx";
+import { PlaybackProvider, usePlaybackContext } from "./contexts/PlaybackContext.jsx";
 import useBreakpoint from "./hooks/useBreakpoint.js";
-import { isEditableTarget } from "./hooks/useKeyboardShortcuts.js";
+import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts.js";
+import useQA from "./hooks/useQA.js";
+import QADrawer from "./components/QADrawer.jsx";
+import Timeline from "./components/Timeline.jsx";
+import ShortcutsModal from "./components/ShortcutsModal.jsx";
 import FlowRail, { V2_ZONES } from "./components/v2/FlowRail.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import V2Header from "./components/v2/V2Header.jsx";
 import FindPortfolio from "./components/v2/FindPortfolio.jsx";
 import ReviewHub from "./components/v2/ReviewHub.jsx";
-import AnalyzeShell from "./components/v2/AnalyzeShell.jsx";
+import AnalyzeShell, { ANALYZE_PANELS } from "./components/v2/AnalyzeShell.jsx";
 import InvestigateView from "./components/v2/InvestigateView.jsx";
 import InlineCompare from "./components/v2/InlineCompare.jsx";
 import ImproveView from "./components/v2/ImproveView.jsx";
@@ -99,6 +103,7 @@ function buildV2CommandItems(session, activeZone) {
       label: "Go to failed tool calls",
       iconName: "alert-circle",
       zoneId: "investigate",
+      options: { eventIndex: session.events.findIndex(function (event) { return event.isError; }) },
       searchText: "failed tool calls errors investigate debug",
       priority: 48,
       isError: session.metadata && session.metadata.errorCount > 0,
@@ -109,6 +114,7 @@ function buildV2CommandItems(session, activeZone) {
       label: "Go to cost analysis",
       iconName: "coins",
       zoneId: "analyze",
+      options: { panelId: "cost" },
       searchText: "cost analysis tokens spend cache context analyze",
       priority: 46,
     },
@@ -133,12 +139,19 @@ function buildV2CommandItems(session, activeZone) {
       label: "Ask about this session",
       iconName: "message-circle",
       zoneId: "improve",
+      options: { openQA: true },
       searchText: "ask session qa question improve coach",
       priority: 40,
     });
   }
 
-  return zoneItems.concat(sessionItems);
+  return zoneItems.concat(sessionItems, ANALYZE_PANELS.filter(function (panel) { return panel.id !== "cost"; }).map(function (panel) {
+    return {
+      id: "v2-panel-" + panel.id, type: "zone", label: "Analyze " + panel.label,
+      zoneId: "analyze", options: { panelId: panel.id }, iconName: panel.icon,
+      searchText: ("analyze " + panel.id + " " + panel.label).toLowerCase(), priority: 38,
+    };
+  }));
 }
 
 function ZonePlaceholder({ zone, sessionState, compareSeedEntries }) {
@@ -371,7 +384,7 @@ function CompareZone({ sessionState, compareSeedEntries, compareContext, onNavig
   );
 }
 
-function ImproveZone({ sessionState, openQARequest, onNavigate }) {
+function ImproveZone({ sessionState, openQARequest, onNavigate, onOpenQA }) {
   return (
       <ImproveView
         session={sessionState.session}
@@ -379,11 +392,90 @@ function ImproveZone({ sessionState, openQARequest, onNavigate }) {
         debrief={sessionState.debrief}
         openQARequest={openQARequest}
         onNavigate={onNavigate}
+        onOpenQA={onOpenQA}
       />
   );
 }
 
-export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, densityControl }) {
+function WorkflowSession({ sessionState, activeZone, navigate, showPalette, onTogglePalette, onShortcutNotice, helpRequest, children }) {
+  var session = sessionState.session;
+  var pb = usePlaybackContext();
+  var [showQA, setShowQA] = useState(false);
+  var [question, setQuestion] = useState("");
+  var [showShortcuts, setShowShortcuts] = useState(false);
+  var previousHelpRequest = useRef(helpRequest);
+  var errorIndexRef = useRef(null);
+  var qaData = useMemo(function () {
+    return { events: session.events || [], turns: session.turns, metadata: session.metadata, autonomyMetrics: sessionState.autonomyMetrics };
+  }, [session.events, session.turns, session.metadata, sessionState.autonomyMetrics]);
+  var qa = useQA(qaData);
+  var transportAvailable = Boolean(session.events && (activeZone === "investigate" || activeZone === "analyze"));
+  var openQA = useCallback(function (prefill) {
+    if (!session.events || session.isLive) return;
+    setQuestion(prefill || "");
+    setShowQA(true);
+  }, [session.events, session.isLive]);
+  // Playback ticks update the transport, not unrelated zone subtrees.
+  var content = useMemo(function () { return children(openQA); }, [children, openQA]);
+
+  useEffect(function () {
+    if (helpRequest === previousHelpRequest.current) return;
+    previousHelpRequest.current = helpRequest;
+    setShowShortcuts(true);
+  }, [helpRequest]);
+
+  useKeyboardShortcuts({
+    hasSession: Boolean(session.events), isLive: session.isLive, transportAvailable: transportAvailable,
+    showPalette: showPalette, showShortcuts: showShortcuts, showQA: showQA,
+    time: pb.playback.time, onSeek: pb.playback.seek, onPlayPause: pb.playback.playPause,
+    onTogglePalette: onTogglePalette, onToggleQA: function () { openQA(""); },
+    onToggleShortcuts: function () { setShowShortcuts(true); },
+    onNavigateShortcut: function (key) {
+      if (key === "7") onShortcutNotice("Coach is now Improve. Use 6 for Improve.");
+      navigate(key === "7" ? "improve" : getV2ZoneForShortcut(key));
+    },
+    onFocusSearch: function () {
+      var selector = activeZone === "find" ? '[aria-label="Search v2 sessions"]'
+        : activeZone === "investigate" ? '[aria-label="Search evidence events"]' : null;
+      var input = selector && document.querySelector(selector);
+      if (input) input.focus();
+      return Boolean(input);
+    },
+    onJumpToError: function (direction) {
+      var entries = (session.events || []).map(function (event, index) { return { event: event, index: index }; })
+        .filter(function (entry) { return entry.event.isError; });
+      if (!entries.length) return;
+      var previous = entries.findIndex(function (entry) { return entry.index === errorIndexRef.current && entry.event.t === pb.playback.time; });
+      var next;
+      if (previous >= 0) next = entries[(previous + (direction === "next" ? 1 : entries.length - 1)) % entries.length];
+      else if (direction === "next") next = entries.find(function (entry) { return entry.event.t > pb.playback.time; }) || entries[0];
+      else next = entries.slice().reverse().find(function (entry) { return entry.event.t < pb.playback.time; }) || entries[entries.length - 1];
+      errorIndexRef.current = next.index;
+      pb.playback.seek(next.event.t);
+      navigate("investigate", { eventIndex: next.index });
+    },
+  });
+
+  return <>
+    {content}
+    {transportAvailable && <div style={{ flexShrink: 0, padding: "8px 16px 0", borderTop: "1px solid " + theme.border.default }}>
+      <Timeline currentTime={pb.playback.time} totalTime={session.total} timeMap={pb.timeMap}
+        onSeek={pb.playback.seek} isPlaying={pb.playback.playing} onPlayPause={pb.playback.playPause}
+        speed={pb.playback.speed} onSetSpeed={pb.playback.setSpeed} isLive={session.isLive}
+        eventEntries={pb.filteredEventEntries} turns={session.turns} matchSet={pb.search.matchSet} />
+    </div>}
+    <QADrawer open={showQA && !session.isLive} onClose={function () { setShowQA(false); }}
+      sessionData={qaData} qa={qa} initialQuestion={question} turns={session.turns}
+      onSeek={function (time) {
+        setShowQA(false);
+        var turn = session.turns.find(function (item) { return item.startTime === time; });
+        navigate("investigate", { eventIndex: turn && turn.eventIndices ? turn.eventIndices[0] : 0 });
+      }} />
+    {showShortcuts && <ShortcutsModal onClose={function () { setShowShortcuts(false); }} />}
+  </>;
+}
+
+export function AppV2Shell({ currentThemeMode, onSetThemeMode, densityControl }) {
   var sessionState = useSessionContext();
   var breakpoint = useBreakpoint();
   var [activeZone, setActiveZone] = useState(function () {
@@ -394,6 +486,7 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, density
   var [liveComplete, setLiveComplete] = useState(false);
   var [shortcutNotice, setShortcutNotice] = useState(null);
   var [navigationTarget, setNavigationTarget] = useState(null);
+  var [helpRequest, setHelpRequest] = useState(0);
   var wasLiveRef = useRef(false);
   var liveSessionLoadKeyRef = useRef(null);
 
@@ -431,34 +524,6 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, density
     }
     setActiveZone(getV2ZoneFromHash(nextHash));
   }, [sessionState.session.events, sessionState.session.isLive]);
-
-  useEffect(function () {
-    function handleKeyDown(event) {
-      if (isEditableTarget(event.target)) return;
-
-      if ((event.metaKey || event.ctrlKey) && event.key && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setShowPalettePlaceholder(function (value) { return !value; });
-        return;
-      }
-
-      var zone = getV2ZoneForShortcut(event.key);
-      if (zone) {
-        event.preventDefault();
-        navigate(zone);
-        return;
-      }
-
-      if (event.key === "7") {
-        event.preventDefault();
-        setShortcutNotice("Coach is now Improve. Use 6 for Improve.");
-        navigate("improve");
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return function () { window.removeEventListener("keydown", handleKeyDown); };
-  }, [navigate]);
 
   useEffect(function () {
     if (!shortcutNotice) return;
@@ -541,7 +606,15 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, density
         onExportSession={hasExportableSession ? sessionState.handleExportSession : null}
         exportSessionState={sessionState.sessionExport.state}
         exportSessionError={sessionState.sessionExport.error}
-        onExitV2={onExitV2}
+        onOpenShortcuts={function () { setHelpRequest(function (value) { return value + 1; }); }}
+        onCloseSession={sessionState.session.events || sessionState.session.loading || sessionState.session.isLive ? function () {
+          sessionState.reset();
+          setCompareSeedEntries([]);
+          setShowPalettePlaceholder(false);
+          setShortcutNotice(null);
+          setLiveComplete(false);
+          navigate("find");
+        } : null}
         compact={breakpoint.isCompact}
       />
       {(sessionState.session.isLive || liveComplete) && (
@@ -555,6 +628,10 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, density
         />
       )}
       <PlaybackProvider key={sessionState.sessionLoadKey} session={sessionState.session}>
+      <WorkflowSession sessionState={sessionState} activeZone={activeZone} navigate={navigate}
+        showPalette={showPalettePlaceholder} onTogglePalette={function () { setShowPalettePlaceholder(function (value) { return !value; }); }}
+        onShortcutNotice={setShortcutNotice} helpRequest={helpRequest}>
+      {function (openQA) { return <>
       {(sessionState.session.loading || sessionState.session.error || sessionState.loadError) && (
         <div
           role={sessionState.session.loading ? "status" : "alert"}
@@ -622,6 +699,7 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, density
             sessionState={sessionState}
             openQARequest={navigationTarget && navigationTarget.zone === "improve" ? navigationTarget : null}
             onNavigate={navigate}
+            onOpenQA={openQA}
           />
         ) : (
           <ZonePlaceholder
@@ -631,6 +709,8 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, density
           />
         )}
       </div>
+      </>; }}
+      </WorkflowSession>
       </PlaybackProvider>
       {shortcutNotice && (
         <div
@@ -659,9 +739,8 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, density
           events={sessionState.session.events || []}
           turns={sessionState.session.turns || []}
           extraItems={commandItems}
-          indexOptions={{ includeLegacyViews: false, includeDefaultActions: false }}
           placeholder="Search workflow, events, turns..."
-          onNavigateZone={function (zoneId) { navigate(zoneId); }}
+          onNavigateZone={navigate}
           onSeek={function (time, eventIndex) {
             var index = eventIndex == null
               ? (sessionState.session.events || []).findIndex(function (event) { return event.t === time; })
@@ -675,14 +754,13 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, onExitV2, density
   );
 }
 
-export default function AppV2({ currentThemeMode, onSetThemeMode, onExitV2, densityControl }) {
+export default function AppV2({ currentThemeMode, onSetThemeMode, densityControl }) {
   return (
-    <SessionProvider enableHashRouter={false}>
+    <SessionProvider>
       <AppV2Shell
         densityControl={densityControl}
         currentThemeMode={currentThemeMode}
         onSetThemeMode={onSetThemeMode}
-        onExitV2={onExitV2}
       />
     </SessionProvider>
   );

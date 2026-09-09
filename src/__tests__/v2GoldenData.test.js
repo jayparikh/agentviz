@@ -96,8 +96,6 @@ describe("v2 golden data correctness", function () {
     var data = loadGoldenSession();
     var session = data.session;
     var index = buildCommandPaletteIndex(session.events, session.turns, {
-      includeLegacyViews: false,
-      includeDefaultActions: false,
       extraItems: [
         {
           id: "v2-cost-analysis",

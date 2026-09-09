@@ -321,7 +321,7 @@ function MessageBubble({ message, onSeekTurn, prefersReducedMotion }) {
 
 // ── Drawer ──────────────────────────────────────────────────────────────────
 
-export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek, turns, qa, initialQuestion }) {
+export default function QADrawer({ open, onClose, sessionData, onSeek, turns, qa, initialQuestion }) {
   var [input, setInput] = useState(initialQuestion || "");
   var messagesEndRef = useRef(null);
   var inputRef = useRef(null);
@@ -343,7 +343,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
     var justOpened = open && !wasOpenRef.current;
     wasOpenRef.current = open;
     if (!open) return;
-    if (justOpened) setInput(initialQuestion || "");
+    if (justOpened) setInput(function (draft) { return draft || initialQuestion || ""; });
   }, [open, initialQuestion]);
 
   function handleSubmit(e) {
@@ -388,6 +388,7 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
           top: 0,
           right: 0,
           width: 400,
+          maxWidth: "100vw",
           height: "100dvh",
           background: theme.bg.surface,
           borderLeft: "1px solid " + theme.border.default,
@@ -621,19 +622,6 @@ export default function QADrawer({ open, onClose, onDisable, sessionData, onSeek
             <span style={{ fontSize: theme.fontSize.xs, color: theme.text.dim }}>
               <KeyboardHint>Esc</KeyboardHint>{" "}close
             </span>
-            <button
-              onClick={function () { if (onDisable) onDisable(); }}
-              aria-label="Disable Q&A drawer"
-              style={{
-                background: "none",
-                border: "none",
-                color: theme.text.dim,
-                fontSize: theme.fontSize.xs,
-                textDecoration: "underline",
-                cursor: "pointer",
-                fontFamily: theme.font.mono,
-              }}
-            >Disable Q&A</button>
           </div>
         </div>
       </div>

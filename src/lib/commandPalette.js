@@ -1,9 +1,7 @@
 var DEFAULT_TURN_LIMIT = 8;
 var MAX_RESULTS = 24;
 var TYPE_CAPS = {
-  action: 4,
   zone: 8,
-  view: 4,
   turn: 8,
   event: 12,
 };
@@ -12,29 +10,9 @@ function normalize(text) {
   return (text || "").toLowerCase();
 }
 
-function buildViewItems() {
-  return [
-    { id: "view-replay", type: "view", label: "Replay View", iconName: "play", viewId: "replay", searchText: "replay view timeline stream", priority: 40 },
-    { id: "view-tracks", type: "view", label: "Tracks View", iconName: "tracks", viewId: "tracks", searchText: "tracks view lanes daw", priority: 40 },
-    { id: "view-waterfall", type: "view", label: "Waterfall View", iconName: "waterfall", viewId: "waterfall", searchText: "waterfall view tools timeline execution", priority: 40 },
-    { id: "view-graph", type: "view", label: "Graph View", iconName: "graph", viewId: "graph", searchText: "graph view flow dag nodes edges turns", priority: 40 },
-    { id: "view-stats", type: "view", label: "Stats View", iconName: "stats", viewId: "stats", searchText: "stats view metrics summary", priority: 40 },
-    { id: "view-cost", type: "view", label: "Cost View", iconName: "coins", viewId: "cost", searchText: "cost view token spend billing context cache prompts", priority: 40 },
-    { id: "view-coach", type: "view", label: "Coach View", iconName: "sparkles", viewId: "coach", searchText: "coach view analyze recommendations config", priority: 40 },
-  ];
-}
-
-function buildActionItems() {
-  return [
-    { id: "action-qa", type: "action", label: "Session Q&A", iconName: "message-circle", actionId: "toggleQA", searchText: "session qa question answer ask chat drawer", priority: 42 },
-  ];
-}
-
 export function buildCommandPaletteIndex(events, turns, options) {
   var config = options || {};
   var extraItems = config.extraItems || [];
-  var viewItems = config.includeLegacyViews === false ? [] : buildViewItems();
-  var actionItems = config.includeDefaultActions === false ? [] : buildActionItems();
   var turnItems = [];
   var eventItems = [];
 
@@ -82,9 +60,8 @@ export function buildCommandPaletteIndex(events, turns, options) {
   }
 
   return {
-    views: viewItems,
-    defaults: extraItems.concat(actionItems, viewItems, turnItems.slice(0, DEFAULT_TURN_LIMIT)),
-    items: extraItems.concat(actionItems, viewItems, turnItems, eventItems),
+    defaults: extraItems.concat(turnItems.slice(0, DEFAULT_TURN_LIMIT)),
+    items: extraItems.concat(turnItems, eventItems),
   };
 }
 
@@ -109,9 +86,7 @@ function scoreItem(item, query, queryTokens) {
   else if (text.indexOf(query) === 0) score += 35;
   else if (text.indexOf(query) !== -1) score += 12;
 
-  if (item.type === "action") score += 8;
   if (item.type === "zone") score += 8;
-  if (item.type === "view") score += 6;
   if (item.type === "turn") score += 4;
 
   return score;
@@ -138,7 +113,7 @@ export function searchCommandPalette(index, query) {
     return a.item.label.localeCompare(b.item.label);
   });
 
-  var byType = { view: 0, turn: 0, event: 0 };
+  var byType = { zone: 0, turn: 0, event: 0 };
   var results = [];
 
   for (var j = 0; j < scored.length && results.length < MAX_RESULTS; j++) {
