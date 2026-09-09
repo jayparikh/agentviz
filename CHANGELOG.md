@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-09
+
 ### Changed
 
 - Make the workflow the only shell while preserving `#/v2/...` links, preferences
@@ -17,6 +19,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or explicit Close aborts streams and clears transient state, not saved runs.
 - Open newly exported comparisons directly in Compare and preserve offline
   single-session and A/B exports.
+
+### Fixed
+
+- Price GPT-5.6 Sol, Terra, Luna and GPT-6 Astra using explicit fresh-input,
+  cache-read, cache-write and output rates, including supported service tiers.
+  Calculate context tiers per request rather than from session totals. (#135)
+- Preserve reported USD and AI Credits over estimates. Show unknown or ambiguous
+  costs as unavailable, disclose missing telemetry and Standard-tier assumptions,
+  and respect the documented OpenAI/Copilot Luna threshold difference. (#135)
+- Track verified cache-write usage and request checkpoints through Copilot and
+  Codex parsing, preserving live/batch parity and counting reasoning output once.
+  Share accounting across session summaries and cost displays. (#135)
+- Keep playback speed menus inside compact viewports, allow closing empty live
+  sessions, and avoid intercepting Alt-modified shortcuts. (#134)
+
+### Migration
+
+- Classic UI is no longer available. Use Find to import and select sessions for
+  comparison, Investigate for replay, Analyze for visualizations, and Improve
+  for Coach and Q&A.
+- Existing workflow URLs, preferences, stored sessions and v1 storage schemas
+  are preserved. No data migration is required.
 
 ## [1.0.4] - 2026-09-06
 
