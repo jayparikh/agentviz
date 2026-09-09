@@ -37,13 +37,13 @@ describe("autonomy metrics", function () {
     expect(cost).toBeGreaterThan(0);
   });
 
-  it("uses fallback pricing for unrecognized Claude variant", function () {
+  it("leaves unrecognized Claude pricing unknown", function () {
     var cost = getSessionCost({
       format: "claude-code",
       primaryModel: "claude-99-mega-20260101",
       tokenUsage: { inputTokens: 1000000, outputTokens: 100000 },
     });
-    expect(cost).toBeGreaterThan(0);
+    expect(cost).toBeNull();
   });
 
   it("derives babysitting, idle time, interventions, and efficiency from session gaps", function () {

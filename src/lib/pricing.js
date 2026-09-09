@@ -6,9 +6,9 @@
  * https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing
  * (rates can change there; update this table when they do).
  *
- * Each row may carry explicit `cachedInput` and (Anthropic) `cacheWrite` rates.
- * When a row omits `cachedInput` we fall back to ~10% of input. Only Anthropic
- * rows have a separate cache-write bucket; for other providers cache-write
+ * Each row may carry explicit `cachedInput` and `cacheWrite` rates.
+ * When a row omits `cachedInput` we fall back to ~10% of input. Anthropic and
+ * newer OpenAI rows price writes explicitly. For remaining providers cache-write
  * tokens are billed at the standard input rate (no surcharge). Rows with a
  * `longContext` tier switch to the higher rates once input tokens exceed
  * `threshold`.
@@ -22,6 +22,21 @@ export var USD_PER_CREDIT = 0.01;
 
 var PRICE_TABLE = [
   // OpenAI -- order specific variants before generic prefixes.
+  // Verified 2026-09-09 against OpenAI pricing and GitHub Copilot pricing.
+  // Sol promotional rates apply at least through 2026-11-21.
+  // https://developers.openai.com/api/docs/pricing
+  ...[
+    ["gpt-5.6-sol", 4, 20],
+    ["gpt-5.6-terra", 2, 12],
+    ["gpt-5.6-luna", 0.2, 1.2],
+    ["gpt-6-astra", 10, 50],
+  ].map(function ([match, input, output]) {
+    return {
+      match, input, output, cachedInput: input * 0.1, cacheWrite: input * 1.25,
+      serviceTiers: true,
+      longContext: { threshold: 272000, input: input * 2, cachedInput: input * 0.2, cacheWrite: input * 2.5, output: output * 1.5 },
+    };
+  }),
   { match: "gpt-5.4-nano",  input:  0.20, cachedInput: 0.020, output:  1.25 },
   { match: "gpt-5.4-mini",  input:  0.75, cachedInput: 0.075, output:  4.50 },
   { match: "gpt-5-mini",    input:  0.25, cachedInput: 0.025, output:  2.00 },
@@ -34,7 +49,7 @@ var PRICE_TABLE = [
     match: "gpt-5.4", input: 2.50, cachedInput: 0.25, output: 15.00,
     longContext: { threshold: 272000, input: 5.00, cachedInput: 0.50, output: 22.50 },
   },
-  // Generic GPT-5.x / GPT-5 fallback for unlisted variants (keep last in group).
+  // GPT-5 itself, not a fallback for unknown GPT-5.x variants.
   { match: "gpt-5",         input:  1.25, cachedInput: 0.125, output: 10.00 },
   { match: "gpt-4.1",       input:  2.00, cachedInput: 0.200, output:  8.00 },
   { match: "gpt-4o-mini",   input:  0.15, cachedInput: 0.015, output:  0.60 },
@@ -70,32 +85,23 @@ var PRICE_TABLE = [
   { match: "mai-code-1-flash", input: 0.75, cachedInput: 0.075, output: 4.50 },
 ];
 
-// Fallback for unrecognized Claude model variants (new releases, etc.)
-var DEFAULT_CLAUDE_PRICE = { input: 3.00, cachedInput: 0.30, cacheWrite: 3.75, output: 15.00 };
-
 function normalizeModelName(modelName) {
-  return String(modelName).toLowerCase().replace(/[^a-z0-9.]+/g, "-");
+  return String(modelName).trim().toLowerCase().replace(/[^a-z0-9.]+/g, "-");
 }
 
 function lookupPrice(modelName) {
   if (!modelName) return null;
   var lower = normalizeModelName(modelName);
   for (var i = 0; i < PRICE_TABLE.length; i++) {
-    if (lower.includes(PRICE_TABLE[i].match)) return PRICE_TABLE[i];
+    var row = PRICE_TABLE[i];
+    // OpenAI variants must be known identifiers, optionally provider-prefixed,
+    // dated, or explicitly suffixed Fast. Never price a new model as GPT-5.
+    if (/^(gpt-|o[34])/.test(row.match)) {
+      var pattern = new RegExp("^(?:openai-|azure-openai-)?" + row.match.replace(/\./g, "\\.") + "(?:-\\d{4}-\\d{2}-\\d{2})?" + (row.serviceTiers ? "(?:-fast)?" : "") + "$");
+      if (pattern.test(lower)) return row;
+    } else if (lower.includes(row.match)) return row;
   }
-  // Apply Claude default only to Claude variants we haven't explicitly listed.
-  // For Gemini or other unknown models we return null -- cost unknown.
-  if (lower.includes("claude")) return DEFAULT_CLAUDE_PRICE;
   return null;
-}
-
-// Resolve the effective rates for a price row, applying the long-context tier
-// when the request's input token count exceeds the row threshold.
-function resolveRates(price, inputTokens) {
-  if (price.longContext && (inputTokens || 0) > price.longContext.threshold) {
-    return price.longContext;
-  }
-  return price;
 }
 
 function cachedInputRate(rates) {
@@ -103,9 +109,7 @@ function cachedInputRate(rates) {
 }
 
 function cacheWriteRate(rates) {
-  // Only Anthropic rows define a dedicated cache-write bucket. For other
-  // providers there is no cache-write surcharge, so bill those tokens at the
-  // standard input rate rather than inventing a multiplier.
+  // A write rate is the whole bucket price, not an additional surcharge.
   return rates.cacheWrite != null ? rates.cacheWrite : rates.input;
 }
 
@@ -120,30 +124,64 @@ export function hasModelPricing(modelName) {
  * and cache writes. Cache write tokens are billed in their own bucket.
  * modelName: string (optional, used to look up pricing)
  */
-export function estimateCost(tokenUsage, modelName) {
-  if (!tokenUsage) return 0;
+export function estimateCostDetails(tokenUsage, modelName, context = {}) {
+  var notes = [];
+  if (!tokenUsage) return { cost: null, notes: ["Token usage unavailable."] };
   var price = lookupPrice(modelName);
-  if (!price) return 0; // unknown model -- don't fabricate a number
-  var rates = resolveRates(price, tokenUsage.inputTokens || 0);
+  if (!price) return { cost: null, notes: ["Pricing unavailable for " + (modelName || "unknown model") + "."] };
+  var threshold = price.longContext && price.longContext.threshold;
+  if (threshold && tokenUsage.inputTokens == null) {
+    return { cost: null, notes: ["Request input usage required to determine the context pricing tier."] };
+  }
+  var inputTokens = tokenUsage.inputTokens || 0;
+  if (price.match === "gpt-5.6-luna") {
+    if (context.provider === "copilot") threshold = 200000;
+    else if (context.provider !== "openai" && inputTokens > 200000 && inputTokens <= 272000) {
+      return { cost: null, notes: ["Luna long-context pricing needs a billing provider: Copilot uses >200k; OpenAI uses >272k."] };
+    }
+  }
+  if (context.aggregate && threshold && inputTokens > threshold) {
+    return { cost: null, notes: ["Per-request usage required for long-context pricing; session totals are not request lengths."] };
+  }
+  var rates = threshold && inputTokens > threshold ? price.longContext : price;
+  var multiplier = 1;
+  if (price.serviceTiers) {
+    var tier = context.serviceTier || (/-fast$/.test(normalizeModelName(modelName)) ? "fast" : null);
+    if (tier === "fast" || tier === "priority") multiplier = 2;
+    else if (tier === "batch" || tier === "flex") multiplier = 0.5;
+    else if (tier && tier !== "standard" && tier !== "default") {
+      return { cost: null, notes: ["Pricing unavailable for service tier " + tier + "."] };
+    }
+    if (!tier) notes.push("Standard service tier assumed; actual billed charges may differ.");
+    if (tokenUsage.cacheWrite == null || tokenUsage.cacheWriteReported === false) notes.push("Cache-write usage not reported; estimate excludes any unreported write premium.");
+  }
   var freshInputTokens = Math.max((tokenUsage.inputTokens || 0) - (tokenUsage.cacheRead || 0) - (tokenUsage.cacheWrite || 0), 0);
   var inputCost  = freshInputTokens / 1e6 * rates.input;
   var outputCost = (tokenUsage.outputTokens || 0) / 1e6 * rates.output;
   var cacheReadCost  = (tokenUsage.cacheRead  || 0) / 1e6 * cachedInputRate(rates);
   var cacheWriteCost = (tokenUsage.cacheWrite || 0) / 1e6 * cacheWriteRate(rates);
-  return inputCost + outputCost + cacheReadCost + cacheWriteCost;
+  return { cost: (inputCost + outputCost + cacheReadCost + cacheWriteCost) * multiplier, notes };
+}
+
+/** Unknown prices return null, never a fabricated zero-dollar charge. */
+export function estimateCost(tokenUsage, modelName, context) {
+  return estimateCostDetails(tokenUsage, modelName, context).cost;
 }
 
 /**
  * Estimate cost across multiple models by pricing each model's tokens at its own rate.
  * modelTokenMap: { [modelName]: { inputTokens, outputTokens, cacheRead, cacheWrite } }
- * Returns 0 if no models have recognized pricing.
+ * This map contains aggregates, not individual requests. Ambiguous tiers and
+ * unrecognized models make the total unknown rather than silently undercounted.
  */
-export function estimateMultiModelCost(modelTokenMap) {
-  if (!modelTokenMap) return 0;
+export function estimateMultiModelCost(modelTokenMap, context) {
+  if (!modelTokenMap) return null;
   var total = 0;
   var keys = Object.keys(modelTokenMap);
   for (var i = 0; i < keys.length; i++) {
-    total += estimateCost(modelTokenMap[keys[i]], keys[i]);
+    var cost = estimateCost(modelTokenMap[keys[i]], keys[i], { ...context, aggregate: true });
+    if (cost == null) return null;
+    total += cost;
   }
   return total;
 }
@@ -155,6 +193,7 @@ export function estimateMultiModelCost(modelTokenMap) {
  * >= $1    -> "$X.XX"
  */
 export function formatCost(usd) {
+  if (usd == null || !Number.isFinite(usd)) return "--";
   if (usd <= 0) return "$0.00";
   if (usd < 0.01) return "<$0.01";
   if (usd < 1) return "$" + usd.toFixed(3);

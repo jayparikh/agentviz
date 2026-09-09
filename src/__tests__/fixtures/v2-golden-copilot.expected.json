@@ -85,7 +85,7 @@
     "freshInputTokens": 6200,
     "cost": 4.7,
     "cacheHitRate": 0.14634146341463414,
-    "peakContext": 8200,
+    "peakContext": null,
     "callCount": 1
   },
   "ui": {

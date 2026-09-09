@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { estimateCost, estimateMultiModelCost, formatCost, getSessionCostLabel, hasModelPricing } from "../lib/pricing.js";
+import { estimateCost, estimateCostDetails, estimateMultiModelCost, formatCost, getSessionCostLabel, hasModelPricing } from "../lib/pricing.js";
 
 describe("estimateCost", function () {
-  it("returns 0 for null tokenUsage", function () {
-    expect(estimateCost(null, "claude-sonnet-4")).toBe(0);
+  it("returns unknown for null tokenUsage", function () {
+    expect(estimateCost(null, "claude-sonnet-4")).toBeNull();
   });
 
-  it("returns 0 for unknown model", function () {
-    expect(estimateCost({ inputTokens: 1000 }, "gemini-pro")).toBe(0);
+  it("returns unknown for unknown model", function () {
+    expect(estimateCost({ inputTokens: 1000 }, "gemini-pro")).toBeNull();
   });
 
   it("prices cached input at the discounted rate", function () {
@@ -22,7 +22,7 @@ describe("estimateCost", function () {
     expect(cost).toBeCloseTo(3.325, 3);
   });
 
-  it("bills non-Anthropic cache write tokens at the standard input rate (no surcharge)", function () {
+  it("keeps older OpenAI cache write tokens at the standard input rate", function () {
     var cost = estimateCost({ inputTokens: 1000000, outputTokens: 0, cacheRead: 400000, cacheWrite: 100000 }, "gpt-4.1");
     // Fresh: 500K * $2/M = $1.00; cached: 400K * $0.20/M = $0.08; write: 100K * $2/M = $0.20 (input rate)
     expect(cost).toBeCloseTo(1.28, 2);
@@ -61,8 +61,8 @@ describe("estimateCost", function () {
 });
 
 describe("estimateMultiModelCost", function () {
-  it("returns 0 for null input", function () {
-    expect(estimateMultiModelCost(null)).toBe(0);
+  it("returns unknown for null input", function () {
+    expect(estimateMultiModelCost(null)).toBeNull();
   });
 
   it("returns 0 for empty map", function () {
@@ -95,13 +95,12 @@ describe("estimateMultiModelCost", function () {
     expect(multiModel).toBeGreaterThan(singleModel);
   });
 
-  it("skips unknown models without erroring", function () {
+  it("does not silently omit unknown models from totals", function () {
     var cost = estimateMultiModelCost({
       "claude-sonnet-4": { inputTokens: 1000000, outputTokens: 100000 },
       "gemini-pro":       { inputTokens: 500000, outputTokens: 50000 },
     });
-    // Only Sonnet is priced; Gemini contributes 0
-    expect(cost).toBeCloseTo(4.50, 2);
+    expect(cost).toBeNull();
   });
 });
 
@@ -173,8 +172,80 @@ describe("hasModelPricing", function () {
     expect(hasModelPricing("claude-opus-4")).toBe(true);
   });
 
-  it("returns true for unknown Claude variants (fallback pricing)", function () {
-    expect(hasModelPricing("claude-next-gen-99")).toBe(true);
+  it("does not invent pricing for unknown Claude variants", function () {
+    expect(hasModelPricing("claude-next-gen-99")).toBe(false);
+  });
+
+  describe("GPT-5.6 and GPT-6 Astra request pricing", function () {
+    var example = { inputTokens: 100000, cacheRead: 60000, cacheWrite: 20000, outputTokens: 10000 };
+    var models = [
+      ["gpt-5.6-sol", 4, 20, 0.404],
+      ["gpt-5.6-terra", 2, 12, 0.222],
+      ["gpt-5.6-luna", 0.2, 1.2, 0.0222],
+      ["gpt-6-astra", 10, 50, 1.01],
+    ];
+
+    it.each(models)("prices %s fresh, cached, written, and output tokens once", function (model, input, output, expected) {
+      expect(estimateCost(example, model)).toBeCloseTo(expected, 8);
+      expect(estimateCost(example, model.toUpperCase().replaceAll("-", " "))).toBeCloseTo(expected, 8);
+      expect(estimateCost(example, "openai/" + model + "-2026-09-01")).toBeCloseTo(expected, 8);
+    });
+
+    it.each(models)("applies %s tiers at threshold +1, not at threshold", function (model, input, output) {
+      for (var provider of ["openai", "copilot"]) {
+        var threshold = model === "gpt-5.6-luna" && provider === "copilot" ? 200000 : 272000;
+        for (var extra of [0, 1]) {
+          var long = extra === 1;
+          var usage = { inputTokens: threshold + extra, cacheRead: 60000, cacheWrite: 20000, outputTokens: 10000 };
+          var expected = ((usage.inputTokens - 80000) * input + 60000 * input * 0.1 + 20000 * input * 1.25) * (long ? 2 : 1) / 1e6
+            + 10000 * output * (long ? 1.5 : 1) / 1e6;
+          expect(estimateCost(usage, model, { provider })).toBeCloseTo(expected, 8);
+        }
+      }
+    });
+
+    it.each(models)("applies %s explicit service tiers to every bucket", function (model, input, output, standard) {
+      for (var [serviceTier, multiplier] of [["standard", 1], ["default", 1], ["fast", 2], ["priority", 2], ["batch", 0.5], ["flex", 0.5]]) {
+        expect(estimateCost(example, model, { serviceTier })).toBeCloseTo(standard * multiplier, 8);
+      }
+      expect(estimateCost(example, model + "-fast")).toBeCloseTo(standard * 2, 8);
+      expect(estimateCost(example, model, { serviceTier: "auto" })).toBeNull();
+    });
+
+    it("does not interpret reasoning effort as Fast or add reasoning output twice", function () {
+      expect(estimateCost({ ...example, reasoningTokens: 5000 }, "gpt-5.6-sol", { reasoningEffort: "high" })).toBeCloseTo(0.404, 8);
+      expect(estimateCostDetails(example, "gpt-5.6-sol").notes.join(" ")).toContain("Standard service tier assumed");
+    });
+
+    it("keeps provider-ambiguous Luna tiers unknown only where official thresholds disagree", function () {
+      expect(estimateCost({ inputTokens: 200000 }, "gpt-5.6-luna")).toBeCloseTo(0.04, 8);
+      expect(estimateCost({ inputTokens: 200001 }, "gpt-5.6-luna")).toBeNull();
+      expect(estimateCost({ inputTokens: 272000 }, "gpt-5.6-luna")).toBeNull();
+      expect(estimateCost({ inputTokens: 272001 }, "gpt-5.6-luna")).toBeCloseTo(0.1088004, 8);
+    });
+
+    it("does not apply request thresholds to accumulated model totals", function () {
+      expect(estimateMultiModelCost({ "gpt-5.6-sol": { inputTokens: 400000 } })).toBeNull();
+      expect(estimateMultiModelCost({ "gpt-5.6-sol": example, "gpt-6-astra": example })).toBeCloseTo(1.414, 8);
+    });
+
+    it("reports missing write evidence without inventing cache-write tokens", function () {
+      var details = estimateCostDetails({ inputTokens: 100000, outputTokens: 10000, cacheRead: 60000 }, "gpt-5.6-sol");
+      expect(details.cost).toBeCloseTo(0.384, 8);
+      expect(details.notes.join(" ")).toContain("Cache-write usage not reported");
+      expect(estimateCostDetails({ ...example, cacheWrite: 0 }, "gpt-5.6-sol").notes.join(" ")).not.toContain("Cache-write usage not reported");
+    });
+
+    it("does not assume short context for output-only telemetry", function () {
+      expect(estimateCost({ outputTokens: 10000 }, "gpt-5.6-sol")).toBeNull();
+      expect(estimateCostDetails({ outputTokens: 10000 }, "gpt-6-astra").notes.join(" ")).toContain("Request input usage required");
+    });
+
+    it.each(["gpt-5.6", "gpt-5.6-unknown", "gpt-5.6-sol-preview", "gpt-6", "gpt-6-astra-unknown", "gpt-5.7", "unknown-gpt-5"])("does not alias unknown %s to cheaper known pricing", function (model) {
+      expect(hasModelPricing(model)).toBe(false);
+      expect(estimateCost(example, model)).toBeNull();
+      expect(formatCost(estimateCost(example, model))).toBe("--");
+    });
   });
 
   it("returns true for known OpenAI/Copilot models", function () {

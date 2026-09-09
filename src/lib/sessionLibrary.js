@@ -223,7 +223,7 @@ export function buildSessionLibraryEntry(fileName, result, rawText, previousEntr
     totalToolCalls: metadata.totalToolCalls || 0,
     errorCount: metadata.errorCount || 0,
     duration: metadata.duration || 0,
-    totalCost: getSessionCost(metadata),
+    totalCost: getSessionCost(metadata, result.events),
     totalCostUnit: metadata.totalCostUnit || null,
     aiCredits: metadata.aiCredits != null ? metadata.aiCredits : null,
     warnings: metadata.warnings || [],

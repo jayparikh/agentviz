@@ -132,7 +132,7 @@ export function buildReviewSummary(session, autonomyMetrics) {
     autonomyMetrics: autonomyMetrics,
     errorCount: metadata.errorCount || 0,
   }))));
-  var totalCost = getSessionCost(metadata);
+  var totalCost = getSessionCost(metadata, events);
   var topTools = getTopTools(events, 3);
 
   return {

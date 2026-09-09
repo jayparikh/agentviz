@@ -1081,6 +1081,8 @@ Cache observability is shown when `cacheRead > 0` in token usage data.
 
 The cache write segment is omitted when `cacheWrite` is zero.
 
+**Cost evidence:** Label token-derived amounts `Est. cost` or `Token cost estimates`, never billed usage. Reported USD and AI Credits are authoritative and stay separate from estimates; do not prorate reported session charges into fabricated per-model bills. Unknown prices and ambiguous request tiers display `--`, not `$0.00`. Show pricing assumptions and missing evidence in readable `theme.text.muted` text, not only a hover tooltip. Metadata-only input totals are not peak context or individual request lengths. Stats turn estimates sum per-request model prices. No new colors are required.
+
 Percentages use `.toFixed(1)` (e.g. `85.3%`). Token counts use `.toLocaleString()` for thousands separators.
 
 ### Color Coding for Values

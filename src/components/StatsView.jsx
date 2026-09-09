@@ -1,6 +1,7 @@
 import { theme, TRACK_TYPES, alpha } from "../lib/theme.js";
 import Icon from "./Icon.jsx";
-import { estimateCost, estimateMultiModelCost, formatCost, formatSessionCost, getSessionCostLabel, isAiCreditsUnit, hasModelPricing } from "../lib/pricing.js";
+import { formatCost, formatSessionCost, getSessionCostLabel, isAiCreditsUnit } from "../lib/pricing.js";
+import { buildCostAnalysis } from "../lib/costAnalysis.js";
 import { formatDurationLong } from "../lib/formatTime.js";
 import { formatCacheUsageSummary, summarizeTokenUsage } from "../lib/cacheMetrics";
 import ToolbarButton from "./ui/ToolbarButton.jsx";
@@ -333,7 +334,7 @@ function CapabilitiesPanel({ events, turns, metadata }) {
   );
 }
 
-export default function StatsView({ events, totalTime, metadata, turns, autonomyMetrics, onOpenCoach }) {
+export default function StatsView({ events, totalTime, metadata, turns, autonomyMetrics, onOpenCoach, analysis }) {
   var [showAllTurns, setShowAllTurns] = useState(false);
   var TURNS_PREVIEW = 15;
   var cardStyle = getCardStyle();
@@ -377,32 +378,39 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
   var userMsgs = eventCounts.userMsgs;
   var errorCount = eventCounts.errorCount;
 
+  var costAnalysis = useMemo(function () { return analysis || buildCostAnalysis(events, metadata); }, [events, metadata, analysis]);
   var tokenMaps = useMemo(function () {
     var turnMap = {};
-    var modelMap = {};
-    events.forEach(function (e) {
+    var costs = {};
+    var turnIndices = new Map((turns || []).map(function (turn) { return [turn.turnId, turn.index]; }));
+    var usageEvents = costAnalysis.calls.some(function (call) { return call.event; })
+      ? costAnalysis.calls.map(function (call) { return call.event; }).filter(Boolean)
+      : events;
+    usageEvents.forEach(function (e) {
       if (e.tokenUsage) {
         if (e.turnIndex !== undefined) {
           var t = summarizeTokenUsage([turnMap[e.turnIndex], e.tokenUsage]);
           turnMap[e.turnIndex] = t;
         }
-        var modelKey = e.model || (metadata && metadata.primaryModel) || "__unknown__";
-        var m = modelMap[modelKey] || { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
-        m.inputTokens += e.tokenUsage.inputTokens || 0;
-        m.outputTokens += e.tokenUsage.outputTokens || 0;
-        m.cacheRead += e.tokenUsage.cacheRead || 0;
-        m.cacheWrite += e.tokenUsage.cacheWrite || 0;
-        modelMap[modelKey] = m;
       }
+    });
+    costAnalysis.calls.forEach(function (call) {
+      var request = call.event;
+      if (!request) return;
+      var turnIndex = request.turnIndex != null ? request.turnIndex : request.turnId != null ? turnIndices.get(request.turnId) : undefined;
+      if (turnIndex == null) return;
+      if (call.eventIndex == null && request.turnIndex == null) turnMap[turnIndex] = summarizeTokenUsage([turnMap[turnIndex], call.tokenUsage]);
+      if (!(turnIndex in costs)) costs[turnIndex] = 0;
+      costs[turnIndex] = costs[turnIndex] == null || call.estimatedUsdCost == null ? null : costs[turnIndex] + call.estimatedUsdCost;
     });
     var cacheSummary = metadata && metadata.tokenUsage
       ? formatCacheUsageSummary(metadata.tokenUsage, { variant: "compact" })
       : null;
-    return { turnTokenMap: turnMap, modelTokenMap: modelMap, sessionCacheSummary: cacheSummary };
-  }, [events, metadata]);
+    return { turnTokenMap: turnMap, turnCosts: costs, sessionCacheSummary: cacheSummary };
+  }, [events, metadata, turns, costAnalysis]);
   var turnTokenMap = tokenMaps.turnTokenMap;
-  var modelTokenMap = tokenMaps.modelTokenMap;
   var sessionCacheSummary = tokenMaps.sessionCacheSummary;
+  var turnCosts = tokenMaps.turnCosts;
 
   var cards = useMemo(function () {
     return [
@@ -450,23 +458,7 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
     if (!metadata || !metadata.primaryModel) return null;
     var hasTokens = metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0;
     var hasApiCost = metadata.totalCost != null;
-    var perModelData = metadata.modelTokenUsage || (Object.keys(modelTokenMap).length > 0 ? modelTokenMap : null);
-    var modelKeys = perModelData ? Object.keys(perModelData) : [];
-    var modelCount = modelKeys.length;
-    var pricedCount = modelKeys.filter(function (k) { return hasModelPricing(k); }).length;
-    var estimated = perModelData
-      ? estimateMultiModelCost(perModelData)
-      : estimateCost(metadata.tokenUsage, metadata.primaryModel);
-    var modelLabel;
-    if (modelCount > 1) {
-      modelLabel = pricedCount < modelCount
-        ? pricedCount + " of " + modelCount + " models"
-        : modelCount + " models";
-    } else if (modelCount === 1) {
-      modelLabel = modelKeys[0].split("-").slice(0, 3).join("-") + " pricing";
-    } else {
-      modelLabel = (metadata.primaryModel ? metadata.primaryModel.split("-").slice(0, 3).join("-") : "default") + " pricing";
-    }
+    var estimated = costAnalysis.totals.estimatedUsdCost;
 
     var usageCards = [];
     var mKeys = Object.keys(metadata.models || {});
@@ -485,18 +477,19 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
         sub: isAiCreditsUnit(metadata.totalCostUnit) ? "reported by Copilot" : "reported by API",
       });
     }
-    if (estimated > 0) {
-      usageCards.push({ label: "Est. cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: "based on " + modelLabel });
+    if (hasTokens || costAnalysis.hasCostData) {
+      usageCards.push({ label: "Est. cost", value: formatCost(estimated), color: hasApiCost ? theme.text.muted : theme.semantic.success, sub: estimated == null ? "pricing evidence incomplete" : "based on token usage" });
     }
     var allModelsEntries = Object.keys(metadata.models).length > 1
       ? Object.entries(metadata.models).sort(function (a, b) { return b[1] - a[1]; })
       : null;
     return { usageCards: usageCards, allModelsEntries: allModelsEntries };
-  }, [metadata, modelTokenMap, themeMode]);
+  }, [metadata, costAnalysis, themeMode]);
 
   return (
     <ResizablePanel initialSplit={0.72} minPx={200} direction="horizontal">
       <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: theme.space.xl, overflowY: "auto", overflowX: "hidden", padding: theme.space.md + "px " + theme.space.lg + "px " + theme.space.md + "px 0" }}>
+        {costAnalysis.pricingNotes.length > 0 && <div style={{ color: theme.text.muted, fontSize: theme.fontSize.sm, lineHeight: 1.5 }}>{costAnalysis.pricingNotes.join(" ")}</div>}
         <div style={{ fontSize: theme.fontSize.xs, color: theme.text.dim, textTransform: "uppercase", letterSpacing: 1 }}>
           Session Overview
         </div>
@@ -717,8 +710,8 @@ export default function StatsView({ events, totalTime, metadata, turns, autonomy
                     <span style={{ fontSize: theme.fontSize.xs, color: theme.track.tool_call, flexShrink: 0 }}>{turn.toolCount} tools</span>
                   )}
                   {turnTokenMap[turn.index] && (
-                    <span style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, flexShrink: 0 }}>
-                      {formatCost(estimateCost(turnTokenMap[turn.index], metadata && metadata.primaryModel))}
+                    <span title="Token cost estimate" style={{ fontSize: theme.fontSize.xs, color: theme.text.muted, fontFamily: theme.font.mono, flexShrink: 0 }}>
+                      {formatCost(turnCosts[turn.index])}
                     </span>
                   )}
                   {formatCacheUsageSummary(turnTokenMap[turn.index], { variant: "verbose" }) && (

@@ -3,6 +3,8 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { detectCodexJSONL, parseCodexJSONL } from "../lib/codexParser";
 import { detectFormat, parseSession } from "../lib/parseSession";
+import { appendLiveSessionText, createLiveSessionParser } from "../lib/liveSessionParser";
+import { buildCostAnalysis } from "../lib/costAnalysis.js";
 
 const FIXTURE = readFileSync(join(__dirname, "fixtures/test-codex.jsonl"), "utf8");
 
@@ -31,6 +33,47 @@ describe("detectCodexJSONL", function () {
 });
 
 describe("parseCodexJSONL", function () {
+  it("prices verified last-request usage, preserves writes, and deduplicates live checkpoints", function () {
+    const usage = { input_tokens: 200000, cached_input_tokens: 60000, cache_write_input_tokens: 20000, output_tokens: 10000, reasoning_output_tokens: 5000, total_tokens: 210000 };
+    const token = (total: typeof usage) => ({ type: "event_msg", payload: { type: "token_count", info: { total_token_usage: total, last_token_usage: usage } } });
+    const records = [
+      { type: "session_meta", payload: { originator: "codex-cli", model_provider: "openai" } },
+      { type: "turn_context", payload: { turn_id: "a", model: "gpt-5.6-sol", effort: "high" } },
+      { type: "response_item", payload: { type: "message", role: "user", content: "Synthetic pricing check" } },
+      token(usage),
+      token(usage),
+      { type: "turn_context", payload: { turn_id: "b", model: "gpt-6-astra", effort: "high" } },
+      token(Object.fromEntries(Object.entries(usage).map(([key, count]) => [key, count * 2])) as typeof usage),
+    ];
+    let live = createLiveSessionParser(records.slice(0, 3).map(line).join("\n"));
+    const snapshot = live.result;
+    for (let i = 3; i < records.length; i++) {
+      live = appendLiveSessionText(live, line(records[i])).state;
+      expect(live.result).toEqual(parseSession(records.slice(0, i + 1).map(line).join("\n")));
+    }
+    expect(snapshot?.metadata.tokenUsage).toBeNull();
+    const result = live.result!;
+    expect(result.metadata.tokenUsage).toMatchObject({ inputTokens: 400000, cacheWrite: 40000, cacheWriteReported: true, outputTokens: 20000 });
+    expect(result.metadata.pricingRequests).toHaveLength(2);
+    const analysis = buildCostAnalysis(result.events, result.metadata);
+    expect(analysis.calls.map(call => call.model)).toEqual(["gpt-5.6-sol", "gpt-6-astra"]);
+    expect(analysis.totals.cost).toBeCloseTo(0.804 + 2.01, 8);
+    expect(analysis.pricingNotes.join(" ")).toContain("Standard service tier assumed");
+  });
+
+  it("refuses to treat cumulative jumps as one request", function () {
+    const text = [
+      line({ type: "session_meta", payload: { originator: "codex-cli" } }),
+      line({ type: "turn_context", payload: { turn_id: "a", model: "gpt-5.6-sol" } }),
+      line({ type: "response_item", payload: { type: "message", role: "user", content: "Test" } }),
+      line({ type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 400000, output_tokens: 20000 }, last_token_usage: { input_tokens: 200000, output_tokens: 10000 } } } }),
+    ].join("\n");
+    const result = parseSession(text)!;
+    expect(result.metadata.pricingRequests).toBeUndefined();
+    expect(buildCostAnalysis(result.events, result.metadata).totals.cost).toBeNull();
+    expect(createLiveSessionParser(text).result).toEqual(result);
+  });
+
   it("normalizes Codex messages, reasoning, tools, outputs, turns, and metadata", function () {
     const result = parseCodexJSONL(FIXTURE);
     expect(result).not.toBeNull();

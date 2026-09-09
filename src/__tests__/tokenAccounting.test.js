@@ -128,6 +128,36 @@ function promptFixture() {
 }
 
 describe("token accounting across parsers and surfaces", function () {
+  it("uses per-request mixed-model prices in Cost, Stats, Compare, and Review", async function () {
+    var session = parseSession(JSON.stringify(["gpt-5.6-sol", "gpt-6-astra"].map(model => ({
+      request: { model, messages: [{ role: "user", content: "Synthetic cost request" }] },
+      response: { usage: { input_tokens: 200000, output_tokens: 10000, input_tokens_details: { cached_tokens: 60000, cache_write_tokens: 20000 } } },
+    }))));
+    expect(session.metadata.totalCost).toBeUndefined();
+    var expected = 0.804 + 2.01;
+    expect(buildCostAnalysis(session.events, session.metadata).totals.cost).toBeCloseTo(expected, 8);
+    expect(buildMetrics(session).cost).toBeCloseTo(expected, 8);
+    expect(buildReviewSummary(session, null).cost).toBeCloseTo(expected, 8);
+    var stats = await renderStatsText(session);
+    expect(stats).toContain("$2.81");
+    expect(stats).toContain("$0.804");
+    expect(stats).toContain("$2.01");
+    expect(stats).toContain("Standard service tier assumed");
+    expect(stats).not.toContain("reported by API");
+  });
+
+  it("shows missing pricing evidence instead of zero dollars in Stats", async function () {
+    var session = parseSession(JSON.stringify([{
+      request: { model: "gpt-5.6-unknown", messages: [{ role: "user", content: "Test unknown" }] },
+      response: { usage: { input_tokens: 100000, output_tokens: 10000 } },
+    }]));
+    expect(buildMetrics(session).cost).toBeNull();
+    var stats = await renderStatsText(session);
+    expect(stats).toContain("pricing evidence incomplete");
+    expect(stats).toContain("Pricing unavailable");
+    expect(stats).not.toContain("$0.00");
+  });
+
   it("keeps Copilot CLI shutdown totals consistent across metadata, Cost, Stats, Review, and Compare", async function () {
     var text = loadFixture("test-copilot.jsonl");
     var session = parseSession(text);

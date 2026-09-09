@@ -1,5 +1,5 @@
 import { computeCacheHitRate, computeEffectiveInputTokens } from "./cacheMetrics";
-import { estimateCost } from "./pricing.js";
+import { estimateCostDetails } from "./pricing.js";
 
 var CACHE_MISS_MAX_CACHE_READ_RATIO = 0.35;
 var CACHE_MISS_FRESH_SPIKE_MULTIPLIER = 1.5;
@@ -79,30 +79,42 @@ function usageMapCoversMetadata(usageByModel, metadataUsage) {
   return totalsCoverMetadata(totals, metadataUsage);
 }
 
+function pricingContext(metadata, event, aggregate) {
+  var provider = metadata && ["copilot-cli", "copilot-prompts", "vscode-chat"].includes(metadata.format) ? "copilot" : undefined;
+  return { provider, ...(event && event.pricingContext), aggregate };
+}
+
+function addCost(total, cost) {
+  return total == null || cost == null ? null : total + cost;
+}
+
 function buildMetadataUsageCalls(metadata) {
   var usageByModel = metadata && metadata.modelTokenUsage;
   var useModelBreakdown = usageMapCoversMetadata(usageByModel, metadata && metadata.tokenUsage);
   var modelNames = useModelBreakdown && usageByModel && Object.keys(usageByModel).length > 0
     ? Object.keys(usageByModel)
-    : (hasUsage(metadata && metadata.tokenUsage) ? [metadata.primaryModel || "unknown"] : []);
+    : (hasUsage(metadata && metadata.tokenUsage)
+      ? [Object.keys(metadata.models || {}).length > 1 ? "unknown" : metadata.primaryModel || "unknown"] : []);
   var calls = [];
   var cumulativeCost = 0;
+  var cumulativeUnit = null;
   var reportedCost = metadata && metadata.totalCost != null ? metadata.totalCost : null;
   var reportedCostUnit = reportedCost != null ? metadata.totalCostUnit || "usd" : "usd";
-  var estimatedCosts = modelNames.map(function (model) {
-    var usage = useModelBreakdown && usageByModel && usageByModel[model] ? usageByModel[model] : metadata.tokenUsage;
-    return estimateCost(usage, model);
-  });
-  var estimatedTotal = estimatedCosts.reduce(function (sum, cost) { return sum + cost; }, 0);
-
   for (var i = 0; i < modelNames.length; i += 1) {
     var model = modelNames[i];
     var usage = useModelBreakdown && usageByModel && usageByModel[model] ? usageByModel[model] : metadata.tokenUsage;
-    if (!hasUsage(usage)) continue;
-    var callCost = reportedCost != null
-      ? (estimatedTotal > 0 ? reportedCost * (estimatedCosts[i] / estimatedTotal) : reportedCost / modelNames.length)
-      : estimatedCosts[i];
-    cumulativeCost += callCost;
+    if (!hasUsage(usage) && usage.aiCredits == null) continue;
+    var estimate = estimateCostDetails(hasUsage(usage) ? usage : null, model, pricingContext(metadata, null, true));
+    var modelCredits = useModelBreakdown ? usage.aiCredits : null;
+    var callCost = modelCredits != null
+      ? modelCredits
+      : reportedCost != null
+        ? (modelNames.length === 1 ? reportedCost : null)
+        : estimate.cost;
+    var callUnit = modelCredits != null ? "ai_credits" : reportedCost != null ? reportedCostUnit : "usd";
+    if (cumulativeUnit && cumulativeUnit !== callUnit) cumulativeCost = null;
+    cumulativeUnit = callUnit;
+    cumulativeCost = addCost(cumulativeCost, callCost);
 
     calls.push({
       index: calls.length,
@@ -116,8 +128,10 @@ function buildMetadataUsageCalls(metadata) {
       cacheWriteTokens: usage.cacheWrite || 0,
       outputTokens: usage.outputTokens || 0,
       cost: callCost,
-      costUnit: reportedCost != null ? reportedCostUnit : "usd",
-      estimatedUsdCost: estimatedCosts[i],
+      costUnit: callUnit,
+      estimatedUsdCost: estimate.cost,
+      pricingNotes: estimate.notes,
+      isReportedCost: modelCredits != null || (reportedCost != null && modelNames.length === 1),
       cumulativeCost: cumulativeCost,
       contextBreakdown: getBreakdown(null, usage),
       netNewTokens: usage.inputTokens || 0,
@@ -150,6 +164,12 @@ export function formatTokens(value) {
 
 export function buildCostAnalysis(events, metadata) {
   var sourceEvents = events || [];
+  var usesPricingRequests = false;
+  if (metadata && metadata.pricingRequests && metadata.pricingRequests.length
+      && !usageMapCoversMetadata(Object.fromEntries(sourceEvents.filter(e => e.tokenUsage).map((e, i) => [i, e.tokenUsage])), metadata.tokenUsage)) {
+    sourceEvents = metadata.pricingRequests;
+    usesPricingRequests = true;
+  }
   var calls = [];
   var totalCost = 0;
   var totalCostUnit = "usd";
@@ -164,15 +184,16 @@ export function buildCostAnalysis(events, metadata) {
     var usage = getTokenUsage(event);
     if (!usage) continue;
 
-    var model = event.model || (metadata && metadata.primaryModel) || "unknown";
+    var model = event.model || (metadata && Object.keys(metadata.models || {}).length <= 1 && metadata.primaryModel) || "unknown";
     var freshInputTokens = effectiveFreshInput(usage);
     var cachedInputTokens = usage.cacheRead || 0;
     var cacheWriteTokens = usage.cacheWrite || 0;
     var outputTokens = usage.outputTokens || 0;
-    var callCost = estimateCost(usage, model);
+    var estimate = estimateCostDetails(usage, model, pricingContext(metadata, event, false));
+    var callCost = estimate.cost;
     var estimatedCost = callCost;
-    totalCost += callCost;
-    estimatedUsdCost += estimatedCost;
+    totalCost = addCost(totalCost, callCost);
+    estimatedUsdCost = addCost(estimatedUsdCost, estimatedCost);
     totals.inputTokens += usage.inputTokens || 0;
     totals.outputTokens += outputTokens;
     totals.cacheRead += cachedInputTokens;
@@ -186,11 +207,11 @@ export function buildCostAnalysis(events, metadata) {
     var cacheHitRate = usage.cacheHitRate != null
       ? usage.cacheHitRate
       : computeCacheHitRate(usage.inputTokens || 0, cacheWriteTokens, cachedInputTokens) || 0;
-    peakContext = Math.max(peakContext, contextBreakdown.total || usage.inputTokens || 0);
+    peakContext = Math.max(peakContext, usage.inputTokens || 0);
 
     var call = {
       index: calls.length,
-      eventIndex: i,
+      eventIndex: usesPricingRequests ? null : i,
       event: event,
       title: event.text || "LLM call",
       model: model,
@@ -202,6 +223,8 @@ export function buildCostAnalysis(events, metadata) {
       cost: callCost,
       costUnit: "usd",
       estimatedUsdCost: estimatedCost,
+      pricingNotes: estimate.notes,
+      isReportedCost: false,
       cumulativeCost: totalCost,
       contextBreakdown: contextBreakdown,
       netNewTokens: netNewTokens,
@@ -242,13 +265,13 @@ export function buildCostAnalysis(events, metadata) {
   }
 
   var metadataUsage = metadata && metadata.tokenUsage;
-  if (!totalsCoverMetadata(totals, metadataUsage)) {
+  if (!totalsCoverMetadata(totals, metadataUsage) || (!calls.length && metadata && metadata.modelTokenUsage)) {
     calls = buildMetadataUsageCalls(metadata || {});
     totalCostUnit = metadata && metadata.totalCost != null ? metadata.totalCostUnit || "usd" : "usd";
     totalCost = metadata && metadata.totalCost != null
       ? metadata.totalCost
-      : calls.reduce(function (sum, call) { return sum + call.cost; }, 0);
-    estimatedUsdCost = calls.reduce(function (sum, call) { return sum + (call.estimatedUsdCost || (call.costUnit === "usd" ? call.cost : 0)); }, 0);
+      : calls.reduce(function (sum, call) { return addCost(sum, call.estimatedUsdCost); }, 0);
+    estimatedUsdCost = calls.reduce(function (sum, call) { return addCost(sum, call.estimatedUsdCost); }, 0);
     totals = { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
     peakContext = 0;
     cacheMisses = [];
@@ -259,10 +282,27 @@ export function buildCostAnalysis(events, metadata) {
       totals.outputTokens += summaryUsage.outputTokens || 0;
       totals.cacheRead += summaryUsage.cacheRead || 0;
       totals.cacheWrite += summaryUsage.cacheWrite || 0;
-      peakContext = Math.max(peakContext, calls[callIndex].contextBreakdown.total || summaryUsage.inputTokens || 0);
     }
+    // A session aggregate is not an observed context window.
+    peakContext = null;
   }
 
+  var notes = [...new Set(calls.flatMap(call => call.pricingNotes || []))];
+  var isReportedCost = metadata && metadata.totalCost != null;
+  if (isReportedCost) {
+    totalCost = metadata.totalCost;
+    totalCostUnit = metadata.totalCostUnit || "usd";
+    if (calls.some(call => !call.isReportedCost)) notes.push("Reported session charges are authoritative; request costs are separate token estimates, not allocated bills.");
+    if (calls.length && calls.every(call => call.isReportedCost && call.costUnit === totalCostUnit)) {
+      var reportedModelTotal = calls.reduce((sum, call) => sum + call.cost, 0);
+      var roundingTolerance = Number.EPSILON * Math.max(1, Math.abs(totalCost), Math.abs(reportedModelTotal)) * calls.length;
+      if (Math.abs(reportedModelTotal - totalCost) > roundingTolerance) notes.push("Reported model charges do not sum to the reported session charge; both are preserved.");
+    }
+  }
+  if (!calls.length) {
+    estimatedUsdCost = null;
+    if (!isReportedCost) totalCost = null;
+  }
   var cacheHitRate = computeCacheHitRate(totals.inputTokens, totals.cacheWrite, totals.cacheRead) || 0;
   return {
     calls: calls,
@@ -278,8 +318,10 @@ export function buildCostAnalysis(events, metadata) {
       aiCredits: metadata && metadata.aiCredits != null ? metadata.aiCredits : null,
       cacheHitRate: cacheHitRate,
       peakContext: peakContext,
+      isReportedCost: Boolean(isReportedCost),
     },
+    pricingNotes: notes,
     cacheMisses: cacheMisses,
-    hasCostData: calls.length > 0,
+    hasCostData: calls.length > 0 || Boolean(isReportedCost),
   };
 }

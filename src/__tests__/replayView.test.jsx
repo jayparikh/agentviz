@@ -43,6 +43,23 @@ function findExactText(container, text) {
 }
 
 describe("ReplayView", function () {
+  it("keeps session pricing based on unfiltered requests", async function () {
+    var container = document.createElement("div");
+    document.body.appendChild(container);
+    var root = createRoot(container);
+    var entries = [0, 1].map(index => makeEntry(index, {
+      agent: "assistant", track: "output", text: "Synthetic request", model: "gpt-5.6-sol",
+      tokenUsage: { inputTokens: 200000, outputTokens: 10000, cacheRead: 60000, cacheWrite: 20000 },
+    }));
+    await act(async function () {
+      root.render(<ReplayView currentTime={10} events={entries.map(entry => entry.event)} eventEntries={entries.slice(0, 1)} turnStartMap={{}}
+        metadata={{ primaryModel: "gpt-5.6-sol", models: { "gpt-5.6-sol": 2 }, tokenUsage: { inputTokens: 400000, outputTokens: 20000, cacheRead: 120000, cacheWrite: 40000 } }} />);
+    });
+    expect(findExactText(container, "$1.61")).not.toBeNull();
+    await act(async function () { root.unmount(); });
+    container.remove();
+  });
+
   beforeEach(function () {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     window.localStorage = createLocalStorage();

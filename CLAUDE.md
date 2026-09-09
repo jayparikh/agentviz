@@ -66,8 +66,8 @@ src/
     diffUtils.js       # Diff detection (isFileEditEvent) + Myers line diff algorithm
     waterfall.ts       # Waterfall view helpers: item building, stats, layout, windowing
     graphLayout.js     # Graph view helpers: ELKjs DAG builder, layout runner, position merger
-    costAnalysis.js    # Per-call cost, context, cache-miss, and token aggregation helpers
-    pricing.js         # Claude and OpenAI/Copilot model pricing table and cost estimation
+    costAnalysis.js    # Shared request-aware estimates, reported charges, and evidence limitations
+    pricing.js         # Model/tier/cache rates and nullable cost estimation
     exportHtml.js      # Self-contained HTML export for single sessions and comparisons
     dataInspector.js   # Payload summary and preview helpers for inspector panels
     formatTime.js      # Duration and date formatting utilities
@@ -169,6 +169,10 @@ Run `npx playwright install chromium` once before the first browser test run.
 - Product name is always AGENTVIZ (all caps, no spaces)
 - UI/UX design system: see docs/ui-ux-style-guide.md -- all UI changes must conform to it
 - Cache usage summaries omit the cache-write segment when `cacheWrite` is zero
+- Cost estimates use each request's model and input length, never session totals as request lengths. `estimateCost` returns null for unknown pricing; `buildCostAnalysis` is the shared session estimator. Keep actual USD and AI Credits authoritative and per-model nano-AIU charges intact.
+- Analyze memoizes one full-session cost analysis for its summary, Stats, and Cost; playback/filter changes do not reprice partial usage as whole-session costs. Peak context uses observed input counters, not the prompt-text composition heuristic.
+- GPT-5.6/Sol/Terra/Luna and GPT-6 Astra price cache writes at 1.25x input in total. Preserve `cacheWriteReported: false` for missing counters; never infer written tokens or Fast from reasoning effort. Disclose Standard assumptions. Luna needs explicit billing-provider context in the 200k-272k interval.
+- Codex `metadata.pricingRequests` contains only last-request usage verified against cumulative deltas; unchanged checkpoints are deduplicated. Batch and live paths share `observePricing`. `pricingContext` records sourced billing provider / actual response service tier, not model-provider guesses. See README pricing evidence for verified sources and dates.
 - Copilot CLI Session Info lists every explicit reasoning effort in first-seen order; selected events show the effective value, and effort is never inferred from reasoning text or token usage
 - The workflow is the only shell. Keep `#/v2/...` URLs, internal v2 filenames and preferences, and session-library/content v1 schema keys. Ignore obsolete UI preferences; never clear saved data to remove a shell.
 - Timeline transport in Investigate and Analyze shares PlaybackProvider state. Speeds live in playbackUtils.js. One shortcut dispatcher preserves 1-6 zones and the 7 Improve alias, without stealing native control keys.

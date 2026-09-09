@@ -108,6 +108,7 @@ export class LiveCodexNormalizer implements LiveNormalizer {
     const changedCalls = new Set<Slot>();
     const hadLifecycle = this.buckets.size > 0;
     for (const record of records) {
+      helpers.observePricing(record, this.state);
       const payload = record.payload || {};
       if (!this.meta && record.type === "session_meta" && helpers.isRecord(record.payload)) this.meta = record;
       if (record.type === "event_msg" && payload.type === "token_count" && helpers.isRecord(payload.info?.total_token_usage)) this.token = record;

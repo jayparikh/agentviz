@@ -103,7 +103,7 @@ function CallRow({ call, miss }) {
         <div title={call.title} style={{ color: theme.text.primary, fontSize: theme.fontSize.sm, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{call.title}</div>
         <div style={{ display: "flex", gap: theme.space.sm, flexWrap: "wrap", marginTop: theme.space.md }}>
           <Chip>{call.model}</Chip>
-          <Chip>{formatTokens(call.contextBreakdown.total || call.tokenUsage.inputTokens)} ctx</Chip>
+          <Chip>{formatTokens(call.tokenUsage.inputTokens)} {call.isMetadataSummary ? "input" : "ctx"}</Chip>
           {miss && <Chip warning>cache miss</Chip>}
           <Chip>{formatCostValue(call.cost, call.costUnit)}</Chip>
         </div>
@@ -125,8 +125,9 @@ function CostBars({ calls, cacheMisses }) {
   var missByIndex = new Map(cacheMisses.map(function (miss) { return [miss.callIndex, miss]; }));
   var costUnit = calls[0] && calls[0].costUnit;
   var usesCredits = isAiCreditsUnit(costUnit);
+  var reported = calls.length > 0 && calls.every(function (call) { return call.isReportedCost; });
   return (
-    <Panel label={usesCredits ? "Cumulative AI Credits" : "Cumulative cost"} title={usesCredits ? "Reported AI Credit usage" : "Billed input/output by call"} aside={<span style={{ color: theme.text.primary, fontSize: theme.fontSize.xs, fontFamily: theme.font.mono, border: "1px solid " + alpha(theme.accent.primary, 0.5), background: alpha(theme.accent.primary, 0.12), borderRadius: theme.radius.md, padding: theme.space.sm + "px " + theme.space.md + "px" }}>{usesCredits ? "CREDITS" : "$ BILLED"}</span>}>
+    <Panel label={usesCredits ? "Cumulative AI Credits" : "Cumulative cost"} title={reported ? (usesCredits ? "Reported AI Credit usage" : "Reported usage") : "Token cost estimates"} aside={<span style={{ color: theme.text.primary, fontSize: theme.fontSize.xs, fontFamily: theme.font.mono, border: "1px solid " + alpha(theme.accent.primary, 0.5), background: alpha(theme.accent.primary, 0.12), borderRadius: theme.radius.md, padding: theme.space.sm + "px " + theme.space.md + "px" }}>{reported ? (usesCredits ? "CREDITS" : "$ REPORTED") : "$ ESTIMATE"}</span>}>
       <Legend items={[{ label: "fresh", color: theme.accent.primary }, { label: "cached", color: theme.semantic.success }, { label: "cache write", color: theme.track.context }]} />
       <div style={{ padding: theme.space.lg, overflow: "auto" }}>
         {calls.map(function (call) {
@@ -167,8 +168,10 @@ function CacheMissAnnotation({ miss }) {
 
 function ContextBars({ calls }) {
   var max = maxCallValue(calls, function (call) { return call.contextBreakdown.total || call.tokenUsage.inputTokens || 0; });
+  var metadataOnly = calls.length > 0 && calls.every(function (call) { return call.isMetadataSummary; });
+  var estimated = calls.some(function (call) { return call.event && call.event.raw && call.event.raw.costPrompt; });
   return (
-    <Panel label="Context window" title="What is filling the prompt" aside="tokens">
+    <Panel label={metadataOnly ? "Session input" : "Context window"} title={metadataOnly ? "Aggregate input totals" : estimated ? "Estimated context composition" : "What is filling the prompt"} aside="tokens">
       <Legend items={[{ label: "system/tools", color: theme.track.context }, { label: "history", color: theme.accent.primary }, { label: "results", color: theme.semantic.success }, { label: "user", color: theme.agent.user }]} />
       <div style={{ padding: theme.space.lg, overflow: "auto" }}>
         {calls.map(function (call) {
@@ -190,10 +193,10 @@ function ContextBars({ calls }) {
   );
 }
 
-export default function CostView({ events, metadata }) {
+export default function CostView({ events, metadata, analysis: suppliedAnalysis }) {
   var analysis = useMemo(function () {
-    return buildCostAnalysis(events || [], metadata || {});
-  }, [events, metadata]);
+    return suppliedAnalysis || buildCostAnalysis(events || [], metadata || {});
+  }, [events, metadata, suppliedAnalysis]);
 
   if (!analysis.hasCostData) {
     return (
@@ -213,9 +216,9 @@ export default function CostView({ events, metadata }) {
   return (
     <div style={{ padding: theme.space.xl, display: "flex", flexDirection: "column", gap: theme.space.lg, minHeight: 0, height: "100%", overflow: "hidden", fontFamily: theme.font.mono, fontSize: theme.fontSize.base }}>
       <div style={{ display: "grid", gridTemplateColumns: SUMMARY_GRID_5_COLUMNS, gap: theme.space.lg }}>
-        <SummaryCard label="Cost view" value="Token spend & context buildup" valueSize={theme.fontSize.lg} sub="Full context, net-new tokens, and billed API usage." />
+        <SummaryCard label="Cost view" value="Token spend & context buildup" valueSize={theme.fontSize.lg} sub="Token estimates and reported charges, kept separate." />
         <SummaryCard
-          label={usesCredits ? "AI Credits" : "Total spend"}
+          label={usesCredits ? "AI Credits" : totals.isReportedCost ? "Reported cost" : "Est. cost"}
           value={formatCostValue(totals.cost, totals.costUnit)}
           sub={[
             cachePercent + "% cached input",
@@ -227,9 +230,10 @@ export default function CostView({ events, metadata }) {
           formatTokens(totals.cacheRead) + " cached",
           totals.cacheWrite > 0 ? formatTokens(totals.cacheWrite) + " write" : null,
         ].filter(Boolean).join(" · ")} />
-        <SummaryCard label="Peak context" value={formatTokens(totals.peakContext)} sub="tools + history dominate context" />
+        <SummaryCard label="Peak context" value={totals.peakContext == null ? "--" : formatTokens(totals.peakContext)} sub={totals.peakContext == null ? "request sizes unavailable" : "largest observed prompt"} />
         <SummaryCard label="Cache misses" value={analysis.cacheMisses.length} sub="unexpected fresh-token spikes" color={analysis.cacheMisses.length ? theme.semantic.warning : theme.text.primary} />
       </div>
+      {analysis.pricingNotes.length > 0 && <div style={{ color: theme.text.muted, fontSize: theme.fontSize.sm, lineHeight: 1.5, flexShrink: 0 }}>{analysis.pricingNotes.join(" ")}</div>}
 
       <div style={{ display: "grid", gridTemplateColumns: MAIN_GRID_3_COLUMNS, gap: theme.space.lg, minHeight: 0, flex: 1 }}>
         <Panel label="Prompt & steps" title="Calls in session order" aside="session order">

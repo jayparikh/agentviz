@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { detectFormat, parseSession } from "../lib/parseSession";
 import { detectCopilotPrompts, parseCopilotPromptsJSON } from "../lib/copilotCostParser";
+import { buildCostAnalysis } from "../lib/costAnalysis.js";
 
 function fixture() {
   return JSON.stringify([
@@ -77,7 +78,8 @@ describe("parseCopilotPromptsJSON", function () {
       cacheRead: 1100,
       cacheWrite: 70,
     });
-    expect(parsed!.metadata.totalCost).toBeGreaterThan(0);
+    expect(parsed!.metadata.totalCost).toBeUndefined();
+    expect(buildCostAnalysis(parsed!.events, parsed!.metadata).totals.estimatedUsdCost).toBeGreaterThan(0);
     expect((parsed!.events[0].raw as any).costPrompt.toolNames).toEqual(["read_file"]);
     expect((parsed!.events[1].raw as any).costPrompt.contextBreakdown.history).toBeGreaterThan(0);
   });
@@ -86,6 +88,21 @@ describe("parseCopilotPromptsJSON", function () {
     const wrapped = JSON.stringify({ prompts: JSON.parse(fixture()) });
     const parsed = parseCopilotPromptsJSON(wrapped);
     expect(parsed!.metadata.promptCallCount).toBe(2);
+  });
+
+  it.each(["responses", "chat"])("reads official %s write counters and actual response tier", function (schema) {
+    const usage = schema === "responses"
+      ? { input_tokens: 100000, output_tokens: 10000, input_tokens_details: { cached_tokens: 60000, cache_write_tokens: 20000 }, output_tokens_details: { reasoning_tokens: 5000 } }
+      : { prompt_tokens: 100000, completion_tokens: 10000, prompt_tokens_details: { cached_tokens: 60000, cache_write_tokens: 20000 }, completion_tokens_details: { reasoning_tokens: 5000 } };
+    const parsed = parseCopilotPromptsJSON(JSON.stringify([{
+      request: { model: "gpt-5.6-unknown", service_tier: "auto", messages: [{ role: "user", content: "Test" }] },
+      response: { model: "gpt-5.6-sol", service_tier: "priority", usage },
+    }]))!;
+    expect(parsed.events[0].tokenUsage).toMatchObject({ inputTokens: 100000, cacheWrite: 20000, cacheWriteReported: true, outputTokens: 10000 });
+    expect(parsed.events[0].model).toBe("gpt-5.6-sol");
+    expect(parsed.events[0].pricingContext).toEqual({ provider: "copilot", serviceTier: "priority" });
+    expect(buildCostAnalysis(parsed.events, parsed.metadata).totals.cost).toBeCloseTo(0.808, 8);
+    expect(parsed.metadata.totalCost).toBeUndefined();
   });
 
   it("truncates prompt text exceeding MAX_DISPLAY_TEXT_LENGTH", function () {
