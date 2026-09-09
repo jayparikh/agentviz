@@ -192,6 +192,31 @@ afterEach(function () {
 });
 
 describe("App browser regressions", function () {
+  it("shows a non-blocking unsaved state and raw download recovery when the metadata index fails", async function () {
+    var write = global.localStorage.setItem;
+    var failure = vi.spyOn(global.localStorage, "setItem").mockImplementation(function (key, text) {
+      if (key === "agentviz:session-library:v1") throw new DOMException("Full", "QuotaExceededError");
+      write(key, text);
+    });
+    var app = await renderApp(createExportBootstrapFetch("unsaved.jsonl", FIXTURE_TEXT));
+    try {
+      await waitFor(function () { return findExactButton(app.container, "Retry saving"); });
+      expect(app.container.textContent).toContain("A active: unsaved.jsonl");
+      expect(app.container.textContent).toContain("The session index could not be saved.");
+      expect(app.container.textContent).not.toContain("Failed to load session");
+      expect(findExactButton(app.container, "Download transcript")).toBeTruthy();
+      await click(app.container.querySelector('button[aria-label^="Investigate,"]'));
+      expect(app.container.textContent).toContain("Retry saving");
+      failure.mockRestore();
+      await click(findExactButton(app.container, "Retry saving"));
+      expect(app.container.textContent).toContain("Saved locally.");
+      expect(findExactButton(app.container, "Retry saving")).toBeFalsy();
+      await click(app.container.querySelector('[aria-label="Close session"]'));
+      expect(app.container.textContent).not.toContain("Saved locally.");
+      expect(app.container.textContent).not.toContain("unsaved.jsonl. Latest");
+    } finally { await app.unmount(); }
+  });
+
   it("can close a live stream before its first event arrives", async function () {
     var sources = [];
     global.EventSource = class {

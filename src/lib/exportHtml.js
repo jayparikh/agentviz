@@ -15,6 +15,8 @@
 //   startup.
 // Comparison: sets window.__AGENTVIZ_COMPARE__ for SessionProvider on mount.
 
+import { downloadText } from "./downloadText";
+
 var THEME_BOOTSTRAP = `
   (function () {
     var storageKey = "agentviz:theme-mode";
@@ -571,15 +573,7 @@ async function buildExportHtml(title, extraPayload) {
 }
 
 function downloadHtml(html, filename) {
-  var blob = new Blob([html], { type: "text/html" });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  downloadText(html, filename, "text/html");
 }
 
 // Export a single session as a self-contained HTML file.

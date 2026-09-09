@@ -198,6 +198,8 @@ Classic UI and its toggle, recent-session dropdown, direct A/B upload screen, an
 **Close session** clears the active session, comparison, playback, and Q&A, stops viewer-side live updates, and returns to Find. It does not delete saved runs or preferences, or stop the agent/server. Navigating to Find without closing retains the active session.
 Close also works before a live stream produces its first event. The bottom transport's speed menu opens upward so every speed remains reachable on desktop and compact screens.
 
+**Local save status** is separate from loading a session. Each active A/B transcript shows whether its latest snapshot is saved locally. Storage access, quota, and session-index failures do not prevent replay or comparison: use **Retry saving** or **Download transcript** to recover the active raw file before closing. A failed live content write keeps any earlier cached snapshot and its metadata, but does not label the latest events as saved. Index-write failures attempt to restore the earlier content and report restoration failures too. When quota eviction removes older cached transcripts, a notice identifies the number removed; reopen discovered sources or reimport those files. Refresh rechecks cached availability. A damaged index is reported, never silently replaced.
+
 ## Session Comparison
 
 Load two agent traces side by side to compare them head to head. Great for benchmarking Claude Code vs Copilot CLI on the same task, or comparing two different prompting strategies.
@@ -502,7 +504,8 @@ src/
     tracksLayout.js      # Bounded overview geometry retaining original evidence
     dataInspector.js     # Payload summary and preview helpers for inspector panels
     session.ts           # Pure helpers: getSessionTotal, buildFilteredEventEntries
-    sessionLibrary.js    # localStorage-backed session library with content persistence
+    sessionLibrary.js    # localStorage snapshots, save failures and quota eviction reporting
+    downloadText.ts      # Shared raw transcript and HTML download primitive
     sessionParsing.ts    # Session parsing utilities and types
     sessionTypes.ts      # TypeScript type definitions for session data
     cacheMetrics.ts      # Shared cache hit rate helpers
@@ -551,7 +554,7 @@ src/
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
     ui/                  # Shared primitives: BrandWordmark, ToolbarButton, ToolbarSelect, ExportStatusButton, KeyboardHint
-    v2/                  # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner
+    v2/                  # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner, SessionStorageNotice
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
   discovery.js         # Async traversal and bounded cached preview enrichment
