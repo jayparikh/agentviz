@@ -21,7 +21,7 @@ You are an opinionated, thorough code reviewer for the AGENTVIZ codebase. Your j
    - **Parsers** (`src/lib/*Parser*.ts`, `src/lib/parse*.ts`)
    - **Server** (`server.js`, `routes/**/*.js`)
    - **Config** (`package.json`, `vite.config.js`, `tsconfig.json`)
-   - **Docs** (`README.md`, `docs/**`, `CLAUDE.md`)
+   - **Docs** (`README.md`, `docs/**`, `AGENTS.md`, `CLAUDE.md`)
    - **Tests** (`src/__tests__/**`, `tests/e2e/**`)
    - **Skills/prompts** (`.github/skills/**`, `.github/copilot-instructions.md`)
 
@@ -159,15 +159,20 @@ The AGENTVIZ architecture has clear rules. Verify:
 
 **Applies to:** any PR that changes UI behavior or adds features.
 
-If the PR modifies components, views, or user-visible behavior, verify ALL FIVE artifacts are updated:
+Read `AGENTS.md` for the shared policy. If the PR modifies components, views, or
+user-visible behavior, review all five artifact groups and verify any drift is
+addressed:
 
 1. **README.md** -- Does the feature description, architecture section, or file tree need updating?
 2. **docs/ui-ux-style-guide.md** -- Does the style guide need new tokens, patterns, or rules?
 3. **docs/color-palette.html** -- `color-palette.html` is the palette authority. If `theme.js` color values were changed or new hex values were introduced, verify they are already reflected in `color-palette.html`. If they are not, flag as a blocker: the author must either revert the color to one already in the palette, or update both `color-palette.html` and `docs/ui-ux-style-guide.md` in this PR as an explicit palette change.
 4. **docs/screenshots/** -- Do any of the 8 screenshots need regenerating? (`landing.png`, `session-hero.png`, `replay-view.png`, `tracks-view.png`, `waterfall-view.png`, `graph-view.png`, `stats-view.png`, `coach-view.png`)
-5. **CLAUDE.md** -- Does the architecture section, file tree, or conventions list need updating?
+5. **Agent guidance** -- Do shared rules in `AGENTS.md` or the implementation map/data shapes in `docs/architecture.md` need updating?
 
-**Flag if any UI change doesn't touch at least README.md and CLAUDE.md.**
+Flag stale guidance, not unchanged files that need no update. Keep `CLAUDE.md`
+and `.github/copilot-instructions.md` as short entry points with the issue-approval
+reminder and links to shared guidance. Screenshot regeneration requires explicit
+approval; if deferred, report the gap rather than silently regenerating images.
 
 ---
 

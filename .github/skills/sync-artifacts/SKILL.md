@@ -1,19 +1,26 @@
 ---
 name: sync-artifacts
-description: Synchronize all five AGENTVIZ artifacts after a UI change -- README, style guide, color-palette.html, CLAUDE.md, and screenshots. Detects what drifted, drafts updates, and regenerates screenshots.
+description: Synchronize AGENTVIZ documentation after a UI change -- README, style guide, palette, screenshots, and shared agent guidance. Detects drift and regenerates screenshots with approval.
 user-invocable: true
 ---
 
 # AGENTVIZ Artifact Sync
 
-You enforce the **Five-Artifact Sync Rule**: every UI change must update all five artifacts before committing. Your job is to detect what changed, figure out which artifacts drifted, and fix them -- including regenerating screenshots.
+Read repository-root `AGENTS.md` first. You enforce its **Five-artifact sync**
+rule: review all five artifact groups for UI changes and update any drift before
+committing. Do not make no-op edits. Screenshot regeneration requires explicit
+approval; issue edits are outside this skill's authorization.
 
 The five artifacts:
 1. **README.md** -- feature descriptions, architecture section, file tree
 2. **docs/ui-ux-style-guide.md** -- token values, patterns, rules
 3. **docs/color-palette.html** -- visual swatch reference for every color token (dark + light)
 4. **docs/screenshots/** -- all 8 screenshot PNGs
-5. **CLAUDE.md** -- architecture section, conventions, file tree
+5. **Agent guidance** -- `AGENTS.md` for shared rules and `docs/architecture.md` for implementation details
+
+`CLAUDE.md` and `.github/copilot-instructions.md` are short entry points. Keep
+their approval reminders and links intact; do not duplicate shared rules or
+architecture in them. Repository memory does not replace checked-in guidance.
 
 ## Step 1: Detect What Changed
 
@@ -37,13 +44,13 @@ Categorize the changes:
 | Category | Glob | Artifact impact |
 |----------|------|-----------------|
 | Components | `src/components/**/*.jsx` | All five artifacts potentially |
-| Hooks | `src/hooks/**/*.js` | README + CLAUDE.md architecture |
-| Library | `src/lib/**/*.{js,ts}` | README + CLAUDE.md architecture |
+| Hooks | `src/hooks/**/*.js` | README + docs/architecture.md; AGENTS.md if conventions change |
+| Library | `src/lib/**/*.{js,ts}` | README + docs/architecture.md; AGENTS.md if conventions change |
 | Theme tokens | `src/lib/theme.js` | Style guide + color-palette.html + screenshots |
-| Server/routes | `server.js`, `routes/**` | README + CLAUDE.md architecture |
+| Server/routes | `server.js`, `routes/**` | README + docs/architecture.md; AGENTS.md if conventions change |
 | Config | `package.json`, `vite.config.js` | README commands section |
 | Tests | `src/__tests__/**`, `tests/e2e/**` | None (tests don't affect artifacts) |
-| Docs only | `docs/**`, `README.md`, `CLAUDE.md` | Self-contained, just validate consistency |
+| Docs only | `docs/**`, `README.md`, `AGENTS.md`, agent entry points | Self-contained, just validate consistency and links |
 
 ## Step 2: Audit Each Artifact
 
@@ -67,12 +74,13 @@ Check for:
 - **Architecture changes** (new hooks, new contexts, new routes)
 - **Command changes** in `package.json` scripts that aren't reflected in README
 
-### 2b. CLAUDE.md
+### 2b. Shared agent guidance
 
-Same file tree check as README (CLAUDE.md has its own architecture section). Also verify:
-- **Conventions list** -- are there new patterns introduced that should be documented?
-- **Key data types** -- did the event/turn/metadata shape change?
-- **Commands** -- do the listed commands still match `package.json` scripts?
+Check the implementation map in `docs/architecture.md` against the source. Also verify:
+- **Shared rules in AGENTS.md** -- are there new conventions to document?
+- **Key data types in docs/architecture.md** -- did the event/turn/metadata shape change?
+- **Commands in README.md** -- do they still match `package.json` scripts?
+- **Entry points** -- do CLAUDE.md and Copilot instructions still link to AGENTS.md and retain the issue-approval reminder?
 
 ### 2c. docs/ui-ux-style-guide.md
 
@@ -113,7 +121,9 @@ The 8 required screenshots:
 
 ## Step 3: Draft Artifact Updates
 
-For each artifact that needs updating, make the changes directly. Do not ask for permission -- make the edits, then present a summary of what changed.
+For local text artifacts within the requested task, make the needed edits and
+summarize them. This does not authorize GitHub issue edits or screenshot
+regeneration; follow the approval rules in `AGENTS.md`.
 
 ### README.md updates
 
@@ -123,12 +133,12 @@ For each artifact that needs updating, make the changes directly. Do not ask for
 - Update architecture descriptions if hooks/contexts/routes changed
 - Keep the same formatting style as existing content
 
-### CLAUDE.md updates
+### Shared agent guidance updates
 
-- Regenerate the architecture file tree to match current `src/` structure
-- Update conventions list if new patterns were introduced
-- Update data type shapes if event/turn/metadata changed
-- Update commands if package.json scripts changed
+- Update the implementation map in `docs/architecture.md` to match current `src/` structure
+- Update shared conventions in `AGENTS.md` if new patterns were introduced
+- Update data shape examples in `docs/architecture.md` if event/turn/metadata changed
+- Update README commands if package.json scripts changed
 - Keep inline comments on each file (e.g., `# Playback state: time, playing, speed, seek, playPause`)
 
 ### Style guide updates
@@ -276,7 +286,7 @@ Present a summary of everything that was synced:
 ### README.md
 - [what was updated, or "No changes needed"]
 
-### CLAUDE.md
+### Agent guidance (AGENTS.md and docs/architecture.md)
 - [what was updated, or "No changes needed"]
 
 ### docs/ui-ux-style-guide.md
@@ -323,7 +333,7 @@ If "just check" is requested, audit all five artifacts but only report drift -- 
 - **Always ask before regenerating screenshots.** If approved, regenerate all 8 rather than only the visibly affected view because theme or layout changes can ripple.
 - **session-hero.png must equal replay-view.png**. This is the most common mistake.
 - **Use `?demo=empty`** for the landing page screenshot. Never capture with personal session data visible.
-- **Match existing style** when updating README/CLAUDE.md. Read the surrounding content before writing.
+- **Match existing style** when updating README, AGENTS.md, and docs/architecture.md. Read the surrounding content before writing.
 - **Don't remove content** from artifacts unless the corresponding code was actually removed.
 - **Keep color-palette.html and the style guide in lockstep**: when a hex value changes in `theme.js`, update both the style guide table and the color-palette.html swatch row in the same commit.
 - **Run the full validation suite** (build + typecheck + test) after making changes.

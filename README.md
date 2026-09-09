@@ -510,7 +510,7 @@ src/
     autonomyMetrics.js   # Human response time, idle gaps, intervention scoring
     projectConfig.js     # Project config surface detection (CLAUDE.md, .github/, etc.)
     aiCoachAgent.js      # AI Coach powered by @github/copilot-sdk (gpt-4o)
-    qaClassifier.js      # Session Q&A instant answer engine (9 patterns + model context)
+    qaClassifier.js      # Session Q&A instant answer classifier + model context
     qaAgent.js           # Q&A agent powered by @github/copilot-sdk for model fallback
     theme.js             # Design tokens (dark/light/system mode-aware palette)
     theme.d.ts           # TypeScript declarations for theme.js
@@ -592,6 +592,10 @@ AGENTVIZ can also be launched from Claude Code, VS Code, or Copilot CLI via the 
 
 ## Development
 
+Agent instructions are maintained in [AGENTS.md](AGENTS.md), with short entry
+points in `CLAUDE.md` and `.github/copilot-instructions.md`. See
+[docs/architecture.md](docs/architecture.md) for the detailed implementation map.
+
 ```bash
 npm run dev             # Vite dev server + API backend (auto-started)
 npm run build           # Production build to dist/
@@ -606,6 +610,46 @@ npm run typecheck       # Type-check with tsc --noEmit
 > `npm run dev` starts both the Vite frontend (port 3000) and the API backend (port 4242) automatically. Vite proxies `/api/*` to the backend.
 > `npm run test:e2e:v2` uses a hermetic Vite test server on port 3100. Run `npx playwright install chromium` once before the first browser test run.
 > `npm run test:e2e:export` serves `dist/` on an ephemeral port, downloads a real export, and reopens it from `file://` with the network blocked. Run `npx playwright install --with-deps webkit` to also run the `webkit-export` project, which guards against WebKit's refusal to evaluate module scripts from `data:` URLs.
+
+### Releasing to npm
+
+Releases use `.github/workflows/publish.yml`, which builds the tagged source and
+publishes with provenance through the `npm-publish` environment. The workflow
+currently permits only the `jayparikh` actor.
+
+1. Create a release branch. Update the version in `package.json` and both root
+   version entries in `package-lock.json`, and promote the relevant
+   `CHANGELOG.md` entries into a dated release section.
+2. Run `npm test`, `npm run typecheck`, `npm run build`, and
+   `npm pack --dry-run --ignore-scripts`. Review the package contents, then open
+   and merge the release PR after CI passes.
+3. Create the version tag and GitHub release at the merged release commit.
+   Confirm that the tag's package version matches the intended npm version.
+4. Check the automatically triggered **Publish npm** run before starting another
+   run. If it succeeds, do not publish the same version again. If it fails before
+   any steps run with a tag/environment restriction, use the manual path below.
+
+**Working manual publishing path** (used for v1.0.4 and v1.1.0):
+
+1. Open [Actions > Publish npm](https://github.com/jayparikh/agentviz/actions/workflows/publish.yml).
+2. Click **Run workflow**, not **Re-run jobs** on the failed release run.
+3. Leave **Use workflow from** set to **main**.
+4. Enter the existing release tag, for example `v1.1.0`, in **Git tag to publish**,
+   then click **Run workflow**.
+
+The manual run uses `main` as its workflow ref but checks out the supplied tag
+for the build and publication. The release-triggered run instead uses the tag
+as its workflow ref, which the environment can reject. Re-running that failed
+run retains the same ref and does not resolve the restriction. Do not weaken
+environment protections; honor any required approvals on the manual run.
+
+Wait for the publish job to finish and confirm that its log reports the intended
+`agentviz` version published to `https://registry.npmjs.org/` with the `latest` tag.
+Confirm registry visibility with `npm view agentviz@1.1.0 version --registry=https://registry.npmjs.org`
+and `npm view agentviz dist-tags --registry=https://registry.npmjs.org`, replacing
+the example version as appropriate. A GitHub release alone does not confirm npm
+publication. If a run fails after publishing may have started, check the registry
+before retrying: npm versions cannot be overwritten.
 
 ### Design System
 
