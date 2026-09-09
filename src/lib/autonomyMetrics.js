@@ -1,5 +1,5 @@
 import { formatDurationLong } from "./formatTime.js";
-import { estimateCost } from "./pricing.js";
+import { buildCostAnalysis } from "./costAnalysis.js";
 import { getSessionTotal } from "./session";
 
 var LONG_IDLE_GAP_SECONDS = 30;
@@ -45,12 +45,10 @@ function isContinuationMessage(text) {
   return String(text).trim().toLowerCase() === "(continuation)";
 }
 
-export function getSessionCost(metadata) {
+export function getSessionCost(metadata, events) {
   if (!metadata) return null;
   if (metadata.totalCost != null) return metadata.totalCost;
-  // Claude Code: estimate when model is recognized (avoid fabricating $0.00)
-  if (!metadata.primaryModel) return null;
-  return estimateCost(metadata.tokenUsage, metadata.primaryModel) || null;
+  return buildCostAnalysis(events, metadata).totals.estimatedUsdCost;
 }
 
 export function buildAutonomyMetrics(events, turns, metadata) {
@@ -121,7 +119,7 @@ export function buildAutonomyMetrics(events, turns, metadata) {
     errorCount: metadata ? metadata.errorCount || 0 : 0,
     totalToolCalls: metadata ? metadata.totalToolCalls || 0 : 0,
     totalTurns: metadata ? metadata.totalTurns || 0 : (turns || []).length,
-    cost: getSessionCost(metadata),
+    cost: getSessionCost(metadata, events),
     topTools: topTools,
     userFollowUps: userFollowUps,
     idleGaps: idleGaps,

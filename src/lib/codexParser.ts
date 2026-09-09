@@ -10,7 +10,7 @@
 import { computeCacheHitRate } from "./cacheMetrics";
 import { truncateText as truncate } from "./formatTime.js";
 import { getSessionTotal } from "./session";
-import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn, TokenUsage } from "./sessionTypes";
+import type { NormalizedEvent, ParsedSession, PricingRequest, SessionMetadata, SessionTurn, TokenUsage } from "./sessionTypes";
 import type { TrackType } from "./theme";
 
 const MAX_TEXT_LENGTH = 4000;
@@ -44,6 +44,7 @@ type ParseState = {
   turnContexts: Record<string, CodexTurnContext>;
   turns: Record<string, CodexTurnLifecycle>;
   turnCount?: number;
+  pricing?: { requests: PricingRequest[]; total: TokenUsage; incomplete: boolean };
 };
 
 type ParsedRecords = {
@@ -412,6 +413,7 @@ function buildEvents(records: RawRecord[], state: ParseState): NormalizedEvent[]
 
   for (let index = 0; index < records.length; index += 1) {
     const record = records[index];
+    observePricing(record, state);
     const t = getEventTime(record, syntheticTime);
     syntheticTime += 1;
 
@@ -562,6 +564,47 @@ function getSubagentName(meta: Record<string, any>): string | null {
   return keys.length === 1 && keys[0] !== "thread_spawn" ? keys[0] : null;
 }
 
+function normalizeTokenUsage(raw: Record<string, any>): TokenUsage {
+  const inputTokens = numberValue(raw.input_tokens);
+  const cacheRead = numberValue(raw.cached_input_tokens);
+  const cacheWrite = numberValue(raw.cache_write_input_tokens);
+  return {
+    inputTokens,
+    // reasoning_output_tokens is already included in output_tokens.
+    outputTokens: numberValue(raw.output_tokens),
+    cacheRead,
+    cacheWrite,
+    cacheWriteReported: raw.cache_write_input_tokens != null,
+    cacheHitRate: computeCacheHitRate(inputTokens, cacheWrite, cacheRead),
+  };
+}
+
+// Both batch and live parsing observe each record once. Cumulative checkpoints
+// deduplicate token_count notifications; only verified last-request usage is
+// priced, never a delta that could hide multiple requests.
+function observePricing(record: RawRecord, state: ParseState): void {
+  const pricing = state.pricing ||= { requests: [], total: {}, incomplete: false };
+  const payload = record.payload || {};
+  if (record.type !== "event_msg" || payload.type !== "token_count" || !isRecord(payload.info?.total_token_usage)) return;
+  const total = normalizeTokenUsage(payload.info.total_token_usage);
+  const fields = ["inputTokens", "outputTokens", "cacheRead", "cacheWrite"] as const;
+  if (fields.every(key => (total[key] || 0) === (pricing.total[key] || 0))) return;
+  const last = isRecord(payload.info.last_token_usage) ? normalizeTokenUsage(payload.info.last_token_usage) : null;
+  if (last && fields.every(key => (total[key] || 0) - (pricing.total[key] || 0) === (last[key] || 0))) {
+    pricing.requests.push({
+      model: state.currentModel,
+      turnId: state.currentTurnId,
+      tokenUsage: last,
+      // Codex can use an API key or a subscription. model_provider=openai
+      // identifies the model backend, not the billing provider.
+      pricingContext: {},
+    });
+  } else {
+    pricing.incomplete = true;
+  }
+  pricing.total = total;
+}
+
 function getLastTokenUsage(records: RawRecord[], warnings: string[]): TokenUsage | null {
   let lastUsage: Record<string, any> | null = null;
   for (let index = 0; index < records.length; index += 1) {
@@ -572,20 +615,8 @@ function getLastTokenUsage(records: RawRecord[], warnings: string[]): TokenUsage
   }
 
   if (!lastUsage) return null;
-  const inputTokens = numberValue(lastUsage.input_tokens);
-  const cacheRead = numberValue(lastUsage.cached_input_tokens);
-  // Codex reports reasoning_output_tokens as a subset of output_tokens, not an
-  // addition to it: its TokenUsage.blended_total sums only output_tokens, and the
-  // CLI prints "output=N (reasoning M)". Adding the two double-counts reasoning.
-  const outputTokens = numberValue(lastUsage.output_tokens);
-  const usage = {
-    inputTokens,
-    outputTokens,
-    cacheRead,
-    cacheWrite: 0,
-    cacheHitRate: computeCacheHitRate(inputTokens, 0, cacheRead),
-  };
-  if (usage.inputTokens + usage.outputTokens + usage.cacheRead === 0) return null;
+  const usage = normalizeTokenUsage(lastUsage);
+  if ((usage.inputTokens || 0) + (usage.outputTokens || 0) + (usage.cacheRead || 0) + (usage.cacheWrite || 0) === 0) return null;
   warnings.push("Codex token usage is based on cumulative token_count totals");
   return usage;
 }
@@ -616,6 +647,8 @@ function buildMetadata(records: RawRecord[], events: NormalizedEvent[], turns: S
     models,
     primaryModel: modelEntries.length > 0 ? modelEntries[0][0] : null,
     tokenUsage,
+    ...(state.pricing && !state.pricing.incomplete && state.pricing.requests.length
+      ? { pricingRequests: state.pricing.requests } : {}),
     warnings,
     parseIssues: { malformedLines, invalidEvents: 0 },
     format: "codex",
@@ -654,5 +687,5 @@ export function parseCodexJSONL(text: string): ParsedSession | null {
 export const codexLive = {
   getEventTime, updateTurnContext, handleEventMessage, pushMessageEvent,
   pushReasoningEvent, pushToolCallEvent, pushToolOutputEvent, getWebSearchQuery,
-  buildMetadata, isRecord,
+  buildMetadata, isRecord, observePricing,
 };

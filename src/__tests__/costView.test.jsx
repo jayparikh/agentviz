@@ -83,5 +83,21 @@ describe("CostView", function () {
     await act(async function () {
       root.unmount();
     });
+
+  });
+
+  it("labels token estimates and missing request evidence honestly", async function () {
+    var container = document.createElement("div");
+    document.body.appendChild(container);
+    var root = createRoot(container);
+    await act(async function () {
+      root.render(<CostView events={[]} metadata={{ primaryModel: "gpt-5.6-sol", tokenUsage: { inputTokens: 400000, outputTokens: 20000 } }} />);
+    });
+    expect(container.textContent).toContain("Per-request usage required");
+    expect(container.textContent).toContain("request sizes unavailable");
+    expect(container.textContent).toContain("$ ESTIMATE");
+    expect(container.textContent).not.toContain("$ BILLED");
+    expect(container.textContent).not.toContain("$0.00");
+    await act(async function () { root.unmount(); });
   });
 });

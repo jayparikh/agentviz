@@ -29,6 +29,98 @@ function event(index, usage, model, contextTotal, tools) {
 }
 
 describe("buildCostAnalysis", function () {
+  it("prices requests separately even when their sum crosses the context threshold", function () {
+    var calls = [0, 1].map(i => event(i, { inputTokens: 200000, outputTokens: 10000, cacheRead: 60000, cacheWrite: 20000 }, "gpt-5.6-sol", 200000));
+    var analysis = buildCostAnalysis(calls, { primaryModel: "gpt-5.6-sol", tokenUsage: { inputTokens: 400000, outputTokens: 20000, cacheRead: 120000, cacheWrite: 40000 } });
+    expect(analysis.totals.cost).toBeCloseTo(1.608, 8);
+    expect(analysis.totals.peakContext).toBe(200000);
+    expect(buildCostAnalysis([event(0, analysis.totals, "gpt-5.6-sol", 400000)], {}).totals.cost).toBeCloseTo(3.016, 8);
+  });
+
+  it("does not price metadata-only aggregates as a long request or show a fake peak context", function () {
+    var analysis = buildCostAnalysis([], { primaryModel: "gpt-5.6-sol", tokenUsage: { inputTokens: 400000, outputTokens: 20000, cacheWrite: 0 } });
+    expect(analysis.totals.cost).toBeNull();
+    expect(analysis.totals.estimatedUsdCost).toBeNull();
+    expect(analysis.totals.peakContext).toBeNull();
+    expect(analysis.pricingNotes.join(" ")).toContain("Per-request usage required");
+  });
+
+  it("does not publish partial estimates as mixed-model totals", function () {
+    var analysis = buildCostAnalysis([
+      event(0, { inputTokens: 100000 }, "gpt-5.6-sol", 100000),
+      event(1, { inputTokens: 100000 }, "gpt-6-unknown", 100000),
+    ], {});
+    expect(analysis.calls[0].cost).toBeCloseTo(0.4, 8);
+    expect(analysis.calls[1].cost).toBeNull();
+    expect(analysis.calls[1].cumulativeCost).toBeNull();
+    expect(analysis.totals.cost).toBeNull();
+  });
+
+  it("keeps reported session charges authoritative even with complete request usage", function () {
+    var calls = [event(0, { inputTokens: 100000, cacheRead: 60000, cacheWrite: 20000, outputTokens: 10000 }, "gpt-5.6-sol", 100000)];
+    for (var unit of ["usd", "ai_credits"]) {
+      var analysis = buildCostAnalysis(calls, { totalCost: 3, totalCostUnit: unit });
+      expect(analysis.totals.cost).toBe(3);
+      expect(analysis.totals.costUnit).toBe(unit);
+      expect(analysis.totals.estimatedUsdCost).toBeCloseTo(0.404, 8);
+      expect(analysis.calls[0].cost).toBeCloseTo(0.404, 8);
+      expect(analysis.calls[0].costUnit).toBe("usd");
+      expect(analysis.calls[0].isReportedCost).toBe(false);
+    }
+  });
+
+  it("preserves per-model reported credits instead of prorating a session bill by estimated prices", function () {
+    var analysis = buildCostAnalysis([], {
+      primaryModel: "gpt-5.6-sol", totalCost: 20, totalCostUnit: "ai_credits",
+      tokenUsage: { inputTokens: 200000, outputTokens: 20000 },
+      modelTokenUsage: {
+        "gpt-5.6-sol": { inputTokens: 100000, outputTokens: 10000, aiCredits: 2 },
+        "gpt-6-astra": { inputTokens: 100000, outputTokens: 10000, aiCredits: 7 },
+      },
+    });
+    expect(analysis.calls.map(call => call.cost)).toEqual([2, 7]);
+    expect(analysis.calls[1].cumulativeCost).toBe(9);
+    expect(analysis.totals.cost).toBe(20);
+    expect(analysis.pricingNotes.join(" ")).toContain("both are preserved");
+  });
+
+  it("does not allocate reported costs to unreported model charges", function () {
+    var analysis = buildCostAnalysis([], {
+      totalCost: 10, totalCostUnit: "usd",
+      modelTokenUsage: { "gpt-5.6-sol": { inputTokens: 10000 }, "gpt-6-astra": { inputTokens: 10000 } },
+    });
+
+    expect(analysis.calls.map(call => call.cost)).toEqual([null, null]);
+    expect(analysis.totals.cost).toBe(10);
+  });
+
+  it("does not report floating-point addition as a model-charge discrepancy", function () {
+    var analysis = buildCostAnalysis([], {
+      totalCost: 0.3, totalCostUnit: "ai_credits",
+      modelTokenUsage: {
+        "gpt-5.6-sol": { aiCredits: 0.1 },
+        "gpt-6-astra": { aiCredits: 0.2 },
+      },
+    });
+    expect(analysis.totals.cost).toBe(0.3);
+    expect(analysis.pricingNotes.join(" ")).not.toContain("do not sum");
+  });
+
+  it("uses Copilot's Luna threshold only for sourced Copilot sessions", function () {
+    var call = event(0, { inputTokens: 220000, outputTokens: 10000, cacheWrite: 0 }, "gpt-5.6-luna", 220000);
+    expect(buildCostAnalysis([call], { format: "copilot-cli" }).totals.cost).toBeCloseTo(0.106, 8);
+    expect(buildCostAnalysis([call], { format: "codex" }).totals.cost).toBeNull();
+    expect(buildCostAnalysis([{ ...call, pricingContext: { provider: "openai" } }], {}).totals.cost).toBeCloseTo(0.056, 8);
+  });
+
+  it("retains reported credits without token telemetry", function () {
+    var analysis = buildCostAnalysis([], { totalCost: 3, totalCostUnit: "ai_credits", modelTokenUsage: { "gpt-6-astra": { aiCredits: 3 } } });
+    expect(analysis.hasCostData).toBe(true);
+    expect(analysis.totals.cost).toBe(3);
+    expect(analysis.totals.estimatedUsdCost).toBeNull();
+    expect(analysis.calls[0].cost).toBe(3);
+  });
+
   it("builds cumulative costs and token totals", function () {
     var analysis = buildCostAnalysis([
       event(0, { inputTokens: 1000, outputTokens: 100, cacheRead: 200, cacheWrite: 50 }, "gpt-4.1", 1000),
@@ -41,7 +133,7 @@ describe("buildCostAnalysis", function () {
     expect(analysis.totals.cacheRead).toBe(800);
     expect(analysis.totals.freshInputTokens).toBe(1650);
     expect(analysis.calls[1].cumulativeCost).toBeGreaterThan(analysis.calls[0].cost);
-    expect(analysis.totals.peakContext).toBe(1300);
+    expect(analysis.totals.peakContext).toBe(1500);
   });
 
   it("flags same-model cache misses with tool diffs", function () {

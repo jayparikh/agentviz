@@ -520,6 +520,31 @@ describe("metadata", function () {
     expect(parsed.metadata.aiCredits).toBeCloseTo(3.5, 6);
   });
 
+  it("preserves exact model credits and cache-write evidence for new OpenAI models", function () {
+    var shutdown = JSON.parse(JSON.stringify(SESSION_SHUTDOWN));
+    shutdown.data.totalNanoAiu = 20e9;
+    shutdown.data.modelMetrics = {
+      "gpt-5.6-sol": { totalNanoAiu: 2e9, usage: { inputTokens: 100000, outputTokens: 10000, cacheReadTokens: 60000 }, tokenDetails: { cache_write: { tokenCount: 20000 } } },
+      "gpt-6-astra": { totalNanoAiu: 7e9, tokenDetails: { input: { tokenCount: 20000 }, cache_read: { tokenCount: 60000 }, cache_write: { tokenCount: 20000 }, output: { tokenCount: 10000 } } },
+    };
+    var parsed = parseCopilotCliJSONL(buildTrace([SESSION_START, USER_MSG, shutdown]));
+    expect(parsed.metadata.modelTokenUsage["gpt-5.6-sol"]).toMatchObject({ inputTokens: 100000, cacheWrite: 20000, cacheWriteReported: true, aiCredits: 2 });
+    expect(parsed.metadata.modelTokenUsage["gpt-6-astra"]).toMatchObject({ inputTokens: 100000, cacheWrite: 20000, aiCredits: 7 });
+    var analysis = buildCostAnalysis(parsed.events, parsed.metadata);
+    expect(analysis.calls.map(call => call.cost)).toEqual([2, 7]);
+    expect(analysis.totals.cost).toBe(20);
+    expect(analysis.totals.estimatedUsdCost).toBeCloseTo(1.414, 8);
+  });
+
+  it("does not turn a partial model-credit sum into a reported session total", function () {
+    var shutdown = JSON.parse(JSON.stringify(SESSION_SHUTDOWN));
+    delete shutdown.data.totalNanoAiu;
+    shutdown.data.modelMetrics["gpt-6-astra"] = { usage: { inputTokens: 10000, outputTokens: 1000 } };
+    var parsed = parseCopilotCliJSONL(buildTrace([SESSION_START, USER_MSG, shutdown]));
+    expect(parsed.metadata.totalCost).toBeNull();
+    expect(parsed.metadata.modelTokenUsage["claude-opus-4.6"].aiCredits).toBe(1);
+  });
+
   it("uses the session-level totalNanoAiu even when modelMetrics is absent", function () {
     var shutdown = JSON.parse(JSON.stringify(SESSION_SHUTDOWN));
     delete shutdown.data.modelMetrics;

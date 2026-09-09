@@ -174,7 +174,7 @@ function answerCost(data) {
     return instant("No token usage data available for this session.");
   }
 
-  var cost = getSessionCost(data.metadata);
+  var cost = getSessionCost(data.metadata, data.events);
   var lines = [];
   if (cost != null) {
     var label = data.metadata.totalCost != null ? getSessionCostLabel(data.metadata) : "Estimated cost";
@@ -230,7 +230,7 @@ function answerSummary(data) {
     lines.push("- Autonomy: " + (m.autonomyEfficiency * 100).toFixed(0) + "%");
   }
 
-  var sessionCost = getSessionCost(meta);
+  var sessionCost = getSessionCost(meta, data.events);
   if (sessionCost != null) {
     var costLabel = meta.totalCost != null ? getSessionCostLabel(meta) : "Estimated cost";
     lines.push("- " + costLabel + ": " + (meta.totalCost != null ? formatSessionCost(meta) : formatCost(sessionCost)));

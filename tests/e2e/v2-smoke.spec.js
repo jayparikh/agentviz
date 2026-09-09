@@ -52,6 +52,36 @@ async function importGoldenFixture(page) {
   await expect(page.getByText("Ready", { exact: true })).toBeVisible();
 }
 
+test("new OpenAI token prices stay request-scoped and unknown models stay unpriced", async function ({ page }) {
+  var failures = captureFailures(page);
+  await openV2(page);
+  var prompts = [0, 1].map(function (index) {
+    return {
+      request: { model: "gpt-5.6-sol", messages: [{ role: "user", content: "Synthetic pricing request " + index }] },
+      response: { usage: { input_tokens: 200000, output_tokens: 10000, input_tokens_details: { cached_tokens: 60000, cache_write_tokens: 20000 } } },
+    };
+  });
+  await page.locator('input[type="file"]').setInputFiles({ name: "pricing.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(prompts)) });
+  await expect(page).toHaveURL(/review$/);
+  await page.getByRole("button", { name: /Analyze,/ }).click();
+  await expect(page.getByText("$1.61", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Standard service tier assumed/)).toBeVisible();
+  await page.getByRole("tab", { name: "Cost", exact: true }).click();
+  await expect(page.getByText("Token cost estimates", { exact: true })).toBeVisible();
+  await expect(page.getByText("$1.61", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("200k", { exact: true })).toBeVisible();
+  await expect(page.getByText("Estimated context composition", { exact: true })).toBeVisible();
+  expect(await page.getByText("$ BILLED", { exact: true }).count()).toBe(0);
+  await page.getByRole("button", { name: /Find,/ }).click();
+  prompts[0].request.model = "gpt-5.6-unknown";
+  await page.locator('input[type="file"]').setInputFiles({ name: "unknown-pricing.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(prompts)) });
+  await expect(page).toHaveURL(/review$/);
+  await page.getByRole("button", { name: /Analyze,/ }).click();
+  await expect(page.getByText(/Pricing unavailable for gpt-5.6-unknown/)).toBeVisible();
+  expect(await page.getByText("$0.00", { exact: true }).count()).toBe(0);
+  expect(failures).toEqual([]);
+});
+
 for (let width of [1400, 600]) {
   test("playback speed options stay inside the viewport at " + width + "px", async function ({ page }) {
     var failures = captureFailures(page);

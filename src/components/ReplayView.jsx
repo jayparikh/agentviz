@@ -47,10 +47,11 @@ function highlightText(text, query) {
   return parts.length > 0 ? parts : text;
 }
 
-function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEntries, renderSelectedActions }) {
+function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, events, toolEntries, renderSelectedActions }) {
   var selected = selectedEntry ? selectedEntry.event : null;
   var [showRaw, setShowRaw] = useState(false);
   var hasDiff = selected && isDiffViewable(selected);
+  var sessionCost = useMemo(function () { return getSessionCost(metadata, events); }, [metadata, events]);
 
   return (
     <div style={{
@@ -98,7 +99,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
               metadata.tokenUsage && (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens) > 0
                 ? ["Tokens", (metadata.tokenUsage.inputTokens + metadata.tokenUsage.outputTokens).toLocaleString(), theme.accent.primary] : null,
               (function () {
-                var cost = getSessionCost(metadata);
+                var cost = sessionCost;
                 if (cost == null) return null;
                 var label = metadata.totalCost != null ? getSessionCostLabel(metadata) : "Est. cost";
                 return [label, metadata.totalCost != null ? formatSessionCost(metadata) : formatCost(cost), theme.semantic.success];
@@ -285,7 +286,7 @@ function ReplayInspector({ selectedEntry, hasExplicitSelection, metadata, toolEn
   );
 }
 
-export default function ReplayView({ currentTime, eventEntries, turnStartMap, searchQuery, matchSet, metadata, targetEventIndex, targetRequest, renderSelectedActions }) {
+export default function ReplayView({ currentTime, events, eventEntries, turnStartMap, searchQuery, matchSet, metadata, targetEventIndex, targetRequest, renderSelectedActions }) {
   var breakpoint = useBreakpoint();
   var containerRef = useRef(null);
   var itemRefs = useRef({});
@@ -665,6 +666,7 @@ export default function ReplayView({ currentTime, eventEntries, turnStartMap, se
 
       <ErrorBoundary resetKey={selectedEntry ? selectedEntry.index : "none"}>
         <ReplayInspector
+          events={events}
           selectedEntry={selectedEntry}
           hasExplicitSelection={hasExplicitSelection}
           metadata={metadata}

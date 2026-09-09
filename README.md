@@ -298,7 +298,7 @@ Interactive directed graph of session turns with expandable tool-call structure.
 
 ### Analyze: Stats
 
-Aggregate metrics, event distribution bars, tools used ranking, and a per-turn summary. Includes token counts, estimated USD cost per turn for Claude models, and per-turn cache hit rate summaries when prompt caching data is available. The cache write segment is omitted when it is zero.
+Aggregate metrics, event distribution bars, tools used ranking, and a per-turn summary. Includes token counts, estimated USD cost per turn using each request's model and context tier, and per-turn cache hit rate summaries when prompt caching data is available. The cache write segment is omitted when it is zero.
 
 A **Tools &amp; Skills** panel surfaces every skill, instruction file, custom agent, MCP server, built-in tool, and prompt that appeared in the session. Each entry shows its lifecycle stage (Discovered &rarr; Loaded &rarr; Invoked &rarr; Resources &rarr; Completed or Errored) as a mini progress bar, its invocation count, and its source (project / personal / extension / built-in / MCP). Click any row to expand its full event timeline. Filter by category (Skills, Instructions, Agents, Tools, MCP, Prompts) or click a source chip to isolate entries from that origin.
 
@@ -309,6 +309,23 @@ A **Tools &amp; Skills** panel surfaces every skill, instruction file, custom ag
 ### Analyze: Cost
 
 Per-call token spend, cache read/write usage, context composition, and cumulative cost for sessions with token usage. Copilot CLI sessions report usage-based AI Credits, shown with the USD equivalent (1 credit = $0.01); token-based USD estimates are used as a fallback for older logs when pricing is recognized. Copilot prompt exports include prompt context breakdowns so the view can highlight fresh input spikes, cache misses, tool schema growth, and which parts of the prompt are filling the context window.
+
+**Pricing evidence:** Reported USD and AI Credits remain authoritative and separate from token estimates. Per-model reported credits are never redistributed according to estimated prices. Unknown models, ambiguous context tiers, and aggregate-only totals that could span multiple pricing tiers display `--`, not a zero-dollar bill. Aggregate input is not a request length or a peak context window. Stats, Review, Compare, Replay, Q&A, and saved-session summaries share this request-aware accounting.
+
+GPT-5.6 and GPT-6 rates were verified on **2026-09-09** against [OpenAI pricing](https://developers.openai.com/api/docs/pricing) and [GitHub Copilot pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing). Standard USD per million tokens:
+
+| Model | Fresh input | Cache read | Cache write | Output |
+| --- | ---: | ---: | ---: | ---: |
+| GPT-5.6 Sol | $4 | $0.40 | $5 | $20 |
+| GPT-5.6 Terra | $2 | $0.20 | $2.50 | $12 |
+| GPT-5.6 Luna | $0.20 | $0.02 | $0.25 | $1.20 |
+| GPT-6 Astra | $10 | $1 | $12.50 | $50 |
+
+- Long context doubles all input buckets and multiplies output by 1.5 above 272,000 request input tokens for Sol, Terra, and Astra. The official Luna thresholds differ: Copilot uses **>200,000**, while the [OpenAI Luna model page](https://developers.openai.com/api/docs/models/gpt-5.6-luna) uses **>272,000**. Unknown billing providers leave the disputed interval unpriced.
+- Explicit Fast / `priority` pricing is 2x Standard; Batch and Flex are 0.5x for these four models. A response's actual `service_tier` takes precedence; reasoning effort never selects a price tier. Without tier evidence, the UI discloses the Standard assumption. Sol's published promotional rates apply at least through **November 21, 2026**; this is a dated reference table, not historical invoice reconstruction.
+- Normalized input includes fresh, cached, and written tokens. A [cache write costs 1.25x input in total](https://developers.openai.com/api/docs/guides/prompt-caching), not an additional 1.25x surcharge. Reasoning tokens are already included in output.
+- Codex reads [`cache_write_input_tokens`](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/protocol.rs) and uses `last_token_usage` only when it matches the cumulative checkpoint delta, deduplicating unchanged checkpoints in both batch and live parsing. Codex's `model_provider` is not proof of API billing versus a subscription, and its rollout turn context does not expose an actual response service tier.
+- Prompt exports read official Responses `input_tokens_details.cache_write_tokens` and Chat Completions `prompt_tokens_details.cache_write_tokens`; Copilot CLI reads `usage.cacheWriteTokens` or `tokenDetails.cache_write.tokenCount`. Missing write counters are disclosed rather than inferred from fresh input. Estimates exclude unreported write premiums, regional uplifts, negotiated discounts, and non-token charges; consult reported billing for actual spend.
 
 <div align="center">
 <img src="docs/screenshots/cost-view.png" alt="Cost View" width="800" />
@@ -504,8 +521,8 @@ src/
     diffUtils.js         # Diff detection and Myers line diff algorithm
     waterfall.ts         # Waterfall view helpers: item building, stats, layout
     graphLayout.js       # ELKjs graph builder, fork/join DAG for parallel agents, layout merger
-    costAnalysis.js      # Per-call cost, context, cache-miss, and token aggregation helpers
-    pricing.js           # Claude and OpenAI/Copilot model pricing table and cost estimation
+    costAnalysis.js      # Shared request-aware estimates, reported charges, and evidence limitations
+    pricing.js           # Model/tier/cache rates and nullable cost estimation
     pricing.d.ts         # TypeScript declarations for pricing.js
     exportHtml.js        # Self-contained HTML export for single sessions and comparisons
     headlessExport.js    # CLI/headless self-contained HTML export for static manifests

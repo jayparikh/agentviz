@@ -615,14 +615,15 @@ function getTokenDetailCount(details: Record<string, any> | null | undefined, ke
   return bucket && typeof bucket.tokenCount === "number" ? bucket.tokenCount : 0;
 }
 
-function getMetricTokenUsage(metric: Record<string, any> | null | undefined): { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number } | null {
+function getMetricTokenUsage(metric: Record<string, any> | null | undefined): { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number; cacheWriteReported: boolean } | null {
   if (!metric) return null;
   if (metric.usage) {
     const usage = {
       inputTokens: metric.usage.inputTokens || 0,
       outputTokens: metric.usage.outputTokens || 0,
       cacheRead: metric.usage.cacheReadTokens || 0,
-      cacheWrite: metric.usage.cacheWriteTokens || 0,
+      cacheWrite: metric.usage.cacheWriteTokens ?? getTokenDetailCount(metric.tokenDetails, "cache_write"),
+      cacheWriteReported: metric.usage.cacheWriteTokens != null || metric.tokenDetails?.cache_write?.tokenCount != null,
     };
     if (usage.inputTokens + usage.outputTokens + usage.cacheRead + usage.cacheWrite > 0) return usage;
   }
@@ -633,7 +634,7 @@ function getMetricTokenUsage(metric: Record<string, any> | null | undefined): { 
     const cacheWrite = getTokenDetailCount(metric.tokenDetails, "cache_write");
     const outputTokens = getTokenDetailCount(metric.tokenDetails, "output");
     const inputTokens = freshInput + cacheRead + cacheWrite;
-    const usage = { inputTokens, outputTokens, cacheRead, cacheWrite };
+    const usage = { inputTokens, outputTokens, cacheRead, cacheWrite, cacheWriteReported: metric.tokenDetails.cache_write != null };
     if (usage.inputTokens + usage.outputTokens + usage.cacheRead + usage.cacheWrite > 0) return usage;
   }
 
@@ -675,7 +676,7 @@ function buildMetadata(
   let totalCost: number | null = null;
   let totalCostUnit: "ai_credits" | null = null;
   let aiCredits: number | null = null;
-  let modelTokenUsage: Record<string, { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number; cacheHitRate?: number; aiCredits?: number | null }> | null = null;
+  let modelTokenUsage: Record<string, { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number; cacheWriteReported?: boolean; cacheHitRate?: number; aiCredits?: number | null }> | null = null;
 
   if (sessionShutdown && sessionShutdown.modelMetrics) {
     const modelMetrics = sessionShutdown.modelMetrics;
@@ -698,15 +699,19 @@ function buildMetadata(
           outputTokens,
           cacheRead: cacheReadTokens,
           cacheWrite: cacheWriteTokens,
+          cacheWriteReported: usage.cacheWriteReported,
           cacheHitRate: computeCacheHitRate(inputTokens, cacheWriteTokens, cacheReadTokens),
           aiCredits: modelCredits,
         };
+      } else if (modelCredits != null) {
+        modelTokenUsage[model] = { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0, aiCredits: modelCredits };
       }
       if (modelCredits != null) {
         aiCredits = (aiCredits || 0) + modelCredits;
       }
       if (!models[model]) models[model] = metric.requests ? metric.requests.count : 0;
     }
+    if (Object.values(modelMetrics).some((metric: any) => nanoAiuToCredits(metric?.totalNanoAiu) == null)) aiCredits = null;
   }
 
   if (sessionShutdown) {

@@ -51,8 +51,8 @@ export function buildMetrics(session) {
   var format = meta.format || "claude-code";
   var hasTokenUsage = tu.inputTokens != null || tu.outputTokens != null || tu.cacheRead != null || tu.cacheWrite != null;
 
-  // Cost: use API-reported cost when available, fall back to estimate for Claude Code.
-  var cost = getSessionCost(meta);
+  // Reported charges take precedence over request-aware token estimates.
+  var cost = getSessionCost(meta, session.events);
 
   return {
     model: meta.primaryModel || null,

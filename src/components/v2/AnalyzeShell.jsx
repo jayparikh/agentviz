@@ -47,7 +47,7 @@ function LoadingPanel({ label }) {
   );
 }
 
-function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate, targetEventIndex, targetRequest) {
+function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate, targetEventIndex, targetRequest, costAnalysis) {
   if (panelId === "tracks") {
     return (
       <TracksView
@@ -94,6 +94,7 @@ function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate, targetEv
         <CostView
           events={pb.filteredEvents}
           metadata={session.metadata}
+          analysis={costAnalysis}
         />
       </React.Suspense>
     );
@@ -102,6 +103,7 @@ function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate, targetEv
   return (
     <StatsView
       events={pb.filteredEvents}
+      analysis={costAnalysis}
       totalTime={session.total}
       metadata={session.metadata}
       turns={session.turns}
@@ -111,13 +113,12 @@ function renderPanel(panelId, session, pb, autonomyMetrics, onNavigate, targetEv
   );
 }
 
-function getAnalyzeSummary(events, metadata) {
-  var cost = buildCostAnalysis(events, metadata);
+function getAnalyzeSummary(events, metadata, cost) {
   return [
     { label: "Events", value: events.length },
     { label: "Tools", value: metadata.totalToolCalls || events.filter(function (event) { return event.track === "tool_call"; }).length },
     { label: "Tokens", value: metadata.tokenUsage ? formatTokens(metadata.tokenUsage.inputTokens || 0) + " in" : "--" },
-    { label: cost.totals && cost.totals.costUnit === "ai_credits" ? "Credits" : "Cost", value: cost.totals && cost.totals.cost > 0 ? formatCostValue(cost.totals.cost, cost.totals.costUnit) : "--" },
+    { label: cost.totals.costUnit === "ai_credits" ? "Credits" : cost.totals.isReportedCost ? "Cost" : "Est. cost", value: formatCostValue(cost.totals.cost, cost.totals.costUnit) },
   ];
 }
 
@@ -197,9 +198,12 @@ export default function AnalyzeShell({ session, autonomyMetrics, targetPanelId, 
     if (isValidPanel(targetPanelId)) setPanelId(targetPanelId);
   }, [targetPanelId, setPanelId]);
 
+  var costAnalysis = useMemo(function () {
+    return buildCostAnalysis(session.events, session.metadata);
+  }, [session.events, session.metadata]);
   var summary = useMemo(function () {
-    return getAnalyzeSummary(pb.filteredEvents || [], session.metadata || {});
-  }, [pb.filteredEvents, session.metadata]);
+    return getAnalyzeSummary(pb.filteredEvents || [], session.metadata || {}, costAnalysis);
+  }, [pb.filteredEvents, session.metadata, costAnalysis]);
 
   function selectPanel(nextPanelId) {
     if (!isValidPanel(nextPanelId)) return;
@@ -291,7 +295,7 @@ export default function AnalyzeShell({ session, autonomyMetrics, targetPanelId, 
           overflow: "hidden",
           padding: activePanelId === "stats" || activePanelId === "cost" ? theme.space.md : 0,
         }}>
-          {renderPanel(activePanelId, session, pb, autonomyMetrics, onNavigate, targetEventIndex, targetRequest)}
+          {renderPanel(activePanelId, session, pb, autonomyMetrics, onNavigate, targetEventIndex, targetRequest, costAnalysis)}
         </div>
       </section>
     </main>

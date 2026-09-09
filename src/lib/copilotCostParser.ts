@@ -1,5 +1,4 @@
 import { computeCacheHitRate } from "./cacheMetrics";
-import { estimateMultiModelCost } from "./pricing.js";
 import type { NormalizedEvent, ParsedSession, SessionMetadata, SessionTurn, TokenUsage } from "./sessionTypes";
 
 const MAX_DISPLAY_TEXT_LENGTH = 4000;
@@ -122,7 +121,7 @@ function getTools(request: AnyRecord): unknown[] {
 function getModel(call: PromptCall): string | null {
   const request = call.request || {};
   const response = call.response || {};
-  const model = request.model || request.modelId || response.model || call.model || call.modelId;
+  const model = response.model || request.model || request.modelId || call.model || call.modelId;
   return typeof model === "string" && model.trim() ? model : null;
 }
 
@@ -173,6 +172,8 @@ function getUsage(usage: AnyRecord): TokenUsage | null {
     inputDetails.cached_tokens,
   );
   const cacheWrite = firstNumber(
+    inputDetails.cache_write_tokens,
+    promptDetails.cache_write_tokens,
     usage.cache_creation_input_tokens,
     usage.cache_write_input_tokens,
     usage.cache_write_tokens,
@@ -186,6 +187,12 @@ function getUsage(usage: AnyRecord): TokenUsage | null {
     outputTokens,
     cacheRead,
     cacheWrite,
+    cacheWriteReported: [
+      inputDetails.cache_write_tokens, promptDetails.cache_write_tokens,
+      usage.cache_creation_input_tokens, usage.cache_write_input_tokens,
+      usage.cache_write_tokens, usage.cacheWrite, inputDetails.cache_creation_tokens,
+      outputDetails.cache_creation_tokens,
+    ].some(value => value != null),
     cacheHitRate: computeCacheHitRate(rawInput, cacheWrite, cacheRead),
   };
 }
@@ -246,6 +253,10 @@ function makeEvent(index: number, call: PromptCall): NormalizedEvent | null {
     isError: false,
     model,
     tokenUsage: usage,
+    pricingContext: {
+      provider: "copilot",
+      ...(typeof call.response.service_tier === "string" ? { serviceTier: call.response.service_tier } : {}),
+    },
   };
 }
 
@@ -300,7 +311,6 @@ function buildMetadata(events: NormalizedEvent[], calls: PromptCall[]): SessionM
     primaryModel: modelEntries.length > 0 ? modelEntries[0][0] : null,
     tokenUsage,
     modelTokenUsage,
-    totalCost: estimateMultiModelCost(modelTokenUsage),
     format: "copilot-prompts",
     customTitle: "Copilot prompt cost analysis",
     promptCallCount: calls.length,

@@ -316,6 +316,7 @@ export default function InvestigateView({ session, targetEventIndex, targetReque
           overflow: "hidden",
         }}>
           <ReplayView
+            events={session.events}
             currentTime={pb.playback.time}
             eventEntries={visibleEntries}
             turns={session.turns}

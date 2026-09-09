@@ -5,7 +5,22 @@ export interface TokenUsage {
   outputTokens?: number;
   cacheRead?: number;
   cacheWrite?: number;
+  cacheWriteReported?: boolean;
   cacheHitRate?: number;
+}
+
+export interface PricingContext {
+  provider?: "openai" | "copilot";
+  serviceTier?: string;
+  aggregate?: boolean;
+}
+
+export interface PricingRequest {
+  model?: string | null;
+  tokenUsage: TokenUsage;
+  pricingContext?: PricingContext;
+  turnIndex?: number;
+  turnId?: string | null;
 }
 
 export type SessionFormat = "claude-code" | "copilot-cli" | "vscode-chat" | "atif" | "copilot-prompts" | "codex";
@@ -30,6 +45,7 @@ export interface NormalizedEvent {
   model?: string | null;
   reasoningEffort?: string | null;
   tokenUsage?: TokenUsage | null;
+  pricingContext?: PricingContext;
   toolCallId?: string | null;
   parentToolCallId?: string | null;
   agentName?: string | null;
@@ -72,6 +88,7 @@ export interface SessionMetadata {
   totalCost?: number | null;
   totalCostUnit?: "usd" | "ai_credits" | null;
   aiCredits?: number | null;
+  pricingRequests?: PricingRequest[];
   [key: string]: unknown;
 }
 
