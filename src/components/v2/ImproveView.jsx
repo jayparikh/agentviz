@@ -1,11 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { alpha, theme } from "../../lib/theme.js";
 import lazyImport from "../../lib/lazyImport.js";
-import useQA from "../../hooks/useQA.js";
 import useBreakpoint from "../../hooks/useBreakpoint.js";
 import useReducedMotion from "../../hooks/useReducedMotion.js";
-import { usePlaybackContext } from "../../contexts/PlaybackContext.jsx";
-import QADrawer from "../QADrawer.jsx";
 import ToolbarButton from "../ui/ToolbarButton.jsx";
 import Icon from "../Icon.jsx";
 import { V2EmptyState, V2ZoneHeader } from "./V2ShellPrimitives.jsx";
@@ -257,27 +254,13 @@ function ImprovementChecklist({ items, focusedEventIndex, focusedEvent, nextRunP
   );
 }
 
-export default function ImproveView({ session, autonomyMetrics, debrief, openQARequest, onNavigate }) {
-  var [showQA, setShowQA] = useState(false);
-  var [contextQuestion, setContextQuestion] = useState("");
+export default function ImproveView({ session, autonomyMetrics, debrief, openQARequest, onNavigate, onOpenQA }) {
   var [focusedEventIndex, setFocusedEventIndex] = useState(null);
   var [copyStatus, setCopyStatus] = useState(null);
-  var pb = usePlaybackContext();
   var breakpoint = useBreakpoint();
   var prefersReducedMotion = useReducedMotion();
   var hasSession = Boolean(session && session.events);
 
-  var qaSessionData = useMemo(function () {
-    if (!hasSession) return null;
-    return {
-      events: session.events,
-      turns: session.turns,
-      metadata: session.metadata,
-      autonomyMetrics: autonomyMetrics,
-    };
-  }, [hasSession, session.events, session.turns, session.metadata, autonomyMetrics]);
-
-  var qa = useQA(qaSessionData);
   var focusedEvent = useMemo(function () {
     return getEventByIndex(session, focusedEventIndex);
   }, [session, focusedEventIndex]);
@@ -295,10 +278,9 @@ export default function ImproveView({ session, autonomyMetrics, debrief, openQAR
     if (openQARequest.eventIndex != null) setFocusedEventIndex(openQARequest.eventIndex);
     if (openQARequest.openQA) {
       var event = getEventByIndex(session, openQARequest.eventIndex);
-      setContextQuestion(buildEventQuestion(openQARequest.eventIndex, event));
-      setShowQA(true);
+      onOpenQA(buildEventQuestion(openQARequest.eventIndex, event));
     }
-  }, [openQARequest, session]);
+  }, [openQARequest]);
 
   useEffect(function () {
     setCopyStatus(null);
@@ -324,7 +306,7 @@ export default function ImproveView({ session, autonomyMetrics, debrief, openQAR
         description="Evidence-backed recommendations and direct questions about the current session."
         actions={(
           <>
-          <ToolbarButton onClick={function () { setContextQuestion(""); setShowQA(true); }} icon="message-circle" style={{ color: theme.accent.primary, borderColor: theme.accent.primary }}>
+          <ToolbarButton onClick={function () { onOpenQA(""); }} icon="message-circle" style={{ color: theme.accent.primary, borderColor: theme.accent.primary }}>
             Ask about session
           </ToolbarButton>
           <ToolbarButton onClick={function () { if (onNavigate) onNavigate("review"); }}>
@@ -356,8 +338,7 @@ export default function ImproveView({ session, autonomyMetrics, debrief, openQAR
             copyStatus={copyStatus}
             breakpoint={breakpoint}
             onAskEvent={function () {
-              setContextQuestion(buildEventQuestion(focusedEventIndex, focusedEvent));
-              setShowQA(true);
+              onOpenQA(buildEventQuestion(focusedEventIndex, focusedEvent));
             }}
             onCopy={function () {
               if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
@@ -398,16 +379,6 @@ export default function ImproveView({ session, autonomyMetrics, debrief, openQAR
         </div>
       </section>
 
-      <QADrawer
-        open={showQA}
-        onClose={function () { setShowQA(false); }}
-        onDisable={function () { setShowQA(false); }}
-        sessionData={qaSessionData}
-        onSeek={pb.playback.seek}
-        turns={session.turns}
-        qa={qa}
-        initialQuestion={contextQuestion}
-      />
     </main>
   );
 }

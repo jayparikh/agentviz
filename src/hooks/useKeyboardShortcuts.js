@@ -9,14 +9,14 @@ export function isEditableTarget(target) {
 }
 
 export function handleKeyboardShortcut(e, options) {
-  if (!options) return false;
-
-  // Block everything when shortcuts modal is open (only Escape handled by modal itself)
-  if (options.showShortcuts) return false;
+  if (!options || e.defaultPrevented || e.altKey || options.showShortcuts || options.showQA) return false;
+  if (isEditableTarget(e.target)) return false;
+  if (e.target && e.target.closest && e.target.closest('[role="dialog"], [role="menu"]')) return false;
 
   if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key && e.key.toLowerCase() === "k") {
+    if (!options.hasSession || options.isLive || !options.onToggleQA) return false;
     e.preventDefault();
-    if (options.onToggleQA) options.onToggleQA();
+    options.onToggleQA();
     return true;
   }
 
@@ -26,87 +26,41 @@ export function handleKeyboardShortcut(e, options) {
     return true;
   }
 
-  if (
-    options.showHero &&
-    !options.showPalette &&
-    !isEditableTarget(e.target) &&
-    (e.code === "Space" || e.code === "Enter")
-  ) {
+  if (e.metaKey || e.ctrlKey || options.showPalette) return false;
+
+  if (/^[1-7]$/.test(e.key) && options.onNavigateShortcut) {
     e.preventDefault();
-    options.onDismissHero();
+    options.onNavigateShortcut(e.key);
+    return true;
+  }
+  if (e.key === "/") {
+    var focused = options.onFocusSearch && options.onFocusSearch();
+    if (focused) e.preventDefault();
+    return Boolean(focused);
+  }
+  if (e.key === "?") {
+    e.preventDefault();
+    options.onToggleShortcuts();
     return true;
   }
 
-  if (!options.hasSession || options.showPalette || isEditableTarget(e.target)) return false;
+  if (!options.hasSession) return false;
+  if (e.target && e.target.closest && e.target.closest('button, a, [role="tree"], [role="slider"], [role="separator"], [role="listbox"], [data-keyboard-navigation]')) return false;
 
-  if (e.code === "Space") {
+  if (e.key === "e" || e.key === "E") {
+    e.preventDefault();
+    options.onJumpToError(e.shiftKey || e.key === "E" ? "prev" : "next");
+    return true;
+  }
+  if (!options.transportAvailable || options.isLive) return false;
+  if (e.code === "Space" || e.key === " ") {
     e.preventDefault();
     options.onPlayPause();
     return true;
   }
-
-  if (e.code === "ArrowRight") {
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
     e.preventDefault();
-    options.onSeek(options.time + 2);
-    return true;
-  }
-
-  if (e.code === "ArrowLeft") {
-    e.preventDefault();
-    options.onSeek(options.time - 2);
-    return true;
-  }
-
-  if (e.key === "1") {
-    options.onSetView("replay");
-    return true;
-  }
-  if (e.key === "2") {
-    options.onSetView("tracks");
-    return true;
-  }
-  if (e.key === "3") {
-    options.onSetView("waterfall");
-    return true;
-  }
-  if (e.key === "4") {
-    options.onSetView("graph");
-    return true;
-  }
-  if (e.key === "5") {
-    options.onSetView("stats");
-    return true;
-  }
-  if (e.key === "6") {
-    options.onSetView("cost");
-    return true;
-  }
-  if (e.key === "7") {
-    options.onSetView("coach");
-    return true;
-  }
-
-  if (e.key === "e") {
-    e.preventDefault();
-    options.onJumpToError("next");
-    return true;
-  }
-
-  if (e.key === "E") {
-    e.preventDefault();
-    options.onJumpToError("prev");
-    return true;
-  }
-
-  if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
-    var focused = options.onFocusSearch();
-    if (focused) e.preventDefault();
-    return Boolean(focused);
-  }
-
-  if (e.key === "?") {
-    e.preventDefault();
-    options.onToggleShortcuts();
+    options.onSeek(options.time + (e.key === "ArrowRight" ? 2 : -2));
     return true;
   }
 

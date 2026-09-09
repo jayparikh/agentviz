@@ -13,7 +13,7 @@
 // Single session: the embedded fetch shim serves the session through the
 //   existing /api/meta + /api/file endpoints that useSessionLoader calls on
 //   startup.
-// Comparison: sets window.__AGENTVIZ_COMPARE__ which App.jsx reads on mount.
+// Comparison: sets window.__AGENTVIZ_COMPARE__ for SessionProvider on mount.
 
 var THEME_BOOTSTRAP = `
   (function () {
@@ -260,7 +260,10 @@ var BOOT_SCRIPT = `
   }
 
   readPayload().then(function (payload) {
-    if (payload.compare) window.__AGENTVIZ_COMPARE__ = payload.compare;
+    if (payload.compare) {
+      window.__AGENTVIZ_COMPARE__ = payload.compare;
+      if (!window.location.hash) window.location.hash = "/v2/compare";
+    }
     installFetchShim(payload);
     return import(materialize(payload));
   }).then(function () {

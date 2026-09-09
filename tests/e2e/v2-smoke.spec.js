@@ -52,6 +52,29 @@ async function importGoldenFixture(page) {
   await expect(page.getByText("Ready", { exact: true })).toBeVisible();
 }
 
+for (let width of [1400, 600]) {
+  test("playback speed options stay inside the viewport at " + width + "px", async function ({ page }) {
+    var failures = captureFailures(page);
+    await page.setViewportSize({ width: width, height: 860 });
+    await openV2(page);
+    await importGoldenFixture(page);
+    await page.getByRole("button", { name: /Investigate,/ }).click();
+    var speed = page.getByRole("button", { name: "Playback speed", exact: true });
+    await speed.click();
+    var menu = page.getByRole("listbox", { name: "Playback speed" });
+    var bounds = await menu.boundingBox();
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(860);
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize().width);
+    await page.getByRole("option", { name: "8x", exact: true }).click();
+    await expect(speed).toHaveText("8x");
+    await page.getByRole("button", { name: /Analyze,/ }).click();
+    await expect(speed).toHaveText("8x");
+    expect(failures).toEqual([]);
+  });
+}
+
 test("v2 Find imports a golden fixture and supports theme switching", async function ({ page }) {
   var failures = captureFailures(page);
   await openV2(page);

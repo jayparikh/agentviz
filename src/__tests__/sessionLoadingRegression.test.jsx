@@ -13,7 +13,7 @@ async function renderProvider() {
   let state;
   function Probe() { state = useSessionContext(); return null; }
   const root = createRoot(document.createElement("div"));
-  await act(async () => root.render(<SessionProvider enableHashRouter={false}><Probe /></SessionProvider>));
+  await act(async () => root.render(<SessionProvider><Probe /></SessionProvider>));
   return { get state() { return state; }, unmount: () => act(async () => root.unmount()) };
 }
 

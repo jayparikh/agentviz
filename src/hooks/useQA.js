@@ -7,7 +7,7 @@
  * Batches token updates (~50ms) to reduce React re-render churn.
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { classify, buildModelContext } from "../lib/qaClassifier.js";
 
 var _msgId = 0;
@@ -23,12 +23,18 @@ export default function useQA(sessionData) {
   var [streamingStatus, setStreamingStatus] = useState(null);
   var [error, setError] = useState(null);
   var abortRef = useRef(null);
+  useEffect(function () {
+    return function () {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
   var messagesRef = useRef(messages);
   // Keep ref in sync with state so history can be read synchronously
   messagesRef.current = messages;
 
   var ask = useCallback(function (question) {
     if (!question || !question.trim()) return;
+    if (abortRef.current) return;
     var q = question.trim();
 
     // Add user message immediately
@@ -74,6 +80,7 @@ export default function useQA(sessionData) {
 
     fetchSSE(q, context, history, controller.signal, {
       onToken: function (token) {
+        if (controller.signal.aborted || abortRef.current !== controller) return;
         setStreamingStatus("Generating answer...");
         setMessages(function (prev) {
           var last = prev[prev.length - 1];
@@ -85,9 +92,11 @@ export default function useQA(sessionData) {
         });
       },
       onStatus: function (status) {
+        if (controller.signal.aborted || abortRef.current !== controller) return;
         setStreamingStatus(status);
       },
       onDone: function () {
+        if (controller.signal.aborted || abortRef.current !== controller) return;
         setMessages(function (prev) {
           var last = prev[prev.length - 1];
           if (last && last.streaming) {
@@ -100,6 +109,7 @@ export default function useQA(sessionData) {
         abortRef.current = null;
       },
       onError: function (msg) {
+        if (controller.signal.aborted || abortRef.current !== controller) return;
         setMessages(function (prev) {
           // Remove the empty streaming message
           if (prev.length && prev[prev.length - 1].streaming) {
@@ -172,6 +182,12 @@ function fetchSSE(question, context, history, signal, handlers) {
   // Token batching: buffer incoming tokens and flush at intervals
   var tokenBuffer = "";
   var batchTimer = null;
+  signal.addEventListener("abort", function () {
+    clearTimeout(timer);
+    if (batchTimer) clearTimeout(batchTimer);
+    tokenBuffer = "";
+    if (reader) reader.cancel().catch(function () {});
+  }, { once: true });
   function flushTokens() {
     batchTimer = null;
     if (tokenBuffer) {
@@ -205,6 +221,7 @@ function fetchSSE(question, context, history, signal, handlers) {
     signal: signal,
   })
     .then(function (res) {
+      if (signal.aborted) return;
       if (!res.ok) throw new Error("Server returned " + res.status);
       if (!res.body) throw new Error("Response body is empty");
       reader = res.body.getReader();
@@ -212,9 +229,9 @@ function fetchSSE(question, context, history, signal, handlers) {
       var buffer = "";
 
       function pump() {
-        if (timedOut) return;
+        if (timedOut || signal.aborted) return;
         return reader.read().then(function (result) {
-          if (timedOut) return;
+          if (timedOut || signal.aborted) return;
           if (result.done) { clearTimeout(timer); cleanupBatch(); handlers.onDone(); return; }
           buffer += decoder.decode(result.value, { stream: true });
 

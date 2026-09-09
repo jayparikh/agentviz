@@ -382,7 +382,6 @@ describe("V2 shell routing", function () {
         currentThemeMode="dark"
         onSetThemeMode={vi.fn()}
         onOpenCommandPalette={vi.fn()}
-        onExitV2={vi.fn()}
       />,
     );
 
@@ -418,7 +417,6 @@ describe("V2 shell routing", function () {
               events={[]}
               turns={[]}
               extraItems={[{ type: "zone", zoneId: "review", label: "Go to Review zone", iconName: "alert-circle" }]}
-              indexOptions={{ includeLegacyViews: false, includeDefaultActions: false }}
               onNavigateZone={vi.fn()}
               onClose={function () { setOpen(false); }}
             />
@@ -1102,6 +1100,7 @@ describe("V2 shell routing", function () {
 
   it("renders ImproveView checklist and contextual Q&A prefill", async function () {
     var session = makeAnalyzeSession();
+    var onOpenQA = vi.fn();
     var app = await renderNode(
       <PlaybackProvider session={session}>
         <ImproveView
@@ -1109,6 +1108,7 @@ describe("V2 shell routing", function () {
           autonomyMetrics={makeAutonomyMetrics()}
           debrief={{ summary: [{ label: "Score", value: "74%" }] }}
           openQARequest={{ openQA: true, eventIndex: 2, nonce: 1 }}
+          onOpenQA={onOpenQA}
           onNavigate={vi.fn()}
         />
       </PlaybackProvider>,
@@ -1119,7 +1119,7 @@ describe("V2 shell routing", function () {
     }, "expected improve checklist");
     expect(findExactText(app.container, "Focused on event 2: tsc")).toBeTruthy();
     expect(findExactButton(app.container, "Copy next-run prompt")).toBeTruthy();
-    expect(app.container.querySelector('input[aria-label="Ask about this session"]').value).toContain("event 2");
+    expect(onOpenQA).toHaveBeenCalledWith(expect.stringContaining("event 2"));
     expect(app.container.textContent).toContain("typecheck failed");
 
     await app.unmount();
@@ -1146,7 +1146,6 @@ describe("V2 shell routing", function () {
           <QADrawer
             open={true}
             onClose={vi.fn()}
-            onDisable={vi.fn()}
             sessionData={{ events: [], turns: [], metadata: {} }}
             onSeek={vi.fn()}
             turns={[]}

@@ -63,6 +63,5 @@ describe("buildAppliedSession", function () {
     expect(applied.file).toBe("test.jsonl");
     expect(applied.total).toBeGreaterThan(0);
     expect(applied.error).toBeNull();
-    expect(applied.showHero).toBe(true);
   });
 });

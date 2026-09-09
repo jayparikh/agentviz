@@ -8,9 +8,9 @@ import KeyboardHint from "./ui/KeyboardHint.jsx";
 
 /**
  * CommandPalette - Cmd+K fuzzy search overlay
- * Search events, jump to turns, filter by tool, switch views.
+ * Search events, jump to turns, and navigate workflow zones and panels.
  */
-export default function CommandPalette({ events, turns, extraItems, indexOptions, placeholder, onSeek, onSetView, onNavigateZone, onAction, onClose }) {
+export default function CommandPalette({ events, turns, extraItems, placeholder, onSeek, onNavigateZone, onClose }) {
   var [query, setQuery] = useState("");
   var [selectedIdx, setSelectedIdx] = useState(0);
   var inputRef = useRef(null);
@@ -20,9 +20,8 @@ export default function CommandPalette({ events, turns, extraItems, indexOptions
   useFocusTrap(panelRef, { active: true, initialFocusRef: inputRef, onEscape: onClose });
 
   var searchIndex = useMemo(function () {
-    var options = Object.assign({}, indexOptions || {}, { extraItems: extraItems || [] });
-    return buildCommandPaletteIndex(events, turns, options);
-  }, [events, turns, extraItems, indexOptions]);
+    return buildCommandPaletteIndex(events, turns, { extraItems: extraItems || [] });
+  }, [events, turns, extraItems]);
 
   var results = useMemo(function () {
     return searchCommandPalette(searchIndex, query);
@@ -32,9 +31,7 @@ export default function CommandPalette({ events, turns, extraItems, indexOptions
 
   function runItemAction(item) {
     if (!item) return;
-    if (item.type === "action" && item.actionId && onAction) onAction(item.actionId);
-    if (item.type === "zone" && item.zoneId && onNavigateZone) onNavigateZone(item.zoneId);
-    if (item.type === "view" && item.viewId && onSetView) onSetView(item.viewId);
+    if (item.type === "zone" && item.zoneId && onNavigateZone) onNavigateZone(item.zoneId, item.options);
     if ((item.type === "turn" || item.type === "event") && item.seekTime !== undefined && onSeek) onSeek(item.seekTime, item.eventIndex);
     onClose();
   }
@@ -126,8 +123,7 @@ export default function CommandPalette({ events, turns, extraItems, indexOptions
             var isSelected = i === selectedIdx;
             var trackInfo = item.track ? TRACK_TYPES[item.track] : null;
             var itemColor = item.color || (
-              item.type === "action" ? theme.accent.primary
-              : item.type === "view" ? theme.accent.primary
+              item.type === "zone" ? theme.accent.primary
               : item.type === "turn" ? theme.accent.primary
               : (trackInfo ? trackInfo.color : theme.text.secondary)
             );

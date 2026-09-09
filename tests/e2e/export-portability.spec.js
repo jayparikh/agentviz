@@ -1,10 +1,7 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { expect, test } from "@playwright/test";
-
-import { createServer } from "../../server.js";
 
 // Regression guard for shared exports. The exported HTML must render on a
 // machine that has never run AGENTVIZ: no origin URLs, no data: URL modules,
@@ -19,14 +16,19 @@ var fixturePath = path.join(repoRoot, "src", "__tests__", "fixtures", "test-copi
 var server = null;
 var origin = null;
 var exportPath = null;
+var comparisonPath = null;
 
-test.beforeAll(async function ({ browser }) {
+test.beforeAll(async function ({ browser }, testInfo) {
+  testInfo.setTimeout(90000);
   if (!fs.existsSync(path.join(distDir, "index.html"))) {
     throw new Error(
       "dist/ is missing. Run `npm run build` first, or use `npm run test:e2e:export`."
     );
   }
 
+  // Import only in workers: discovery also loads this file in the coordinator,
+  // where the server's SDK warm-up would otherwise have no shutdown lifecycle.
+  var { createServer } = await import("../../server.js");
   server = createServer({ sessionFile: null, distDir: distDir });
   await new Promise(function (resolve) {
     server.listen(0, "127.0.0.1", resolve);
@@ -34,6 +36,7 @@ test.beforeAll(async function ({ browser }) {
   origin = "http://127.0.0.1:" + server.address().port;
 
   var context = await browser.newContext({ acceptDownloads: true });
+  await context.route("**/api/sessions", function (route) { return route.fulfill({ json: [] }); });
   var page = await context.newPage();
   await page.goto(origin + "/");
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
@@ -43,20 +46,37 @@ test.beforeAll(async function ({ browser }) {
   await page.getByRole("button", { name: "Export", exact: true }).first().click();
   var download = await downloadPromise;
 
-  var dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentviz-export-"));
-  exportPath = path.join(dir, "shared-session.html");
+  exportPath = testInfo.outputPath("shared-session.html");
   await download.saveAs(exportPath);
+  await page.getByRole("button", { name: "Find, Portfolio", exact: true }).click();
+  var secondText = fs.readFileSync(fixturePath, "utf8")
+    .replaceAll("aaaabbbb-1234-5678-abcd-000000000001", "aaaabbbb-1234-5678-abcd-000000000002")
+    .replaceAll("Can you add a hello world function to utils.js?", "Review the comparison fixture");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "comparison-b.jsonl", mimeType: "application/json", buffer: Buffer.from(secondText),
+  });
+  await expect(page).toHaveURL(/review$/);
+  await page.getByRole("button", { name: /Compare, / }).click();
+  await page.getByRole("button", { name: /Can you add a hello world function/ }).click();
+  await expect(page.getByRole("button", { name: "Coach session B" })).toBeVisible();
+  var compareDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export", exact: true }).last().click();
+  comparisonPath = testInfo.outputPath("shared-comparison.html");
+  await (await compareDownload).saveAs(comparisonPath);
   await context.close();
 });
 
 test.afterAll(async function () {
   if (server) {
-    await new Promise(function (resolve) { server.close(resolve); });
+    await new Promise(function (resolve) {
+      server.close(resolve);
+      server.closeAllConnections();
+    });
     server = null;
   }
 });
 
-async function openOffline(browser) {
+async function openOffline(browser, file = exportPath) {
   var context = await browser.newContext();
   var attempted = [];
   await context.route("**/*", function (route) {
@@ -75,7 +95,7 @@ async function openOffline(browser) {
     if (message.type() === "error") failures.push("console: " + message.text());
   });
 
-  await page.goto(pathToFileURL(exportPath).href);
+  await page.goto(pathToFileURL(file).href);
   return { context: context, page: page, attempted: attempted, failures: failures };
 }
 
@@ -88,6 +108,27 @@ test("exported HTML has no reference to the exporting origin", async function ()
   expect(html).not.toContain("fonts.googleapis.com");
 });
 
+test("comparison export rehydrates both runs and opens either in Improve offline", async function ({ browser }) {
+  var html = fs.readFileSync(comparisonPath, "utf8");
+  expect(html).not.toContain(origin);
+  expect(html).not.toContain("fonts.googleapis.com");
+  for (var side of ["A", "B"]) {
+    var opened = await openOffline(browser, comparisonPath);
+    await expect(opened.page).toHaveURL(/#\/v2\/compare$/);
+    await expect(opened.page.getByRole("button", { name: "Coach session " + side })).toBeVisible();
+    await opened.page.getByRole("button", { name: "Tools", exact: true }).click();
+    await opened.page.getByRole("button", { name: "Scorecard", exact: true }).click();
+    await opened.page.getByRole("button", { name: "Coach session " + side }).click();
+    await expect(opened.page).toHaveURL(/improve$/);
+    await expect(opened.page.getByText("Session coaching:", { exact: false })).toBeVisible();
+    await opened.page.getByRole("button", { name: "Investigate, Evidence stream", exact: true }).click();
+    await expect(opened.page.getByText(side === "A" ? "Review the comparison fixture" : "Can you add a hello world function to utils.js?", { exact: true })).toBeVisible();
+    expect(opened.attempted).toEqual([]);
+    expect(opened.failures).toEqual([]);
+    await opened.context.close();
+  }
+});
+
 test("exported HTML renders the session from file:// with the network blocked", async function ({ browser }) {
   var opened = await openOffline(browser);
 
@@ -98,6 +139,11 @@ test("exported HTML renders the session from file:// with the network blocked", 
   await expect(
     opened.page.getByText("Can you add a hello world function to utils.js?")
   ).toBeVisible();
+  await opened.page.getByRole("button", { name: "Analyze, Deep panels", exact: true }).click();
+  await opened.page.getByRole("tab", { name: "Graph", exact: true }).click();
+  await expect(opened.page.getByRole("tree")).toBeVisible();
+  await opened.page.getByRole("tab", { name: "Cost", exact: true }).click();
+  await expect(opened.page.getByText("Token spend & context buildup")).toBeVisible();
 
   expect(opened.attempted).toEqual([]);
   expect(opened.failures).toEqual([]);

@@ -55,7 +55,6 @@ function findExactButton(container, text) {
 }
 
 async function renderApp(fetchImpl) {
-  window.localStorage.setItem("agentviz:v2:enabled", "false");
   global.fetch = fetchImpl || createInactiveFetch();
   var container = document.createElement("div");
   document.body.appendChild(container);
@@ -100,6 +99,7 @@ beforeEach(function () {
     },
   });
   document.body.innerHTML = "";
+  window.history.replaceState(null, "", "#/");
 });
 
 afterEach(function () {
@@ -108,25 +108,26 @@ afterEach(function () {
 });
 
 describe("AGENTVIZ MVP flow", function () {
-  it("opens a stored inbox session into observe and then reviews coach drafts", async function () {
+  it("opens a stored Find session into Review and then reviews coach drafts", async function () {
     var parsed = parseSessionText(FIXTURE_TEXT);
     persistSessionSnapshot("fixture.jsonl", parsed.result, FIXTURE_TEXT, global.localStorage);
 
     var app = await renderApp();
 
     await waitFor(function () {
-      return findByText(app.container, "Inbox");
+      return findByText(app.container, "Open or discover a session");
     }, "expected landing inbox to render");
 
     await click(findExactButton(app.container, "Open"));
     await waitFor(function () {
-      return findByText(app.container, "fixture.jsonl");
+      return window.location.hash === "#/v2/review" && findByText(app.container, "fixture.jsonl");
     }, "expected stored session to open");
 
+    await waitFor(function () { return window.location.hash === "#/v2/review"; });
+    await click(app.container.querySelector('button[aria-label^="Analyze,"]'));
     expect(findByText(app.container, "Autonomy Metrics")).toBeTruthy();
-    expect(findByText(app.container, "Coach this session")).toBeTruthy();
 
-    await click(findExactButton(app.container, "Coach"));
+    await click(app.container.querySelector('button[aria-label^="Improve,"]'));
     await waitFor(function () {
       return findByText(app.container, "Session coaching:");
     }, "expected debrief view to open");
@@ -153,15 +154,15 @@ describe("AGENTVIZ MVP flow", function () {
     var app = await renderApp(fetchMock);
 
     await waitFor(function () {
-      return findByText(app.container, "Inbox");
+      return findByText(app.container, "Open or discover a session");
     }, "expected landing inbox to render");
 
     await click(findExactButton(app.container, "Open"));
     await waitFor(function () {
-      return findByText(app.container, "fixture.jsonl");
+      return window.location.hash === "#/v2/review" && findByText(app.container, "fixture.jsonl");
     }, "expected stored session to open");
 
-    await click(findExactButton(app.container, "Coach"));
+    await click(app.container.querySelector('button[aria-label^="Improve,"]'));
     await waitFor(function () {
       return findByText(app.container, "Session coaching:");
     }, "expected debrief view to open");

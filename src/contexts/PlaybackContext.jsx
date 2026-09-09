@@ -5,7 +5,7 @@
  * slice they need, preventing cascade re-renders (e.g. 30fps time ticks no
  * longer force search/filter consumers to reconcile).
  *
- *   PlaybackTimeCtx -- playback object, cycleSpeed, navigation helpers
+ *   PlaybackTimeCtx -- playback object and search-match navigation
  *   FilterCtx       -- track/agent filters, filtered entries, turnStartMap, timeMap
  *   SearchCtx       -- search object
  *
@@ -17,7 +17,6 @@ import usePlayback from "../hooks/usePlayback.js";
 import useSearch from "../hooks/useSearch.js";
 import usePersistentState from "../hooks/usePersistentState.js";
 import { buildFilteredEventEntries, buildTurnStartMap, buildTimeMap } from "../lib/session";
-import { PLAYBACK_SPEEDS } from "../components/app/constants.js";
 
 var PlaybackTimeCtx = createContext(null);
 var FilterCtx = createContext(null);
@@ -38,12 +37,6 @@ export function PlaybackProvider({ session, children }) {
     }
   }, [session.total, session.isLive, playback.seek]);
 
-  var cycleSpeed = useCallback(function () {
-    var idx = PLAYBACK_SPEEDS.indexOf(playback.speed);
-    var next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
-    playback.setSpeed(next);
-  }, [playback.speed, playback.setSpeed]);
-
   // ── filters ───────────────────────────────────────────────────────────────
   var [trackFilters, setTrackFilters] = usePersistentState("agentviz:track-filters", {});
   var [agentFilter, setAgentFilter] = usePersistentState("agentviz:agent-filter", null);
@@ -63,10 +56,6 @@ export function PlaybackProvider({ session, children }) {
   var timeMap = useMemo(function () {
     return buildTimeMap(session.events);
   }, [session.events]);
-
-  var errorEntries = useMemo(function () {
-    return filteredEventEntries.filter(function (entry) { return entry.event.isError; });
-  }, [filteredEventEntries]);
 
   var toggleTrackFilter = useCallback(function (track) {
     setTrackFilters(function (prev) {
@@ -99,25 +88,21 @@ export function PlaybackProvider({ session, children }) {
     setAgentFilter(null);
   }, [setAgentFilter]);
 
-  var activeFilterCount = Object.keys(trackFilters).length + (agentFilter ? 1 : 0);
-
   var filterValue = useMemo(function () {
     return {
       filteredEventEntries: filteredEventEntries,
       filteredEvents: filteredEvents,
       turnStartMap: turnStartMap,
       timeMap: timeMap,
-      errorEntries: errorEntries,
       trackFilters: trackFilters,
       agentFilter: agentFilter,
-      activeFilterCount: activeFilterCount,
       toggleTrackFilter: toggleTrackFilter,
       clearTrackFilter: clearTrackFilter,
       toggleAgentFilter: toggleAgentFilter,
       clearAgentFilter: clearAgentFilter,
     };
   }, [filteredEventEntries, filteredEvents, turnStartMap, timeMap,
-      errorEntries, trackFilters, agentFilter, activeFilterCount, toggleTrackFilter, clearTrackFilter,
+      trackFilters, agentFilter, toggleTrackFilter, clearTrackFilter,
       toggleAgentFilter, clearAgentFilter]);
 
   // ── search ────────────────────────────────────────────────────────────────
@@ -151,32 +136,13 @@ export function PlaybackProvider({ session, children }) {
     playback.seek(entries[entries.length - 1].event.t);
   }, [playback.seek, playback.time]);
 
-  var jumpToError = useCallback(function (direction) {
-    jumpToEntries(errorEntries, direction);
-  }, [errorEntries, jumpToEntries]);
-
-  var jumpToMatch = useCallback(function (direction) {
-    jumpToEntries(search.submitSearch(), direction);
-  }, [jumpToEntries, search.submitSearch]);
-
-  var resetPlaybackState = useCallback(function () {
-    playback.resetPlayback(0);
-    search.clearSearch();
-    setTrackFilters({});
-    setAgentFilter(null);
-  }, [playback.resetPlayback, search.clearSearch, setTrackFilters, setAgentFilter]);
-
   // Navigation lives in PlaybackTimeCtx since it depends on playback.time
   var playbackValue = useMemo(function () {
     return {
       playback: playback,
-      cycleSpeed: cycleSpeed,
       jumpToEntries: jumpToEntries,
-      jumpToError: jumpToError,
-      jumpToMatch: jumpToMatch,
-      resetPlaybackState: resetPlaybackState,
     };
-  }, [playback, cycleSpeed, jumpToEntries, jumpToError, jumpToMatch, resetPlaybackState]);
+  }, [playback, jumpToEntries]);
 
   return React.createElement(PlaybackTimeCtx.Provider, { value: playbackValue },
     React.createElement(FilterCtx.Provider, { value: filterValue },

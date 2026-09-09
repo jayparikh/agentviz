@@ -36,7 +36,7 @@ AI coding agents (Claude Code, Codex, VS Code Copilot Chat, Copilot CLI, ATIF / 
 - **Discover sessions** automatically from Claude Code, Codex, Copilot CLI, and VS Code Copilot Chat stores
 - **Get AI coaching** on prompt engineering, skills, and MCP setup grounded in best practices
 - **Switch themes** between dark, light, and system-matched modes with one click
-- **Use the default workflow UI**: Find, Review, Investigate, Analyze, Compare, Improve, with Classic UI available as a fallback
+- **Use one workflow**: Find, Review, Investigate, Analyze, Compare, Improve
 - **Follow exact evidence** from command-palette events/turns and Review insights into Investigate or Waterfall, including equal-time events and offscreen rows. Playback and search survive workflow switches.
 - **Recover failed imports** with visible loading, read/parse errors, retry, and reimport actions. Find opens Review only after parsing succeeds; failed or superseded loads do not replace the last successful session.
 
@@ -159,15 +159,15 @@ To stop it, ask: "Close agentviz"
 | `launch_agentviz` | Start the server and open the browser. Accepts an optional `session_file` path. |
 | `close_agentviz` | Stop a running server. Accepts an optional `port`; omit to stop all. |
 
-## Inbox and AI Coach
+## Find and AI Coach
 
-When running via the CLI, AGENTVIZ automatically discovers recent Claude Code, Codex, Copilot CLI, and VS Code Copilot Chat sessions and shows them on the landing screen in two interchangeable modes: a row-based inbox sorted by review priority and a dashboard card grid with aggregate stats, filters, refresh, and the same one-click open flow.
+When running via the CLI, AGENTVIZ automatically discovers recent Claude Code, Codex, Copilot CLI, and VS Code Copilot Chat sessions in Find. Switch between list and grid, sort by recency, review priority, cost, or activity, filter by client or tags, and open a run.
 
 Each loaded session can get an AI Coach analysis powered by the `@github/copilot-sdk` (gpt-4o). The coach reads your actual project config (`.github/copilot-instructions.md`, skills, MCP servers) and produces actionable recommendations for prompts, skills, and tooling setup. Recommendations can be applied directly with one click.
 
-## Default workflow UI
+## Workflow UI
 
-AGENTVIZ now defaults to the task-oriented workflow shell. The same parser and session model power both the default workflow UI and the Classic UI fallback:
+AGENTVIZ has one task-oriented workflow shell, backed by shared parsers and session state:
 
 | Zone | Purpose |
 |------|---------|
@@ -180,9 +180,9 @@ AGENTVIZ now defaults to the task-oriented workflow shell. The same parser and s
 
 The redesign changes the top-level model from visualization tabs to user jobs. Instead of choosing between Replay, Tracks, Waterfall, Graph, Stats, Cost, and Coach up front, you start with a health-oriented Review, follow evidence in Investigate, open deeper Analyze panels only when needed, and turn the run into next-run improvements from Improve.
 
-If you know the Classic UI, the old surfaces still exist:
+The visualizations remain available in these workflow homes:
 
-| Classic UI surface | Default workflow home |
+| Visualization | Workflow home |
 |--------------------|-----------------------|
 | Replay | Investigate |
 | Tracks | Analyze -> Tracks |
@@ -193,7 +193,10 @@ If you know the Classic UI, the old surfaces still exist:
 | Coach | Improve |
 | Compare | Compare, or Find multi-select |
 
-The workflow shell is mounted exclusively by default (`agentviz:v2:enabled`). Click **Classic UI** in the header to use the original replay-first interface, or **Default UI** in Classic UI to return to the workflow shell. Classic UI is a fallback, not a separate parser or data path.
+Classic UI and its toggle, recent-session dropdown, direct A/B upload screen, and human/idle sort modes have been retired. Import files in Find and select two runs to compare. Existing `#/v2/...` links, workflow preferences, and the `agentviz:session-library:v1` / `agentviz:session-content:v1:*` storage schemas are unchanged. Obsolete shell preferences are ignored; old `#/` and `#/session` links fall back to Find.
+
+**Close session** clears the active session, comparison, playback, and Q&A, stops viewer-side live updates, and returns to Find. It does not delete saved runs or preferences, or stop the agent/server. Navigating to Find without closing retains the active session.
+Close also works before a live stream produces its first event. The bottom transport's speed menu opens upward so every speed remains reachable on desktop and compact screens.
 
 ## Session Comparison
 
@@ -201,10 +204,8 @@ Load two agent traces side by side to compare them head to head. Great for bench
 
 ### Entry points
 
-- **Landing screen** -- click **Compare two sessions** below the drop zone
-- **Single-session header** -- click **Compare** while viewing any session to add a second trace for comparison
 - **Find zone** -- select two sessions and click **Compare selected**
-- **Compare landing** -- drop Session A and Session B independently; the view opens once both are loaded
+- **Compare zone** -- choose a saved candidate to compare with the current imported run
 
 ### Scorecard tab
 
@@ -228,11 +229,11 @@ Horizontal bar chart showing tool call counts for both sessions on the same axis
 
 ### Export
 
-Click **Export** in the default workflow header, Classic UI header, or comparison header to download a single self-contained `.html` file. Share it with anyone -- no server required. Opening it reproduces the full session or comparison view exactly as you see it.
+Click **Export** in the workflow header or comparison header to download a single self-contained `.html` file. Share it with anyone, no server required. Opening it restores the session or comparison for offline investigation.
 
 Export is available in two places:
 
-- **Single session header** -- exports the current session from either the default workflow UI or Classic UI
+- **Single session header** -- exports the current session
 - **Comparison header** -- exports both sessions and the full comparison view
 
 > Export requires the production build (`npm run build`). It is not available in the Vite dev server.
@@ -330,21 +331,20 @@ AI-powered session coaching available directly from any session. Improve combine
 | **Graph View** | Directed turn-flow graph with fork/join DAG for parallel subagents, expandable tool-call nodes, pan/zoom, and playback-aware highlighting. |
 | **Token and Cost Tracking** | Per-turn and per-call token usage with estimated USD cost for Claude and OpenAI/Copilot models, plus reported AI Credits (with USD equivalent) for Copilot CLI logs. |
 | **Search** | Full-text search across events, tools, and agents. Matches highlighted in real time. |
-| **Command Palette** | `Cmd+K` fuzzy search to jump to any turn, event, or view instantly. |
-| **Workflow Command Palette** | In the default UI, `Cmd+K` searches workflow zones and flow-aware commands such as failed tool calls, cost analysis, compare, and Q&A. |
+| **Command Palette** | `Cmd+K` / `Ctrl+K` searches events, turns, workflow zones, Analyze panels, failed tool calls, comparison, and Q&A. |
 | **Error Navigation** | Auto-detects errors from flags and text patterns. Jump with `E` / `Shift+E`. |
 | **Track Filters** | Toggle visibility per track type with filter chips in the header. |
-| **Playback Control** | Play/pause with variable speed (0.5x to 8x). Seek with arrow keys. |
+| **Playback Control** | Investigate and Analyze share play/pause, speed (0.5x, 1x, 2x, 4x, 8x), and a keyboard-operable Timeline with turn, event, and search markers. Time and speed survive zone switches. Live streams omit play/speed controls. |
 | **Diff Viewer** | Inline unified diff with dual-gutter line numbers for file-editing tool calls. |
 | **Auto-detect Format** | Supports Claude Code JSONL, Codex rollout JSONL, Copilot CLI JSONL, VS Code Copilot Chat JSON or JSONL, Copilot prompt export JSON, and ATIF / Harbor trajectory JSON. Auto-detected. |
 | **Session Comparison** | Load two traces side by side. Scorecard and tool-usage chart with delta badges. |
 | **HTML Export** | One-click export of any session or comparison to a self-contained shareable `.html` file. |
-| **Inbox Auto-discovery** | Automatically finds recent Claude Code, Codex, Copilot CLI, and VS Code Copilot Chat sessions and ranks them by review priority. |
-| **Inbox Refresh** | Rescan session directories with a one-click refresh button. Reconciles evicted content and prunes dead entries. |
-| **File Path Tooltips** | Hover over inbox or Find session rows to see the full file path or reconstructed session location. Opened sessions loaded from discovery or CLI expose a header path control for copying the source path. |
+| **Find Auto-discovery** | Automatically finds recent Claude Code, Codex, Copilot CLI, and VS Code Copilot Chat sessions; choose review priority or recency sorting. |
+| **Find Refresh** | Rescan session directories with a one-click refresh button. Reconciles evicted content and prunes dead entries. |
+| **File Path Tooltips** | Hover over Find session rows to see the full file path or reconstructed session location. Opened sessions loaded from discovery or CLI expose a header path control for copying the source path. |
 | **Static Manifest Mode** | Deploy as a pure static site with `?manifest=URL` pointing to a JSON manifest of sessions. Tag-based filtering, no backend required. |
 | **AI Coach** | Agentic analysis powered by Copilot SDK. Recommends prompts, skills, and MCP config with one-click apply. |
-| **Session Q&A** | Slide-over drawer (`Cmd+Shift+K` in Classic UI, Improve in the default UI) with instant answers for common queries and Copilot SDK model fallback for open-ended questions. |
+| **Session Q&A** | Slide-over drawer (`Cmd/Ctrl+Shift+K` or Improve) with instant answers and Copilot SDK fallback. Messages and drafts survive zone changes and close/reopen. |
 | **Skills and Capability Tracking** | Stats View surfaces every skill, instruction, agent, MCP server, tool, and prompt from the session with lifecycle stage bars, invocation counts, source chips, and expandable event timelines. Filter by category or source. |
 | **Autonomy Metrics** | Measures human response time, idle gaps, and intervention frequency per session. |
 | **Dark / Light / System Theme** | Full dark and light palettes with a one-click switcher in the header. System mode auto-follows OS preference. Preference is persisted across sessions. |
@@ -369,23 +369,25 @@ Open the drawer with `Cmd+Shift+K` (or via the command palette). Questions are r
 
 2. **Model fallback** -- anything the classifier can't match is sent to the Copilot SDK (configurable model, see [Configuration](#configuration)) with full session context for an AI-generated answer.
 
-> **Classic UI note:** The Classic UI drawer is still controlled by the `qa` feature flag. The default workflow UI exposes Q&A directly in Improve.
+Q&A is available for completed sessions without a feature flag. Conversation and input drafts reset only on successful session replacement or Close session, not on failed loads or live appends. Closing the drawer retains the draft; session disposal aborts streaming answers.
 
 ## Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
-| `Space` | Play / Pause |
-| `Left` / `Right` | Seek 2 seconds |
-| `1` / `2` / `3` / `4` / `5` / `6` / `7` | Switch view (Replay / Tracks / Waterfall / Graph / Stats / Cost / Coach) |
-| `/` | Focus search |
+| `Space` | Play / Pause in Investigate or Analyze |
+| `Left` / `Right` | Seek 2 seconds in Investigate or Analyze |
+| `1` / `2` / `3` / `4` / `5` / `6` | Find / Review / Investigate / Analyze / Compare / Improve |
+| `7` | Improve (compatibility alias) |
+| `/` | Focus Find or Investigate search |
 | `E` / `Shift+E` | Next / Previous error |
-| `Cmd+K` | Command palette |
-| `Cmd+Shift+K` | Toggle Session Q&A drawer |
+| `Cmd+K` / `Ctrl+K` | Command palette |
+| `Cmd+Shift+K` / `Ctrl+Shift+K` | Open Session Q&A |
 | `Enter` / `Shift+Enter` | Next / Previous search match |
-| `?` | Toggle keyboard shortcuts dialog |
+| `?` | Open keyboard shortcuts dialog |
+| Timeline arrows / `Home` / `End` | Seek through mapped timeline / start / end |
 
-In the default workflow UI, number keys map to workflow zones: `1` Find, `2` Review, `3` Investigate, `4` Analyze, `5` Compare, and `6` Improve. Pressing the old Coach shortcut `7` opens Improve and shows a migration notice.
+Shortcuts preserve browser modifiers, editable inputs, native button activation, Graph/Tracks navigation, separators, and modal controls. Pressing the old Coach shortcut `7` opens Improve and shows a migration notice. Help, palette, and Q&A trap focus and close with Escape.
 
 Modals, drawers, and overlay panels render keyboard hints with a shared `<kbd>` badge treatment so close, navigate, and select affordances read consistently across AGENTVIZ.
 
@@ -445,7 +447,7 @@ npx agentviz export --manifest ./data/manifest.json --out ./agentviz-report.html
 
 ```
 src/
-  App.jsx                # Default v2 mount + Classic UI fallback, theme wiring, session entry routing
+  App.jsx                # Workflow-only mount, theme/density wiring and chunk recovery
   AppV2.jsx              # Default workflow shell: Find, Review, Investigate, Analyze, Compare, Improve
   main.jsx               # React entry point
   contexts/
@@ -457,11 +459,9 @@ src/
     useKeyboardShortcuts.js  # Centralized keyboard handler
     useSessionLoader.js  # Transactional parsing, completion signaling, live snapshot bootstrap, session reset
     useQA.js             # Session Q&A state: messages, classifier, SSE streaming, abort
-    useFeatureFlag.js    # localStorage-backed feature flag evaluation
     useLiveStream.js     # Cursor-resumable SSE hook with 500ms debounce and reset handling
     usePersistentState.js    # localStorage-backed useState with debounced writes
     useDiscoveredSessions.js # Auto-discovery via /api/sessions or ?manifest= URL
-    useHashRouter.js     # Hash-based routing between inbox and session views
     useAsyncStatus.js    # Async operation state machine (idle/loading/success/error)
     useBreakpoint.js     # Shared compact/narrow/wide responsive breakpoint hook
     useFocusTrap.js      # Modal focus trap with Escape close and focus restoration
@@ -499,7 +499,7 @@ src/
     theme.d.ts           # TypeScript declarations for theme.js
     constants.js         # Sample events for demo mode
     replayLayout.js      # Virtualized windowing for large sessions
-    commandPalette.js    # Precomputed fuzzy search index with legacy view and v2 workflow command support
+    commandPalette.js    # Indexed event/turn search and workflow zone/panel commands
     searchIndex.js       # Precomputed lowercase search cache for event filtering
     diffUtils.js         # Diff detection and Myers line diff algorithm
     waterfall.ts         # Waterfall view helpers: item building, stats, layout
@@ -515,8 +515,6 @@ src/
     lazyImport.js        # Dynamic import wrapper with stale-chunk reload recovery
     playbackUtils.js     # Playback state helpers
   components/
-    InboxView.jsx        # Session inbox with auto-discovery, sorting, refresh, and review priority
-    DashboardView.jsx    # Landing dashboard card grid with shared landing controls, aggregate stats, and quick open
     DebriefView.jsx      # AI Coach panel with cached analysis (lazy-loaded)
     ReplayView.jsx       # Windowed event stream + inspector sidebar
     TracksView.jsx       # DAW-style multi-track timeline
@@ -529,17 +527,13 @@ src/
     Timeline.jsx         # Scrubable playback bar with event markers
     DiffViewer.jsx       # Inline unified diff for file-editing tool calls
     DataInspector.jsx    # Readable payload inspector with summaries and copy support
-    LiveIndicator.jsx    # Pulsing LIVE badge shown in CLI streaming mode
     ShortcutsModal.jsx   # Keyboard shortcuts overlay
     QADrawer.jsx         # Session Q&A slide-over drawer with instant answers
-    RecentSessionsPicker.jsx # Recent sessions dropdown picker
     SyntaxHighlight.jsx  # Lightweight code syntax coloring for payload previews
     ResizablePanel.jsx   # Drag-to-resize split panel utility
-    FileUploader.jsx     # Drag-and-drop file input with error handling
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
-    app/                 # Shell: AppHeader, AppLandingState, AppLoadingState, CompareLandingState, CompareShell (lazy-loaded; AppLandingState switches between inbox and dashboard landing modes)
-    ui/                  # Shared primitives: BrandWordmark, ShellFrame, ToolbarButton, ToolbarSelect, ExportStatusButton, KeyboardHint
+    ui/                  # Shared primitives: BrandWordmark, ToolbarButton, ToolbarSelect, ExportStatusButton, KeyboardHint
     v2/                  # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
@@ -585,7 +579,7 @@ AGENTVIZ can also be launched from Claude Code, VS Code, or Copilot CLI via the 
 npm run dev             # Vite dev server + API backend (auto-started)
 npm run build           # Production build to dist/
 npm test                # Run all tests via Vitest with stable worker cap
-npm run test:v2         # Run v2 golden data, UI, and v1 regression coverage
+npm run test:v2         # Run workflow golden data, UI, and app regression coverage
 npm run test:e2e:v2     # Run the Playwright v2 browser smoke test
 npm run test:e2e:export # Build, then verify a shared export boots from file://
 npm run test:watch      # Watch mode

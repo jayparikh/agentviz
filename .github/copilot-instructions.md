@@ -40,9 +40,9 @@ The README references 8 screenshot files in `docs/screenshots/`. All must be kep
 **Workflow (using Playwright MCP tools):**
 1. Start dev server: `npm run dev`
 2. Navigate to `http://127.0.0.1:3000`, resize to **1400x860**
-3. Capture `landing.png` from the landing page (before loading a session)
-4. Click **"Load a demo session"**, then click each tab and capture: replay, tracks, waterfall, graph, stats
-5. For **Coach**: click the tab, hide the error banner with JS before capturing:
+3. Navigate with `?demo=empty` and capture `landing.png` from Find. Never capture personal session data.
+4. Click **"Load a demo session"** (or **Demo**), open Investigate for replay, then Analyze panels for tracks, waterfall, graph and stats.
+5. For **Coach**: open Improve, hide the error banner with JS before capturing:
    ```js
    document.querySelectorAll('*').forEach(el => {
      if (el.children.length === 0 && el.textContent.trim().startsWith('AI analysis failed')) {

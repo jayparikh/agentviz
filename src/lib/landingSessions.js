@@ -149,15 +149,6 @@ export function isLowSignalDiscoveredEntry(entry) {
   return Number(entry.size || 0) > 0 && Number(entry.size || 0) <= LOW_SIGNAL_DISCOVERED_BYTES;
 }
 
-export function isLandingSearchShortcut(event) {
-  var tagName = event && event.target && event.target.tagName;
-  return event.key === "/"
-    && !event.metaKey
-    && !event.ctrlKey
-    && tagName !== "INPUT"
-    && tagName !== "TEXTAREA";
-}
-
 export function settleLandingRefresh(result, onSettled) {
   if (result && typeof result.then === "function") {
     result.finally(onSettled);
@@ -183,10 +174,6 @@ export function sortLandingEntries(entries, sortMode) {
     return (right.reviewScore || 0) - (left.reviewScore || 0)
       || getLandingEntryTimestamp(right).localeCompare(getLandingEntryTimestamp(left));
   });
-}
-
-export function sortLandingEntriesByDate(entries) {
-  return sortLandingEntries(entries, "most-recent");
 }
 
 export function sortDiscoveredLandingEntries(entries) {

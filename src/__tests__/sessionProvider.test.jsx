@@ -75,8 +75,10 @@ function Probe({ onContext }) {
       <button type="button" onClick={function () { ctx.openStoredSession(ctx.allSessions[0]); }}>Open first</button>
       <button type="button" onClick={function () { ctx.handleFile(FIXTURE_TEXT, "fixture-a.jsonl"); }}>Load fixture A</button>
       <button type="button" onClick={function () { ctx.sessionB.handleFile(FIXTURE_TEXT, "fixture-b.jsonl"); }}>Load fixture B</button>
-      <button type="button" onClick={function () { ctx.setCompareLanding(true); }}>Start compare</button>
-      <button type="button" onClick={ctx.exitCompare}>Exit compare</button>
+      <button type="button" onClick={function () { ctx.openCompareEntries([
+        { id: "fixture-a", file: "fixture-a.jsonl" }, { id: "fixture-b", file: "fixture-b.jsonl" },
+      ]); }}>Start compare</button>
+      <button type="button" onClick={ctx.reset}>Close comparison</button>
       <button type="button" onClick={ctx.handleExportSession}>Export session</button>
       <button type="button" onClick={ctx.handleExportComparison}>Export compare</button>
       <button type="button" onClick={function () { ctx.openCompareEntries(ctx.allSessions.slice(0, 2)); }}>Open compare entries</button>
@@ -91,10 +93,7 @@ async function renderProvider(props) {
 
   await act(async function () {
     root.render(
-      <SessionProvider
-        onBeforeSessionChange={props && props.onBeforeSessionChange}
-        onStoredSessionOpen={props && props.onStoredSessionOpen}
-      >
+      <SessionProvider>
         <Probe onContext={props && props.onContext} />
       </SessionProvider>
     );
@@ -184,8 +183,7 @@ describe("SessionProvider", function () {
   });
 
   it("loads and resets the sample session through shared context", async function () {
-    var onBeforeSessionChange = vi.fn();
-    var app = await renderProvider({ onBeforeSessionChange: onBeforeSessionChange });
+    var app = await renderProvider();
 
     await act(async function () {
       app.container.querySelector("button").click();
@@ -198,7 +196,6 @@ describe("SessionProvider", function () {
     expect(Number(app.container.querySelector("#event-count").textContent)).toBeGreaterThan(0);
     expect(app.container.querySelector("#source-path").textContent).toBe("none");
     expect(app.container.querySelector("#summary-label").textContent).toBe("Productive runtime");
-    expect(onBeforeSessionChange).toHaveBeenCalledTimes(1);
 
     await act(async function () {
       app.container.querySelectorAll("button")[1].click();
@@ -207,16 +204,15 @@ describe("SessionProvider", function () {
     await waitFor(function () {
       return app.container.querySelector("#file").textContent === "none";
     }, "expected reset to clear sample session");
-    expect(onBeforeSessionChange).toHaveBeenCalledTimes(2);
+    expect(app.container.querySelector("#file-b").textContent).toBe("none");
 
     await app.unmount();
   });
 
-  it("opens stored sessions through the provider and invokes the stored-session callback", async function () {
+  it("opens stored sessions through the provider", async function () {
     var parsed = parseSessionText(FIXTURE_TEXT);
     persistSessionSnapshot("fixture.jsonl", parsed.result, FIXTURE_TEXT, global.localStorage);
-    var onStoredSessionOpen = vi.fn();
-    var app = await renderProvider({ onStoredSessionOpen: onStoredSessionOpen });
+    var app = await renderProvider();
 
     await waitFor(function () {
       return app.container.querySelector("#session-count").textContent === "1";
@@ -231,7 +227,6 @@ describe("SessionProvider", function () {
     }, "expected stored session to load");
 
     expect(Number(app.container.querySelector("#event-count").textContent)).toBeGreaterThan(0);
-    expect(onStoredSessionOpen).toHaveBeenCalledTimes(1);
 
     await app.unmount();
   });
@@ -260,13 +255,13 @@ describe("SessionProvider", function () {
     await app.unmount();
   });
 
-  it("tracks compare readiness and exits compare state", async function () {
+  it("tracks compare readiness and closes both active sessions without deleting stored content", async function () {
+    global.localStorage.setItem("agentviz:session-content:v1:fixture-a", FIXTURE_TEXT);
+    global.localStorage.setItem("agentviz:session-content:v1:fixture-b", FIXTURE_TEXT);
     var app = await renderProvider();
 
     await act(async function () {
       var buttons = app.container.querySelectorAll("button");
-      buttons[3].click();
-      buttons[4].click();
       buttons[5].click();
     });
 
@@ -281,6 +276,9 @@ describe("SessionProvider", function () {
     await waitFor(function () {
       return app.container.querySelector("#compare-ready").textContent === "not-ready";
     }, "expected compare to exit");
+    expect(app.container.querySelector("#file").textContent).toBe("none");
+    expect(app.container.querySelector("#file-b").textContent).toBe("none");
+    expect(global.localStorage.getItem("agentviz:session-content:v1:fixture-a")).toBe(FIXTURE_TEXT);
 
     await app.unmount();
   });
@@ -313,12 +311,13 @@ describe("SessionProvider", function () {
   });
 
   it("runs single-session and comparison exports with raw session text", async function () {
+    global.localStorage.setItem("agentviz:session-content:v1:fixture-a", FIXTURE_TEXT);
+    global.localStorage.setItem("agentviz:session-content:v1:fixture-b", FIXTURE_TEXT);
     var app = await renderProvider();
 
     await act(async function () {
       var buttons = app.container.querySelectorAll("button");
-      buttons[3].click();
-      buttons[4].click();
+      buttons[5].click();
     });
 
     await waitFor(function () {
