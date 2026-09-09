@@ -16,14 +16,57 @@ function getStorage(storage) {
   return window.localStorage;
 }
 
-function safeParse(raw, fallback) {
-  if (!raw) return fallback;
+function storageError(error, operation) {
+  var kind = error && error.name === "QuotaExceededError" ? "quota"
+    : error && error.name === "SyntaxError" ? "corrupt" : "access";
+  return {
+    kind: kind,
+    operation: operation,
+    message: kind === "quota" ? "Browser storage is full."
+      : kind === "corrupt" ? "The saved session index is damaged. It has not been replaced."
+      : "Browser storage could not be accessed.",
+  };
+}
 
+function requireStorage(storage) {
+  var target = getStorage(storage);
+  if (!target) throw new Error("Browser storage is unavailable");
+  return target;
+}
+
+function readIndex(target) {
+  var raw = target.getItem(SESSION_LIBRARY_KEY);
+  var entries = raw === null ? [] : JSON.parse(raw);
+  if (!Array.isArray(entries) || entries.some(function (entry) {
+    return !entry || typeof entry.id !== "string" || !entry.id;
+  })) throw new SyntaxError("Invalid session index");
+  return entries;
+}
+
+export function readSessionLibraryState(storage, prune) {
+  var entries = null;
+  var operation = "read index";
   try {
-    return JSON.parse(raw);
+    var target = requireStorage(storage);
+    entries = readIndex(target);
+    operation = "read content";
+    var next = entries.map(function (entry) {
+      return entry.hasContent && !target.getItem(getSessionContentKey(entry.id))
+        ? Object.assign({}, entry, { hasContent: false }) : entry;
+    });
+    if (prune) next = next.filter(function (entry) { return entry.hasContent || entry.discoveredPath; });
+    operation = "write index";
+    if (JSON.stringify(next) !== JSON.stringify(entries)) {
+      entries = next;
+      target.setItem(SESSION_LIBRARY_KEY, JSON.stringify(next));
+    }
+    return { entries: next, error: null };
   } catch (error) {
-    debugWarn("Could not parse stored session library data", error);
-    return fallback;
+    // A failed read cannot establish which cached copies still exist.
+    if (entries && operation === "read content") {
+      entries = entries.map(function (entry) { return Object.assign({}, entry, { hasContent: false }); });
+    }
+    return { entries: entries, error: storageError(error, operation) };
   }
 }
 
@@ -80,12 +123,8 @@ export function createSessionStorageId(fileName, metadata, rawText) {
 }
 
 export function readSessionLibrary(storage) {
-  var target = getStorage(storage);
-  if (!target) return [];
-
   try {
-    var parsed = safeParse(target.getItem(SESSION_LIBRARY_KEY), []);
-    return Array.isArray(parsed) ? parsed : [];
+    return readIndex(requireStorage(storage));
   } catch (error) {
     debugWarn("Could not read session library", error);
     return [];
@@ -93,75 +132,31 @@ export function readSessionLibrary(storage) {
 }
 
 export function reconcileSessionLibrary(storage) {
-  var target = getStorage(storage);
-  if (!target) return [];
-
-  var entries = readSessionLibrary(target);
-  var changed = false;
-
-  for (var index = 0; index < entries.length; index += 1) {
-    if (entries[index].hasContent && !target.getItem(getSessionContentKey(entries[index].id))) {
-      entries[index] = Object.assign({}, entries[index], { hasContent: false });
-      changed = true;
-    }
-  }
-
-  if (changed) writeSessionLibrary(entries, target);
-  return entries;
-}
-
-function writeSessionLibrary(entries, storage) {
-  var target = getStorage(storage);
-  if (!target) return false;
-
-  try {
-    target.setItem(SESSION_LIBRARY_KEY, JSON.stringify(entries));
-    return true;
-  } catch (error) {
-    debugWarn("Could not persist session library", error);
-    return false;
-  }
+  return readSessionLibraryState(storage).entries || [];
 }
 
 function getSessionContentKey(id) {
   return SESSION_CONTENT_PREFIX + id;
 }
 
-function removeStoredSessionContent(id, storage) {
-  var target = getStorage(storage);
-  if (!target || !id) return;
-
+export function readStoredSessionContent(id, storage) {
   try {
-    target.removeItem(getSessionContentKey(id));
+    return { text: requireStorage(storage).getItem(getSessionContentKey(id)) || "", error: null };
   } catch (error) {
-    debugWarn("Could not remove stored session content", error);
+    return { text: "", error: storageError(error, "read content") };
   }
 }
 
 export function loadStoredSessionContent(id, storage) {
-  var target = getStorage(storage);
-  if (!target || !id) return "";
-
-  try {
-    return target.getItem(getSessionContentKey(id)) || "";
-  } catch (error) {
-    debugWarn("Could not read stored session content", error);
-    return "";
-  }
+  return readStoredSessionContent(id, storage).text;
 }
 
-function storeSessionContent(id, rawText, storage, existingEntries) {
-  var target = getStorage(storage);
-  if (!target || !id || !rawText) return false;
-
+function storeSessionContent(id, rawText, target, existingEntries, evictedIds) {
   try {
     target.setItem(getSessionContentKey(id), rawText);
-    return true;
+    return;
   } catch (error) {
-    if (!(error && error.name === "QuotaExceededError")) {
-      debugWarn("Could not persist session content", error);
-      return false;
-    }
+    if (!(error && error.name === "QuotaExceededError")) throw error;
   }
 
   var evictableEntries = Array.isArray(existingEntries)
@@ -173,33 +168,26 @@ function storeSessionContent(id, rawText, storage, existingEntries) {
     : [];
 
   for (var index = 0; index < evictableEntries.length; index += 1) {
-    removeStoredSessionContent(evictableEntries[index].id, target);
+    target.removeItem(getSessionContentKey(evictableEntries[index].id));
+    evictedIds.push(evictableEntries[index].id);
 
     try {
       target.setItem(getSessionContentKey(id), rawText);
-      return true;
+      return;
     } catch (retryError) {
       if (!(retryError && retryError.name === "QuotaExceededError")) {
-        debugWarn("Could not persist session content", retryError);
-        return false;
+        throw retryError;
       }
     }
   }
 
-  debugWarn("Could not persist session content because storage quota was exceeded", { id: id });
-  return false;
+  var quotaError = new Error("Storage quota exceeded");
+  quotaError.name = "QuotaExceededError";
+  throw quotaError;
 }
 
 export function pruneDeadEntries(storage) {
-  var target = getStorage(storage);
-  var reconciled = reconcileSessionLibrary(target);
-  var pruned = reconciled.filter(function (e) {
-    return e.hasContent || e.discoveredPath;
-  });
-  if (pruned.length < reconciled.length) {
-    writeSessionLibrary(pruned, target);
-  }
-  return pruned;
+  return readSessionLibraryState(storage, true).entries || [];
 }
 
 export function buildSessionLibraryEntry(fileName, result, rawText, previousEntry) {
@@ -240,50 +228,59 @@ export function buildSessionLibraryEntry(fileName, result, rawText, previousEntr
 }
 
 export function persistSessionSnapshot(fileName, result, rawText, storage) {
-  var target = getStorage(storage);
-  if (!target || !result) return { entries: [], entry: null };
-
-  var existingEntries = readSessionLibrary(target);
-  var existingIndex = -1;
-  var provisionalId = createSessionStorageId(fileName, result.metadata || {}, rawText);
-
-  for (var index = 0; index < existingEntries.length; index += 1) {
-    if (existingEntries[index].id === provisionalId) {
-      existingIndex = index;
-      break;
-    }
-  }
-
-  var previousEntry = existingIndex >= 0 ? existingEntries[existingIndex] : null;
-  var entry = buildSessionLibraryEntry(fileName, result, rawText, previousEntry);
-  entry.hasContent = storeSessionContent(entry.id, rawText, target, existingEntries);
-
-  var nextEntries = existingEntries.slice();
-  if (existingIndex >= 0) {
-    nextEntries.splice(existingIndex, 1, entry);
-  } else {
-    nextEntries.push(entry);
-  }
-
-  // Reconcile hasContent flags: eviction may have removed content for other
-  // entries, or pre-existing entries may have stale flags from older versions.
-  for (var ri = 0; ri < nextEntries.length; ri += 1) {
-    var re = nextEntries[ri];
-    if (re.id !== entry.id && re.hasContent) {
-      if (!target.getItem(getSessionContentKey(re.id))) {
-        nextEntries[ri] = Object.assign({}, re, { hasContent: false });
+  var id = createSessionStorageId(fileName, result.metadata || {}, rawText);
+  var entries = null;
+  var evictedIds = [];
+  var operation = "read index";
+  var wroteContent = false;
+  var oldText = null;
+  try {
+    var target = requireStorage(storage);
+    entries = readIndex(target);
+    operation = "read content";
+    // Finish all reads before changing content or evicting anything.
+    entries = entries.map(function (entry) {
+      return entry.hasContent && !target.getItem(getSessionContentKey(entry.id))
+        ? Object.assign({}, entry, { hasContent: false }) : entry;
+    });
+    oldText = target.getItem(getSessionContentKey(id));
+    var previousEntry = entries.find(function (entry) { return entry.id === id; });
+    var entry = buildSessionLibraryEntry(fileName, result, rawText, previousEntry);
+    if (!rawText) throw new Error("No transcript to save");
+    operation = "write content";
+    storeSessionContent(id, rawText, target, entries, evictedIds);
+    wroteContent = true;
+    var next = entries.filter(function (item) { return item.id !== id; }).map(function (item) {
+      return evictedIds.includes(item.id) ? Object.assign({}, item, { hasContent: false }) : item;
+    }).concat(entry);
+    next.sort(function (left, right) { return String(right.updatedAt).localeCompare(String(left.updatedAt)); });
+    operation = "write index";
+    target.setItem(SESSION_LIBRARY_KEY, JSON.stringify(next));
+    return { entries: next, entry: entry, id: id, saved: true, error: null, evictedIds: evictedIds };
+  } catch (error) {
+    var failure = storageError(error, operation);
+    if (wroteContent) {
+      try {
+        if (oldText === null) target.removeItem(getSessionContentKey(id));
+        else target.setItem(getSessionContentKey(id), oldText);
+      } catch (rollbackError) {
+        failure.rollbackError = storageError(rollbackError, "restore content");
       }
     }
+    if (entries) entries = entries.map(function (item) {
+      return evictedIds.includes(item.id) || operation === "read content" || (item.id === id && failure.rollbackError)
+        ? Object.assign({}, item, { hasContent: false }) : item;
+    });
+    if (entries && (evictedIds.length || failure.rollbackError)) {
+      try {
+        target.setItem(SESSION_LIBRARY_KEY, JSON.stringify(entries));
+      } catch (indexError) {
+        failure.indexError = storageError(indexError, "write index");
+      }
+    }
+    var previousSaved = Boolean(oldText && !failure.rollbackError && entries && entries.some(function (item) {
+      return item.id === id && item.hasContent;
+    }));
+    return { entries: entries, entry: null, id: id, saved: false, previousSaved: previousSaved, error: failure, evictedIds: evictedIds };
   }
-
-  nextEntries.sort(function (left, right) {
-    return String(right.updatedAt).localeCompare(String(left.updatedAt));
-  });
-
-  writeSessionLibrary(nextEntries, target);
-
-  return {
-    entries: nextEntries,
-    entry: entry,
-  };
 }

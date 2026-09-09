@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseSessionText } from "../lib/sessionParsing";
-import { createSessionStorageId, buildSessionLibraryEntry, loadStoredSessionContent, persistSessionSnapshot, pruneDeadEntries, readSessionLibrary, reconcileSessionLibrary, SESSION_LIBRARY_KEY } from "../lib/sessionLibrary.js";
+import { createSessionStorageId, buildSessionLibraryEntry, loadStoredSessionContent, persistSessionSnapshot, pruneDeadEntries, readSessionLibrary, readSessionLibraryState, readStoredSessionContent, reconcileSessionLibrary, SESSION_LIBRARY_KEY } from "../lib/sessionLibrary.js";
 
 var COPILOT_FIXTURE = readFileSync(resolve(process.cwd(), "src/__tests__/fixtures/test-copilot.jsonl"), "utf8");
 var CLAUDE_FIXTURE = [
@@ -54,6 +54,121 @@ function createQuotaStorage(maxContentEntries) {
 }
 
 describe("session library persistence", function () {
+  afterEach(function () { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+  it("reports throwing localStorage getters without losing the import result or crashing startup", function () {
+    vi.stubGlobal("window", { get localStorage() { throw new DOMException("Blocked", "SecurityError"); } });
+    expect(readSessionLibraryState()).toMatchObject({ entries: null, error: { kind: "access", operation: "read index" } });
+    expect(reconcileSessionLibrary()).toEqual([]);
+    expect(pruneDeadEntries()).toEqual([]);
+    expect(readStoredSessionContent("a")).toMatchObject({ text: "", error: { kind: "access" } });
+    expect(persistSessionSnapshot("a.jsonl", parseSessionText(COPILOT_FIXTURE).result, COPILOT_FIXTURE))
+      .toMatchObject({ saved: false, entries: null, error: { kind: "access" } });
+  });
+
+  it.each(["{broken", "{}", "null", '[{"file":"missing-id"}]'])("does not overwrite an invalid index: %s", function (raw) {
+    var storage = createMemoryStorage();
+    storage.setItem(SESSION_LIBRARY_KEY, raw);
+    var setItem = vi.spyOn(storage, "setItem");
+    expect(readSessionLibraryState(storage, true).error.kind).toBe("corrupt");
+    var saved = persistSessionSnapshot("a.jsonl", parseSessionText(COPILOT_FIXTURE).result, COPILOT_FIXTURE, storage);
+    expect(saved.saved).toBe(false);
+    expect(saved.error.kind).toBe("corrupt");
+    expect(storage.getItem(SESSION_LIBRARY_KEY)).toBe(raw);
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it("reports quota exhaustion and preserves an older live snapshot and its metadata", function () {
+    var storage = createMemoryStorage();
+    var result = parseSessionText(COPILOT_FIXTURE).result;
+    var first = persistSessionSnapshot("live.jsonl", result, COPILOT_FIXTURE, storage);
+    var originalIndex = storage.getItem(SESSION_LIBRARY_KEY);
+    vi.spyOn(storage, "setItem").mockImplementation(function () { throw new DOMException("Full", "QuotaExceededError"); });
+    var failed = persistSessionSnapshot("live.jsonl", result, COPILOT_FIXTURE + "\n", storage);
+    expect(failed).toMatchObject({ saved: false, previousSaved: true, error: { kind: "quota", operation: "write content" } });
+    expect(failed.entries[0]).toEqual(first.entry);
+    expect(storage.getItem(SESSION_LIBRARY_KEY)).toBe(originalIndex);
+    expect(loadStoredSessionContent(first.id, storage)).toBe(COPILOT_FIXTURE);
+  });
+
+  it.each([false, true])("reports index write failure and restores the prior content (existing: %s)", function (existing) {
+    var storage = createMemoryStorage();
+    var result = parseSessionText(COPILOT_FIXTURE).result;
+    var first = existing ? persistSessionSnapshot("live.jsonl", result, COPILOT_FIXTURE, storage) : null;
+    var originalIndex = storage.getItem(SESSION_LIBRARY_KEY);
+    var write = storage.setItem;
+    vi.spyOn(storage, "setItem").mockImplementation(function (key, text) {
+      if (key === SESSION_LIBRARY_KEY) throw new DOMException("Full index", "QuotaExceededError");
+      write(key, text);
+    });
+    var failed = persistSessionSnapshot("live.jsonl", result, COPILOT_FIXTURE + "\n", storage);
+    expect(failed).toMatchObject({ saved: false, previousSaved: existing, error: { operation: "write index" } });
+    expect(storage.getItem(SESSION_LIBRARY_KEY)).toBe(originalIndex);
+    expect(loadStoredSessionContent(failed.id, storage)).toBe(existing ? COPILOT_FIXTURE : "");
+    if (first) expect(failed.entries[0]).toEqual(first.entry);
+  });
+
+  it("reports a failed rollback without claiming the prior copy is saved", function () {
+    var storage = createMemoryStorage();
+    var result = parseSessionText(COPILOT_FIXTURE).result;
+    persistSessionSnapshot("live.jsonl", result, COPILOT_FIXTURE, storage);
+    var write = storage.setItem;
+    vi.spyOn(storage, "setItem").mockImplementation(function (key, text) {
+      if (key === SESSION_LIBRARY_KEY || text === COPILOT_FIXTURE) throw new DOMException("Blocked", "SecurityError");
+      write(key, text);
+    });
+    var failed = persistSessionSnapshot("live.jsonl", result, COPILOT_FIXTURE + "\n", storage);
+    expect(failed).toMatchObject({
+      saved: false, previousSaved: false,
+      entries: [{ hasContent: false }],
+      error: { operation: "write index", rollbackError: { operation: "restore content" }, indexError: { operation: "write index" } },
+    });
+  });
+
+  it("reports content reads and reconciliation writes, and never prunes on a failed read", function () {
+    var storage = createMemoryStorage();
+    storage.setItem(SESSION_LIBRARY_KEY, JSON.stringify([{ id: "a", hasContent: true }]));
+    var read = storage.getItem;
+    var getItem = vi.spyOn(storage, "getItem").mockImplementation(function (key) {
+      if (key !== SESSION_LIBRARY_KEY) throw new DOMException("Blocked", "SecurityError");
+      return read(key);
+    });
+    expect(readSessionLibraryState(storage, true)).toMatchObject({
+      entries: [{ id: "a", hasContent: false }], error: { operation: "read content" },
+    });
+    expect(JSON.parse(read(SESSION_LIBRARY_KEY))[0].hasContent).toBe(true);
+    expect(persistSessionSnapshot("a.jsonl", parseSessionText(COPILOT_FIXTURE).result, COPILOT_FIXTURE, storage).saved).toBe(false);
+    getItem.mockRestore();
+    vi.spyOn(storage, "setItem").mockImplementation(function () { throw new Error("Index blocked"); });
+    expect(readSessionLibraryState(storage, true)).toMatchObject({ entries: [], error: { operation: "write index" } });
+  });
+
+  it("records evictions even when the new transcript never fits", function () {
+    var storage = createMemoryStorage();
+    var result = parseSessionText(COPILOT_FIXTURE).result;
+    var first = persistSessionSnapshot("a.jsonl", result, COPILOT_FIXTURE, storage);
+    var write = storage.setItem;
+    vi.spyOn(storage, "setItem").mockImplementation(function (key, text) {
+      if (key !== SESSION_LIBRARY_KEY) throw new DOMException("Full", "QuotaExceededError");
+      write(key, text);
+    });
+    var secondResult = { ...result, metadata: { ...result.metadata, sessionId: "different" } };
+    var failed = persistSessionSnapshot("b.jsonl", secondResult, COPILOT_FIXTURE, storage);
+    expect(failed).toMatchObject({ saved: false, evictedIds: [first.id], error: { kind: "quota" } });
+    expect(readSessionLibrary(storage)[0].hasContent).toBe(false);
+    expect(loadStoredSessionContent(first.id, storage)).toBe("");
+  });
+
+  it("does not report an eviction when removing its content is blocked", function () {
+    var storage = createQuotaStorage(1);
+    var result = parseSessionText(COPILOT_FIXTURE).result;
+    var first = persistSessionSnapshot("a.jsonl", result, COPILOT_FIXTURE, storage);
+    vi.spyOn(storage, "removeItem").mockImplementation(function () { throw new DOMException("Blocked", "SecurityError"); });
+    var failed = persistSessionSnapshot("b.jsonl", { ...result, metadata: { ...result.metadata, sessionId: "different" } }, COPILOT_FIXTURE, storage);
+    expect(failed).toMatchObject({ saved: false, evictedIds: [], error: { kind: "access" } });
+    expect(loadStoredSessionContent(first.id, storage)).toBe(COPILOT_FIXTURE);
+  });
+
   it("stores metadata summaries and raw content for imported copilot sessions", function () {
     var parsed = parseSessionText(COPILOT_FIXTURE);
     var storage = createMemoryStorage();
@@ -104,6 +219,8 @@ describe("session library persistence", function () {
 
     // The new session stored successfully
     expect(second.entry.hasContent).toBe(true);
+    expect(second.saved).toBe(true);
+    expect(second.evictedIds).toEqual([first.id]);
     expect(loadStoredSessionContent(second.entry.id, storage)).toBe(alternateFixture);
 
     // The evicted session's content is gone

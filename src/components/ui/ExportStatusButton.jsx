@@ -6,6 +6,8 @@ export default function ExportStatusButton({
   error,
   onClick,
   padding,
+  label = "Export",
+  title = "Export as self-contained HTML",
 }) {
   return (
     <ToolbarButton
@@ -13,7 +15,7 @@ export default function ExportStatusButton({
       iconSize={12}
       onClick={onClick}
       disabled={state === "loading"}
-      title={state === "error" ? error : "Export as self-contained HTML"}
+      title={state === "error" ? error : title}
       style={{
         background: state === "done" ? alpha(theme.semantic.success, 0.1)
           : state === "error" ? alpha(theme.semantic.error, 0.1)
@@ -30,7 +32,7 @@ export default function ExportStatusButton({
       {state === "loading" ? "Exporting..."
         : state === "done" ? "Exported!"
         : state === "error" ? "Failed"
-        : "Export"}
+        : label}
     </ToolbarButton>
   );
 }

@@ -46,6 +46,7 @@ points.
 - The workflow is the only shell. Keep `#/v2/...` URLs, internal v2 filenames and preferences, and session-library/content v1 schema keys. Ignore obsolete UI preferences; never clear saved data to remove a shell.
 - V2 zones share one PlaybackProvider keyed by successful session replacement, not request start or live event updates. Consume explicit navigation targets once per request, not on every session-object render.
 - Session opens resolve to success only after parsing. Preserve the previous events and raw text on failure, and ignore superseded async requests.
+- Active session state is separate from local save status. Only confirm a save after content and metadata-index writes succeed. Surface storage access/quota/index failures and evictions, retain active raw text for retry/download, and never replace a corrupt index as if it were empty. A failed live save must not relabel an older cached snapshot as the latest.
 - Evidence navigation carries original event indices, not just timestamps. Palette event and turn results preserve index zero and equal-time identities.
 - Deep Replay targets remain scroll-anchored through measured layout changes; manual wheel, touch, pointer or scroll movement cancels automatic correction.
 - Timeline transport in Investigate and Analyze shares PlaybackProvider state. Speeds live in playbackUtils.js. One shortcut dispatcher preserves 1-6 zones and the 7 Improve alias, without stealing native control keys.

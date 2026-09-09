@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import zlib from "node:zlib";
+import { downloadText } from "../lib/downloadText";
 
 // exportHtml.js relies on browser APIs (document, fetch, URL, Blob).
 // We test in the default node environment since jsdom is not configured;
@@ -76,6 +77,15 @@ describe("exportHtml module", function () {
     var mod = await import("../lib/exportHtml.js");
     expect(typeof mod.exportSingleSession).toBe("function");
     expect(typeof mod.exportComparison).toBe("function");
+  });
+
+  it("downloads unmodified raw transcripts without reading storage or fetching a bundle", async function () {
+    var captured = stubBrowser({});
+    downloadText('{"message":"raw transcript"}\n', "session.jsonl");
+    expect(await captured.blob.text()).toBe('{"message":"raw transcript"}\n');
+    expect(document.createElement.mock.results[0].value.download).toBe("session.jsonl");
+    expect(document.body.removeChild).toHaveBeenCalledOnce();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("exportSingleSession rejects without DOM", async function () {

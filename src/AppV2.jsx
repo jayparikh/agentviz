@@ -18,6 +18,7 @@ import InvestigateView from "./components/v2/InvestigateView.jsx";
 import InlineCompare from "./components/v2/InlineCompare.jsx";
 import ImproveView from "./components/v2/ImproveView.jsx";
 import LiveSessionBanner from "./components/v2/LiveSessionBanner.jsx";
+import SessionStorageNotice from "./components/v2/SessionStorageNotice.jsx";
 import ToolbarButton from "./components/ui/ToolbarButton.jsx";
 
 var DEFAULT_ZONE = "find";
@@ -627,6 +628,7 @@ export function AppV2Shell({ currentThemeMode, onSetThemeMode, densityControl })
           onDismiss={function () { setLiveComplete(false); }}
         />
       )}
+      <SessionStorageNotice sessionState={sessionState} />
       <PlaybackProvider key={sessionState.sessionLoadKey} session={sessionState.session}>
       <WorkflowSession sessionState={sessionState} activeZone={activeZone} navigate={navigate}
         showPalette={showPalettePlaceholder} onTogglePalette={function () { setShowPalettePlaceholder(function (value) { return !value; }); }}

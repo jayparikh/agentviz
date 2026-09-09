@@ -958,6 +958,18 @@ New code should target the pattern above.
 
 Session loading errors stay visible in the workflow shell with `role="alert"`, `theme.semantic.errorBg`, and `theme.semantic.errorText`. Provide Retry and reimport actions; file-read errors belong next to the import controls and must allow retrying the same file. Do not navigate to Review until the requested session parses successfully or relabel retained evidence as the failed request.
 
+### Local save status
+
+Local persistence is not session loading. `SessionStorageNotice` keeps A/B save
+status visible across workflow zones, with polite status announcements and
+wrapping filenames/actions on compact screens. Use neutral surface tokens for
+this non-blocking status strip. Explain quota, access and index failures in text;
+offer **Retry saving** and **Download transcript** without disabling evidence.
+Pending live snapshots are not saved snapshots. If only an earlier copy remains,
+say so explicitly. Quota-eviction notices are dismissible, identify how many
+cached transcripts were removed, and explain reimport/source recovery.
+Do not show saved labels for demos or after Close.
+
 ### Inline Error Text
 
 ```jsx
@@ -1235,6 +1247,8 @@ When building new UI, check if an existing primitive fits before creating a new 
 The workflow header uses `ExportStatusButton` for single-session HTML export; the inline comparison
 header uses the same primitive for comparison export. Both embed the production workflow build
 and must rehydrate offline, including lazy visualization chunks.
+Raw-transcript recovery uses the same primitive with a specific label/title,
+and shows download failures inline rather than relying only on a tooltip.
 
 ### Workflow Zones and Shared Views
 
@@ -1290,6 +1304,7 @@ When reviewing a PR that touches UI, verify each of these:
 - [ ] **Reduced motion**: New CSS animations respect `prefers-reduced-motion`. New SVG animations check via JS.
 - [ ] **Semantic HTML**: Buttons are `<button>`, not clickable `<div>`.
 - [ ] **Error states**: Use `theme.semantic.error*` tokens. Always pair color with icon or text.
+- [ ] **Local saves**: Distinguish active/latest/earlier cached snapshots; test quota, blocked storage, index failure, eviction, retry and raw download for A/B and live/reset paths.
 - [ ] **Empty states**: Centered message with `theme.text.dim` and `theme.fontSize.md`.
 - [ ] **Brand**: Product name is "AGENTVIZ" (all caps). Uses `BrandWordmark` component.
 - [ ] **Data formatting**: Durations, numbers, and costs follow the formatting rules in Section 15.

@@ -127,11 +127,208 @@ beforeEach(function () {
 
 afterEach(function () {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   document.body.innerHTML = "";
   window.history.replaceState(null, "", "#/");
 });
 
 describe("SessionProvider", function () {
+  it("keeps a parsed import usable on storage failure, retries saving, and retains state on failed loads", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    var write = vi.spyOn(global.localStorage, "setItem").mockImplementation(function () {
+      throw new DOMException("Full", "QuotaExceededError");
+    });
+    var success;
+    await act(async function () { success = await ctx.handleFile(FIXTURE_TEXT, "unsaved.jsonl"); });
+    expect(success).toBe(true);
+    expect(ctx.session.error).toBe(null);
+    expect(ctx.session.events.length).toBeGreaterThan(0);
+    expect(ctx.session.getRawText()).toBe(FIXTURE_TEXT);
+    expect(ctx.session.storageStatus).toMatchObject({ saved: false, error: { kind: "quota" } });
+    var status = ctx.session.storageStatus;
+    var key = ctx.sessionLoadKey;
+    await act(async function () { success = await ctx.handleFile("not a session", "invalid.jsonl"); });
+    expect(success).toBe(false);
+    expect(ctx.session.storageStatus).toBe(status);
+    expect(ctx.session.getRawText()).toBe(FIXTURE_TEXT);
+    write.mockRestore();
+    await act(async function () { ctx.session.retrySave(); });
+    expect(ctx.session.storageStatus.saved).toBe(true);
+    expect(ctx.sessionLoadKey).toBe(key);
+    expect(ctx.allSessions[0].hasContent).toBe(true);
+    await act(async function () { ctx.loadSample(); });
+    expect(ctx.session.storageStatus).toBe(null);
+    expect(ctx.storageError).toBe(null);
+    await act(async function () { ctx.reset(); });
+    expect(ctx.session.storageStatus).toBe(null);
+    expect(ctx.sessionB.storageStatus).toBe(null);
+    await app.unmount();
+  });
+
+  it("survives a throwing storage getter at startup and during import", async function () {
+    var descriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", { configurable: true, get: function () {
+      throw new DOMException("Blocked", "SecurityError");
+    } });
+    var app;
+    try {
+      var ctx;
+      app = await renderProvider({ onContext: function (value) { ctx = value; } });
+      expect(ctx.storageError.kind).toBe("access");
+      await act(async function () { expect(await ctx.handleFile(FIXTURE_TEXT, "blocked.jsonl")).toBe(true); });
+      expect(ctx.session.storageStatus.saved).toBe(false);
+      expect(ctx.session.getRawText()).toBe(FIXTURE_TEXT);
+      await act(async function () { await ctx.refreshSessions(); });
+      expect(ctx.storageError.kind).toBe("access");
+    } finally {
+      Object.defineProperty(window, "localStorage", descriptor);
+      if (app) await app.unmount();
+    }
+  });
+
+  it("keeps comparison A saved when B's metadata fails, and exposes retry for B", async function () {
+    var ctx;
+    var textB = FIXTURE_TEXT.replaceAll("aaaabbbb-1234-5678-abcd-000000000001", "session-b");
+    global.localStorage.setItem("agentviz:session-content:v1:a", FIXTURE_TEXT);
+    global.localStorage.setItem("agentviz:session-content:v1:b", textB);
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    var originalWrite = global.localStorage.setItem;
+    var write = vi.spyOn(global.localStorage, "setItem").mockImplementation(function (key, text) {
+      if (key === "agentviz:session-library:v1" && text.includes("session-b")) {
+        throw new DOMException("Index denied", "SecurityError");
+      }
+      originalWrite(key, text);
+    });
+    await act(async function () {
+      expect(await ctx.openCompareEntries([{ id: "a", file: "a.jsonl" }, { id: "b", file: "b.jsonl" }])).toBe(true);
+    });
+    expect(ctx.compareReady).toBe(true);
+    expect(ctx.session.storageStatus.saved).toBe(true);
+    expect(ctx.sessionB.storageStatus).toMatchObject({ saved: false, error: { operation: "write index" } });
+    expect(ctx.sessionB.getRawText()).toBe(textB);
+    write.mockRestore();
+    await act(async function () { ctx.sessionB.retrySave(); });
+    expect(ctx.sessionB.storageStatus.saved).toBe(true);
+    await act(async function () { ctx.reset(); });
+    expect(ctx.session.storageStatus).toBe(null);
+    expect(ctx.sessionB.storageStatus).toBe(null);
+    expect(ctx.storageError).toBe(null);
+    await app.unmount();
+  });
+
+  it("invalidates an active copy evicted by B and also detects external removal on refresh", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "a.jsonl"); });
+    var idA = ctx.session.storageStatus.id;
+    var originalWrite = global.localStorage.setItem;
+    var write = vi.spyOn(global.localStorage, "setItem").mockImplementation(function (key, text) {
+      if (key.includes("session-content") && !key.endsWith(idA)
+        && global.localStorage.getItem("agentviz:session-content:v1:" + idA)) {
+        throw new DOMException("Full", "QuotaExceededError");
+      }
+      originalWrite(key, text);
+    });
+    await act(async function () {
+      await ctx.sessionB.handleFile(FIXTURE_TEXT.replaceAll("aaaabbbb-1234-5678-abcd-000000000001", "session-b"), "b.jsonl");
+    });
+    expect(ctx.evictedIds).toEqual([idA]);
+    expect(ctx.session.storageStatus.saved).toBe(false);
+    expect(ctx.session.getRawText()).toBe(FIXTURE_TEXT);
+    expect(ctx.sessionB.storageStatus.saved).toBe(true);
+    write.mockRestore();
+    global.localStorage.removeItem("agentviz:session-content:v1:" + ctx.sessionB.storageStatus.id);
+    await act(async function () { await ctx.refreshSessions(); });
+    expect(ctx.sessionB.storageStatus.saved).toBe(false);
+    expect(ctx.allSessions).toEqual([]);
+    await app.unmount();
+  });
+
+  it("invalidates a saved active copy on a cross-tab storage event and preserves it when comparison loading fails", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "a.jsonl"); });
+    var id = ctx.session.storageStatus.id;
+    global.localStorage.removeItem("agentviz:session-content:v1:" + id);
+    await act(async function () { window.dispatchEvent(new StorageEvent("storage", { key: "agentviz:session-content:v1:" + id })); });
+    expect(ctx.session.storageStatus.saved).toBe(false);
+    expect(ctx.allSessions[0].hasContent).toBe(false);
+    var status = ctx.session.storageStatus;
+    await act(async function () {
+      expect(await ctx.openCompareCurrentWithEntry({ id: "missing", file: "missing.jsonl" })).toBe(false);
+    });
+    expect(ctx.session.getRawText()).toBe(FIXTURE_TEXT);
+    expect(ctx.session.storageStatus).toBe(status);
+    await app.unmount();
+  });
+
+  it("tracks unsaved live snapshots, preserves older metadata, and clears pending saves on live reset and close", async function () {
+    var ctx;
+    vi.stubGlobal("EventSource", class { close() {} });
+    global.fetch = vi.fn(async function (url) {
+      if (String(url).includes("/api/meta")) return { ok: true, json: async function () { return { filename: "live.jsonl", live: true }; } };
+      if (String(url).includes("/api/file")) return { ok: true, text: async function () { return FIXTURE_TEXT; } };
+      return { ok: false };
+    });
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await waitFor(function () { return ctx.session.isLive && ctx.session.storageStatus; });
+    var oldEntry = ctx.allSessions[0];
+    var write = vi.spyOn(global.localStorage, "setItem").mockImplementation(function () { throw new DOMException("Full", "QuotaExceededError"); });
+    var line = '{"type":"user.message","data":{"content":"new live prompt"},"timestamp":"2026-01-15T10:05:00.000Z","id":"live-new"}';
+    await act(async function () { ctx.session.appendLines(line, false); });
+    expect(ctx.session.storageStatus).toMatchObject({ saved: false, pending: true });
+    await sleep(300);
+    expect(ctx.session.storageStatus).toMatchObject({ saved: false, previousSaved: true, error: { kind: "quota" } });
+    expect(ctx.storageError).toBe(null);
+    expect(ctx.session.getRawText()).toContain("new live prompt");
+    expect(ctx.allSessions[0]).toEqual(oldEntry);
+    write.mockRestore();
+    global.localStorage.removeItem("agentviz:session-content:v1:" + oldEntry.id);
+    await act(async function () {
+      window.dispatchEvent(new StorageEvent("storage", { key: "agentviz:session-content:v1:" + oldEntry.id }));
+    });
+    expect(ctx.session.storageStatus).toMatchObject({ saved: false, previousSaved: false });
+    expect(ctx.session.getRawText()).toContain("new live prompt");
+    await act(async function () { ctx.session.retrySave(); });
+    expect(ctx.session.storageStatus.saved).toBe(true);
+    await act(async function () { ctx.session.appendLines("", true); });
+    expect(ctx.session.storageStatus).toBe(null);
+    expect(ctx.session.getRawText()).toBe("");
+    await sleep(300);
+    expect(ctx.session.storageStatus).toBe(null);
+    await act(async function () { ctx.session.appendLines(FIXTURE_TEXT, true); });
+    await act(async function () { ctx.reset(); });
+    await sleep(300);
+    expect(ctx.session.storageStatus).toBe(null);
+    expect(ctx.session.getRawText()).toBe("");
+    await app.unmount();
+  });
+
+  it("makes a canceled live save retryable when a replacement fails to parse", async function () {
+    var ctx;
+    vi.stubGlobal("EventSource", class { close() {} });
+    global.fetch = vi.fn(async function (url) {
+      if (String(url).includes("/api/meta")) return { ok: true, json: async function () { return { filename: "live.jsonl", live: true }; } };
+      if (String(url).includes("/api/file")) return { ok: true, text: async function () { return FIXTURE_TEXT; } };
+      return { ok: false };
+    });
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await waitFor(function () { return ctx.session.isLive && ctx.session.storageStatus; });
+    await act(async function () {
+      ctx.session.appendLines('{"type":"user.message","data":{"content":"pending prompt"},"timestamp":"2026-01-15T10:05:00.000Z","id":"pending"}', false);
+    });
+    expect(ctx.session.storageStatus.pending).toBe(true);
+    await act(async function () { expect(await ctx.handleFile("invalid", "bad.jsonl")).toBe(false); });
+    expect(ctx.session.storageStatus).toMatchObject({ saved: false, pending: false });
+    expect(ctx.session.getRawText()).toContain("pending prompt");
+    await sleep(300);
+    expect(ctx.session.storageStatus.saved).toBe(false);
+    await act(async function () { ctx.session.retrySave(); });
+    expect(ctx.session.storageStatus.saved).toBe(true);
+    await app.unmount();
+  });
+
   it("exports shared session APIs", function () {
     expect(typeof SessionProvider).toBe("function");
     expect(typeof useSessionContext).toBe("function");

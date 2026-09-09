@@ -30,7 +30,7 @@ src/
     useSearch.js       # Debounced search with matchSet/matchedEntries
     useKeyboardShortcuts.js # Centralized keyboard handler with stable listener
     useQA.js           # Q&A messages, classifier, SSE streaming, abort
-    useSessionLoader.js # Transactional parsing, live bootstrap, session reset
+    useSessionLoader.js # Transactional parsing, active raw snapshot/save status, live bootstrap and reset
     useLiveStream.js   # Cursor-resumable SSE, debounce and reset handling
     usePersistentState.js # localStorage-backed state with debounced writes
     useDiscoveredSessions.js # Discovery via /api/sessions or manifest URL
@@ -59,7 +59,8 @@ src/
     tracksLayout.js    # Bounded overview groups retaining evidence indices
     parseSession.ts    # Format detection and parsing router
     session.ts         # Totals, filtered entries, turn start maps
-    sessionLibrary.js  # localStorage session library and content persistence
+    sessionLibrary.js  # localStorage snapshots, structured failures and quota eviction reporting
+    downloadText.ts    # Shared raw transcript and HTML download primitive
     sessionParsing.ts  # Parsing utilities and types
     sessionTypes.ts    # Session data types
     cacheMetrics.ts    # Shared cache hit rate helpers
@@ -103,7 +104,7 @@ src/
     Icon.jsx           # Lucide wrapper; import icons and add them to ICON_MAP
     ui/                # Shared brand, toolbar, export-status and keyboard primitives
     v2/                # FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView,
-                       # AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner
+                       # AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner, SessionStorageNotice
     waterfall/         # Chart, row, inspector and time-axis components
 routes/
   discovery.js        # Async traversal, enrichment, bounded preview cache
@@ -116,6 +117,27 @@ mcp/
   server.js           # launch_agentviz and close_agentviz tools
 server.js             # HTTP server: production SPA and live file-tail SSE
 ```
+
+## Local session persistence
+
+`persistSessionSnapshot` returns explicit `saved`, `error`, `evictedIds`, and
+`previousSaved` outcomes alongside library entries. Content and index writes
+must both succeed before the active snapshot is saved. An index-write failure
+attempts to restore the previous raw content; failed content writes retain the
+older metadata. Quota eviction still removes oldest cached content first.
+`readSessionLibraryState` and `readStoredSessionContent` expose read/access
+failures without treating an unreadable or corrupt index as an empty writable
+library. Reconciliation and pruning only remove entries after successful reads.
+The v1 localStorage keys and entry schema are unchanged.
+
+Each loader owns its latest parsed snapshot and retry action. Live updates mark
+the active copy pending before the debounced save, and reset cancels pending
+saves. Failed loads retain the previous active copy and save status. The provider
+rechecks active A/B copies when library state changes, including refresh and
+cross-tab storage events, so eviction or replacement cannot leave a saved label.
+`SessionStorageNotice` exposes non-blocking recovery across zones; raw downloads
+reuse `ExportStatusButton` and `useAsyncStatus`, without needing a production
+bundle or browser storage. Demo and Close clear active save status.
 
 ## Core data shapes
 

@@ -7,10 +7,9 @@ import useDiscoveredSessions from "../hooks/useDiscoveredSessions.js";
 import { parseSessionText } from "../lib/sessionParsing";
 import { buildAutonomyMetrics, buildAutonomySummary } from "../lib/autonomyMetrics.js";
 import {
-  loadStoredSessionContent,
+  readStoredSessionContent,
   persistSessionSnapshot,
-  pruneDeadEntries,
-  reconcileSessionLibrary,
+  readSessionLibraryState,
 } from "../lib/sessionLibrary.js";
 
 var SessionContext = createContext(null);
@@ -76,9 +75,10 @@ function mergeSessionSources(libraryEntries, discoveredSessions) {
 }
 
 export function SessionProvider({ children }) {
-  var [libraryEntries, setLibraryEntries] = useState(function () {
-    return reconcileSessionLibrary();
-  });
+  var [initialLibrary] = useState(function () { return readSessionLibraryState(); });
+  var [libraryEntries, setLibraryEntries] = useState(initialLibrary.entries || []);
+  var [storageError, setStorageError] = useState(initialLibrary.error);
+  var [evictedIds, setEvictedIds] = useState([]);
   var [comparisonActive, setComparisonActive] = useState(false);
   var [loadError, setLoadError] = useState(null);
   var [retryLoad, setRetryLoad] = useState(null);
@@ -92,11 +92,33 @@ export function SessionProvider({ children }) {
 
   var handleSessionParsed = useCallback(function (result, name, rawText) {
     var persisted = persistSessionSnapshot(name, result, rawText);
-    setLibraryEntries(persisted.entries);
+    setLibraryEntries(persisted.entries || []);
+    // Snapshot write failures belong to that loader, not the next demo or
+    // empty live reset. Library read failures remain independently actionable.
+    setStorageError(persisted.error && persisted.error.operation.startsWith("read") ? persisted.error : null);
+    if (persisted.evictedIds.length) setEvictedIds(function (previous) {
+      return Array.from(new Set(previous.concat(persisted.evictedIds)));
+    });
+    return persisted;
   }, []);
 
   var session = useSessionLoader({ onSessionParsed: handleSessionParsed });
   var sessionB = useSessionLoader({ autoBootstrap: false, onSessionParsed: handleSessionParsed });
+
+  useEffect(function () {
+    [session, sessionB].forEach(function (loader) {
+      var status = loader.storageStatus;
+      if (!status || (!status.saved && !status.previousSaved)) return;
+      var entry = libraryEntries.find(function (item) { return item.id === status.id; });
+      var content = readStoredSessionContent(status.id);
+      if (!entry || !entry.hasContent || !content.text || content.error
+        || (status.saved && content.text !== loader.getRawText())) {
+        loader.invalidateSavedCopy(content.error || (storageError && storageError.operation === "read index" ? storageError : null) || {
+          message: "The local copy was removed or replaced. The active transcript is still available.",
+        });
+      }
+    });
+  }, [libraryEntries, storageError]); // eslint-disable-line react-hooks/exhaustive-deps
 
   var allSessions = useMemo(function () {
     try {
@@ -157,10 +179,23 @@ export function SessionProvider({ children }) {
     sessionB.cancelPendingLoad();
     setLoadError(null);
     setRetryLoad(null);
+    setStorageError(null);
+    setEvictedIds([]);
     setComparisonActive(false);
     sessionB.resetSession();
     session.loadSample(mode);
   }, [session.loadSample, sessionB.cancelPendingLoad, sessionB.resetSession]);
+
+  var readCachedEntry = useCallback(function (entry) {
+    var stored = readStoredSessionContent(entry.id);
+    if (stored.error) setStorageError(stored.error);
+    if (!stored.text) setLibraryEntries(function (previous) {
+      return previous.map(function (item) {
+        return item.id === entry.id ? Object.assign({}, item, { hasContent: false }) : item;
+      });
+    });
+    return stored.text;
+  }, []);
 
   var openStoredSession = useCallback(async function (entry) {
     if (!entry) return false;
@@ -212,19 +247,14 @@ export function SessionProvider({ children }) {
       return discovered.fetchSessionContent(fetchArg).then(afterLoad).catch(onFetchError);
     }
 
-    var rawText = loadStoredSessionContent(entry.id);
+    var rawText = readCachedEntry(entry);
     if (rawText) return afterLoad(rawText);
     if (sessionPath) {
       return discovered.fetchSessionContent(sessionPath).then(afterLoad).catch(onFetchError);
     }
 
-    setLibraryEntries(function (prev) {
-      return prev.map(function (e) {
-        return e.id === entry.id ? Object.assign({}, e, { hasContent: false }) : e;
-      });
-    });
     return onFetchError(new Error("Stored content is unavailable"));
-  }, [discovered.fetchSessionContent, session.beginLoad, session.failLoad, session.handleFile, sessionB.cancelPendingLoad, sessionB.resetSession]);
+  }, [readCachedEntry, discovered.fetchSessionContent, session.beginLoad, session.failLoad, session.handleFile, sessionB.cancelPendingLoad, sessionB.resetSession]);
 
   var loadEntryText = useCallback(function (entry) {
     if (!entry) return Promise.resolve(null);
@@ -237,11 +267,11 @@ export function SessionProvider({ children }) {
       return discovered.fetchSessionContent(fetchArg);
     }
 
-    var rawText = loadStoredSessionContent(entry.id);
+    var rawText = readCachedEntry(entry);
     if (rawText) return Promise.resolve(rawText);
     if (sessionPath) return discovered.fetchSessionContent(sessionPath);
     return Promise.resolve(null);
-  }, [discovered.fetchSessionContent]);
+  }, [readCachedEntry, discovered.fetchSessionContent]);
 
   var openCompareEntries = useCallback(function (entries) {
     var pair = entries || [];
@@ -314,6 +344,8 @@ export function SessionProvider({ children }) {
     sessionLoadCount.current += 1;
     setLoadError(null);
     setRetryLoad(null);
+    setEvictedIds([]);
+    setStorageError(null);
     session.resetSession();
     sessionB.resetSession();
     setComparisonActive(false);
@@ -350,10 +382,23 @@ export function SessionProvider({ children }) {
   }, [compareExport, session.getRawText, session.file, sessionB.getRawText, sessionB.file]);
 
   var refreshSessions = useCallback(function () {
-    var pruned = pruneDeadEntries();
-    setLibraryEntries(pruned);
+    var pruned = readSessionLibraryState(undefined, true);
+    setLibraryEntries(pruned.entries || []);
+    setStorageError(pruned.error);
     return discovered.refresh();
   }, [discovered.refresh]);
+
+  useEffect(function () {
+    function onStorage(event) {
+      if (!event.key || event.key === "agentviz:session-library:v1" || event.key.startsWith("agentviz:session-content:v1:")) {
+        var state = readSessionLibraryState();
+        setLibraryEntries(state.entries || []);
+        setStorageError(state.error);
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return function () { window.removeEventListener("storage", onStorage); };
+  }, []);
 
   var compareReady = comparisonActive && !session.loading && !sessionB.loading
     && !session.error && !sessionB.error && Boolean(session.events) && Boolean(sessionB.events);
@@ -366,6 +411,9 @@ export function SessionProvider({ children }) {
       allSessions: allSessions,
       discovered: discovered,
       loadError: loadError,
+      storageError: storageError,
+      evictedIds: evictedIds,
+      dismissEvictions: function () { setEvictedIds([]); },
       retryLoad: retryLoad,
       compareReady: compareReady,
       sessionExport: sessionExport,
@@ -385,7 +433,7 @@ export function SessionProvider({ children }) {
       refreshSessions: refreshSessions,
     };
   }, [
-    session, sessionB, allSessions, discovered, loadError, retryLoad,
+    session, sessionB, allSessions, discovered, loadError, retryLoad, storageError, evictedIds,
     compareReady, sessionExport, compareExport, autonomyMetrics, debrief,
     handleFile, beginFileRead, loadSample, openStoredSession, openCompareEntries, openCompareCurrentWithEntry, reset,
     openCompareSessionInCoach, handleExportSession, handleExportComparison,

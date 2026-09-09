@@ -26,6 +26,8 @@ export default function useSessionLoader(options) {
   var [isLive, setIsLive] = useState(false);
   var [sessionKey, setSessionKey] = useState(0);
   var [streamOffset, setStreamOffset] = useState(null);
+  var [storageStatus, setStorageStatus] = useState(null);
+  var snapshotRef = useRef(null);
   var pendingCompletionRef = useRef(null);
   var parseTimeoutRef = useRef(null);
   var liveNotifyTimeoutRef = useRef(null);
@@ -51,8 +53,10 @@ export default function useSessionLoader(options) {
   }, []);
 
   var notifySessionParsed = useCallback(function (result, name, text) {
+    snapshotRef.current = { result: result, name: name, text: text };
     if (typeof onSessionParsed === "function") {
-      onSessionParsed(result, name, text);
+      var saved = onSessionParsed(result, name, text);
+      setStorageStatus(saved ? { id: saved.id, saved: saved.saved, previousSaved: saved.previousSaved, error: saved.error } : null);
     }
   }, [onSessionParsed]);
 
@@ -64,13 +68,31 @@ export default function useSessionLoader(options) {
   }, []);
 
   var notifyLiveSessionParsed = useCallback(function (result, name, text) {
+    snapshotRef.current = result ? { result: result, name: name, text: text } : null;
+    setStorageStatus(function (status) {
+      return result ? Object.assign({}, status, { saved: false, pending: true }) : null;
+    });
     if (typeof onSessionParsed !== "function") return;
     clearLiveNotify();
+    if (!result) return;
     liveNotifyTimeoutRef.current = setTimeout(function () {
       liveNotifyTimeoutRef.current = null;
-      onSessionParsed(result, name, text);
+      notifySessionParsed(result, name, text);
     }, LIVE_NOTIFY_DEBOUNCE_MS);
-  }, [clearLiveNotify, onSessionParsed]);
+  }, [clearLiveNotify, notifySessionParsed, onSessionParsed]);
+
+  var retrySave = useCallback(function () {
+    clearLiveNotify();
+    var snapshot = snapshotRef.current;
+    if (snapshot) notifySessionParsed(snapshot.result, snapshot.name, snapshot.text);
+  }, [clearLiveNotify, notifySessionParsed]);
+
+  var invalidateSavedCopy = useCallback(function (error) {
+    setStorageStatus(function (status) {
+      return status && (status.saved || status.previousSaved)
+        ? Object.assign({}, status, { saved: false, previousSaved: false, error: error }) : status;
+    });
+  }, []);
 
   var resetLiveParser = useCallback(function (text) {
     clearLiveNotify();
@@ -95,6 +117,12 @@ export default function useSessionLoader(options) {
     }
     setLoading(false);
     clearLiveNotify();
+    setStorageStatus(function (status) {
+      return status && status.pending ? Object.assign({}, status, {
+        pending: false,
+        error: status.error || { message: "The latest live snapshot has not been saved." },
+      }) : status;
+    });
   }, [clearLiveNotify]);
 
   var beginLoad = useCallback(function () {
@@ -146,6 +174,11 @@ export default function useSessionLoader(options) {
   // newly-loaded file.
   var appendLines = useCallback(function (newLines, reset) {
     if (!shouldApplyLiveLines(liveRequestIdRef.current, requestIdRef.current)) return;
+    clearLiveNotify();
+    if (reset) snapshotRef.current = null;
+    setStorageStatus(function (status) {
+      return reset ? null : Object.assign({}, status, { saved: false, pending: true });
+    });
 
     if (typeof Worker !== "undefined") {
       if (!liveClientRef.current) {
@@ -161,7 +194,7 @@ export default function useSessionLoader(options) {
             setTurns(updated.result ? updated.result.turns : []);
             setMetadata(updated.result ? updated.result.metadata : null);
             setTotal(updated.result ? getSessionTotal(updated.result.events) : 0);
-            if (updated.result) notifyLiveSessionParsed(updated.result, file || "live-session.jsonl", updated.rawText);
+            notifyLiveSessionParsed(updated.result, file || "live-session.jsonl", updated.rawText);
           },
           function (message) { if (requestId === requestIdRef.current) setError(message); },
         );
@@ -180,6 +213,7 @@ export default function useSessionLoader(options) {
       setTurns([]);
       setMetadata(null);
       setTotal(0);
+      notifyLiveSessionParsed(null, file, rawTextRef.current);
       return;
     }
 
@@ -188,13 +222,15 @@ export default function useSessionLoader(options) {
     setMetadata(updated.result.metadata);
     setTotal(getSessionTotal(updated.result.events));
     notifyLiveSessionParsed(updated.result, file || "live-session.jsonl", updated.state.rawText);
-  }, [file, sourcePath, notifyLiveSessionParsed, resetLiveParser]);
+  }, [file, sourcePath, notifyLiveSessionParsed, resetLiveParser, clearLiveNotify]);
 
   var loadSample = useCallback(function (mode) {
     cancelPendingLoad();
 
     var isMultiAgent = mode === "multiagent";
     rawTextRef.current = "";
+    snapshotRef.current = null;
+    setStorageStatus(null);
     resetLiveParser("");
     setEvents(isMultiAgent ? MULTIAGENT_SAMPLE_EVENTS : SAMPLE_EVENTS);
     setTurns(isMultiAgent ? MULTIAGENT_SAMPLE_TURNS : SAMPLE_TURNS);
@@ -212,6 +248,8 @@ export default function useSessionLoader(options) {
     cancelPendingLoad();
 
     rawTextRef.current = "";
+    snapshotRef.current = null;
+    setStorageStatus(null);
     resetLiveParser("");
     setEvents(null);
     setTurns([]);
@@ -290,6 +328,9 @@ export default function useSessionLoader(options) {
     isLive: isLive,
     sessionKey: sessionKey,
     streamOffset: streamOffset,
+    storageStatus: storageStatus,
+    retrySave: retrySave,
+    invalidateSavedCopy: invalidateSavedCopy,
     beginLoad: beginLoad,
     cancelPendingLoad: cancelPendingLoad,
     failLoad: failLoad,
