@@ -44,6 +44,7 @@ import {
   RefreshCw,
   Tag,
   Copy,
+  Bookmark,
 } from "lucide-react";
 
 var ICON_MAP = {
@@ -92,6 +93,7 @@ var ICON_MAP = {
   "refresh-cw": RefreshCw,
   tag: Tag,
   copy: Copy,
+  bookmark: Bookmark,
 };
 
 export default function Icon({ name, size, strokeWidth, style, className }) {

@@ -68,6 +68,26 @@ function readPayload(html) {
 }
 
 describe("exportHtml module", function () {
+  it("embeds isolated single and A/B findings and drafts without changing raw text", async function () {
+    var captured = stubBrowser(buildResponses());
+    var mod = await import("../lib/exportHtml.js");
+    var a = { version: 1, sessionId: "a", items: [{ note: "</script><script>alert('note')</script> & \u2028" }], drafts: [{ note: "draft" }] };
+    var b = { version: 1, sessionId: "b", items: [{ note: "B only" }] };
+    await mod.exportSingleSession("raw-a", "a.jsonl", a);
+    var html = await captured.blob.text();
+    expect(readPayload(html).session).toEqual({ filename: "a.jsonl", text: "raw-a", findings: a });
+    expect(html).not.toContain("</script><script>alert");
+    await mod.exportComparison("raw-a", "a.jsonl", "raw-b", "b.jsonl", a, b);
+    expect(readPayload(await captured.blob.text()).compare).toEqual({
+      a: { name: "a.jsonl", text: "raw-a", findings: a }, b: { name: "b.jsonl", text: "raw-b", findings: b },
+    });
+    vi.stubGlobal("CompressionStream", undefined);
+    await mod.exportSingleSession("raw-a", "a.jsonl", a);
+    html = await captured.blob.text();
+    expect(html).not.toContain("</script><script>alert");
+    expect(html).toContain("\\u003c");
+  });
+
   afterEach(function () {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

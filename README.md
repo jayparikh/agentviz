@@ -38,6 +38,7 @@ AI coding agents (Claude Code, Codex, VS Code Copilot Chat, Copilot CLI, ATIF / 
 - **Switch themes** between dark, light, and system-matched modes with one click
 - **Use one workflow**: Find, Review, Investigate, Analyze, Compare, Improve
 - **Follow exact evidence** from command-palette events/turns and Review insights into Investigate or Waterfall, including equal-time events and offscreen rows. Playback and search survive workflow switches.
+- **Keep findings** with event bookmarks and plain-text notes in Investigate, exact-event navigation, local persistence, and portable HTML/JSON backups.
 - **Recover failed imports** with visible loading, read/parse errors, retry, and reimport actions. Find opens Review only after parsing succeeds; failed or superseded loads do not replace the last successful session.
 
 ## Quick Start
@@ -173,7 +174,7 @@ AGENTVIZ has one task-oriented workflow shell, backed by shared parsers and sess
 |------|---------|
 | Find | Unified session portfolio with search, filters, layout toggle, tags, import, demo, refresh, and multi-select compare |
 | Review | Health score, summary cards, top tools, and evidence-linked insights |
-| Investigate | Replay evidence stream with contextual Analyze, Compare, Ask, and Coach actions |
+| Investigate | Replay evidence stream with bookmarks, event notes, and contextual Analyze, Compare, Ask, and Coach actions |
 | Analyze | Existing Stats, Tracks, Waterfall, Graph, and Cost views as sub-panels |
 | Compare | Inline comparison using the existing scorecard and tools chart |
 | Improve | Coach recommendations, next-run checklist, and Session Q&A |
@@ -199,6 +200,35 @@ Classic UI and its toggle, recent-session dropdown, direct A/B upload screen, an
 Close also works before a live stream produces its first event. The bottom transport's speed menu opens upward so every speed remains reachable on desktop and compact screens.
 
 **Local save status** is separate from loading a session. Each active A/B transcript shows whether its latest snapshot is saved locally. Storage access, quota, and session-index failures do not prevent replay or comparison: use **Retry saving** or **Download transcript** to recover the active raw file before closing. A failed live content write keeps any earlier cached snapshot and its metadata, but does not label the latest events as saved. Index-write failures attempt to restore the earlier content and report restoration failures too. When quota eviction removes older cached transcripts, a notice identifies the number removed; reopen discovered sources or reimport those files. Refresh rechecks cached availability. A damaged index is reported, never silently replaced.
+
+### Bookmarks and event notes
+
+In **Investigate**, select an event and choose **Bookmark event** or **Add note**.
+Each event has one bookmark with an optional plain-text note (up to 20,000 characters).
+Use **Save note** to persist, or **Cancel note** to discard the draft. **Remove bookmark
+and note** deletes both; saving an empty note keeps the bookmark.
+
+The **Bookmarks** toggle opens a compact list. Jump targets use original event indices,
+including index zero and events with identical timestamps. Saved findings survive Close,
+browser reload, and reopening the same session. Drafts survive zone changes and failed
+loads, but are not automatically saved: save or download them before replacement, Close,
+or reload. Findings are separate from the raw transcript and cannot prevent transcript saving.
+
+Live appends preserve matching anchors. Truncated, reordered, or changed evidence is
+retained in the list as **Unavailable in this snapshot**, never reassigned by timestamp.
+Sessions with explicit IDs share findings across snapshots; renamed imports and foreign
+discovery paths do not change that identity. Without an explicit ID, JSONL identity uses
+its first complete source record; standalone JSON documents use their content. Identical
+copied source identities cannot be distinguished, and changed inferred identities may
+require the original snapshot to recover findings.
+
+Storage failures keep edits in memory and show recovery controls above the workspace.
+**Retry findings save** retries without touching the transcript. **Download findings**
+backs up bookmarks, unavailable findings, and note drafts as JSON without needing the
+production bundle or working storage. **Restore findings** validates the session and exact
+transcript snapshot, then asks before replacing its findings. Corrupt stores are never
+silently overwritten. Conflicting edits to the same finding require downloading edits and
+explicitly reloading the saved copy; independent findings from A/B views can merge.
 
 ## Session Comparison
 
@@ -232,6 +262,13 @@ Horizontal bar chart showing tool call counts for both sessions on the same axis
 ### Export
 
 Click **Export** in the workflow header or comparison header to download a single self-contained `.html` file. Share it with anyone, no server required. Opening it restores the session or comparison for offline investigation.
+
+Exports include the active session's bookmarks, notes, and unsaved note drafts, separately
+for A and B. Review notes before sharing. Embedded findings take precedence over unrelated
+local notes; edits to that exact export use an isolated local namespace, including saved
+deletions. Legacy exports without findings still open. Invalid or foreign findings are
+reported without replacing transcript data. In offline viewers, use **Download findings**
+to back up new edits; generating another HTML export requires the production server.
 
 Export is available in two places:
 
@@ -477,6 +514,7 @@ src/
     useSearch.js         # Debounced full-text search with match highlighting
     useKeyboardShortcuts.js  # Centralized keyboard handler
     useSessionLoader.js  # Transactional parsing, completion signaling, live snapshot bootstrap, session reset
+    useFindings.js       # Session findings and drafts, persistence, conflict recovery and export payloads
     useQA.js             # Session Q&A state: messages, classifier, SSE streaming, abort
     useLiveStream.js     # Cursor-resumable SSE hook with 500ms debounce and reset handling
     usePersistentState.js    # localStorage-backed useState with debounced writes
@@ -505,6 +543,7 @@ src/
     dataInspector.js     # Payload summary and preview helpers for inspector panels
     session.ts           # Pure helpers: getSessionTotal, buildFilteredEventEntries
     sessionLibrary.js    # localStorage snapshots, save failures and quota eviction reporting
+    findings.ts          # Session identities, guarded event anchors, validation and independent storage
     downloadText.ts      # Shared raw transcript and HTML download primitive
     sessionParsing.ts    # Session parsing utilities and types
     sessionTypes.ts      # TypeScript type definitions for session data
@@ -554,7 +593,7 @@ src/
     ErrorBoundary.jsx    # React error boundary with resetKey for recovery
     Icon.jsx             # Lucide icon wrapper; all icons must be imported AND added to ICON_MAP
     ui/                  # Shared primitives: BrandWordmark, ToolbarButton, ToolbarSelect, ExportStatusButton, KeyboardHint
-    v2/                  # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner, SessionStorageNotice
+    v2/                  # Default workflow UI: FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView, FindingsPanel, AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner, SessionStorageNotice
     waterfall/           # Waterfall sub-components: WaterfallChart, WaterfallRow, WaterfallInspector, TimeAxis
 routes/
   discovery.js         # Async traversal and bounded cached preview enrichment

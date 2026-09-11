@@ -5,6 +5,7 @@ import { SAMPLE_EVENTS, SAMPLE_TOTAL, SAMPLE_TURNS, SAMPLE_METADATA, MULTIAGENT_
 import { getSessionTotal } from "../lib/session";
 import { buildAppliedSession, parseSessionText } from "../lib/sessionParsing";
 import { createLiveParserClient } from "../lib/liveParserClient";
+import useFindings from "./useFindings.js";
 
 export var LIVE_NOTIFY_DEBOUNCE_MS = 250;
 
@@ -16,6 +17,7 @@ export default function useSessionLoader(options) {
   var autoBootstrap = !options || options.autoBootstrap !== false;
   var onSessionParsed = options ? options.onSessionParsed : null;
   var [events, setEvents] = useState(null);
+  var findings = useFindings(events);
   var [turns, setTurns] = useState([]);
   var [metadata, setMetadata] = useState(null);
   var [total, setTotal] = useState(0);
@@ -28,6 +30,7 @@ export default function useSessionLoader(options) {
   var [streamOffset, setStreamOffset] = useState(null);
   var [storageStatus, setStorageStatus] = useState(null);
   var snapshotRef = useRef(null);
+  var findingsIdentityRef = useRef(null);
   var pendingCompletionRef = useRef(null);
   var parseTimeoutRef = useRef(null);
   var liveNotifyTimeoutRef = useRef(null);
@@ -138,7 +141,7 @@ export default function useSessionLoader(options) {
     setError(message);
   }, []);
 
-  var handleFile = useCallback(function (text, name, nextSourcePath) {
+  var handleFile = useCallback(function (text, name, nextSourcePath, embeddedFindings) {
     beginLoad();
     var requestId = requestIdRef.current;
     return new Promise(function (resolve) {
@@ -162,11 +165,13 @@ export default function useSessionLoader(options) {
         if (nextSourcePath) parsed.result.metadata.sourcePath = nextSourcePath;
         resetLiveParser(text);
         applySession(parsed.result, name, nextSourcePath);
+        findings.open(parsed.result.metadata, text, embeddedFindings, Boolean(window.__AGENTVIZ_STANDALONE__));
+        findingsIdentityRef.current = parsed.result.metadata.sessionId || true;
         notifySessionParsed(parsed.result, name, text);
         resolve(true);
       }, 16);
     });
-  }, [beginLoad, applySession, notifySessionParsed, resetLiveParser]);
+  }, [beginLoad, applySession, notifySessionParsed, resetLiveParser, findings.open]);
 
   // Called by useLiveStream with each batch of new JSONL lines.
   // Parses only appended lines and rebuilds normalized session output from the
@@ -189,6 +194,11 @@ export default function useSessionLoader(options) {
           function (updated) {
             if (requestId !== requestIdRef.current) return;
             if (updated.result && sourcePath) updated.result.metadata.sourcePath = sourcePath;
+            if (updated.result && (!findingsIdentityRef.current
+              || (updated.result.metadata.sessionId && updated.result.metadata.sessionId !== findingsIdentityRef.current))) {
+              findings.open(updated.result.metadata, updated.rawText);
+              findingsIdentityRef.current = updated.result.metadata.sessionId || true;
+            }
             rawTextRef.current = updated.rawText;
             setEvents(updated.result ? updated.result.events : null);
             setTurns(updated.result ? updated.result.turns : []);
@@ -216,13 +226,18 @@ export default function useSessionLoader(options) {
       notifyLiveSessionParsed(null, file, rawTextRef.current);
       return;
     }
+    if (!findingsIdentityRef.current
+      || (updated.result.metadata.sessionId && updated.result.metadata.sessionId !== findingsIdentityRef.current)) {
+      findings.open(updated.result.metadata, updated.state.rawText);
+      findingsIdentityRef.current = updated.result.metadata.sessionId || true;
+    }
 
     setEvents(updated.result.events);
     setTurns(updated.result.turns);
     setMetadata(updated.result.metadata);
     setTotal(getSessionTotal(updated.result.events));
     notifyLiveSessionParsed(updated.result, file || "live-session.jsonl", updated.state.rawText);
-  }, [file, sourcePath, notifyLiveSessionParsed, resetLiveParser, clearLiveNotify]);
+  }, [file, sourcePath, notifyLiveSessionParsed, resetLiveParser, clearLiveNotify, findings.open]);
 
   var loadSample = useCallback(function (mode) {
     cancelPendingLoad();
@@ -235,6 +250,7 @@ export default function useSessionLoader(options) {
     setEvents(isMultiAgent ? MULTIAGENT_SAMPLE_EVENTS : SAMPLE_EVENTS);
     setTurns(isMultiAgent ? MULTIAGENT_SAMPLE_TURNS : SAMPLE_TURNS);
     setMetadata(isMultiAgent ? MULTIAGENT_SAMPLE_METADATA : SAMPLE_METADATA);
+    findings.open({ format: "demo", sessionId: isMultiAgent ? "multiagent" : "default" }, "");
     setTotal(isMultiAgent ? MULTIAGENT_SAMPLE_TOTAL : SAMPLE_TOTAL);
     setFile(isMultiAgent ? "multiagent-demo.jsonl" : "demo-session.jsonl");
     setSourcePath(null);
@@ -242,13 +258,15 @@ export default function useSessionLoader(options) {
     setLoading(false);
     setIsLive(false);
     setSessionKey(function (key) { return key + 1; });
-  }, [resetLiveParser, cancelPendingLoad]);
+  }, [resetLiveParser, cancelPendingLoad, findings.open]);
 
   var resetSession = useCallback(function () {
     cancelPendingLoad();
 
     rawTextRef.current = "";
     snapshotRef.current = null;
+    findings.close();
+    findingsIdentityRef.current = null;
     setStorageStatus(null);
     resetLiveParser("");
     setEvents(null);
@@ -261,7 +279,7 @@ export default function useSessionLoader(options) {
     setLoading(false);
     setIsLive(false);
     setSessionKey(function (key) { return key + 1; });
-  }, [resetLiveParser, cancelPendingLoad]);
+  }, [resetLiveParser, cancelPendingLoad, findings.close]);
 
   // When served by the CLI (server.js), /api/meta tells us the filename
   // and /api/file provides the initial content. Bootstrap from there.
@@ -299,6 +317,9 @@ export default function useSessionLoader(options) {
             setFile(meta.filename);
             setSourcePath(meta.path || null);
             setError(null);
+            findings.open(parsed.result ? parsed.result.metadata : { format: "live", sessionId: meta.path || meta.filename },
+              text, meta.findings, Boolean(window.__AGENTVIZ_STANDALONE__));
+            findingsIdentityRef.current = parsed.result ? parsed.result.metadata.sessionId || true : null;
             if (!parsed.result) return;
             applySession(parsed.result, meta.filename, meta.path);
             notifySessionParsed(parsed.result, meta.filename, text);
@@ -308,7 +329,7 @@ export default function useSessionLoader(options) {
         if (isCurrent()) failLoad(err.message || "Unable to load the session. Reimport it from Find.");
       });
     return function () { cancelled = true; };
-  }, [autoBootstrap, notifySessionParsed, resetLiveParser, applySession, failLoad]);
+  }, [autoBootstrap, notifySessionParsed, resetLiveParser, applySession, failLoad, findings.open]);
 
   useEffect(function () {
     return function () {
@@ -318,6 +339,7 @@ export default function useSessionLoader(options) {
 
   return {
     events: events,
+    findings: findings,
     turns: turns,
     metadata: metadata,
     total: total,

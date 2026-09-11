@@ -41,6 +41,14 @@ test.beforeAll(async function ({ browser }, testInfo) {
   await page.goto(origin + "/");
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("Ready", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Investigate,/ }).click();
+  await page.locator('[data-event-index="0"]').click();
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
+  await page.getByRole("textbox", { name: "Event note" }).fill("Shared note </script> & plain text");
+  await page.getByRole("button", { name: "Save note", exact: true }).click();
+  await page.locator('[data-event-index="1"]').click();
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
+  await page.getByRole("textbox", { name: "Event note" }).fill("Unfinished shared draft");
 
   var downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).first().click();
@@ -56,6 +64,11 @@ test.beforeAll(async function ({ browser }, testInfo) {
     name: "comparison-b.jsonl", mimeType: "application/json", buffer: Buffer.from(secondText),
   });
   await expect(page).toHaveURL(/review$/);
+  await page.getByRole("button", { name: /Investigate,/ }).click();
+  await page.locator('[data-event-index="0"]').click();
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
+  await page.getByRole("textbox", { name: "Event note" }).fill("Comparison B note");
+  await page.getByRole("button", { name: "Save note", exact: true }).click();
   await page.getByRole("button", { name: /Compare, / }).click();
   await page.getByRole("button", { name: /Can you add a hello world function/ }).click();
   await expect(page.getByRole("button", { name: "Coach session B" })).toBeVisible();
@@ -123,6 +136,9 @@ test("comparison export rehydrates both runs and opens either in Improve offline
     await expect(opened.page.getByText("Session coaching:", { exact: false })).toBeVisible();
     await opened.page.getByRole("button", { name: "Investigate, Evidence stream", exact: true }).click();
     await expect(opened.page.getByText(side === "A" ? "Review the comparison fixture" : "Can you add a hello world function to utils.js?", { exact: true })).toBeVisible();
+    await opened.page.getByRole("button", { name: "Bookmarks (1)", exact: true }).click();
+    await expect(opened.page.getByRole("region", { name: "Bookmarks" }).getByText(side === "A" ? "Comparison B note" : "Shared note </script> & plain text", { exact: true })).toBeVisible();
+    await expect(opened.page.getByText(side === "A" ? "Shared note </script> & plain text" : "Comparison B note", { exact: true })).toHaveCount(0);
     expect(opened.attempted).toEqual([]);
     expect(opened.failures).toEqual([]);
     await opened.context.close();
@@ -139,6 +155,11 @@ test("exported HTML renders the session from file:// with the network blocked", 
   await expect(
     opened.page.getByText("Can you add a hello world function to utils.js?")
   ).toBeVisible();
+  await opened.page.getByRole("button", { name: "Bookmarks (1)", exact: true }).click();
+  await expect(opened.page.getByRole("region", { name: "Bookmarks" }).getByText("Shared note </script> & plain text", { exact: true })).toBeVisible();
+  await expect(opened.page.getByRole("region", { name: "Bookmarks" }).getByText("Unfinished shared draft", { exact: true })).toBeVisible();
+  await opened.page.getByRole("button", { name: "Jump to bookmarked event 2", exact: true }).click();
+  await expect(opened.page.getByRole("textbox", { name: "Event note", exact: true })).toHaveValue("Unfinished shared draft");
   await opened.page.getByRole("button", { name: "Analyze, Deep panels", exact: true }).click();
   await opened.page.getByRole("tab", { name: "Graph", exact: true }).click();
   await expect(opened.page.getByRole("tree")).toBeVisible();

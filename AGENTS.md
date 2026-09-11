@@ -57,6 +57,7 @@ points.
 - Single-session and comparison HTML exports use ExportStatusButton and the current workflow-only production build.
 - Investigate search preserves timeline context; Enter and Shift+Enter, plus adjacent arrow controls, navigate next and previous matches.
 - User-only filtering uses the normalized `event.agent === "user"` field across every parser, and search operates on the filtered event set.
+- Event findings and note drafts belong to the loader, not playback or a zone. Findings storage is separate from raw transcripts and retains failed edits with retry/backup recovery. Match original index plus source/action, occurrence and prefix guards; unmatched findings remain unavailable, never timestamp-rebound. Exports validate session/snapshot ownership and isolate embedded findings from ordinary local notes.
 
 ## Discovery and live parsing invariants
 
