@@ -5,6 +5,7 @@ import ReplayView from "../ReplayView.jsx";
 import ToolbarButton from "../ui/ToolbarButton.jsx";
 import Icon from "../Icon.jsx";
 import { V2ZoneHeader } from "./V2ShellPrimitives.jsx";
+import FindingsPanel, { FindingActions } from "./FindingsPanel.jsx";
 
 function ActionButton({ children, icon, onClick, tone }) {
   return (
@@ -87,6 +88,7 @@ function buildEntryActions(entry, onNavigate) {
 export default function InvestigateView({ session, targetEventIndex, targetRequest, onNavigate }) {
   var pb = usePlaybackContext();
   var [errorsOnly, setErrorsOnly] = useState(false);
+  var [showBookmarks, setShowBookmarks] = useState(false);
   var handledTargetRef = useRef({ session: null, eventIndex: null });
   var visibleEntries = useMemo(function () {
     return errorsOnly
@@ -142,9 +144,13 @@ export default function InvestigateView({ session, targetEventIndex, targetReque
       <V2ZoneHeader
         eyebrow="Investigate"
         title="Evidence stream"
-        description="Select an event to reveal Compare, Analyze, and Coach actions."
+        description="Select an event to bookmark, annotate, compare, analyze, or ask."
         actions={(
           <>
+          {session.findings && <ToolbarButton icon="bookmark" aria-expanded={showBookmarks} aria-controls="investigate-bookmarks"
+            onClick={function () { setShowBookmarks(function (value) { return !value; }); }}>
+            Bookmarks{session.findings.items.length ? " (" + session.findings.items.length + ")" : ""}
+          </ToolbarButton>}
           <ToolbarButton onClick={function () { if (onNavigate) onNavigate("review"); }}>
             Back to Review
           </ToolbarButton>
@@ -154,6 +160,9 @@ export default function InvestigateView({ session, targetEventIndex, targetReque
           </>
         )}
       />
+      {showBookmarks && session.findings && <FindingsPanel session={session} onJump={function (index) {
+        if (onNavigate) onNavigate("investigate", { eventIndex: index });
+      }} />}
 
       <div style={{
         flexShrink: 0,
@@ -316,7 +325,7 @@ export default function InvestigateView({ session, targetEventIndex, targetReque
           overflow: "hidden",
         }}>
           <ReplayView
-            events={session.events}
+            events={session.events || []}
             currentTime={pb.playback.time}
             eventEntries={visibleEntries}
             turns={session.turns}
@@ -330,6 +339,7 @@ export default function InvestigateView({ session, targetEventIndex, targetReque
               return (
                 <div style={{ display: "flex", gap: theme.space.sm, flexWrap: "wrap" }}>
                   {buildEntryActions(props.entry, onNavigate)}
+                  {session.findings && <FindingActions entry={props.entry} findings={session.findings} />}
                 </div>
               );
             }}

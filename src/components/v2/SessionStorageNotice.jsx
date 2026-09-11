@@ -3,6 +3,7 @@ import { downloadText } from "../../lib/downloadText";
 import useAsyncStatus from "../../hooks/useAsyncStatus.js";
 import ExportStatusButton from "../ui/ExportStatusButton.jsx";
 import ToolbarButton from "../ui/ToolbarButton.jsx";
+import { FindingsRecovery } from "./FindingsPanel.jsx";
 
 function rowStyle() { return {
   display: "flex",
@@ -67,6 +68,15 @@ export default function SessionStorageNotice({ sessionState }) {
       )}
       <ActiveCopy key={"a-" + state.session.sessionKey} loader={state.session} label="A" />
       <ActiveCopy key={"b-" + state.sessionB.sessionKey} loader={state.sessionB} label="B" />
+      {[state.session, state.sessionB].map(function (loader, index) {
+        var findings = loader.findings;
+        if (!findings || (!findings.error && !findings.dirty && !Object.keys(findings.drafts).length)) return null;
+        return <div key={index + "-" + loader.sessionKey} style={rowStyle()}>
+          <span>{index === 0 ? "A" : "B"} findings: {Object.keys(findings.drafts).length > 0 ? "Unsaved note drafts. " : ""}
+            {findings.dirty && !findings.error ? "Changes not saved locally." : ""}</span>
+          <FindingsRecovery session={loader} />
+        </div>;
+      })}
       {state.evictedIds.length > 0 && (
         <div style={rowStyle()}>
           <span role="status" style={{ flex: "1 1 280px" }}>

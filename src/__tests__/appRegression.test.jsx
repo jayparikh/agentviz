@@ -602,7 +602,7 @@ describe("App browser regressions", function () {
       return exportMocks.exportSingleSession.mock.calls.length > 0;
     }, "expected export handler to run");
 
-    expect(exportMocks.exportSingleSession).toHaveBeenCalledWith(FIXTURE_TEXT, "fixture.jsonl");
+    expect(exportMocks.exportSingleSession).toHaveBeenCalledWith(FIXTURE_TEXT, "fixture.jsonl", expect.objectContaining({ version: 1, items: [] }));
 
     expect(app.container.querySelector('button[aria-label^="Compare,"]').getAttribute("aria-disabled")).toBe("true");
     expect(app.container.querySelector('button[aria-label^="Improve,"]').getAttribute("aria-disabled")).toBe("true");

@@ -346,7 +346,8 @@ function AnalyzeZone({ sessionState, targetPanelId, targetEventIndex, targetRequ
 }
 
 function InvestigateZone({ sessionState, targetEventIndex, targetRequest, onNavigate }) {
-  if (!sessionState.session.events) {
+  if (!sessionState.session.events && !sessionState.session.findings?.items.length
+    && !Object.keys(sessionState.session.findings?.drafts || {}).length) {
     return <ZonePlaceholder zone="investigate" sessionState={sessionState} />;
   }
 

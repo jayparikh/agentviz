@@ -134,8 +134,8 @@ export function SessionProvider({ children }) {
     if (!compareData || !compareData.a || !compareData.b) return;
     delete window.__AGENTVIZ_COMPARE__;
     setComparisonActive(true);
-    session.handleFile(compareData.a.text, compareData.a.name);
-    sessionB.handleFile(compareData.b.text, compareData.b.name);
+    session.handleFile(compareData.a.text, compareData.a.name, null, compareData.a.findings);
+    sessionB.handleFile(compareData.b.text, compareData.b.name, null, compareData.b.findings);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLiveStream({
@@ -152,12 +152,12 @@ export function SessionProvider({ children }) {
     return { summary: buildAutonomySummary(autonomyMetrics) };
   }, [autonomyMetrics]);
 
-  var handleFile = useCallback(function (text, name, sourcePath) {
+  var handleFile = useCallback(function (text, name, sourcePath, embeddedFindings) {
     sessionLoadCount.current += 1;
     sessionB.cancelPendingLoad();
     setLoadError(null);
-    setRetryLoad(function () { return function () { return handleFile(text, name, sourcePath); }; });
-    return session.handleFile(text, name, sourcePath).then(function (success) {
+    setRetryLoad(function () { return function () { return handleFile(text, name, sourcePath, embeddedFindings); }; });
+    return session.handleFile(text, name, sourcePath, embeddedFindings).then(function (success) {
       if (success) {
         setComparisonActive(false);
         sessionB.resetSession();
@@ -310,8 +310,6 @@ export function SessionProvider({ children }) {
     if (!entry) return Promise.resolve(false);
     var currentRaw = session.getRawText();
     if (!currentRaw) return Promise.resolve(false);
-    var currentName = session.file || "current-session.jsonl";
-    var currentSourcePath = session.sourcePath || null;
     var requestId = ++sessionLoadCount.current;
     session.beginLoad();
     sessionB.beginLoad();
@@ -322,10 +320,10 @@ export function SessionProvider({ children }) {
       .then(async function (text) {
         if (requestId !== sessionLoadCount.current) return false;
         if (!text || !parseSessionText(text).result) throw new Error("Invalid comparison session");
-        var results = await Promise.all([
-          session.handleFile(currentRaw, currentName, currentSourcePath),
-          sessionB.handleFile(text, entry.file || entry.summary || entry.filename || "session-b.jsonl", entry.discoveredPath || null),
-        ]);
+        // A is already active. Do not replace its findings or unsaved drafts
+        // merely to load B.
+        session.failLoad(null);
+        var results = [await sessionB.handleFile(text, entry.file || entry.summary || entry.filename || "session-b.jsonl", entry.discoveredPath || null)];
         if (requestId !== sessionLoadCount.current || !results.every(Boolean)) return false;
         setComparisonActive(true);
         return true;
@@ -361,14 +359,14 @@ export function SessionProvider({ children }) {
   var openCompareSessionInCoach = useCallback(function (loader) {
     var rawText = loader.getRawText();
     if (!rawText) return Promise.resolve(false);
-    return handleFile(rawText, loader.file, loader.sourcePath);
+    return handleFile(rawText, loader.file, loader.sourcePath, loader.findings.payload(rawText));
   }, [handleFile]);
 
   var handleExportSession = useCallback(function () {
     var rawText = session.getRawText();
     if (!rawText) return;
     sessionExport.run(function () {
-      return exportSingleSession(rawText, session.file);
+      return exportSingleSession(rawText, session.file, session.findings.payload(rawText));
     });
   }, [session.getRawText, session.file, sessionExport]);
 
@@ -377,7 +375,7 @@ export function SessionProvider({ children }) {
     var rawB = sessionB.getRawText();
     if (!rawA || !rawB) return;
     compareExport.run(function () {
-      return exportComparison(rawA, session.file, rawB, sessionB.file);
+      return exportComparison(rawA, session.file, rawB, sessionB.file, session.findings.payload(rawA), sessionB.findings.payload(rawB));
     });
   }, [compareExport, session.getRawText, session.file, sessionB.getRawText, sessionB.file]);
 

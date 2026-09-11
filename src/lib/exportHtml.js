@@ -220,7 +220,7 @@ var BOOT_SCRIPT = `
       }
       var route = target.slice(apiIndex);
       if (session && route.indexOf("/api/meta") === 0) {
-        return jsonResponse({ filename: session.filename, live: false });
+        return jsonResponse({ filename: session.filename, live: false, findings: session.findings });
       }
       if (session && route.indexOf("/api/file") === 0) {
         return Promise.resolve(new Response(session.text, {
@@ -578,18 +578,18 @@ function downloadHtml(html, filename) {
 
 // Export a single session as a self-contained HTML file.
 // rawText: the full JSONL content; filename: original file name.
-export async function exportSingleSession(rawText, filename) {
+export async function exportSingleSession(rawText, filename, findings) {
   var html = await buildExportHtml("AGENTVIZ - " + filename, {
-    session: { filename: filename, text: rawText },
+    session: { filename: filename, text: rawText, findings: findings },
   });
   var exportName = filename.replace(/\.jsonl$/, "") + "-agentviz.html";
   downloadHtml(html, exportName);
 }
 
 // Export a side-by-side comparison as a self-contained HTML file.
-export async function exportComparison(rawTextA, filenameA, rawTextB, filenameB) {
+export async function exportComparison(rawTextA, filenameA, rawTextB, filenameB, findingsA, findingsB) {
   var html = await buildExportHtml("AGENTVIZ - Comparison", {
-    compare: { a: { name: filenameA, text: rawTextA }, b: { name: filenameB, text: rawTextB } },
+    compare: { a: { name: filenameA, text: rawTextA, findings: findingsA }, b: { name: filenameB, text: rawTextB, findings: findingsB } },
   });
   downloadHtml(html, "comparison-agentviz.html");
 }

@@ -732,6 +732,9 @@ Rules:
 - Close session is distinct from Find navigation: Close cancels active loads and viewer subscriptions, clears A/B and overlays, and retains the library and preferences.
 - Close remains available while a live stream is waiting for its first event or has reset to empty.
 - Q&A history and its unfinished draft belong above conditional zone rendering and beneath successful-session identity. Failed loads and zone switches retain them; replacement or Close aborts streams and resets them.
+- Investigate bookmarks extend the selected-event actions and a bounded inline list, not a new workflow zone or modal. Use original event indices, readable unavailable states, and 50-item pagination.
+- Event notes use a labeled plain textarea, `theme.reading.fontSize`, explicit Save/Cancel, and action text that names bookmark-plus-note deletion. An empty saved note retains its bookmark.
+- Findings save status is independent of transcript status. Retain failed edits and drafts; show textual failure/retry/backup controls across zones, and require confirmation before restoring a backup or discarding edits to reload saved findings. Downloads reuse `ExportStatusButton`.
 
 **Cards must be `<button>` elements**, not clickable `<div>`. Set `textAlign: "left"` to
 override the button default. This ensures keyboard accessibility.
@@ -1305,6 +1308,7 @@ When reviewing a PR that touches UI, verify each of these:
 - [ ] **Semantic HTML**: Buttons are `<button>`, not clickable `<div>`.
 - [ ] **Error states**: Use `theme.semantic.error*` tokens. Always pair color with icon or text.
 - [ ] **Local saves**: Distinguish active/latest/earlier cached snapshots; test quota, blocked storage, index failure, eviction, retry and raw download for A/B and live/reset paths.
+- [ ] **Findings**: Exact index/equal-time navigation, plain notes, draft retention, unavailable anchors after reset, independent save failures, and isolated offline A/B payloads. Check list/editor bounds at 1400px and 600px.
 - [ ] **Empty states**: Centered message with `theme.text.dim` and `theme.fontSize.md`.
 - [ ] **Brand**: Product name is "AGENTVIZ" (all caps). Uses `BrandWordmark` component.
 - [ ] **Data formatting**: Durations, numbers, and costs follow the formatting rules in Section 15.

@@ -31,6 +31,7 @@ src/
     useKeyboardShortcuts.js # Centralized keyboard handler with stable listener
     useQA.js           # Q&A messages, classifier, SSE streaming, abort
     useSessionLoader.js # Transactional parsing, active raw snapshot/save status, live bootstrap and reset
+    useFindings.js      # Loader-scoped findings, drafts, persistence, conflict recovery and export payloads
     useLiveStream.js   # Cursor-resumable SSE, debounce and reset handling
     usePersistentState.js # localStorage-backed state with debounced writes
     useDiscoveredSessions.js # Discovery via /api/sessions or manifest URL
@@ -60,6 +61,7 @@ src/
     parseSession.ts    # Format detection and parsing router
     session.ts         # Totals, filtered entries, turn start maps
     sessionLibrary.js  # localStorage snapshots, structured failures and quota eviction reporting
+    findings.ts        # Findings identity, guarded anchors, schema validation and three-way storage merge
     downloadText.ts    # Shared raw transcript and HTML download primitive
     sessionParsing.ts  # Parsing utilities and types
     sessionTypes.ts    # Session data types
@@ -105,6 +107,7 @@ src/
     ui/                # Shared brand, toolbar, export-status and keyboard primitives
     v2/                # FlowRail, V2Header, FindPortfolio, ReviewHub, InvestigateView,
                        # AnalyzeShell, InlineCompare, ImproveView, LiveSessionBanner, SessionStorageNotice
+                       # FindingsPanel (bookmark list, editor, restore and shared recovery controls)
     waterfall/         # Chart, row, inspector and time-axis components
 routes/
   discovery.js        # Async traversal, enrichment, bounded preview cache
@@ -138,6 +141,41 @@ cross-tab storage events, so eviction or replacement cannot leave a saved label.
 `SessionStorageNotice` exposes non-blocking recovery across zones; raw downloads
 reuse `ExportStatusButton` and `useAsyncStatus`, without needing a production
 bundle or browser storage. Demo and Close clear active save status.
+
+### Findings persistence and identity
+
+Each loader owns `useFindings` independently of playback and conditional zone rendering.
+Successful parsing initializes findings; failed loads leave them and drafts untouched.
+Close/replacement clears in-memory state only. Loading B alongside current A does not
+replace A or its draft. Live reset keeps findings unavailable until guarded evidence
+matches again; a newly sourced explicit session ID initializes that session's own store.
+
+`agentviz:findings:v1:<identity>` is independent of the unchanged transcript/index keys.
+Identity uses format plus explicit session ID, or a deterministic canonical-source
+fingerprint when no ID exists. Inferred JSONL identity uses the first source record;
+single JSON documents remain content-specific. Import names and discovery paths are
+not findings identity. Identical source copies are intentionally the same identity.
+
+An anchor stores original index, immutable-action/source fingerprint, occurrence, and a
+chained prefix fingerprint. Matching requires all four, not nearest time or a text search.
+Changed predecessors conservatively make later findings unavailable. Mutable completion
+output, usage and duration are excluded. Anchor construction is linear and memoized on
+event snapshots, never on playback ticks. Lists paginate 50 findings at a time.
+
+Reads validate version, ownership, anchors, unique IDs and bounded plain-text notes.
+Writes merge changes against the caller's baseline, preserving independent A/B edits and
+rejecting same-finding conflicts. Access, quota and corruption errors retain working
+items/drafts. An unknown baseline cannot overwrite newly available saved findings.
+Same-page and storage events refresh clean copies; drafts/unsaved copies retain their
+baseline for conflict detection. localStorage does not provide cross-tab transactions.
+
+HTML exports embed `{version, sessionId, snapshot, items, drafts}` separately for each
+active loader. The snapshot fingerprints raw text without modifying it. Offline bootstrap
+passes single findings through `/api/meta` and A/B findings through the existing compare
+payload. Validation rejects foreign snapshot payloads. Normal local notes are never read
+into an export: its initial payload is authoritative and subsequent local edits use a
+namespace fingerprinted from that exact payload. JSON backup/restore uses the same
+validated payload, supports draft recovery, and requires explicit replacement.
 
 ## Core data shapes
 

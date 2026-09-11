@@ -28,6 +28,7 @@ import {
 } from "../contexts/SessionProvider.jsx";
 import { parseSessionText } from "../lib/sessionParsing";
 import { persistSessionSnapshot } from "../lib/sessionLibrary.js";
+import { FINDINGS_PREFIX, findingsSessionId, fingerprint } from "../lib/findings";
 
 var FIXTURE_TEXT = readFileSync(resolve(process.cwd(), "src/__tests__/fixtures/test-copilot.jsonl"), "utf8");
 
@@ -126,6 +127,8 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+  delete window.__AGENTVIZ_STANDALONE__;
+  delete window.__AGENTVIZ_COMPARE__;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
@@ -133,6 +136,173 @@ afterEach(function () {
 });
 
 describe("SessionProvider", function () {
+  it("persists event findings independently, keeps drafts on failed loads, and restores renamed reimports", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "first.jsonl"); });
+    var entry = { index: 0, event: ctx.session.events[0] };
+    await act(async function () { ctx.session.findings.save(entry, "Remember index zero"); });
+    expect(ctx.session.findings.entries[0]).toMatchObject({ note: "Remember index zero", available: true, anchor: { index: 0 } });
+    await act(async function () { ctx.session.findings.setDraft(entry, "Unfinished"); });
+    await act(async function () { expect(await ctx.handleFile("bad", "invalid")).toBe(false); });
+    expect(Object.values(ctx.session.findings.drafts)[0].note).toBe("Unfinished");
+    expect(ctx.session.getRawText()).toBe(FIXTURE_TEXT);
+    await act(async function () { ctx.reset(); });
+    expect(ctx.session.findings.items).toEqual([]);
+    expect(ctx.session.findings.drafts).toEqual({});
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "renamed.jsonl", "foreign-path"); });
+    expect(ctx.session.findings.entries[0]).toMatchObject({ note: "Remember index zero", available: true });
+    expect(ctx.session.findings.drafts).toEqual({});
+    await app.unmount();
+    app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.openStoredSession(ctx.allSessions[0]); });
+    expect(ctx.session.findings.items[0].note).toBe("Remember index zero");
+    await app.unmount();
+  });
+
+  it("keeps quota-failed findings and note drafts, exports them, and retries without affecting transcript save", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "first.jsonl"); });
+    var entry = { index: 0, event: ctx.session.events[0] };
+    var original = global.localStorage.setItem;
+    var write = vi.spyOn(global.localStorage, "setItem").mockImplementation(function (key, value) {
+      if (key.startsWith(FINDINGS_PREFIX)) throw new DOMException("Full", "QuotaExceededError");
+      original(key, value);
+    });
+    await act(async function () {
+      ctx.session.findings.setDraft(entry, "</script> unsaved");
+      ctx.session.findings.save(entry, "</script> unsaved");
+    });
+    expect(ctx.session.findings.error.kind).toBe("quota");
+    expect(ctx.session.findings.dirty).toBe(true);
+    expect(Object.values(ctx.session.findings.drafts)[0].note).toBe("</script> unsaved");
+    expect(ctx.session.storageStatus.saved).toBe(true);
+    await act(async function () { ctx.handleExportSession(); });
+    expect(exportMocks.exportSingleSession.mock.calls[0][2].items[0].note).toBe("</script> unsaved");
+    expect(exportMocks.exportSingleSession.mock.calls[0][0]).toBe(FIXTURE_TEXT);
+    write.mockRestore();
+    await act(async function () { ctx.session.findings.retry(); });
+    expect(ctx.session.findings.dirty).toBe(false);
+    expect(ctx.session.findings.error).toBeNull();
+    await app.unmount();
+  });
+
+  it("synchronizes identical A/B identities without crossing other sessions or binding different snapshots", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "a.jsonl"); });
+    await act(async function () { await ctx.sessionB.handleFile(FIXTURE_TEXT, "b.jsonl"); });
+    await act(async function () { ctx.session.findings.save({ index: 0, event: ctx.session.events[0] }, "A"); });
+    expect(ctx.sessionB.findings.items[0].note).toBe("A");
+    await act(async function () { ctx.sessionB.findings.save({ index: 1, event: ctx.sessionB.events[1] }, "B"); });
+    expect(ctx.session.findings.items).toHaveLength(2);
+    await act(async function () { await ctx.sessionB.handleFile(FIXTURE_TEXT.replace("Can you add", "Would you add"), "changed.jsonl"); });
+    expect(ctx.sessionB.findings.entries.every(function (item) { return !item.available; })).toBe(true);
+    expect(ctx.session.findings.entries.every(function (item) { return item.available; })).toBe(true);
+    await act(async function () { await ctx.sessionB.handleFile(FIXTURE_TEXT.replaceAll("aaaabbbb-1234-5678-abcd-000000000001", "another"), "other.jsonl"); });
+    expect(ctx.sessionB.findings.items).toEqual([]);
+    expect(ctx.session.findings.items).toHaveLength(2);
+    await app.unmount();
+  });
+
+  it("preserves current A findings and drafts when loading a comparison", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "a.jsonl"); });
+    await act(async function () { ctx.session.findings.setDraft({ index: 0, event: ctx.session.events[0] }, "Still drafting"); });
+    global.localStorage.setItem("agentviz:session-content:v1:b", FIXTURE_TEXT);
+    await act(async function () { expect(await ctx.openCompareCurrentWithEntry({ id: "b", file: "b.jsonl" })).toBe(true); });
+    expect(Object.values(ctx.session.findings.drafts)[0].note).toBe("Still drafting");
+    expect(ctx.compareReady).toBe(true);
+    await app.unmount();
+  });
+
+  it("retains stale A/B drafts as conflicts rather than silently overwriting a newer note", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "a.jsonl"); });
+    await act(async function () { await ctx.sessionB.handleFile(FIXTURE_TEXT, "b.jsonl"); });
+    var entry = { index: 0, event: ctx.session.events[0] };
+    await act(async function () { ctx.session.findings.save(entry, "Original"); });
+    await act(async function () { ctx.session.findings.setDraft(entry, "A draft"); });
+    await act(async function () { ctx.sessionB.findings.save(entry, "B saved"); });
+    await act(async function () { ctx.session.findings.save(entry, "A draft"); });
+    expect(ctx.session.findings.error.kind).toBe("conflict");
+    expect(Object.values(ctx.session.findings.drafts)[0].note).toBe("A draft");
+    expect(ctx.sessionB.findings.items[0].note).toBe("B saved");
+    await act(async function () { ctx.session.findings.reload(); });
+    expect(ctx.session.findings.items[0].note).toBe("B saved");
+    expect(ctx.session.findings.drafts).toEqual({});
+    await app.unmount();
+  });
+
+  it("restores explicit export findings and drafts, isolates local notes, and validates ownership", async function () {
+    var ctx;
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "local.jsonl"); });
+    await act(async function () { ctx.session.findings.save({ index: 0, event: ctx.session.events[0] }, "Local private note"); });
+    var payload = ctx.session.findings.payload(FIXTURE_TEXT);
+    payload = { ...payload, items: payload.items.map(function (item) { return { ...item, note: "Shared note" }; }) };
+    window.__AGENTVIZ_STANDALONE__ = true;
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "offline.jsonl", null, payload); });
+    expect(ctx.session.findings.items[0].note).toBe("Shared note");
+    expect(ctx.session.findings.embedded).toBe(true);
+    await act(async function () { ctx.session.findings.remove(payload.items[0].id); });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "offline.jsonl", null, payload); });
+    expect(ctx.session.findings.items).toEqual([]);
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "legacy.jsonl"); });
+    expect(ctx.session.findings.items).toEqual([]);
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "bad-export.jsonl", null, { ...payload, snapshot: fingerprint("other") }); });
+    expect(ctx.session.findings.items).toEqual([]);
+    expect(ctx.session.findings.error.kind).toBe("corrupt");
+    expect(ctx.session.getRawText()).toBe(FIXTURE_TEXT);
+    delete window.__AGENTVIZ_STANDALONE__;
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "local.jsonl"); });
+    expect(ctx.session.findings.items[0].note).toBe("Local private note");
+    await app.unmount();
+  });
+
+  it("retains unavailable live findings through empty reset and never binds them after source reorder", async function () {
+    var ctx;
+    vi.stubGlobal("EventSource", class { close() {} });
+    global.fetch = vi.fn(async function (url) {
+      if (String(url).includes("/api/meta")) return { ok: true, json: async function () { return { filename: "live.jsonl", live: true }; } };
+      if (String(url).includes("/api/file")) return { ok: true, text: async function () { return FIXTURE_TEXT; } };
+      return { ok: false };
+    });
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await waitFor(function () { return ctx?.session.events?.length; });
+    await act(async function () { ctx.session.findings.save({ index: 0, event: ctx.session.events[0] }, "Live note"); });
+    var newLine = JSON.stringify({ type: "user.message", id: "later", timestamp: "2026-01-15T10:03:00.000Z", data: { content: "Later" } });
+    await act(async function () { ctx.session.appendLines(newLine, false); });
+    expect(ctx.session.findings.entries[0].available).toBe(true);
+    await act(async function () { ctx.session.appendLines("", true); });
+    expect(ctx.session.findings.entries[0]).toMatchObject({ note: "Live note", available: false });
+    await act(async function () { ctx.session.appendLines(FIXTURE_TEXT.replace("Can you add", "Changed prompt"), false); });
+    expect(ctx.session.findings.entries[0].available).toBe(false);
+    await act(async function () { ctx.session.appendLines(FIXTURE_TEXT, true); });
+    expect(ctx.session.findings.entries[0].available).toBe(true);
+    await app.unmount();
+  });
+
+  it("does not overwrite corrupt findings and recovers when storage is repaired", async function () {
+    var ctx;
+    var id = findingsSessionId(parseSessionText(FIXTURE_TEXT).result.metadata, FIXTURE_TEXT);
+    global.localStorage.setItem(FINDINGS_PREFIX + id, "{corrupt");
+    var app = await renderProvider({ onContext: function (value) { ctx = value; } });
+    await act(async function () { await ctx.handleFile(FIXTURE_TEXT, "a.jsonl"); });
+    expect(ctx.session.findings.error.kind).toBe("corrupt");
+    await act(async function () { ctx.session.findings.save({ index: 0, event: ctx.session.events[0] }, "Memory"); });
+    expect(global.localStorage.getItem(FINDINGS_PREFIX + id)).toBe("{corrupt");
+    expect(ctx.session.storageStatus.saved).toBe(true);
+    global.localStorage.removeItem(FINDINGS_PREFIX + id);
+    await act(async function () { ctx.session.findings.retry(); });
+    expect(ctx.session.findings.error).toBeNull();
+    expect(ctx.session.findings.items[0].note).toBe("Memory");
+    await app.unmount();
+  });
+
   it("keeps a parsed import usable on storage failure, retries saving, and retains state on failed loads", async function () {
     var ctx;
     var app = await renderProvider({ onContext: function (value) { ctx = value; } });
@@ -178,6 +348,7 @@ describe("SessionProvider", function () {
       expect(ctx.storageError.kind).toBe("access");
       await act(async function () { expect(await ctx.handleFile(FIXTURE_TEXT, "blocked.jsonl")).toBe(true); });
       expect(ctx.session.storageStatus.saved).toBe(false);
+      expect(ctx.session.findings.error.kind).toBe("access");
       expect(ctx.session.getRawText()).toBe(FIXTURE_TEXT);
       await act(async function () { await ctx.refreshSessions(); });
       expect(ctx.storageError.kind).toBe("access");
@@ -533,12 +704,14 @@ describe("SessionProvider", function () {
         && exportMocks.exportComparison.mock.calls.length === 1;
     }, "expected export helpers to run");
 
-    expect(exportMocks.exportSingleSession).toHaveBeenCalledWith(FIXTURE_TEXT, "fixture-a.jsonl");
+    expect(exportMocks.exportSingleSession).toHaveBeenCalledWith(FIXTURE_TEXT, "fixture-a.jsonl", expect.objectContaining({ version: 1, items: [] }));
     expect(exportMocks.exportComparison).toHaveBeenCalledWith(
       FIXTURE_TEXT,
       "fixture-a.jsonl",
       FIXTURE_TEXT,
       "fixture-b.jsonl",
+      expect.objectContaining({ version: 1, items: [] }),
+      expect.objectContaining({ version: 1, items: [] }),
     );
 
     await app.unmount();
