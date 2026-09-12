@@ -733,13 +733,14 @@ Contributions are welcome! Here are some areas where help is appreciated:
 
 - **New parsers**: LangSmith, OpenTelemetry, custom agent frameworks
 - **Visualizations**: Graph minimap, large-session clustering
-- **Features**: Bookmarks/annotations, shareable URLs
+- **Features**: Shareable session URLs, Vim-style keyboard navigation
 
 Please open an issue to discuss larger changes before submitting a PR.
 
 ## Roadmap
 
-- [ ] Bookmarks and annotations (persisted to localStorage)
+- [x] Resilient local session storage with visible failure recovery and transcript downloads
+- [x] Event bookmarks and plain-text notes with portable backups
 - [ ] Graph minimap and large-session clustering
 - [ ] Shareable session URLs
 - [ ] Vim-style keyboard navigation
