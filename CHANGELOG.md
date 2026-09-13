@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-13
+
+### Added
+
+- Bookmark and annotate individual events from Investigate. Findings are stored
+  separately from raw transcripts, matched by original event index with
+  source/action, occurrence and prefix guards, and travel with single-session and
+  comparison HTML exports as ownership-validated embedded data. (#140)
+- Surface session storage failures and recovery actions. Active A/B and live
+  snapshot persistence is tracked separately from loading, quota evictions and
+  metadata-index errors are reported, and active raw text is retained for retry
+  or download. (#139)
+
+### Changed
+
+- Consolidate shared agent guidance into `AGENTS.md` with short Claude and
+  Copilot entry points, add the implementation map in `docs/architecture.md`, and
+  document the npm release procedure in the README. (#138)
+- Refresh the roadmap for recently shipped features. (#141)
+
+### Fixed
+
+- Bump the transitive `@vitest/mocker` and `qs` dependencies to their patched
+  versions. (#136)
+
 ## [1.1.0] - 2026-09-09
 
 ### Changed
