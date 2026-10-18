@@ -65,6 +65,10 @@ describe("verified October 2026 Copilot rate cards", function () {
 
   it.each([
     ["anthropic/claude-opus-5-5", "claude-opus-5.5"],
+    ["anthropic.claude-opus-5-5", "claude-opus-5.5"],
+    ["anthropic.claude-sonnet-5-5", "claude-sonnet-5.5"],
+    ["anthropic.claude-haiku-5-5", "claude-haiku-5.5"],
+    ["anthropic.claude-fable-5-1", "claude-fable-5.1"],
     ["claude-haiku-5-5-20261007", "claude-haiku-5.5"],
     ["claude-sonnet-5-5", "claude-sonnet-5.5"],
     ["claude-fable-5-1", "claude-fable-5.1"],
@@ -76,7 +80,7 @@ describe("verified October 2026 Copilot rate cards", function () {
     expect(hasModelPricing(alias)).toBe(true);
   });
 
-  it.each(["claude-opus-5.6", "claude-fable-5.2", "claude-sonnet-4.99", "gemini-3.8-flash-tts", "gemini-4-argon-unknown", "grok-4.70", "gpt-6.2-sol", "mai-code-1.1-flash-unknown"])("does not borrow another model's rate for %s", function (model) {
+  it.each(["claude-opus-5.6", "claude-fable-5.2", "claude-sonnet-4.99", "anthropic.claude-sonnet-5-6", "anthropic.claude-sonnet-5-5-unknown", "anthropicXclaude-sonnet-5-5", "gemini-3.8-flash-tts", "gemini-4-argon-unknown", "grok-4.70", "gpt-6.2-sol", "mai-code-1.1-flash-unknown"])("does not borrow another model's rate for %s", function (model) {
     expect(hasModelPricing(model)).toBe(false);
     expect(estimateCost({ inputTokens: 10000 }, model)).toBeNull();
   });

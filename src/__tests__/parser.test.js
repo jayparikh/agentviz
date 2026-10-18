@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { parseClaudeCodeJSONL, parseClaudeCodeRecords } from "../lib/parser";
 import { parseSession } from "../lib/parseSession";
+import { buildCostAnalysis } from "../lib/costAnalysis";
+import { appendLiveSessionText, createLiveSessionParser } from "../lib/liveSessionParser";
 
 // ── Helpers ──
 
@@ -13,6 +15,68 @@ function makeSession(lines) {
 }
 
 // ── Fixtures ──
+
+describe("Claude response pricing evidence", function () {
+  it("retains response speed across omitted fields without mutating published snapshots", function () {
+    const record = {
+      type: "assistant",
+      message: {
+        id: "changing-speed", model: "claude-opus-5-5",
+        content: [{ type: "text", text: "Synthetic response" }],
+        usage: { input_tokens: 10000, output_tokens: 1000, speed: "fast" },
+      },
+    };
+    let state = createLiveSessionParser(makeLine(record) + "\n");
+    const fastSnapshot = state.result;
+    const standardRecord = { ...record, message: { ...record.message, usage: { ...record.message.usage, speed: "standard" } } };
+    const omittedRecord = { ...record, message: { ...record.message, usage: { input_tokens: 10000, output_tokens: 2000 } } };
+    state = appendLiveSessionText(state, makeSession([standardRecord, omittedRecord]) + "\n").state;
+    expect(state.result).toEqual(parseClaudeCodeRecords([record, standardRecord, omittedRecord]));
+    expect(fastSnapshot.events[0].pricingContext).toEqual({ serviceTier: "fast" });
+    expect(buildCostAnalysis(fastSnapshot.events, fastSnapshot.metadata).totals.cost).toBeCloseTo(0.12, 10);
+    expect(state.result.events[0].pricingContext).toEqual({ serviceTier: "standard" });
+    expect(buildCostAnalysis(state.result.events, state.result.metadata).totals.cost).toBeCloseTo(0.08, 10);
+  });
+
+  it.each([
+    ["claude-opus-5-5", "fast", 0.544],
+    ["claude-opus-5-5-fast", "standard", 0.272],
+    ["anthropic.claude-sonnet-5-5", "standard", 0.136],
+    ["claude-opus-5-5", undefined, 0.272],
+    ["claude-opus-5-5", "unknown-speed", null],
+  ])("preserves %s response speed %s across late usage records", function (model, speed, expected) {
+    const records = [
+      { type: "human", message: { content: "Synthetic pricing example" } },
+      { type: "assistant", message: {
+        id: "priced-response", model,
+        content: [{ type: "thinking", thinking: "Considering the example" }],
+      } },
+      { type: "assistant", message: {
+        id: "priced-response", model,
+        content: [{ type: "text", text: "First response" }],
+        usage: { input_tokens: 20000, output_tokens: 0, cache_read_input_tokens: 60000, cache_creation_input_tokens: 20000 },
+      } },
+      { type: "assistant", message: {
+        id: "priced-response", model,
+        content: [{ type: "text", text: "Final response" }],
+        usage: { input_tokens: 20000, output_tokens: 4000, cache_read_input_tokens: 60000, cache_creation_input_tokens: 20000, speed },
+      } },
+    ];
+    const batch = parseClaudeCodeRecords(records);
+    let state = createLiveSessionParser(makeSession(records.slice(0, 2)) + "\n");
+    const before = state.result;
+    for (const record of records.slice(2)) state = appendLiveSessionText(state, makeLine(record) + "\n").state;
+    expect(state.result).toEqual(batch);
+    expect(before.events.some(event => event.tokenUsage)).toBe(false);
+    const calls = buildCostAnalysis(batch.events, batch.metadata).calls;
+    expect(calls).toHaveLength(1);
+    expect(calls[0].tokenUsage).toEqual({ inputTokens: 100000, outputTokens: 4000, cacheRead: 60000, cacheWrite: 20000 });
+    if (speed) expect(calls[0].event.pricingContext).toEqual({ serviceTier: speed });
+    else expect(calls[0].event.pricingContext).toBeUndefined();
+    if (expected == null) expect(calls[0].cost).toBeNull();
+    else expect(calls[0].cost).toBeCloseTo(expected, 10);
+  });
+});
 
 var USER_MSG = {
   type: "human",

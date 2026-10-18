@@ -190,6 +190,12 @@ recognized Copilot formats and preserves event-level overrides. Provider-dispute
 Grok/Luna rates return an unknown estimate plus readable notes. The dated
 `src/__tests__/fixtures/copilotRateCards.js` snapshot exercises every Copilot
 billing-table row through bucket estimates, prompt parsing, and CostView.
+Claude's shared usage extractor retains response `usage.speed` while merging
+records by message ID, then separates it into `pricingContext.serviceTier` on
+the single usage-bearing event. Live normalization updates that event when
+speed evidence arrives later without mutating previously published snapshots.
+Explicit Claude model matching accepts the dotted `anthropic.` Bedrock prefix
+as well as dashed provider prefixes.
 
 Normalized event:
 

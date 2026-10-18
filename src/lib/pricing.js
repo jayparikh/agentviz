@@ -150,7 +150,7 @@ function lookupPrice(modelName) {
       if (row.preview) suffix = "(?:-preview(?:-\\d{2}-\\d{2})?)?";
       if (row.match.startsWith("grok-")) suffix = "(?:-latest|-\\d{4}-\\d{2}-\\d{2})?";
       if (row.serviceTiers && row.serviceTiers.fast) suffix += "(?:-fast(?:-mode(?:-preview)?)?)?";
-      if (new RegExp("^(?:anthropic-|google-|google-vertex-|xai-|moonshot-|microsoft-)?" + identifier + suffix + "$").test(lower)) return row;
+      if (new RegExp("^(?:anthropic[.-]|google-|google-vertex-|xai-|moonshot-|microsoft-)?" + identifier + suffix + "$").test(lower)) return row;
     }
   }
   return null;

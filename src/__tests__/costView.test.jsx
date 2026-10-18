@@ -87,6 +87,29 @@ describe("CostView", function () {
     });
   });
 
+  it.each([
+    ["anthropic.claude-sonnet-5-5", "standard", "$0.196"],
+    ["claude-opus-5-5", "fast", "$0.784"],
+  ])("renders Claude trace pricing for %s at %s speed", async function (model, speed, cost) {
+    const parsed = parseSession(JSON.stringify({
+      type: "assistant",
+      message: {
+        model, content: [{ type: "text", text: "Synthetic Claude response" }],
+        usage: { input_tokens: 20000, output_tokens: 10000, cache_read_input_tokens: 60000, cache_creation_input_tokens: 20000, speed },
+      },
+    }));
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async function () { root.render(<CostView events={parsed.events} metadata={parsed.metadata} />); });
+    expect(container.textContent).toContain(model);
+    expect(container.textContent).toContain(cost);
+    expect(container.textContent).toContain("$ ESTIMATE");
+    expect(container.textContent).not.toContain("Standard service tier assumed");
+    expect(container.textContent).not.toContain("Pricing unavailable");
+    await act(async function () { root.unmount(); });
+  });
+
   it("renders summaries and cache miss warnings for tokenized sessions", async function () {
     var container = document.createElement("div");
     document.body.appendChild(container);
