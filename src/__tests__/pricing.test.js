@@ -1,5 +1,120 @@
 import { describe, expect, it } from "vitest";
 import { estimateCost, estimateCostDetails, estimateMultiModelCost, formatCost, getSessionCostLabel, hasModelPricing } from "../lib/pricing.js";
+import { copilotRateCards } from "./fixtures/copilotRateCards.js";
+
+describe("verified October 2026 Copilot rate cards", function () {
+  it.each(copilotRateCards)("prices every bucket in %s independently", function (model, input, cached, write, output) {
+    const context = { provider: "copilot" };
+    expect(hasModelPricing(model)).toBe(true);
+    expect(estimateCost({ inputTokens: 10000 }, model, context)).toBeCloseTo(input / 100, 10);
+    expect(estimateCost({ inputTokens: 10000, cacheRead: 10000 }, model, context)).toBeCloseTo(cached / 100, 10);
+    expect(estimateCost({ inputTokens: 10000, cacheWrite: 10000 }, model, context)).toBeCloseTo((write ?? input) / 100, 10);
+    expect(estimateCost({ inputTokens: 0, outputTokens: 10000 }, model, context)).toBeCloseTo(output / 100, 10);
+  });
+
+  it.each([
+    ["gpt-6-luna", 272000, 0.1, 0.01, 0.125, 0.5, 2, 1.5],
+    ["gpt-6-sol", 272000, 2, 0.2, 2.5, 10, 2, 1.5],
+    ["gpt-6.1-sol", 272000, 2, 0.1, 2.5, 10, 2, 1.5],
+    ["claude-haiku-5.5", 100000, 0.1, 0.01, 0.125, 0.5, 5, 5],
+    ["grok-4.5", 200000, 2, 0.5, 2, 6, 2, 2],
+    ["grok-4.6", 200000, 2, 0.5, 2, 6, 2, 2],
+    ["grok-4.7", 200000, 2, 0.5, 2, 6, 2, 2],
+  ])("prices %s at threshold -1, threshold, and threshold +1", function (model, threshold, input, cached, write, output, inputScale, outputScale) {
+    for (const extra of [-1, 0, 1]) {
+      const usage = { inputTokens: threshold + extra, cacheRead: 60000, cacheWrite: 20000, outputTokens: 10000 };
+      const expected = ((usage.inputTokens - 80000) * input + 60000 * cached + 20000 * write) * (extra > 0 ? inputScale : 1) / 1e6
+        + 10000 * output * (extra > 0 ? outputScale : 1) / 1e6;
+      expect(estimateCost(usage, model, { provider: "copilot" })).toBeCloseTo(expected, 10);
+    }
+    expect(estimateCost({ outputTokens: 100 }, model)).toBeNull();
+    expect(estimateMultiModelCost({ [model]: { inputTokens: threshold + 1 } }, { provider: "copilot" })).toBeNull();
+  });
+
+  it.each(["grok-4.5", "grok-4.6", "grok-4.7"])("preserves %s provider-specific boundaries and cache prices", function (model) {
+    for (const count of [199999, 200000, 200001]) {
+      const usage = { inputTokens: count, cacheRead: 10000, outputTokens: 10000 };
+      const xaiBase = ((count - 10000) * 2 + 10000 * (model === "grok-4.5" ? 0.3 : 0.5) + 10000 * 6) / 1e6;
+      const copilotBase = ((count - 10000) * 2 + 10000 * 0.5 + 10000 * 6) / 1e6;
+      expect(estimateCost(usage, model, { provider: "xai" })).toBeCloseTo(xaiBase * (count >= 200000 ? 2 : 1), 10);
+      expect(estimateCost(usage, model, { provider: "copilot" })).toBeCloseTo(copilotBase * (count > 200000 ? 2 : 1), 10);
+      if (count === 200000 || model === "grok-4.5") expect(estimateCost(usage, model)).toBeNull();
+      else expect(estimateCost(usage, model)).toBeCloseTo(copilotBase * (count > 200000 ? 2 : 1), 10);
+    }
+    expect(estimateMultiModelCost({ [model]: { inputTokens: 200000 } }, { provider: "xai" })).toBeNull();
+  });
+
+  it.each(["gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol"])("applies %s explicit service tiers and preserves response precedence", function (model) {
+    const usage = { inputTokens: 300000, cacheRead: 60000, cacheWrite: 20000, outputTokens: 10000 };
+    const standard = estimateCost(usage, model, { serviceTier: "standard" });
+    for (const [serviceTier, scale] of [["fast", 2], ["priority", 2], ["batch", 0.5], ["flex", 0.5]]) {
+      expect(estimateCost(usage, model, { serviceTier })).toBeCloseTo(standard * scale, 10);
+    }
+    expect(estimateCost(usage, model + "-fast", { serviceTier: "standard" })).toBeCloseTo(standard, 10);
+  });
+
+  it("supports Ultrafast only on the two published OpenAI cards", function () {
+    for (const model of ["gpt-6-astra", "gpt-6.1-sol"]) {
+      for (const inputTokens of [100000, 300000]) {
+        const usage = { inputTokens, cacheRead: 60000, cacheWrite: 20000, outputTokens: 10000 };
+        expect(estimateCost(usage, model, { serviceTier: "ultrafast" })).toBeCloseTo(estimateCost(usage, model) * 6, 10);
+      }
+    }
+    expect(estimateCost({ inputTokens: 10000 }, "gpt-6-sol", { serviceTier: "ultrafast" })).toBeNull();
+  });
+
+  it.each([
+    ["anthropic/claude-opus-5-5", "claude-opus-5.5"],
+    ["anthropic.claude-opus-5-5", "claude-opus-5.5"],
+    ["anthropic.claude-sonnet-5-5", "claude-sonnet-5.5"],
+    ["anthropic.claude-haiku-5-5", "claude-haiku-5.5"],
+    ["anthropic.claude-fable-5-1", "claude-fable-5.1"],
+    ["claude-haiku-5-5-20261007", "claude-haiku-5.5"],
+    ["claude-sonnet-5-5", "claude-sonnet-5.5"],
+    ["claude-fable-5-1", "claude-fable-5.1"],
+    ["google/gemini-4-argon", "gemini-4-argon"],
+    ["xai/grok-4.7-latest", "grok-4.7"],
+    ["openai/gpt-6.1-sol-2026-09-29", "gpt-6.1-sol"],
+  ])("resolves the sourced alias %s", function (alias, model) {
+    expect(estimateCost({ inputTokens: 10000 }, alias)).toBe(estimateCost({ inputTokens: 10000 }, model));
+    expect(hasModelPricing(alias)).toBe(true);
+  });
+
+  it.each(["claude-opus-5.6", "claude-fable-5.2", "claude-sonnet-4.99", "anthropic.claude-sonnet-5-6", "anthropic.claude-sonnet-5-5-unknown", "anthropicXclaude-sonnet-5-5", "gemini-3.8-flash-tts", "gemini-4-argon-unknown", "grok-4.70", "gpt-6.2-sol", "mai-code-1.1-flash-unknown"])("does not borrow another model's rate for %s", function (model) {
+    expect(hasModelPricing(model)).toBe(false);
+    expect(estimateCost({ inputTokens: 10000 }, model)).toBeNull();
+  });
+
+  it("discloses Gemini promotion deadlines in the cost evidence", function () {
+    expect(estimateCostDetails({ inputTokens: 10000 }, "gemini-4-argon").notes.join(" ")).toContain("November 30, 2026");
+    expect(estimateCostDetails({ inputTokens: 10000 }, "gemini-3.8-flash").notes.join(" ")).toContain("December 31, 2026");
+  });
+
+  it.each(["gemini-3.7-flash", "gemini-3.8-flash", "gemini-4-argon"])("uses %s published service tiers, not OpenAI's multiplier", function (model) {
+    const usage = { inputTokens: 100000, cacheRead: 60000, outputTokens: 10000 };
+    const standard = estimateCost(usage, model);
+    expect(estimateCost(usage, model, { serviceTier: "priority" })).toBeCloseTo(standard * 1.8, 10);
+    expect(estimateCost(usage, model, { serviceTier: "batch" })).toBeCloseTo(standard * 0.5, 10);
+    expect(estimateCost(usage, model, { serviceTier: "flex" })).toBeCloseTo(standard * 0.5, 10);
+    expect(estimateCost(usage, model, { serviceTier: "fast" })).toBeNull();
+  });
+
+  it.each(["claude-opus-4.8", "claude-opus-5", "claude-opus-5.5"])("uses %s explicit Fast rates without inferring them from effort", function (model) {
+    const usage = { inputTokens: 100000, cacheRead: 60000, cacheWrite: 20000, outputTokens: 10000 };
+    const standard = estimateCost(usage, model);
+    expect(estimateCost(usage, model + "-fast")).toBeCloseTo(standard * 2, 10);
+    expect(estimateCost(usage, model, { serviceTier: "fast" })).toBeCloseTo(standard * 2, 10);
+    expect(estimateCost(usage, model + "-fast", { serviceTier: "standard" })).toBe(standard);
+    expect(estimateCost(usage, model, { reasoningEffort: "max" })).toBe(standard);
+  });
+
+  it("does not guess unsupported Grok service tiers or price old Opus as Opus 4.8", function () {
+    expect(estimateCost({ inputTokens: 10000 }, "grok-4.7", { serviceTier: "batch" })).toBeNull();
+    expect(estimateCost({ inputTokens: 100000 }, "claude-opus-4")).toBe(1.5);
+    expect(estimateCost({ inputTokens: 100000 }, "claude-opus-4.1")).toBe(1.5);
+    expect(estimateCost({ inputTokens: 100000 }, "claude-opus-4.8")).toBe(0.5);
+  });
+});
 
 describe("estimateCost", function () {
   it("returns unknown for null tokenUsage", function () {
@@ -17,7 +132,7 @@ describe("estimateCost", function () {
   });
 
   it("prices the Anthropic cache write bucket separately from fresh input", function () {
-    var cost = estimateCost({ inputTokens: 1000000, outputTokens: 0, cacheRead: 400000, cacheWrite: 100000 }, "claude-opus-4");
+    var cost = estimateCost({ inputTokens: 1000000, outputTokens: 0, cacheRead: 400000, cacheWrite: 100000 }, "claude-opus-4.8");
     // Fresh: 500K * $5/M = $2.50; cached: 400K * $0.50/M = $0.20; write: 100K * $6.25/M = $0.625
     expect(cost).toBeCloseTo(3.325, 3);
   });

@@ -4,6 +4,9 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import CostView from "../components/CostView.jsx";
+import { parseSession } from "../lib/parseSession";
+import { formatCost } from "../lib/pricing.js";
+import { copilotRateCards } from "./fixtures/copilotRateCards.js";
 
 function findByText(container, text) {
   return Array.from(container.querySelectorAll("*")).find(function (node) {
@@ -48,6 +51,27 @@ describe("CostView", function () {
     document.body.innerHTML = "";
   });
 
+  it.each(copilotRateCards)("renders the verified estimate for a simulated %s trace", async function (model, input, cached, write, output) {
+    const parsed = parseSession(JSON.stringify([{
+      request: { model: "auto", messages: [{ role: "user", content: "Synthetic pricing example" }] },
+      response: { model, usage: {
+        input_tokens: 100000, output_tokens: 10000,
+        input_tokens_details: { cached_tokens: 60000, cache_write_tokens: 20000 },
+      } },
+    }]));
+    const expected = (20000 * input + 60000 * cached + 20000 * (write ?? input) + 10000 * output) / 1e6;
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async function () { root.render(<CostView events={parsed.events} metadata={parsed.metadata} />); });
+    expect(container.textContent).toContain(model);
+    expect(container.textContent).toContain(formatCost(expected));
+    expect(container.textContent).toContain("$ ESTIMATE");
+    expect(container.textContent).not.toContain("$ BILLED");
+    expect(container.textContent).not.toContain("Pricing unavailable");
+    await act(async function () { root.unmount(); });
+  });
+
   it("renders empty state when no token usage exists", async function () {
     var container = document.createElement("div");
     document.body.appendChild(container);
@@ -61,6 +85,29 @@ describe("CostView", function () {
     await act(async function () {
       root.unmount();
     });
+  });
+
+  it.each([
+    ["anthropic.claude-sonnet-5-5", "standard", "$0.196"],
+    ["claude-opus-5-5", "fast", "$0.784"],
+  ])("renders Claude trace pricing for %s at %s speed", async function (model, speed, cost) {
+    const parsed = parseSession(JSON.stringify({
+      type: "assistant",
+      message: {
+        model, content: [{ type: "text", text: "Synthetic Claude response" }],
+        usage: { input_tokens: 20000, output_tokens: 10000, cache_read_input_tokens: 60000, cache_creation_input_tokens: 20000, speed },
+      },
+    }));
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async function () { root.render(<CostView events={parsed.events} metadata={parsed.metadata} />); });
+    expect(container.textContent).toContain(model);
+    expect(container.textContent).toContain(cost);
+    expect(container.textContent).toContain("$ ESTIMATE");
+    expect(container.textContent).not.toContain("Standard service tier assumed");
+    expect(container.textContent).not.toContain("Pricing unavailable");
+    await act(async function () { root.unmount(); });
   });
 
   it("renders summaries and cache miss warnings for tokenized sessions", async function () {

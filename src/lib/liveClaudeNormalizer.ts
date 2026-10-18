@@ -1,7 +1,7 @@
 import { claudeLive as helpers } from "./parser";
 import { computeCacheHitRate } from "./cacheMetrics";
 import { EventIndex, ToolResultIndex, buildUserTurns, type LiveNormalizer, type RawRecord } from "./liveNormalization";
-import type { NormalizedEvent, ParsedSession, SessionTurn, TokenUsage } from "./sessionTypes";
+import type { NormalizedEvent, ParsedSession, SessionTurn } from "./sessionTypes";
 
 export class LiveClaudeNormalizer implements LiveNormalizer {
   private index = new EventIndex();
@@ -15,7 +15,7 @@ export class LiveClaudeNormalizer implements LiveNormalizer {
   private realMinimum = Infinity;
   private origin = Infinity;
   private realTimestamps = false;
-  private usage = new Map<string, TokenUsage>();
+  private usage = new Map<string, NonNullable<ReturnType<typeof helpers.extractUsage>>>();
   private firstUsageEvent = new Map<string, number>();
   private attached = new Set<string>();
   private identity: string | undefined;
@@ -40,10 +40,13 @@ export class LiveClaudeNormalizer implements LiveNormalizer {
       if (key && this.usage.has(key) && this.firstUsageEvent.has(key)) {
         const first = this.firstUsageEvent.get(key)!;
         const event = first < this.originals.length ? this.originals[first] : events[0];
-        event.tokenUsage = this.usage.get(key);
+        helpers.attachUsage(event, this.usage.get(key)!);
         if (first < this.originals.length) {
           // Usage may arrive after an earlier content record with the same id.
-          for (const next of events) delete next.tokenUsage;
+          for (const next of events) {
+            delete next.tokenUsage;
+            delete next.pricingContext;
+          }
           usageChanged.add(first);
         }
         this.attached.add(key);
@@ -73,7 +76,11 @@ export class LiveClaudeNormalizer implements LiveNormalizer {
       index.set(i, event);
     }
     for (const i of usageChanged) {
-      if (i < changedFrom) index.set(i, { ...index.events[i], tokenUsage: this.originals[i].tokenUsage });
+      if (i < changedFrom) {
+        const event = { ...index.events[i], tokenUsage: this.originals[i].tokenUsage };
+        if (this.originals[i].pricingContext) event.pricingContext = this.originals[i].pricingContext;
+        index.set(i, event);
+      }
     }
     if (rebase) {
       this.turns = [];

@@ -28,6 +28,10 @@ import { truncateText as truncate } from "./formatTime.js";
 
 type MessageBlock = Record<string, any>;
 
+interface ClaudeUsage extends TokenUsage {
+  serviceTier?: string;
+}
+
 function extractContent(content: unknown): string {
   if (!content) return "";
   if (typeof content === "string") return content;
@@ -97,7 +101,7 @@ function extractModel(raw: RawRecord): string | null {
   return null;
 }
 
-function extractUsage(raw: RawRecord): TokenUsage | null {
+function extractUsage(raw: RawRecord): ClaudeUsage | null {
   const usage = raw.usage || (raw.message && raw.message.usage) || null;
   if (!usage || typeof usage !== "object") return null;
 
@@ -114,6 +118,7 @@ function extractUsage(raw: RawRecord): TokenUsage | null {
     outputTokens,
     cacheRead,
     cacheWrite,
+    ...(typeof usage.speed === "string" ? { serviceTier: usage.speed } : {}),
   };
 }
 
@@ -188,13 +193,14 @@ function getUsageDedupKey(raw: RawRecord): string | null {
   return null;
 }
 
-function mergeTokenUsage(previous: TokenUsage | null | undefined, next: TokenUsage): TokenUsage {
+function mergeTokenUsage(previous: ClaudeUsage | null | undefined, next: ClaudeUsage): ClaudeUsage {
   if (!previous) {
     return {
       inputTokens: next.inputTokens || 0,
       outputTokens: next.outputTokens || 0,
       cacheRead: next.cacheRead || 0,
       cacheWrite: next.cacheWrite || 0,
+      ...(next.serviceTier != null ? { serviceTier: next.serviceTier } : {}),
     };
   }
 
@@ -203,11 +209,19 @@ function mergeTokenUsage(previous: TokenUsage | null | undefined, next: TokenUsa
     outputTokens: Math.max(previous.outputTokens || 0, next.outputTokens || 0),
     cacheRead: Math.max(previous.cacheRead || 0, next.cacheRead || 0),
     cacheWrite: Math.max(previous.cacheWrite || 0, next.cacheWrite || 0),
+    ...(next.serviceTier != null || previous.serviceTier != null
+      ? { serviceTier: next.serviceTier ?? previous.serviceTier } : {}),
   };
 }
 
-function collectMergedUsageByKey(rawRecords: RawRecord[]): Map<string, TokenUsage> {
-  const usageByKey = new Map<string, TokenUsage>();
+function attachUsage(event: Partial<NormalizedEvent>, usage: ClaudeUsage): void {
+  const { serviceTier, ...tokenUsage } = usage;
+  event.tokenUsage = tokenUsage;
+  if (serviceTier != null) event.pricingContext = { serviceTier };
+}
+
+function collectMergedUsageByKey(rawRecords: RawRecord[]): Map<string, ClaudeUsage> {
+  const usageByKey = new Map<string, ClaudeUsage>();
 
   for (let index = 0; index < rawRecords.length; index += 1) {
     const raw = rawRecords[index];
@@ -225,7 +239,7 @@ function extractEventsFromRecord(
   raw: RawRecord,
   syntheticTime: number,
   issues: ParseIssues,
-  mergedUsageByKey?: Map<string, TokenUsage>,
+  mergedUsageByKey?: Map<string, ClaudeUsage>,
   attachedUsageKeys?: Set<string>,
 ): NormalizedEvent[] {
   const events: NormalizedEvent[] = [];
@@ -247,7 +261,7 @@ function extractEventsFromRecord(
 
     if (model && !event.model) event.model = model;
     if (shouldAttachUsage && usage && !event.tokenUsage && !usageAttached) {
-      event.tokenUsage = usage;
+      attachUsage(event, usage);
       usageAttached = true;
       if (usageDedupKey && attachedUsageKeys) attachedUsageKeys.add(usageDedupKey);
     }
@@ -729,5 +743,5 @@ export function parseClaudeCodeJSONL(text: string): ParsedSession | null {
 
 export const claudeLive = {
   extractTimestamp, extractUsage, getUsageDedupKey, mergeTokenUsage,
-  extractEventsFromRecord, buildWarnings,
+  attachUsage, extractEventsFromRecord, buildWarnings,
 };
