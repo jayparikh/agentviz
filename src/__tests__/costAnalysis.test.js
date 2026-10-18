@@ -29,6 +29,23 @@ function event(index, usage, model, contextTotal, tools) {
 }
 
 describe("buildCostAnalysis", function () {
+  it("prices mixed new-model requests without mistaking total input for long context", function () {
+    const usage = { inputTokens: 100000, cacheRead: 60000, cacheWrite: 20000, outputTokens: 10000 };
+    const models = ["gpt-6.1-sol", "claude-haiku-5.5", "gemini-4-argon", "grok-4.7"];
+    const calls = models.map((model, i) => event(i, usage, model, 100000));
+    const analysis = buildCostAnalysis(calls, { format: "copilot-cli" });
+    expect(analysis.calls.map(call => call.cost)).toEqual([
+      expect.closeTo(0.196, 10), expect.closeTo(0.0101, 10),
+      expect.closeTo(0.186, 10), expect.closeTo(0.17, 10),
+    ]);
+    expect(analysis.totals.cost).toBeCloseTo(0.5621, 10);
+    expect(analysis.totals.peakContext).toBe(100000);
+    const billed = buildCostAnalysis(calls, { format: "copilot-cli", totalCost: 17, totalCostUnit: "ai_credits" });
+    expect(billed.totals.cost).toBe(17);
+    expect(billed.totals.costUnit).toBe("ai_credits");
+    expect(billed.totals.estimatedUsdCost).toBeCloseTo(0.5621, 10);
+  });
+
   it("prices requests separately even when their sum crosses the context threshold", function () {
     var calls = [0, 1].map(i => event(i, { inputTokens: 200000, outputTokens: 10000, cacheRead: 60000, cacheWrite: 20000 }, "gpt-5.6-sol", 200000));
     var analysis = buildCostAnalysis(calls, { primaryModel: "gpt-5.6-sol", tokenUsage: { inputTokens: 400000, outputTokens: 20000, cacheRead: 120000, cacheWrite: 40000 } });

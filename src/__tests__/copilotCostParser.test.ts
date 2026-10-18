@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { detectFormat, parseSession } from "../lib/parseSession";
 import { detectCopilotPrompts, parseCopilotPromptsJSON } from "../lib/copilotCostParser";
 import { buildCostAnalysis } from "../lib/costAnalysis.js";
+import { copilotRateCards } from "./fixtures/copilotRateCards.js";
 
 function fixture() {
   return JSON.stringify([
@@ -57,6 +58,26 @@ describe("detectCopilotPrompts", function () {
 });
 
 describe("parseCopilotPromptsJSON", function () {
+  it.each(copilotRateCards)("estimates simulated %s traces using the response model", function (model, input, cached, write, output) {
+    const parsed = parseSession(JSON.stringify([{
+      request: { model: "auto", messages: [{ role: "user", content: "Review this synthetic example" }] },
+      response: {
+        model,
+        usage: {
+          input_tokens: 100000, output_tokens: 10000,
+          input_tokens_details: { cached_tokens: 60000, cache_write_tokens: 20000 },
+          output_tokens_details: { reasoning_tokens: 5000 },
+        },
+      },
+    }]))!;
+    const expected = (20000 * input + 60000 * cached + 20000 * (write ?? input) + 10000 * output) / 1e6;
+    const analysis = buildCostAnalysis(parsed.events, parsed.metadata);
+    expect(parsed.events[0].model).toBe(model);
+    expect(analysis.calls[0].cost).toBeCloseTo(expected, 10);
+    expect(analysis.totals.estimatedUsdCost).toBeCloseTo(expected, 10);
+    expect(parsed.metadata.totalCost).toBeUndefined();
+  });
+
   it("normalizes prompt calls into events and turns", function () {
     const parsed = parseCopilotPromptsJSON(fixture());
     expect(parsed).not.toBeNull();

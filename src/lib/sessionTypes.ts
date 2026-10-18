@@ -10,7 +10,7 @@ export interface TokenUsage {
 }
 
 export interface PricingContext {
-  provider?: "openai" | "copilot";
+  provider?: "openai" | "copilot" | "xai";
   serviceTier?: string;
   aggregate?: boolean;
 }

@@ -74,7 +74,8 @@ points.
 - Cache usage summaries omit the cache-write segment when `cacheWrite` is zero.
 - Cost estimates use each request's model and input length, never session totals as request lengths. `estimateCost` returns null for unknown pricing; `buildCostAnalysis` is the shared session estimator. Keep actual USD and AI Credits authoritative and per-model nano-AIU charges intact.
 - Analyze memoizes one full-session cost analysis for its summary, Stats, and Cost; playback/filter changes do not reprice partial usage as whole-session costs. Peak context uses observed input counters, not the prompt-text composition heuristic.
-- GPT-5.6/Sol/Terra/Luna and GPT-6 Astra price cache writes at 1.25x input in total. Preserve `cacheWriteReported: false` for missing counters; never infer written tokens or Fast from reasoning effort. Disclose Standard assumptions. Luna needs explicit billing-provider context in the 200k-272k interval.
+- GPT-5.6 Sol/Terra/Luna and GPT-6 Astra/Luna/Sol/6.1 Sol price cache writes at 1.25x input in total. Preserve `cacheWriteReported: false` for missing counters; never infer written tokens or Fast from reasoning effort. Disclose Standard assumptions. Only GPT-5.6 Luna needs explicit billing-provider context in the 200k-272k interval.
+- Model versions and cache rates are explicit, never inherited by unknown variants. Grok requires billing-provider evidence at the disputed 200k boundary and for Grok 4.5 cache reads. Haiku 5.5 uses a >100k tier. Keep the dated Copilot rate-card fixture, provider citations, and promotional pricing notes in sync.
 - Codex `metadata.pricingRequests` contains only last-request usage verified against cumulative deltas; unchanged checkpoints are deduplicated. Batch and live paths share `observePricing`. `pricingContext` records sourced billing provider / actual response service tier, not model-provider guesses. See README pricing evidence for verified sources and dates.
 
 ## UI invariants

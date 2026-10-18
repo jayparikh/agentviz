@@ -4,6 +4,8 @@ import path from "path";
 import { detectCopilotCli, parseCopilotCliJSONL, parseCopilotCliRecords } from "../lib/copilotCliParser";
 import { detectFormat, parseSession } from "../lib/parseSession";
 import { buildCostAnalysis } from "../lib/costAnalysis";
+import { appendLiveSessionText, createLiveSessionParser } from "../lib/liveSessionParser";
+import { copilotRateCards } from "./fixtures/copilotRateCards.js";
 
 // Helper to build a minimal Copilot CLI JSONL trace
 function buildTrace(events) {
@@ -447,6 +449,33 @@ describe("tool errors", function () {
 // ---- Parser: metadata ----
 
 describe("metadata", function () {
+  it.each(copilotRateCards)("preserves %s billed credits and estimates in batch and live traces", function (model, input, cached, write, output) {
+    const records = [SESSION_START, USER_MSG, {
+      ...SESSION_SHUTDOWN,
+      data: {
+        ...SESSION_SHUTDOWN.data,
+        totalNanoAiu: 3e9,
+        modelMetrics: {
+          [model]: {
+            totalNanoAiu: 3e9,
+            usage: { inputTokens: 100000, outputTokens: 10000, cacheReadTokens: 60000, cacheWriteTokens: 20000 },
+          },
+        },
+      },
+    }];
+    const batch = parseCopilotCliJSONL(buildTrace(records));
+    const state = createLiveSessionParser(buildTrace(records.slice(0, 2)));
+    const live = appendLiveSessionText(state, buildTrace(records.slice(2))).state.result;
+    expect(live).toEqual(batch);
+    const analysis = buildCostAnalysis(batch.events, batch.metadata);
+    const expected = (20000 * input + 60000 * cached + 20000 * (write ?? input) + 10000 * output) / 1e6;
+    expect(analysis.totals.estimatedUsdCost).toBeCloseTo(expected, 10);
+    expect(analysis.totals.cost).toBe(3);
+    expect(analysis.totals.costUnit).toBe("ai_credits");
+    expect(analysis.calls[0].cost).toBe(3);
+    expect(analysis.calls[0].estimatedUsdCost).toBeCloseTo(expected, 10);
+  });
+
   var result = parseCopilotCliJSONL(buildTrace(BASIC_TRACE));
   var meta = result.metadata;
 

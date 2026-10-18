@@ -182,12 +182,21 @@ validated payload, supports draft recovery, and requires explicit replacement.
 These are abbreviated orientation examples, not complete type contracts.
 See `src/lib/sessionTypes.ts` for full fields, including pricing evidence.
 
+`pricing.js` matches explicit model versions and supported aliases, then selects
+per-request context tiers and published service multipliers. `PricingContext.provider`
+supports `copilot`, `openai`, and `xai`; the billing provider is evidence, not an
+inference from a model's vendor. `costAnalysis.js` supplies Copilot context for
+recognized Copilot formats and preserves event-level overrides. Provider-disputed
+Grok/Luna rates return an unknown estimate plus readable notes. The dated
+`src/__tests__/fixtures/copilotRateCards.js` snapshot exercises every Copilot
+billing-table row through bucket estimates, prompt parsing, and CostView.
+
 Normalized event:
 
 ```text
 { t, agent, track, text, duration, intensity, toolName?, toolInput?,
   toolOutput?, toolCallId?, parentToolCallId?, agentName?, agentDisplayName?,
-  raw, turnIndex, isError, model?, reasoningEffort?, tokenUsage? }
+  raw, turnIndex, isError, model?, reasoningEffort?, tokenUsage?, pricingContext? }
 ```
 
 Turn:

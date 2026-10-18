@@ -351,7 +351,9 @@ Per-call token spend, cache read/write usage, context composition, and cumulativ
 
 **Pricing evidence:** Reported USD and AI Credits remain authoritative and separate from token estimates. Per-model reported credits are never redistributed according to estimated prices. Unknown models, ambiguous context tiers, and aggregate-only totals that could span multiple pricing tiers display `--`, not a zero-dollar bill. Aggregate input is not a request length or a peak context window. Stats, Review, Compare, Replay, Q&A, and saved-session summaries share this request-aware accounting.
 
-GPT-5.6 and GPT-6 rates were verified on **2026-09-09** against [OpenAI pricing](https://developers.openai.com/api/docs/pricing) and [GitHub Copilot pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing). Standard USD per million tokens:
+Rate cards were verified on **2026-10-17** against [GitHub Copilot pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) and [supported models](https://docs.github.com/en/copilot/reference/ai-models/supported-models), cross-checked with [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), [Google](https://ai.google.dev/gemini-api/docs/pricing), and [xAI](https://docs.x.ai/developers/models). All **33 billing-table entries** (including the legacy Sonnet 4 row and Opus 4.8 Fast) have independent bucket tests and simulated prompt-export UI tests in the [Copilot rate-card fixture](src/__tests__/fixtures/copilotRateCards.js). MAI-Code-1.1-Flash and Kimi K3 are included to cover Copilot's full table, not just the four providers.
+
+Newly covered models and retained GPT-5.6/Astra cards, in standard short-context USD per million tokens:
 
 | Model | Fresh input | Cache read | Cache write | Output |
 | --- | ---: | ---: | ---: | ---: |
@@ -359,12 +361,30 @@ GPT-5.6 and GPT-6 rates were verified on **2026-09-09** against [OpenAI pricing]
 | GPT-5.6 Terra | $2 | $0.20 | $2.50 | $12 |
 | GPT-5.6 Luna | $0.20 | $0.02 | $0.25 | $1.20 |
 | GPT-6 Astra | $10 | $1 | $12.50 | $50 |
+| GPT-6 Luna | $0.10 | $0.01 | $0.125 | $0.50 |
+| GPT-6 Sol | $2 | $0.20 | $2.50 | $10 |
+| GPT-6.1 Sol | $2 | $0.10 | $2.50 | $10 |
+| Claude Haiku 5.5 | $0.10 | $0.01 | $0.125 | $0.50 |
+| Claude Opus 5 | $5 | $0.50 | $6.25 | $25 |
+| Claude Opus 5.5 | $4 | $0.20 | $5 | $20 |
+| Claude Sonnet 5 | $2 | $0.20 | $2.50 | $10 |
+| Claude Sonnet 5.5 | $2 | $0.10 | $2.50 | $10 |
+| Claude Fable 5.1 | $10 | $0.25 | $12.50 | $50 |
+| Gemini 3.7 / 3.8 Flash | $0.75 | $0.075 | N/A | $3.75 |
+| Gemini 4 Argon | $2 | $0.10 | N/A | $10 |
+| Grok 4.5 / 4.6 / 4.7 (Copilot) | $2 | $0.50 | N/A | $6 |
+| MAI-Code-1.1-Flash | $0.20 | $0.02 | N/A | $1.20 |
+| Kimi K3 | $3 | $0.30 | N/A | $15 |
 
-- Long context doubles all input buckets and multiplies output by 1.5 above 272,000 request input tokens for Sol, Terra, and Astra. The official Luna thresholds differ: Copilot uses **>200,000**, while the [OpenAI Luna model page](https://developers.openai.com/api/docs/models/gpt-5.6-luna) uses **>272,000**. Unknown billing providers leave the disputed interval unpriced.
-- Explicit Fast / `priority` pricing is 2x Standard; Batch and Flex are 0.5x for these four models. A response's actual `service_tier` takes precedence; reasoning effort never selects a price tier. Without tier evidence, the UI discloses the Standard assumption. Sol's published promotional rates apply at least through **November 21, 2026**; this is a dated reference table, not historical invoice reconstruction.
+- [OpenAI release notes](https://developers.openai.com/api/docs/changelog) confirm GPT-6 Sol/Luna on September 22 and GPT-6.1 Sol on September 29. [Anthropic release notes](https://platform.claude.com/docs/en/release-notes/overview) confirm Haiku 5.5 and Sonnet 5.5's cache-read reduction on October 7. [Google release notes](https://ai.google.dev/gemini-api/docs/changelog) confirm Argon GA on October 13; Google routes deprecated 3.7 Flash to 3.8, while Copilot still lists both. [Grok 4.7's model card](https://docs.x.ai/developers/models/grok-4.7) confirms its coding capabilities and rates. This scan covers general-purpose text/coding models in Copilot, not voice/image/video billing or limited-access specialist models.
+- Long context doubles all input buckets and multiplies output by 1.5 above 272,000 request input tokens for GPT-5.6 Sol/Terra and all four GPT-6 cards. Only **GPT-5.6 Luna** has differing official thresholds: Copilot uses **>200,000**, while [OpenAI](https://developers.openai.com/api/docs/models/gpt-5.6-luna) uses **>272,000**. Unknown billing providers leave that interval unpriced.
+- Explicit OpenAI Fast / `priority` pricing is 2x Standard; Batch and Flex are 0.5x for those seven cards. Ultrafast is 6x only for GPT-6 Astra and GPT-6.1 Sol. A response's actual `service_tier` takes precedence over a Fast model alias; reasoning effort never selects a price tier. Without tier evidence, the UI discloses the Standard assumption.
+- Haiku 5.5 switches **all buckets to 5x** above 100,000 input tokens. Claude Opus 4.8, 5, and 5.5 support explicit Fast at 2x, including cache buckets ([source](https://platform.claude.com/docs/en/build-with-claude/fast-mode)). Cache writes use the published 5-minute rate, not the 1-hour rate. Exact Claude versions, including dashed API IDs and dated snapshots, no longer borrow a neighboring version's price; Opus 4/4.1 retain their distinct $15/$75 rates.
+- Grok 4.5/4.6/4.7 double input, cached input, and output above 200,000 tokens in Copilot, but **at** 200,000 tokens in xAI. xAI's Grok 4.5 cache read is $0.30/$0.60 versus Copilot's $0.50/$1.00. Explicit `pricingContext.provider: "xai"` selects xAI rates; recognized Copilot formats select Copilot. Without provider evidence, the boundary and cached Grok 4.5 requests remain unpriced rather than guessed.
+- Gemini Flash's promotional rates last through **December 31, 2026**; Argon's last through **November 30, 2026**. Both deadlines appear in UI pricing notes. Published Gemini Priority is 1.8x, Batch/Flex 0.5x. Google lists doubled Standard rates after those dates; this dated table does not switch prices based on the viewer's clock or reconstruct historical invoices. GPT-5.6 Sol's promotion lasts at least through **November 21, 2026**. Reverify rate cards when promotions end.
 - Normalized input includes fresh, cached, and written tokens. A [cache write costs 1.25x input in total](https://developers.openai.com/api/docs/guides/prompt-caching), not an additional 1.25x surcharge. Reasoning tokens are already included in output.
 - Codex reads [`cache_write_input_tokens`](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/protocol.rs) and uses `last_token_usage` only when it matches the cumulative checkpoint delta, deduplicating unchanged checkpoints in both batch and live parsing. Codex's `model_provider` is not proof of API billing versus a subscription, and its rollout turn context does not expose an actual response service tier.
-- Prompt exports read official Responses `input_tokens_details.cache_write_tokens` and Chat Completions `prompt_tokens_details.cache_write_tokens`; Copilot CLI reads `usage.cacheWriteTokens` or `tokenDetails.cache_write.tokenCount`. Missing write counters are disclosed rather than inferred from fresh input. Estimates exclude unreported write premiums, regional uplifts, negotiated discounts, and non-token charges; consult reported billing for actual spend.
+- Prompt exports read official Responses `input_tokens_details.cache_write_tokens` and Chat Completions `prompt_tokens_details.cache_write_tokens`; Copilot CLI reads `usage.cacheWriteTokens` or `tokenDetails.cache_write.tokenCount`. Missing OpenAI write counters are disclosed rather than inferred from fresh input. Estimates exclude unreported write premiums, one-hour cache uplifts, cache storage, regional uplifts, negotiated discounts, and non-token charges; consult reported billing for actual spend. Unknown model variants, including Gemini TTS variants, never inherit a text model's rate.
 
 <div align="center">
 <img src="docs/screenshots/cost-view.png" alt="Cost View" width="800" />
